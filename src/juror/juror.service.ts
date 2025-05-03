@@ -31,11 +31,26 @@ export class JurorService {
 
   findAll() {
     return this.prisma.user.findMany({
-      where: { roleId: this.JUROR_ROLE_ID, isActive: true },
+      where: { 
+        roleId: this.JUROR_ROLE_ID, 
+        isActive: true,   
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        confirmationStatusId: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            evaluationsSubmitted: true,
+          },
+        },
+      },
     });
   }
 
-  async findOne(id: string):Promise<User> {
+  async findOne(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
   
     if (!user) {
@@ -46,43 +61,13 @@ export class JurorService {
       throw new NotFoundException('User is not a juror');
     }
   
+    if (!user.isActive) {
+      throw new NotFoundException('User is not active');
+    }
+  
     return user;
   }
-
-  async getJurorSummary(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        evaluationsSubmitted: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (!user || user.roleId !== this.JUROR_ROLE_ID) {
-      throw new NotFoundException('Juror not found');
-    }
-    const confirmationStatusMap = {
-      1: 'Confirmado',
-      2: 'Pendiente',
-      3: 'Expirado',
-    };
-
-    const confirmationStatusString = user.confirmationStatusId != null
-    ? confirmationStatusMap[user.confirmationStatusId] || 'Unknown'
-    : 'Unknown';
-
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      confirmationStatus: user.confirmationStatusId,
-      reviewedGames: user.evaluationsSubmitted.length,
-      lastConnection: user.updatedAt,
-    };
-  }
-
+  
   async update(id: string, dto: UpdateJurorDto):Promise<User> {
     const user = await this.findOne(id);
 

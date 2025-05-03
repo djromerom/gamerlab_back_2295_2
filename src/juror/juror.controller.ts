@@ -2,6 +2,10 @@ import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/commo
 import { JurorService } from './juror.service';
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
+import { UseGuards } from '@nestjs/common';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { RequiredService } from '../auth/decorators/required-service.decorator';
+
 
 @Controller('juror')
 export class JurorController {
@@ -20,11 +24,6 @@ export class JurorController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.jurorService.findOne(id);
-  }
-
-  @Get(':id/summary')
-  getSummary(@Param('id') id: string) {
-    return this.jurorService.getJurorSummary(id);
   }
 
   @Patch(':id')
