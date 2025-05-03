@@ -58,7 +58,7 @@ export class RolePermissionGuard implements CanActivate {
       const service = await this.prisma.service.findUnique({
         where: {
           name: requiredServiceName,
-          status: true,
+          isActive: true,
         },
         select: { id: true },
       });
@@ -78,9 +78,9 @@ export class RolePermissionGuard implements CanActivate {
       const requiredPermissions = await this.prisma.servicePermission.findMany({
         where: {
           serviceId: serviceId,
-          status: true,
+          isActive: true,
           permission: {
-            status: true,
+            isActive: true,
           },
         },
         select: { permissionId: true },
@@ -101,9 +101,9 @@ export class RolePermissionGuard implements CanActivate {
       const grantedPermissions = await this.prisma.rolePermission.findMany({
         where: {
           roleId: userRoleId,
-          status: true,
+          isActive: true,
           permission: {
-            status: true,
+            isActive: true,
           },
         },
         select: { permissionId: true },

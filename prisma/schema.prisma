@@ -8,15 +8,12 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// --- MODELS --- //
-
 model Edition {
-  id        Int      @id @default(autoincrement()) @map("id_edicion")
-  semester  String   @unique @map("semestre")
-  isActive  Boolean  @default(false) @map("activo")
-  createdAt DateTime @default(now()) @map("creado_en")
-  updatedAt DateTime @updatedAt @map("actualizado_en")
-
+  id          Int          @id @default(autoincrement()) @map("id_edicion")
+  semester    String       @unique @map("semestre")
+  isActive    Boolean      @default(false) @map("activo")
+  createdAt   DateTime     @default(now()) @map("creado_en")
+  updatedAt   DateTime     @updatedAt @map("actualizado_en")
   teams       Team[]
   evaluations Evaluation[]
 
@@ -33,42 +30,39 @@ model EventConfiguration {
 }
 
 model Role {
-  id          Int      @id @default(autoincrement()) @map("id_rol")
-  name        String   @unique @map("rol")
-  description String?  @map("descripcion") @db.Text
-  status      Boolean? @map("estado")
-  createdAt   DateTime @default(now()) @map("creado_en")
-  updatedAt   DateTime @updatedAt @map("actualizado_en")
-
-  users           User[]
+  id              Int              @id @default(autoincrement()) @map("id_rol")
+  name            String           @unique @map("rol")
+  description     String?          @map("descripcion")
+  isActive       Boolean           @default(true) @map("activo")
+  createdAt       DateTime         @default(now()) @map("creado_en")
+  updatedAt       DateTime         @updatedAt @map("actualizado_en")
   rolePermissions RolePermission[]
+  users           User[]
 
   @@map("roles")
 }
 
 model Service {
-  id          Int      @id @default(autoincrement()) @map("id_servicio")
-  name        String   @unique @map("nombre")
-  description String?  @map("descripcion") @db.Text
-  url         String?  @map("url")
-  method      String?  @map("metodo") @db.VarChar(10)
-  status      Boolean? @map("estado")
-  createdAt   DateTime @default(now()) @map("creado_en")
-  updatedAt   DateTime @updatedAt @map("actualizado_en")
-
+  id                 Int                 @id @default(autoincrement()) @map("id_servicio")
+  name               String              @unique @map("nombre")
+  description        String?             @map("descripcion")
+  url                String?             @map("url")
+  method             String?             @map("metodo") @db.VarChar(10)
+  isActive           Boolean             @default(true) @map("activo")
+  createdAt          DateTime            @default(now()) @map("creado_en")
+  updatedAt          DateTime            @updatedAt @map("actualizado_en")
   servicePermissions ServicePermission[]
 
   @@map("servicio")
 }
 
 model Permission {
-  id          Int      @id @default(autoincrement()) @map("id_permiso")
-  name        String   @unique @map("nombre")
-  description String?  @map("descripcion") @db.Text
-  status      Boolean? @map("estado")
-  createdAt   DateTime @default(now()) @map("creado_en")
-  updatedAt   DateTime @updatedAt @map("actualizado_en")
-
+  id                 Int                 @id @default(autoincrement()) @map("id_permiso")
+  name               String              @unique @map("nombre")
+  description        String?             @map("descripcion")
+  isActive           Boolean             @default(true) @map("activo")
+  createdAt          DateTime            @default(now()) @map("creado_en")
+  updatedAt          DateTime            @updatedAt @map("actualizado_en")
   rolePermissions    RolePermission[]
   servicePermissions ServicePermission[]
 
@@ -76,28 +70,26 @@ model Permission {
 }
 
 model RolePermission {
-  roleId       Int      @map("id_rol")
-  permissionId Int      @map("id_permiso")
-  status       Boolean? @map("estado")
-  createdAt    DateTime @default(now()) @map("creado_en")
-  updatedAt    DateTime @updatedAt @map("actualizado_en")
-
-  role       Role       @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
+  roleId       Int        @map("id_rol")
+  permissionId Int        @map("id_permiso")
+  isActive     Boolean     @default(true) @map("activo")
+  createdAt    DateTime   @default(now()) @map("creado_en")
+  updatedAt    DateTime   @default(now()) @updatedAt @map("actualizado_en")
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
 
   @@id([roleId, permissionId])
   @@map("rol_permiso")
 }
 
 model ServicePermission {
-  serviceId    Int      @map("id_servicio")
-  permissionId Int      @map("id_permiso")
-  status       Boolean? @map("estado")
-  createdAt    DateTime @default(now()) @map("creado_en")
-  updatedAt    DateTime @updatedAt @map("actualizado_en")
-
-  service    Service    @relation(fields: [serviceId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
+  serviceId    Int        @map("id_servicio")
+  permissionId Int        @map("id_permiso")
+  isActive     Boolean     @default(true) @map("activo")
+  createdAt    DateTime   @default(now()) @map("creado_en")
+  updatedAt    DateTime   @default(now()) @updatedAt @map("actualizado_en")
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  service      Service    @relation(fields: [serviceId], references: [id])
 
   @@id([serviceId, permissionId])
   @@map("servicio_permiso")
@@ -106,119 +98,108 @@ model ServicePermission {
 model ConfirmationStatus {
   id        Int      @id @default(autoincrement()) @map("id_estado")
   status    String   @unique @map("estado") @db.VarChar(30)
+  isActive  Boolean  @default(true) @map("activo")
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
-
-  users User[]
+  users     User[]
 
   @@map("estados_confirmacion")
 }
 
 model User {
-  id       String  @id @default(uuid()) @map("id_usuario")
-  name     String? @db.VarChar(20)
-  username String? @unique @db.VarChar(30)
-  email    String  @unique @map("correo") @db.VarChar(30)
-
-  confirmationStatusId Int?                @map("id_estado_confirmacion")
+  id                   String              @id @default(uuid()) @map("id_usuario")
+  name                 String?             @db.VarChar(20)
+  username             String?             @unique @db.VarChar(30)
+  email                String              @unique @map("correo") @db.VarChar(30)
+  confirmationStatusId Int                 @default(2) @map("id_estado_confirmacion")
+  isActive             Boolean             @default(true) @map("activo")
+  roleId               Int                 @map("id_rol")
+  createdAt            DateTime            @default(now()) @map("creado_en")
+  updatedAt            DateTime            @updatedAt @map("actualizado_en")
+  createdTeam          Team?               @relation("createdTeam")
+  evaluationsSubmitted Evaluation[]        @relation("JurorEvaluations")
+  managedNrcs          NRC[]               @relation("ProfessorNRC")
   confirmationStatus   ConfirmationStatus? @relation(fields: [confirmationStatusId], references: [id])
-
-  isActive Boolean? @default(false) @map("activo")
-
-  roleId Int  @map("id_rol")
-  role   Role @relation(fields: [roleId], references: [id])
-
-  createdAt DateTime @default(now()) @map("creado_en")
-  updatedAt DateTime @updatedAt @map("actualizado_en")
-
-  createdTeam Team? @relation("createdTeam")
-
-  teamsToEvaluate Team[] @relation("JurorTeamAssignment")
-
-  evaluationsSubmitted Evaluation[] @relation("JurorEvaluations")
-
-  managedNrcs NRC[] @relation("ProfessorNRC")
+  role                 Role                @relation(fields: [roleId], references: [id])
+  teamsToEvaluate      Team[]              @relation("JurorTeamAssignment")
 
   @@map("usuarios")
 }
 
 model Team {
-  id               Int      @id @default(autoincrement()) @map("id_equipo")
-  teamName         String   @unique @map("nombre_equipo") @db.VarChar(50)
-  registrationDate DateTime @default(now()) @map("fecha_registro")
-  isConfirmed      Boolean? @map("estado_confirmacion")
-
-  userId String @unique @map("id_usuario")
-  user   User   @relation("createdTeam", fields: [userId], references: [id])
-
-  members   Member[]   @relation("TeamMembers")
-  videogame Videogame?
-
-  editionId Int     @map("id_edicion")
-  edition   Edition @relation(fields: [editionId], references: [id])
-
-  assignedJurors User[] @relation("JurorTeamAssignment")
+  id               Int        @id @default(autoincrement()) @map("id_equipo")
+  teamName         String     @unique @map("nombre_equipo") @db.VarChar(50)
+  registrationDate DateTime   @default(now()) @map("fecha_registro")
+  confirmId        Int        @default(2) @map("id_estado_confirmacion")
+  userId           String     @unique @map("id_usuario")
+  editionId        Int        @default(1) @map("id_edicion")
+  isActive         Boolean    @default(true) @map("activo")
+  edition          Edition    @relation(fields: [editionId], references: [id])
+  user             User       @relation("createdTeam", fields: [userId], references: [id])
+  members          Member[]   @relation("TeamMembers")
+  videogame        Videogame?
+  assignedJurors   User[]     @relation("JurorTeamAssignment")
 
   @@map("equipos")
 }
 
 model Member {
   id          Int    @id @default(autoincrement()) @map("id_integrante")
-  name        String @map("nombre") @db.VarChar(50)
+  firstName   String @map("nombre") @db.VarChar(50)
+  lastName    String @map("apellido") @db.VarChar(50)
   email       String @unique @map("correo") @db.VarChar(100)
   studentCode String @unique @map("codigo_estudiantil") @db.VarChar(100)
-
-  teamId Int  @map("id_equipo")
-  team   Team @relation("TeamMembers", fields: [teamId], references: [id])
-
-  nrcs NRC[] @relation("MemberNRC")
+  teamId      Int    @map("id_equipo")
+  isActive    Boolean @default(true) @map("activo")
+  createdAt   DateTime @default(now()) @map("creado_en")
+  updatedAt   DateTime @updatedAt @map("actualizado_en")
+  team        Team   @relation("TeamMembers", fields: [teamId], references: [id])
+  nrcs        NRC[]  @relation("MemberNRC")
 
   @@map("integrante")
 }
 
 model VideogameStatus {
-  id     Int    @id @default(autoincrement()) @map("id_estado")
-  status String @map("estado") @db.VarChar(30)
-
+  id         Int         @id @default(autoincrement()) @map("id_estado")
+  status     String      @map("estado") @db.VarChar(30)
+  isActive  Boolean     @default(true) @map("activo")
+  createdAt  DateTime    @default(now()) @map("creado_en")
+  updatedAt  DateTime    @updatedAt @map("actualizado_en")
   videogames Videogame[]
 
   @@map("estado_videojuego")
 }
 
 model Videogame {
-  id               Int      @id @default(autoincrement()) @map("id_videojuego")
-  name             String   @map("nombre") @db.VarChar(30)
-  description      String?  @map("descripcion") @db.Text
-  logoUrl          String?  @map("logo_url")
-  registrationDate DateTime @default(now()) @map("fecha_registro")
-
-  videogameStatusId Int              @map("id_estado_videojuego")
-  videogameStatus   VideogameStatus? @relation(fields: [videogameStatusId], references: [id])
-
-  teamId      Int          @unique @map("id_equipo")
-  team        Team         @relation(fields: [teamId], references: [id])
-  evaluations Evaluation[]
+  id                Int             @id @default(autoincrement()) @map("id_videojuego")
+  name              String          @map("nombre") @db.VarChar(30)
+  description       String?         @map("descripcion")
+  logoUrl           String?         @map("logo_url")
+  registrationDate  DateTime        @default(now()) @map("fecha_registro")
+  videogameStatusId Int             @map("id_estado_videojuego")
+  teamId            Int             @unique @map("id_equipo")
+  isActive          Boolean         @default(true) @map("activo")
+  evaluations       Evaluation[]
+  team              Team            @relation(fields: [teamId], references: [id])
+  videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
 
   @@map("videojuegos")
 }
 
 model Evaluation {
-  id         Int      @id @default(autoincrement()) @map("id_evaluacion")
-  date       DateTime @default(now()) @map("fecha")
-  comments   String?  @map("comentarios") @db.Text
-  totalScore Float?   @map("puntaje_total")
+  id          Int                @id @default(autoincrement()) @map("id_evaluacion")
+  date        DateTime           @default(now()) @map("fecha")
+  comments    String?            @map("comentarios")
+  totalScore  Float?             @map("puntaje_total")
+  jurorId     String             @map("id_jurado")
+  isActive    Boolean            @default(true) @map("activo")
+  videogameId Int                @map("id_videojuego")
+  editionId   Int                @map("id_edicion")
+  details     EvaluationDetail[]
+  Edition     Edition            @relation(fields: [editionId], references: [id])
+  juror       User               @relation("JurorEvaluations", fields: [jurorId], references: [id])
+  videogame   Videogame          @relation(fields: [videogameId], references: [id])
 
-  jurorId String @map("id_jurado")
-  juror   User   @relation("JurorEvaluations", fields: [jurorId], references: [id])
-
-  videogameId Int       @map("id_videojuego")
-  videogame   Videogame @relation(fields: [videogameId], references: [id])
-
-  details   EvaluationDetail[]
-  Edition   Edition            @relation(fields: [editionId], references: [id])
-  editionId Int                @map("id_edicion")
-
-  // Ensure a juror can only evaluate a specific game once
   @@unique([jurorId, videogameId], name: "jurado_videojuego_unique")
   @@map("evaluacion")
 }
@@ -227,54 +208,54 @@ model Subject {
   id       Int     @id @default(autoincrement()) @map("id_materia")
   name     String  @map("nombre") @db.VarChar(50)
   code     String  @map("codigo") @db.VarChar(50)
-  active   Boolean @map("activo")
-  semester Int     @map("semestre")
-
-  nrcs NRC[]
+  semester    Int     @map("semestre")
+  isActive   Boolean @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+  nrcs     NRC[]
 
   @@map("materia")
 }
 
 model NRC {
-  id     Int     @id @default(autoincrement()) @map("id_nrc")
-  code   Int     @unique @map("codigo")
-  active Boolean @map("activo")
-
-  subjectId Int     @map("id_materia")
-  subject   Subject @relation(fields: [subjectId], references: [id])
-
-  professorId String @map("id_profesor")
-  professor   User   @relation("ProfessorNRC", fields: [professorId], references: [id])
-
-  // This is the list of students enrolled in this NRC
-  members Member[] @relation("MemberNRC")
+  id          Int      @id @default(autoincrement()) @map("id_nrc")
+  code        Int      @unique @map("codigo")
+  subjectId   Int      @map("id_materia")
+  professorId String   @map("id_profesor")
+  isActive    Boolean  @default(true) @map("activo")
+  createdAt   DateTime @default(now()) @map("creado_en")
+  updatedAt   DateTime @updatedAt @map("actualizado_en")
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  professor   User     @relation("ProfessorNRC", fields: [professorId], references: [id])
+  members     Member[] @relation("MemberNRC")
 
   @@map("nrc")
 }
 
 model Criterion {
-  id          Int     @id @default(autoincrement()) @map("id_criterio")
-  name        String  @map("nombre") @db.VarChar(50)
-  description String? @map("descripcion") @db.Text
-  active      Boolean @map("activo")
-  weight      Float?  @map("peso")
-
+  id                Int                @id @default(autoincrement()) @map("id_criterio")
+  name              String             @map("nombre") @db.VarChar(50)
+  description       String?            @map("descripcion")
+  weight            Float?             @map("peso")
+  isActive         Boolean            @default(true) @map("activo")
+  createdAt        DateTime           @default(now()) @map("creado_en")
+  updatedAt        DateTime           @updatedAt @map("actualizado_en")
   evaluationDetails EvaluationDetail[]
 
   @@map("criterios")
 }
 
 model EvaluationDetail {
-  id    Int   @id @default(autoincrement()) @map("id_detalle")
-  score Float @map("puntaje")
-
+  id           Int        @id @default(autoincrement()) @map("id_detalle")
+  score        Float      @map("puntaje")
   evaluationId Int        @map("id_evaluacion")
+  criterionId  Int        @map("id_criterio")
+  isActive     Boolean    @default(true) @map("activo")
+  createdAt    DateTime   @default(now()) @map("creado_en")
+  updatedAt    DateTime   @updatedAt @map("actualizado_en")
+  criterion    Criterion  @relation(fields: [criterionId], references: [id])
   evaluation   Evaluation @relation(fields: [evaluationId], references: [id])
 
-  criterionId Int       @map("id_criterio")
-  criterion   Criterion @relation(fields: [criterionId], references: [id])
-
-  // Ensure only one score per criterion per evaluation
   @@unique([evaluationId, criterionId], name: "evaluacion_criterio_unique")
   @@map("detalle_evaluacion")
 }
