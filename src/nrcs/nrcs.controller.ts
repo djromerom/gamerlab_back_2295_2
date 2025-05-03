@@ -3,50 +3,43 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
+  Put,
   Delete,
-  UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { NrcsService } from './nrcs.service';
-import { CreateNrcDto } from './dto/create-nrc.dto';
-import { UpdateNrcDto } from './dto/update-nrc.dto';
-import { AuthGuard } from '@nestjs/passport';
-import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
-import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { Prisma } from '@prisma/client';
 
-@UseGuards(AuthGuard('supabase'), RolePermissionGuard)
 @Controller('nrcs')
 export class NrcsController {
-  constructor(private readonly nrcsService: NrcsService) {}
-
-  @Post()
-  @RequiredService('Create Subject')
-  create(@Body() createNrcDto: CreateNrcDto) {
-    return this.nrcsService.create(createNrcDto);
-  }
+  constructor(private readonly nrcService: NrcsService) {}
 
   @Get()
-  @RequiredService('List Subjects')
   findAll() {
-    return this.nrcsService.findAll();
+    return this.nrcService.findAll();
   }
 
   @Get(':id')
-  @RequiredService('Get Subject By ID')
-  findOne(@Param('id') id: string) {
-    return this.nrcsService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.nrcService.findOne(id);
   }
 
-  @Patch(':id')
-  @RequiredService('Update Subject (PATCH)')
-  update(@Param('id') id: string, @Body() updateNrcDto: UpdateNrcDto) {
-    return this.nrcsService.update(+id, updateNrcDto);
+  @Post()
+  create(@Body() data: Prisma.NRCCreateInput) {
+    return this.nrcService.create(data);
+  }
+
+  @Put(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: Prisma.NRCUpdateInput,
+  ) {
+    return this.nrcService.update(id, data);
   }
 
   @Delete(':id')
-  @RequiredService('Delete Subject')
-  remove(@Param('id') id: string) {
-    return this.nrcsService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.nrcService.remove(id);
   }
 }
