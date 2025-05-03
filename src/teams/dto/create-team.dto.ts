@@ -1,27 +1,22 @@
-import { IsString, IsArray, ValidateNested, IsEmail } from 'class-validator';
-import { Type } from 'class-transformer';
+// src/teams/dto/create-team.dto.ts
+import { IsString, IsNotEmpty, IsEmail} from 'class-validator';
 
-class MemberDto {
+export class CreateTeamDto {
   @IsString()
-  nombre: string;
-
-  @IsEmail()
-  correo: string;
-
-  @IsString()
-  codigoEstudiantil: string;
-
-  @IsArray()
-  @IsString({ each: true })
-  nrc: string[];
-}
-
-export class CreateTeamWithMembersDto {
-  @IsString()
+  @IsNotEmpty({ message: 'El nombre del equipo es obligatorio' })
   teamName: string;
 
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => MemberDto)
-  members: MemberDto[];
+  @IsString()
+  @IsEmail()
+  @IsNotEmpty({ message: 'El correo del integrante es obligatorio' })
+  email: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'El código de estudiante es obligatorio' })
+  studentCode: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'El NRC es obligatorio' })
+  nrc: string[];
+
 }
