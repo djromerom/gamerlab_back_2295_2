@@ -24,7 +24,7 @@ export class SubjectsService {
     // --- MODIFICATION: Only return active subjects by default ---
     return this.prisma.subject.findMany({
       where: {
-        active: true, // Filter by active status
+        isActive: true, // Filter by active status
       },
       orderBy: {
         // Optional: Add default ordering
@@ -97,7 +97,7 @@ export class SubjectsService {
 
     // 3. Optional: If already inactive, you might want to prevent re-deleting
     //    or just return the current state idempotently.
-    if (!subject.active) {
+    if (!subject.isActive) {
       // Option A: Throw an error
       throw new ConflictException(`Subject with ID ${id} is already inactive.`);
       // Option B: Return the subject as is (idempotent)
@@ -107,7 +107,7 @@ export class SubjectsService {
     // 4. Perform the update to set active = false
     const updatedSubject = await this.prisma.subject.update({
       where: { id: id },
-      data: { active: false }, // Set active to false
+      data: { isActive: false }, // Set active to false
     });
 
     // 5. Return the updated (now inactive) subject

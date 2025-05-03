@@ -22,5 +22,5 @@ export class CreateNrcDto {
 
   @IsOptional() // It has a default value, so it's optional
   @IsBoolean()
-  estado?: boolean; // It will default to 'true'
+  isActive?: boolean; // It will default to 'true'
 }
