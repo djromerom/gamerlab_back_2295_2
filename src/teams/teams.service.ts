@@ -25,35 +25,34 @@ export class TeamsService {
 }
 
 async createTeamWithMembers(dto: CreateTeamWithMembersDto) {
-  return this.prisma.$transaction(async (prisma) => {
-    // 1. Crear equipo
-    const team = await prisma.team.create({
+  // 1. Crear equipo (asignamos ownerId fijo para pruebas)
+  const team = await this.prisma.team.create({
+    data: {
+      teamName: dto.teamName,
+      userId: "aleja", // ID fijo de pruebas
+    },
+  });
+
+  // 2. Crear miembros
+  for (const member of dto.members) {
+    const [firstName, ...lastNameParts] = member.nombre.split(' ');
+    const lastName = lastNameParts.join(' ');
+
+    await this.prisma.member.create({
       data: {
-        teamName: dto.teamName,
-        ownerId: "pepitojm", // Reemplazar con lógica real
-        id_edicion: 1,
+        firstName,
+        lastName,
+        email: member.correo,
+        studentCode: member.codigoEstudiantil,
+        teamId: team.id,
+        nrcs: {
+          connect: member.nrc.map(code => ({ code: parseInt(code) })),
+        },
       },
     });
+  }
 
-    // 2. Crear miembros y conectarlos a NRCs
-    await Promise.all(
-      dto.members.map(async (member) => {
-        const newMember = await prisma.member.create({
-          data: {
-            name: member.nombre,
-            email: member.correo,
-            studentCode: member.codigoEstudiantil,
-            teamId: team.id,
-            nrcs: {
-              connect: member.nrc.map(nrcCode => ({ code: parseInt(nrcCode) })),
-            },
-          },
-        });
-      })
-    );
-
-    return team;
-  });
+  return team;
 }
 
   async findAll() {

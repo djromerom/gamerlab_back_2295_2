@@ -4,6 +4,6 @@ export class Team {
     nombre_equipo: string;  // Mapeado a "nombre_equipo" en Supabase
     fecha_registro: Date;
     estado_confirmacion: boolean;
-    ownerId: string;  // ID del usuario creador (sin relación aún)
-    edicion: string;  // ID de la edición (sin relación aún)
+    userId: string;  // ID del usuario creador (sin relación aún)
+    editionId: string;  // ID de la edición (sin relación aún)
   }

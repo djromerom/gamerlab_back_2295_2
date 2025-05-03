@@ -14,21 +14,10 @@ export class TeamsController {
   }
   
   @Post('with-members')
-async createWithMembers(@Body() dto: CreateTeamWithMembersDto) {
-  const team = await this.teamsService.createTeamWithMembers(dto);
+  createWithMembers(@Body() dto: CreateTeamWithMembersDto) {
+    return this.teamsService.createTeamWithMembers(dto);
+  }
   
-  // // Enviar emails de confirmación
-  // for (const member of dto.members) {
-  //   const token = generateToken(); // Implementar generación de token
-  //   await this.mailService.sendConfirmationEmail(
-  //     member.correo,
-  //     dto.teamName,
-  //     token
-  //   );
-  // }
-
-  return team;
-}
   @Get()
   findAll() {
     return this.teamsService.findAll();

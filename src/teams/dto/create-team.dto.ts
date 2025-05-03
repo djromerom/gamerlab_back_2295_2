@@ -1,27 +1,12 @@
-import { IsString, IsArray, ValidateNested, IsEmail } from 'class-validator';
-import { Type } from 'class-transformer';
+// src/teams/dto/create-team.dto.ts
+import { IsString, IsNotEmpty, IsNumber } from 'class-validator';
 
-class MemberDto {
+export class CreateTeamDto {
   @IsString()
-  nombre: string;
-
-  @IsEmail()
-  correo: string;
+  @IsNotEmpty({ message: 'El nombre del equipo es obligatorio' })
+  teamName: string;  // <-- Usa el nombre exacto de tu schema.prisma
 
   @IsString()
-  codigoEstudiantil: string;
-
-  @IsArray()
-  @IsString({ each: true })
-  nrc: string[];
-}
-
-export class CreateTeamWithMembersDto {
-  @IsString()
-  teamName: string;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => MemberDto)
-  members: MemberDto[];
+  @IsNotEmpty({ message: 'El ID del creador es obligatorio' })
+  ownerId: string;
 }
