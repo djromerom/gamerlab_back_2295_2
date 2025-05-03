@@ -11,41 +11,44 @@ import {
   NotFoundException,
   HttpCode,
   HttpStatus,
-  ConflictException, // Import if using ConflictException from service
+  ConflictException,
+  UseGuards, // Import if using ConflictException from service
 } from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { Subject } from '@prisma/client';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { RequiredService } from '../auth/decorators/required-service.decorator';
 
 @Controller('subjects')
 export class SubjectsController {
   constructor(private readonly subjectsService: SubjectsService) {}
 
   @Post()
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('Create Subject')
   async create(@Body() createSubjectDto: CreateSubjectDto): Promise<Subject> {
     return this.subjectsService.create(createSubjectDto);
   }
 
   @Get()
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('List Subjects')
   async findAll(): Promise<Subject[]> {
-    // This now correctly returns only active subjects due to service change
     return this.subjectsService.findAll();
   }
 
-  // Optional: Endpoint to get all subjects including inactive ones?
-  // @Get('all') // Example route
-  // async findAllIncludingInactive(): Promise<Subject[]> {
-  //   return this.subjectsService.findAllIncludingInactive(); // Assumes you added this method to service
-  // }
-
   @Get(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('Get Subject By ID')
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<Subject> {
-    // This will find a subject even if it's inactive by default service logic
     return this.subjectsService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('Update Subject (PATCH)')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateSubjectDto: UpdateSubjectDto,
@@ -53,13 +56,11 @@ export class SubjectsController {
     return this.subjectsService.update(id, updateSubjectDto);
   }
 
-  // --- Controller Delete Endpoint ---
-  // Stays largely the same, relies on the service's updated logic.
-  // Still returns 204 No Content, which is appropriate for soft delete.
   @Delete(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('Delete Subject')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    await this.subjectsService.remove(id); // Service now performs soft delete
-    // No body returned for 204
+    await this.subjectsService.remove(id);
   }
 }
