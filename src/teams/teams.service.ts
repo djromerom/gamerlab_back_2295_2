@@ -36,30 +36,29 @@ export class TeamsService {
       }
     });
 
-    // Create members in the database
-    const MembersOfTeam: Promise<any>[] = []; // Array to store member creation promises
-
-    for (const member of createTeamDto.members) {
+    // 4. Crear miembros (con Promise.all)
+  const members = await Promise.all(
+    createTeamDto.members.map(member => {
       const [firstName, ...lastNameParts] = member.memberName.split(' ');
       const lastName = lastNameParts.join(' ');
-  
-      const memberOfTeam = this.prismaService.member.create({
+
+      return this.prismaService.member.create({
         data: {
           firstName,
           lastName,
           email: member.memberEmail,
           studentCode: member.studentCode,
-          teamId: team.id, // ID of the team
+          teamId: team.id,
           nrcs: {
             connect: member.nrc.map(code => ({ code: parseInt(code) })),
           },
         },
       });
-      MembersOfTeam.push(memberOfTeam); // Add the promise to the array
-    }
+    })
+  );
 
     // Create videogame in the database
-    const vg = this.prismaService.videogame.create({
+    const vg = await this.prismaService.videogame.create({
       data: {
         name: videogame.vgName,
         description: videogame.description,
@@ -69,7 +68,7 @@ export class TeamsService {
       },
     });
 
-    return { dataUser, team, MembersOfTeam, vg }; // Return the created team and members
+    return { dataUser, team, members, vg }; // Return the created team and members
   }
 
   findAll() {
