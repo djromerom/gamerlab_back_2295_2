@@ -20,7 +20,6 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
 import { RegisterDto } from './dto/Register.dto';
-import { RegisterDto } from './dto/Register.dto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
