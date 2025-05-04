@@ -1,90 +1,79 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
-import { CreateTeamDto } from './dto/create-team.dto';
+import { Injectable } from '@nestjs/common';
+import { CreateTeamDto, MemberDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
-import { PrismaService } from '../prisma/prisma.service';
-import { User } from '@prisma/client';
-import { MailerService } from '@nestjs-modules/mailer';
-import { v4 as uuidv4 } from 'uuid';
+import { AuthService } from 'src/auth/auth.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { RegisterDto } from 'src/auth/dto/Register.dto';
+import { connect } from 'http2';
 
 @Injectable()
 export class TeamsService {
-  constructor(private readonly prisma: PrismaService,
-              private readonly mailerService: MailerService) {}
+  constructor (private authService : AuthService, private prismaService : PrismaService) {}
   
-  private readonly student_role_id = 2;
-
-  // src/teams/teams.service.ts
   async create(createTeamDto: CreateTeamDto) {
     
-    const existing_email = await this.prisma.user.findUnique({ where: { email: createTeamDto.email } });
-    if (existing_email) {
-      throw new ConflictException('Correo ya registrado');
-    }
+    const userRegister : RegisterDto = ({
+      name: createTeamDto.members[0].memberName,
+      email: createTeamDto.members[0].memberEmail
+    }); // Get the first member's name and email
 
-    const existing_team_name = await this.prisma.team.findUnique({ where: { teamName: createTeamDto.teamName } });
-    if (existing_team_name) {
-      throw new ConflictException('Nombre de equipo ya registrado');
-    }
+    const { teamName, videogame } = createTeamDto;
+    const { user } = await this.authService.registerUser(userRegister);
 
-    const existing_student_code = await this.prisma.member.findUnique({ where: { studentCode: createTeamDto.studentCode } });
-    if (existing_student_code) {
-      throw new ConflictException('Código de estudiante ya registrado');
-    }
-    
-    const confirmationToken = uuidv4(); // Genera un token único (UUID)
-
-    const user = await this.prisma.user.create({
-      data: {
-        name: createTeamDto.name,
-        confirmationToken,
-        isConfirmed: false,
-        roleId: this.student_role_id,
-      },
+    const dataUser = await this.prismaService.user.create({    // --> Create the user in the database
+      data: { 
+        id: user.id,
+        name: userRegister.name,
+        email: userRegister.email,
+        roleId: 2, // Role ID for student
+      }
     });
 
-    return this.prisma.team.create({
+    const team = await this.prismaService.team.create({    // --> Create the team in the database
       data: {
-        teamName: createTeamDto.teamName,
-        ownerId: createTeamDto.ownerId,
-        // Los demás campos (isConfirmed, registrationDate) se llenan solos
-      },
-    });
-}
-
-async createTeamWithMembers(dto: CreateTeamWithMembersDto) {
-  return this.prisma.$transaction(async (prisma) => {
-    // 1. Crear equipo
-    const team = await prisma.team.create({
-      data: {
-        teamName: dto.teamName,
-        ownerId: "pepitojm", // Reemplazar con lógica real
-        id_edicion: 1,
-      },
+        teamName: teamName,
+        userId: user.id, // ID of the first member (user)
+      }
     });
 
-    // 2. Crear miembros y conectarlos a NRCs
-    await Promise.all(
-      dto.members.map(async (member) => {
-        const newMember = await prisma.member.create({
-          data: {
-            name: member.nombre,
-            email: member.correo,
-            studentCode: member.codigoEstudiantil,
-            teamId: team.id,
-            nrcs: {
-              connect: member.nrc.map(nrcCode => ({ code: parseInt(nrcCode) })),
-            },
+    // Create members in the database
+    const MembersOfTeam: Promise<any>[] = []; // Array to store member creation promises
+
+    for (const member of createTeamDto.members) {
+      const [firstName, ...lastNameParts] = member.memberName.split(' ');
+      const lastName = lastNameParts.join(' ');
+  
+      const memberOfTeam = this.prismaService.member.create({
+        data: {
+          firstName,
+          lastName,
+          email: member.memberEmail,
+          studentCode: member.studentCode,
+          teamId: team.id, // ID of the team
+          nrcs: {
+            connect: member.nrc.map(code => ({ code: parseInt(code) })),
           },
-        });
-      })
-    );
+        },
+      });
+      MembersOfTeam.push(memberOfTeam); // Add the promise to the array
+    }
 
-    return team;
-  });
-}
+    // Create videogame in the database
+    const vg = this.prismaService.videogame.create({
+      data: {
+        name: videogame.vgName,
+        description: videogame.description,
+        logoUrl: videogame.logoURL,
+        teamId: team.id, // ID of the team
+        videogameStatusId: 2, // Status ID for "pending"
+      },
+    });
 
-  async findAll() {
-    return this.prisma.team.findMany();
+    return { dataUser, team, MembersOfTeam, vg }; // Return the created team and members
+  }
+
+  findAll() {
+    return `This action returns all teams`;
   }
 
   findOne(id: number) {

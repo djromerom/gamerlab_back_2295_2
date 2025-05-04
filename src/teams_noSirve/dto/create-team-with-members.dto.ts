@@ -3,7 +3,7 @@ import { Type } from 'class-transformer';
 
 class MemberDto {
   @IsString()
-  nombre: string;
+  nombre: string;  // Se dividirá en firstName y lastName
 
   @IsEmail()
   correo: string;
@@ -13,7 +13,7 @@ class MemberDto {
 
   @IsArray()
   @IsString({ each: true })
-  nrc: string[];
+  nrc: string[];   // Códigos de NRC como strings
 }
 
 export class CreateTeamWithMembersDto {
