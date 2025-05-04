@@ -20,6 +20,7 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
 import { RegisterDto } from './dto/Register.dto';
+import { RegisterDto } from './dto/Register.dto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -115,33 +116,13 @@ export class AuthService {
     );
   }
 
-  async test(): Promise<{ message: string }> {
-    this.logger.log('Test method called.');
-    return { message: 'Test successful' };
-  }
-
   async registerUser(
     registerDto: RegisterDto,
   ): Promise<{ user: UserSupabase }> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
-    // Generate a random password for the user
-    function generateRandomPassword(length: number = 12): string {
-      const charset =
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
-      let password = '';
-      const array = new Uint32Array(length);
-      crypto.getRandomValues(array);
-
-      for (let i = 0; i < length; i++) {
-        password += charset[array[i] % charset.length];
-      }
-
-      return password;
-    }
-
     try {
-      const password = generateRandomPassword();
+      const password = '1236547890';
       const { data, error } = await this.supabase.auth.signUp({
         email: registerDto.email,
         password: password,
