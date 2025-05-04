@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Put,
+  Patch,
   Delete,
   ParseIntPipe,
 } from '@nestjs/common';
@@ -30,7 +31,7 @@ export class NrcsController {
     return this.nrcService.create(data);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: Prisma.NRCUpdateInput,

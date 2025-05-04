@@ -35,13 +35,20 @@ export class NrcsService {
   }
 
   async create(data: Prisma.NRCCreateInput) {
-    return this.prisma.nRC.create({ data });
+    return this.prisma.nRC.create({
+      data,
+      include: { subject: true, professor: true },
+    });
   }
 
   async update(id: number, data: Prisma.NRCUpdateInput) {
     return this.prisma.nRC.update({
       where: { id },
       data,
+      include: {
+        subject: true,
+        professor: true,
+      },
     });
   }
 
