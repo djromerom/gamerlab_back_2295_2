@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
+import { CreateEmailRequestDto } from './dto/create-email-request.dto';
 
 @Controller('teams')
 export class TeamsController {
@@ -15,6 +24,15 @@ export class TeamsController {
   @Get()
   findAll() {
     return this.teamsService.findAll();
+  }
+
+  @Post('send-email')
+  async sendEmail(@Body() createEmailRequestDto: CreateEmailRequestDto) {
+    return this.teamsService.sendEmail(
+      createEmailRequestDto.email,
+      createEmailRequestDto.id,
+      createEmailRequestDto.name,
+    );
   }
 
   @Get(':id')

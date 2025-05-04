@@ -40,7 +40,7 @@ export class AuthService {
     refresh_token: string,
   ) {
     const secure = this.configService.get<string>('NODE_ENV') !== 'development';
-    const accessTokenMaxAge = 1000 * 60 * 15; // 15 minutes for now
+    const accessTokenMaxAge = 1000 * 60 * 15 * 60 * 24; // 15 days for now
     const refreshTokenMaxAge = 1000 * 60 * 60 * 24 * 7; // 7 days for now
 
     res.cookie(ACCESS_TOKEN_COOKIE, access_token, {
