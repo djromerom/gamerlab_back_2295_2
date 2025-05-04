@@ -3,24 +3,30 @@ import {    IsString,
             IsEmail,
             IsArray, 
             ValidateNested, 
-            IsEmpty} from 'class-validator';
+            Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Members Information
 export class MemberDto {
 
   @IsString()
+  @IsNotEmpty({ message: 'El nombre del integrante es obligatorio' })
   memberName: string;  // Split into first name and last name
 
   @IsEmail()
-  //Validar
+  @IsNotEmpty({ message: 'El correo del integrante es obligatorio' })
+  @Matches(/^[\w.+-]+@uninorte\.edu\.co$/, {
+    message: 'El correo debe ser institucional (@uninorte.edu.co)',
+  })
   memberEmail: string;
 
   @IsString()
+  @IsNotEmpty({ message: 'El código de estudiante es obligatorio' })
   studentCode: string;
 
   @IsArray()
   @IsString({ each: true })
+  @IsNotEmpty({ message: 'El NRC es obligatorio' })
   nrc: string[];   // List of NRCs associated with the member
 
 }
@@ -29,6 +35,7 @@ export class MemberDto {
 export class VideogameDto {
 
     @IsString()
+    @IsNotEmpty({ message: 'El nombre del videojuego es obligatorio' })
     vgName: string;  // Nombre del videojuego
     
     @IsString()

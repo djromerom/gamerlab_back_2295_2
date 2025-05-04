@@ -118,7 +118,7 @@ export class AuthService {
 
     
     try {
-      const password = "1236547890";
+      const password = "1236547890";    // Cambiar por contraseña aleatoria
       const { data, error } = await this.supabase.auth.signUp({
         email: registerDto.email,
         password: password,
