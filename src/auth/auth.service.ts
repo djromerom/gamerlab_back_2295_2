@@ -12,9 +12,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { User, ConfirmationStatus } from '@prisma/client';
 import { SupabaseUser } from 'nestjs-supabase-auth';
 import { SUPABASE_CLIENT } from './auth.constants';
-import { SupabaseClient, AuthError } from '@supabase/supabase-js';
+import {
+  SupabaseClient,
+  AuthError,
+  User as UserSupabase,
+} from '@supabase/supabase-js';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
+import { RegisterDto } from './dto/Register.dto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -110,14 +115,72 @@ export class AuthService {
     );
   }
 
-  /**
-   * Handles user login using email/password via Supabase,
-   * synchronizes with the local DB, and sets auth cookies.
-   */
+  async test(): Promise<{ message: string }> {
+    this.logger.log('Test method called.');
+    return { message: 'Test successful' };
+  }
+
+  async registerUser(
+    registerDto: RegisterDto,
+  ): Promise<{ user: UserSupabase }> {
+    this.logger.log(`Attempting to register user: ${registerDto.email}`);
+
+    // Generate a random password for the user
+    function generateRandomPassword(length: number = 12): string {
+      const charset =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+      let password = '';
+      const array = new Uint32Array(length);
+      crypto.getRandomValues(array);
+
+      for (let i = 0; i < length; i++) {
+        password += charset[array[i] % charset.length];
+      }
+
+      return password;
+    }
+
+    try {
+      const password = generateRandomPassword();
+      const { data, error } = await this.supabase.auth.signUp({
+        email: registerDto.email,
+        password: password,
+      });
+
+      if (error) {
+        this.handleSupabaseError(error, 'signUp');
+      }
+      if (!data?.user) {
+        this.logger.error('Supabase signUp returned no user data.');
+        throw new InternalServerErrorException(
+          'Registration failed: Incomplete data from auth provider.',
+        );
+      }
+
+      this.logger.log(
+        `Supabase registration successful for: ${registerDto.email}`,
+      );
+      return { user: data.user };
+    } catch (error) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Unexpected error during Supabase registration: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'An unexpected error occurred during registration.',
+      );
+    }
+  }
+
   async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
     let supabaseSessionData;
-
     try {
       const { data, error } = await this.supabase.auth.signInWithPassword({
         email: loginDto.email,
@@ -154,7 +217,6 @@ export class AuthService {
       );
     }
 
-    // We use the user object from the Supabase session data
     const supabaseUserForSync = {
       sub: supabaseSessionData.user.id,
       email: supabaseSessionData.user.email,

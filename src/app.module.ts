@@ -9,6 +9,7 @@ import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { CriterionModule } from './criterion/criterion.module';
+import { ProfessorsModule } from './professors/professors.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { CriterionModule } from './criterion/criterion.module';
     SubjectsModule,
     NrcsModule,
     CriterionModule,
+    ProfessorsModule,
   ],
   controllers: [AppController],
   // We provide the AuthGuard as a global guard for all routes

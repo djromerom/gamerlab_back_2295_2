@@ -6,7 +6,6 @@ import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { SUPABASE_CLIENT } from './auth.constants';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { RolePermissionGuard } from './guards/role-permission.guard';
 
 const supabaseProvider: Provider = {
   provide: SUPABASE_CLIENT,
