@@ -17,6 +17,16 @@ import { AppUser } from './supabase.strategy';
 import { GetUser } from './decorators/get-user.decorator';
 import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
+import { SetPasswordDto } from './dto/setPassword.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+
+interface RequestWithUser extends Request {
+  user: {
+    sub: string; // El ID de Supabase viene en 'sub' por defecto
+    email: string;
+    // ... otros campos del JWT payload
+  };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -40,6 +50,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.authService.refresh(req, res);
+  }
+
+  @Public()
+  @UseGuards(JwtAuthGuard)
+  @Post('set-password')
+  @HttpCode(HttpStatus.OK)
+  async setPassword(
+    @Req() req: RequestWithUser, // Asegúrate que el tipo coincida con lo que devuelve JwtStrategy.validate
+    @Body() setPasswordDto: SetPasswordDto,
+  ): Promise<{ message: string }> {
+    const userId = req.user.sub; // Obtiene 'sub' del payload validado por JwtStrategy
+    await this.authService.setUserPassword(userId, setPasswordDto.password);
+    return { message: 'Contraseña actualizada exitosamente.' };
   }
 
   @Public()

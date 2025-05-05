@@ -12,6 +12,7 @@ import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import { CreateEmailRequestDto } from './dto/create-email-request.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { RegisterUserDto } from './dto/register-user.dto';
 
 @Controller('teams')
 export class TeamsController {
@@ -35,6 +36,11 @@ export class TeamsController {
       createEmailRequestDto.id,
       createEmailRequestDto.name,
     );
+  }
+
+  @Post('register-user')
+  async registerUser(@Body() registerUser: RegisterUserDto) {
+    return this.teamsService.registerUser(registerUser);
   }
 
   @Get(':id')

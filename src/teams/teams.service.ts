@@ -5,6 +5,7 @@ import { AuthService } from 'src/auth/auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RegisterDto } from 'src/auth/dto/Register.dto';
 import { Resend } from 'resend';
+import { RegisterUserDto } from './dto/register-user.dto';
 
 @Injectable()
 export class TeamsService {
@@ -89,6 +90,16 @@ export class TeamsService {
     console.log(email, id, name);
 
     return envio;
+  }
+
+  async registerUser(registerDto: RegisterUserDto) {
+    const authRegisterPayload = {
+      email: registerDto.email,
+      password: registerDto.password,
+      name: registerDto.name,
+    };
+    const { user } = await this.authService.registerUser(authRegisterPayload);
+    return user;
   }
 
   findAll() {

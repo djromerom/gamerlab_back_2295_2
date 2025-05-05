@@ -115,6 +115,59 @@ export class AuthService {
     );
   }
 
+  async setUserPassword(userId: string, newPassword: string): Promise<void> {
+    this.logger.log(`Attempting to set password for user ID: ${userId}`);
+
+    // La validación de complejidad ya la hizo el DTO gracias a class-validator
+
+    try {
+      // Usa la API de Admin para actualizar por ID
+      const { data, error: adminUpdateError } =
+        await this.supabase.auth.admin.updateUserById(userId, {
+          password: newPassword,
+        });
+
+      if (adminUpdateError) {
+        this.logger.error(
+          `Supabase admin updateUserById error for user ${userId}: ${adminUpdateError.message}`,
+          adminUpdateError,
+        );
+        // Puedes mapear errores específicos de Supabase si es necesario
+        throw new InternalServerErrorException(
+          `No se pudo actualizar la contraseña: ${adminUpdateError.message}`,
+        );
+      }
+
+      // Verifica si la actualización realmente devolvió un usuario (opcional pero bueno)
+      if (!data?.user) {
+        this.logger.warn(
+          `Supabase admin updateUserById for user ${userId} completed but returned no user data.`,
+        );
+        // Considera esto un éxito parcial o un error dependiendo de tu lógica
+      }
+
+      this.logger.log(
+        `Password successfully set/updated for user ID: ${userId}`,
+      );
+      // No necesitas devolver nada en caso de éxito, o podrías devolver un mensaje simple
+    } catch (error) {
+      // Captura errores no esperados o los re-lanzados desde el if(adminUpdateError)
+      if (
+        error instanceof InternalServerErrorException ||
+        error instanceof BadRequestException
+      ) {
+        throw error; // Re-lanza excepciones HTTP conocidas
+      }
+      this.logger.error(
+        `Unexpected error setting password for user ${userId}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Ocurrió un error inesperado al actualizar la contraseña.',
+      );
+    }
+  }
+
   async registerUser(
     registerDto: RegisterDto,
   ): Promise<{ user: UserSupabase }> {
@@ -125,6 +178,9 @@ export class AuthService {
       const { data, error } = await this.supabase.auth.signUp({
         email: registerDto.email,
         password: password,
+        options: {
+          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+        },
       });
 
       if (error) {
