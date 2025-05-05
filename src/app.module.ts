@@ -9,7 +9,7 @@ import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { TeamsModule } from './teams/teams.module';
-
+import { VideogameModule } from './videogames/videogames.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -17,7 +17,8 @@ import { TeamsModule } from './teams/teams.module';
     AuthModule,
     SubjectsModule,
     NrcsModule,
-    TeamsModule
+    TeamsModule,
+    VideogameModule,
   ],
   controllers: [AppController],
   // We provide the AuthGuard as a global guard for all routes

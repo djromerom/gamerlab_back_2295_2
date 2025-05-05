@@ -54,4 +54,28 @@ export class VideogamesService {
       throw error;
     }
   }
+
+  async findAll() {
+    const videogames = await this.prisma.videogame.findMany({
+      include: {
+        team: {
+          select: {
+            teamName: true,
+          },
+        },
+        videogameStatus: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+  
+    return videogames.map((vg) => ({
+      name: vg.name,
+      logoUrl: vg.logoUrl,
+      teamName: vg.team.teamName,
+      status: vg.videogameStatus.status,
+    }));
+  }
 }
