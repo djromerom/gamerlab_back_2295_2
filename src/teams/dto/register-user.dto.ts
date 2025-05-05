@@ -1,4 +1,3 @@
-// src/teams/dto/register-team-user.dto.ts (o donde corresponda)
 import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class RegisterUserDto {
@@ -10,9 +9,8 @@ export class RegisterUserDto {
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   name: string;
 
-  // ¡NECESARIO PARA EL REGISTRO EN AUTHSERVICE!
   @IsString()
-  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' }) // O la longitud que requiera Supabase/tu política
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
   @IsNotEmpty({ message: 'La contraseña es obligatoria' })
   password: string;
 }

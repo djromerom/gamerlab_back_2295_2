@@ -117,7 +117,8 @@ export class AuthService {
 
   async setUserPassword(userId: string, newPassword: string): Promise<void> {
     this.logger.log(`Attempting to set password for user ID: ${userId}`);
-
+    const CONFIRMED_STATUS_NAME = 'Confirmado'; // O el nombre exacto que uses
+    let confirmedStatusId: number = 1;
     // La validación de complejidad ya la hizo el DTO gracias a class-validator
 
     try {
@@ -149,6 +150,38 @@ export class AuthService {
       this.logger.log(
         `Password successfully set/updated for user ID: ${userId}`,
       );
+
+      try {
+        this.logger.log(
+          `Attempting to update local user status for ID: ${userId} to CONFIRMADO (ID: ${confirmedStatusId})`,
+        );
+        const updatedLocalUser = await this.prisma.user.update({
+          where: {
+            id: userId, // Asegúrate que el ID en tu tabla usuarios coincida con el de Supabase Auth
+          },
+          data: {
+            // Actualiza el campo usando el ID mapeado @map("id_estado_confirmacion")
+            confirmationStatusId: confirmedStatusId, // Usa el ID obtenido arriba (o 1 si estás seguro)
+            // Podrías querer activar al usuario también si no lo estaba,
+            // aunque tu lógica de syncSupabaseUser parece manejar esto
+            // isActive: true,
+          },
+        });
+        this.logger.log(
+          `Local user status updated successfully for ID: ${userId}. New status ID: ${updatedLocalUser.confirmationStatusId}`,
+        );
+      } catch (prismaError) {
+        // Manejo de errores específicos de Prisma al actualizar
+        this.logger.error(
+          `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
+          prismaError.stack,
+        );
+        // Considera qué hacer aquí. ¿Es un error fatal si falla la actualización local?
+        // Por ahora, solo lo logueamos, ya que la contraseña SÍ se estableció en Supabase.
+        // Podrías lanzar una excepción si es crítico que ambos pasos funcionen:
+        // throw new InternalServerErrorException('Failed to update local user status.');
+      }
+
       // No necesitas devolver nada en caso de éxito, o podrías devolver un mensaje simple
     } catch (error) {
       // Captura errores no esperados o los re-lanzados desde el if(adminUpdateError)
