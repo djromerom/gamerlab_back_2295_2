@@ -19,7 +19,7 @@ import {
 } from '@supabase/supabase-js';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
-import { RegisterDto } from './dto/Register.dto';
+import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
