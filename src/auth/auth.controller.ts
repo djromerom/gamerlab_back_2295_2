@@ -17,7 +17,7 @@ import { AppUser } from './supabase.strategy';
 import { GetUser } from './decorators/get-user.decorator';
 import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
-import { SetPasswordDto } from './dto/setPassword.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 interface RequestWithUser extends Request {
