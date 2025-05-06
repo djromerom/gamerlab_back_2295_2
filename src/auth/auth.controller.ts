@@ -22,9 +22,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 interface RequestWithUser extends Request {
   user: {
-    sub: string; // El ID de Supabase viene en 'sub' por defecto
+    sub: string;
     email: string;
-    // ... otros campos del JWT payload
   };
 }
 
@@ -57,12 +56,12 @@ export class AuthController {
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
   async setPassword(
-    @Req() req: RequestWithUser, // Asegúrate que el tipo coincida con lo que devuelve JwtStrategy.validate
+    @Req() req: RequestWithUser,
     @Body() setPasswordDto: SetPasswordDto,
   ): Promise<{ message: string }> {
-    const userId = req.user.sub; // Obtiene 'sub' del payload validado por JwtStrategy
+    const userId = req.user.sub; // Obtains 'sub' from the validated payload
     await this.authService.setUserPassword(userId, setPasswordDto.password);
-    return { message: 'Contraseña actualizada exitosamente.' };
+    return { message: 'Password updated successfully' };
   }
 
   @Public()
