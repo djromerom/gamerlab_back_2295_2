@@ -11,6 +11,9 @@ import { NrcsModule } from './nrcs/nrcs.module';
 import { PendingGamesModule } from './pending-games/pg.module';
 import { join } from 'path';
 
+import { CriterionModule } from './criterion/criterion.module';
+import { ProfessorsModule } from './professors/professors.module';
+import { TeamsModule } from './teams/teams.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { join } from 'path';
     SubjectsModule,
     NrcsModule,
     PendingGamesModule,
+    CriterionModule,
+    ProfessorsModule,
+    TeamsModule,
   ],
   controllers: [AppController],
   // We provide the AuthGuard as a global guard for all routes
