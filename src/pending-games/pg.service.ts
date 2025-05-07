@@ -12,6 +12,7 @@ export class VideogamesService {
         id: true,
         name: true,
         logoUrl: true,
+        description: true, // Incluir la columna "descripcion"
         team: {
           select: {
             teamName: true,
@@ -35,11 +36,12 @@ export class VideogamesService {
         },
       },
     });
-  
+
     return videogames.map((videogame) => ({
       videogameId: videogame.id,
       videogameName: videogame.name,
       logoUrl: videogame.logoUrl,
+      descripcion: videogame.description || "Sin descripción", // Mapear "descripcion"
       teamName: videogame.team?.teamName || "Sin equipo",
       members: videogame.team?.members?.map((member) => ({
         fullName: `${member.firstName} ${member.lastName}`,
