@@ -9,8 +9,7 @@ import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { PendingGamesModule } from './pending-games/pg.module';
-import { join } from 'path';
-
+import { VideogameModule } from './videogames/videogames.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
@@ -26,9 +25,10 @@ import { TeamsModule } from './teams/teams.module';
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
+    VideogameModule
   ],
   controllers: [AppController],
   // We provide the AuthGuard as a global guard for all routes
   providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],
 })
-export class AppModule {}
+export class AppModule { }
