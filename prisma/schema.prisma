@@ -33,7 +33,7 @@ model Role {
   id              Int              @id @default(autoincrement()) @map("id_rol")
   name            String           @unique @map("rol")
   description     String?          @map("descripcion")
-  isActive       Boolean           @default(true) @map("activo")
+  isActive        Boolean          @default(true) @map("activo")
   createdAt       DateTime         @default(now()) @map("creado_en")
   updatedAt       DateTime         @updatedAt @map("actualizado_en")
   rolePermissions RolePermission[]
@@ -72,7 +72,7 @@ model Permission {
 model RolePermission {
   roleId       Int        @map("id_rol")
   permissionId Int        @map("id_permiso")
-  isActive     Boolean     @default(true) @map("activo")
+  isActive     Boolean    @default(true) @map("activo")
   createdAt    DateTime   @default(now()) @map("creado_en")
   updatedAt    DateTime   @default(now()) @updatedAt @map("actualizado_en")
   permission   Permission @relation(fields: [permissionId], references: [id])
@@ -85,7 +85,7 @@ model RolePermission {
 model ServicePermission {
   serviceId    Int        @map("id_servicio")
   permissionId Int        @map("id_permiso")
-  isActive     Boolean     @default(true) @map("activo")
+  isActive     Boolean    @default(true) @map("activo")
   createdAt    DateTime   @default(now()) @map("creado_en")
   updatedAt    DateTime   @default(now()) @updatedAt @map("actualizado_en")
   permission   Permission @relation(fields: [permissionId], references: [id])
@@ -144,17 +144,17 @@ model Team {
 }
 
 model Member {
-  id          Int    @id @default(autoincrement()) @map("id_integrante")
-  firstName   String @map("nombre") @db.VarChar(50)
-  lastName    String @map("apellido") @db.VarChar(50)
-  email       String @unique @map("correo") @db.VarChar(100)
-  studentCode String @unique @map("codigo_estudiantil") @db.VarChar(100)
-  teamId      Int    @map("id_equipo")
-  isActive    Boolean @default(true) @map("activo")
+  id          Int      @id @default(autoincrement()) @map("id_integrante")
+  firstName   String   @map("nombre") @db.VarChar(50)
+  lastName    String   @map("apellido") @db.VarChar(50)
+  email       String   @unique @map("correo") @db.VarChar(100)
+  studentCode String   @unique @map("codigo_estudiantil") @db.VarChar(100)
+  teamId      Int      @map("id_equipo")
+  isActive    Boolean  @default(true) @map("activo")
   createdAt   DateTime @default(now()) @map("creado_en")
   updatedAt   DateTime @updatedAt @map("actualizado_en")
-  team        Team   @relation("TeamMembers", fields: [teamId], references: [id])
-  nrcs        NRC[]  @relation("MemberNRC")
+  team        Team     @relation("TeamMembers", fields: [teamId], references: [id])
+  nrcs        NRC[]    @relation("MemberNRC")
 
   @@map("integrante")
 }
@@ -162,7 +162,7 @@ model Member {
 model VideogameStatus {
   id         Int         @id @default(autoincrement()) @map("id_estado")
   status     String      @map("estado") @db.VarChar(30)
-  isActive  Boolean     @default(true) @map("activo")
+  isActive   Boolean     @default(true) @map("activo")
   createdAt  DateTime    @default(now()) @map("creado_en")
   updatedAt  DateTime    @updatedAt @map("actualizado_en")
   videogames Videogame[]
@@ -176,7 +176,7 @@ model Videogame {
   description       String?         @map("descripcion")
   logoUrl           String?         @map("logo_url")
   registrationDate  DateTime        @default(now()) @map("fecha_registro")
-  videogameStatusId Int             @map("id_estado_videojuego")
+  videogameStatusId Int             @default(2) @map("id_estado_videojuego")
   teamId            Int             @unique @map("id_equipo")
   isActive          Boolean         @default(true) @map("activo")
   evaluations       Evaluation[]
@@ -205,14 +205,14 @@ model Evaluation {
 }
 
 model Subject {
-  id       Int     @id @default(autoincrement()) @map("id_materia")
-  name     String  @map("nombre") @db.VarChar(50)
-  code     String  @map("codigo") @db.VarChar(50)
-  semester    Int     @map("semestre")
-  isActive   Boolean @default(true) @map("activo")
+  id        Int      @id @default(autoincrement()) @map("id_materia")
+  name      String   @map("nombre") @db.VarChar(50)
+  code      String   @map("codigo") @db.VarChar(50)
+  semester  Int      @map("semestre")
+  isActive  Boolean  @default(true) @map("activo")
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
-  nrcs     NRC[]
+  nrcs      NRC[]
 
   @@map("materia")
 }
@@ -237,9 +237,9 @@ model Criterion {
   name              String             @map("nombre") @db.VarChar(50)
   description       String?            @map("descripcion")
   weight            Float?             @map("peso")
-  isActive         Boolean            @default(true) @map("activo")
-  createdAt        DateTime           @default(now()) @map("creado_en")
-  updatedAt        DateTime           @updatedAt @map("actualizado_en")
+  isActive          Boolean            @default(true) @map("activo")
+  createdAt         DateTime           @default(now()) @map("creado_en")
+  updatedAt         DateTime           @updatedAt @map("actualizado_en")
   evaluationDetails EvaluationDetail[]
 
   @@map("criterios")
