@@ -5,6 +5,7 @@ import {
   Post,
   Body,
   Patch,
+  Query,
   Param,
   Delete,
   ParseIntPipe,
@@ -12,7 +13,11 @@ import {
   HttpCode,
   HttpStatus,
   ConflictException,
+<<<<<<< HEAD
   UseGuards, // Import if using ConflictException from service
+=======
+  UseGuards,
+>>>>>>> dev
 } from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
@@ -20,10 +25,15 @@ import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { Subject } from '@prisma/client';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
+<<<<<<< HEAD
+=======
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResult } from '../common/types/paginated-result.type';
+>>>>>>> dev
 
 @Controller('subjects')
 export class SubjectsController {
-  constructor(private readonly subjectsService: SubjectsService) {}
+  constructor(private readonly subjectsService: SubjectsService) { }
 
   @Post()
   @UseGuards(RolePermissionGuard)
@@ -35,8 +45,14 @@ export class SubjectsController {
   @Get()
   @UseGuards(RolePermissionGuard)
   @RequiredService('List Subjects')
+<<<<<<< HEAD
   async findAll(): Promise<Subject[]> {
     return this.subjectsService.findAll();
+=======
+  async findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Subject>> {
+    const { includeInactive, limit, page } = query;
+    return this.subjectsService.findAll(includeInactive, limit, page);
+>>>>>>> dev
   }
 
   @Get(':id')

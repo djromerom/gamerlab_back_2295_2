@@ -1,4 +1,3 @@
-// src/subjects/subjects.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -7,11 +6,16 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
-import { Subject } from '@prisma/client';
+import { Prisma, Subject } from '@prisma/client';
+import { PaginatedResult } from '../common/types/paginated-result.type';
 
 @Injectable()
 export class SubjectsService {
+<<<<<<< HEAD
   constructor(private prisma: PrismaService) {}
+=======
+  constructor(private prisma: PrismaService) { }
+>>>>>>> dev
 
   async create(createSubjectDto: CreateSubjectDto): Promise<Subject> {
     return this.prisma.subject.create({
@@ -19,6 +23,7 @@ export class SubjectsService {
     });
   }
 
+<<<<<<< HEAD
   async findAll(): Promise<Subject[]> {
     return this.prisma.subject.findMany({
       where: {
@@ -30,6 +35,47 @@ export class SubjectsService {
     });
   }
 
+=======
+  async findAll(
+    includeInactive: boolean,
+    limit: number,
+    page: number): Promise<PaginatedResult<Subject>> {
+
+    const offset = (page - 1) * limit;
+
+    const whereClause: Prisma.SubjectWhereInput = {}
+
+    if (!includeInactive)
+      whereClause.isActive = true;
+
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.subject.findMany({
+        where: whereClause,
+        skip: offset,
+        take: limit,
+        orderBy: { name: 'asc' }
+      }),
+      this.prisma.subject.count({
+        where: whereClause
+      })
+    ]
+    );
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data: items,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
+      }
+    }
+  }
+
+>>>>>>> dev
   async findOne(id: number): Promise<Subject> {
     const subject = await this.prisma.subject.findUnique({
       where: { id: id },

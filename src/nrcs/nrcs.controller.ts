@@ -3,13 +3,19 @@ import {
   Get,
   Post,
   Body,
+<<<<<<< HEAD
   Param,
   Put,
+=======
+  Query,
+  Param,
+>>>>>>> dev
   Patch,
   Delete,
   ParseIntPipe,
 } from '@nestjs/common';
 import { NrcsService } from './nrcs.service';
+<<<<<<< HEAD
 import { Prisma } from '@prisma/client';
 import { Public } from 'src/auth/decorators/public.decorator';
 
@@ -21,6 +27,23 @@ export class NrcsController {
   @Get()
   findAll() {
     return this.nrcService.findAll();
+=======
+import { Prisma, NRC } from '@prisma/client';
+import { Public } from 'src/auth/decorators/public.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResult } from '../common/types/paginated-result.type';
+
+
+@Controller('nrcs')
+export class NrcsController {
+  constructor(private readonly nrcService: NrcsService) { }
+
+  @Public()
+  @Get()
+  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<NRC>> {
+    const { includeInactive, limit, page } = query;
+    return this.nrcService.findAll(includeInactive, limit, page);
+>>>>>>> dev
   }
 
   @Get(':id')

@@ -6,6 +6,10 @@ import {
   Patch,
   Param,
   Delete,
+<<<<<<< HEAD
+=======
+  Query,
+>>>>>>> dev
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -13,10 +17,20 @@ import {
 import { ProfessorsService } from './professors.service';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
+<<<<<<< HEAD
 
 @Controller('professors')
 export class ProfessorsController {
   constructor(private readonly professorsService: ProfessorsService) {}
+=======
+import { User } from "@prisma/client";
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResult } from 'src/common/types/paginated-result.type';
+
+@Controller('professors')
+export class ProfessorsController {
+  constructor(private readonly professorsService: ProfessorsService) { }
+>>>>>>> dev
 
   @Post()
   create(@Body() createProfessorDto: CreateProfessorDto) {
@@ -24,8 +38,14 @@ export class ProfessorsController {
   }
 
   @Get()
+<<<<<<< HEAD
   findAll() {
     return this.professorsService.findAll();
+=======
+  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<User>> {
+    const { includeInactive, limit, page } = query;
+    return this.professorsService.findAll(includeInactive, limit, page);
+>>>>>>> dev
   }
 
   @Get(':id')
