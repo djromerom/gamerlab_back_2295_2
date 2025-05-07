@@ -167,6 +167,7 @@ export class AuthService {
         const updatedLocalUser = await this.prisma.user.update({
           where: {
             id: userId,
+            id: userId,
           },
           data: {
             confirmationStatusId: confirmedStatusId,
@@ -188,12 +189,14 @@ export class AuthService {
         error instanceof BadRequestException
       ) {
         throw error;
+        throw error;
       }
       this.logger.error(
         `Unexpected error setting password for user ${userId}: ${error.message}`,
         error.stack,
       );
       throw new InternalServerErrorException(
+        `An unexpected error happened updating the password for user ${userId}`,
         `An unexpected error happened updating the password for user ${userId}`,
       );
     }
