@@ -19,7 +19,7 @@ import {
 } from '@supabase/supabase-js';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterUserDto } from 'src/teams/dto/register-user.dto';
 import { randomUUID } from 'node:crypto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
@@ -128,10 +128,16 @@ export class AuthService {
     this.logger.log(`Attempting to set password for user ID: ${userId}`);
     const CONFIRMED_STATUS_NAME = 'CONFIRMADO';
 
-    const confirmedStatus: ConfirmationStatus =
-      this.prisma.confirmationStatus.findUnique({
+    const confirmedStatus: ConfirmationStatus | null =
+      await this.prisma.confirmationStatus.findUnique({
         where: { status: CONFIRMED_STATUS_NAME },
       });
+
+    if (!confirmedStatus) {
+      throw new InternalServerErrorException(
+        `Confirmation status '${CONFIRMED_STATUS_NAME}' not found.`,
+      );
+    }
     const confirmedStatusId: number = confirmedStatus.id;
 
     try {
@@ -202,7 +208,7 @@ export class AuthService {
   }
 
   async registerUser(
-    registerDto: RegisterDto,
+    registerDto: RegisterUserDto,
   ): Promise<{ user: UserSupabase }> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
