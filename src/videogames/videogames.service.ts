@@ -9,7 +9,11 @@ export class VideogamesService {
 
   async create(dto: CreateVideogameDto) {
     try {
+<<<<<<< HEAD
       const { name, description, teamId, logo_url } = dto;
+=======
+      const { name, description, teamId, logoUrl } = dto;
+>>>>>>> c71e011cee82851a09aadd5c14bbc36ee4a25fe2
 
       const teamIdInt = parseInt(teamId);
 
@@ -18,7 +22,11 @@ export class VideogamesService {
       });
 
       if (!existingTeam) {
+<<<<<<< HEAD
         throw new Error(`No existe el equipo con ID ${teamId}`);
+=======
+        throw new Error(`There is no team with ID ${teamId}`);
+>>>>>>> c71e011cee82851a09aadd5c14bbc36ee4a25fe2
       }
 
       const existingGame = await this.prisma.videogame.findUnique({
@@ -26,6 +34,7 @@ export class VideogamesService {
       });
 
       if (existingGame) {
+<<<<<<< HEAD
         throw new Error(`Este equipo ya tiene un videojuego registrado.`);
       }
 
@@ -39,16 +48,28 @@ export class VideogamesService {
 
       console.log(dto);
 
+=======
+        throw new Error(`This team already has a registered videogame.`);
+      }
+
+>>>>>>> c71e011cee82851a09aadd5c14bbc36ee4a25fe2
       return await this.prisma.videogame.create({
         data: {
           name,
           description,
+<<<<<<< HEAD
           logo_url: logo_url || '',
           id_estado_videojuego: estado.id_estado,
           teamId: teamIdInt,
         },
       });
 
+=======
+          logoUrl: logoUrl || '',
+          teamId: teamIdInt,
+        },
+      });
+>>>>>>> c71e011cee82851a09aadd5c14bbc36ee4a25fe2
     } catch (error) {
       console.error('Error al crear videojuego:', error);
       throw error;
@@ -56,6 +77,7 @@ export class VideogamesService {
   }
 
   async findAll() {
+<<<<<<< HEAD
     const videogames = await this.prisma.videogame.findMany({
       include: {
         team: {
@@ -77,5 +99,20 @@ export class VideogamesService {
       teamName: vg.team.teamName,
       status: vg.videogameStatus.status,
     }));
+=======
+    return 'This action returns all videogames';
+  }
+
+  async findOne(id: string) {
+    return 'This action returns a single videogame';
+  }
+
+  async update(id: string, dto: UpdateVideogameDto) {
+    return 'This action updates a videogame';
+  }
+
+  async remove(id: string) {
+    return 'This action removes a videogame';
+>>>>>>> c71e011cee82851a09aadd5c14bbc36ee4a25fe2
   }
 }

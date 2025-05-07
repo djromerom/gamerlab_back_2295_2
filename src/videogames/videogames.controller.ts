@@ -12,7 +12,10 @@ export class VideogamesController {
   create(@Body() createVideogameDto: CreateVideogameDto) {
     return this.videogamesService.create(createVideogameDto);
   }
+<<<<<<< HEAD
   //ruta publica
+=======
+>>>>>>> c71e011cee82851a09aadd5c14bbc36ee4a25fe2
   @Public()
   @Get()
   findAll() {
