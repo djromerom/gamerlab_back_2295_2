@@ -1,34 +1,48 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Put,
+  Patch,
+  Delete,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { NrcsService } from './nrcs.service';
-import { CreateNrcDto } from './dto/create-nrc.dto';
-import { UpdateNrcDto } from './dto/update-nrc.dto';
+import { Prisma } from '@prisma/client';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('nrcs')
 export class NrcsController {
-  constructor(private readonly nrcsService: NrcsService) {}
+  constructor(private readonly nrcService: NrcsService) {}
 
-  @Post()
-  create(@Body() createNrcDto: CreateNrcDto) {
-    return this.nrcsService.create(createNrcDto);
-  }
-
+  @Public()
   @Get()
   findAll() {
-    return this.nrcsService.findAll();
+    return this.nrcService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.nrcsService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.nrcService.findOne(id);
+  }
+
+  @Post()
+  create(@Body() data: Prisma.NRCCreateInput) {
+    return this.nrcService.create(data);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateNrcDto: UpdateNrcDto) {
-    return this.nrcsService.update(+id, updateNrcDto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: Prisma.NRCUpdateInput,
+  ) {
+    return this.nrcService.update(id, data);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.nrcsService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.nrcService.remove(id);
   }
 }

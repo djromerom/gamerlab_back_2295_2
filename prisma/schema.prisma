@@ -108,9 +108,9 @@ model ConfirmationStatus {
 
 model User {
   id                   String              @id @default(uuid()) @map("id_usuario")
-  name                 String?             @db.VarChar(20)
-  username             String?             @unique @db.VarChar(30)
-  email                String              @unique @map("correo") @db.VarChar(30)
+  name                 String?             @db.VarChar(50)
+  username             String?             @unique @db.VarChar(50)
+  email                String              @unique @map("correo") @db.VarChar(50)
   confirmationStatusId Int                 @default(2) @map("id_estado_confirmacion")
   isActive             Boolean             @default(true) @map("activo")
   roleId               Int                 @map("id_rol")

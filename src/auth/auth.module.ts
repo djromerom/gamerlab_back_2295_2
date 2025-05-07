@@ -1,6 +1,7 @@
 import { Module, Provider } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { SupabaseStrategy } from './supabase.strategy';
+import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
@@ -26,7 +27,7 @@ const supabaseProvider: Provider = {
 
 @Module({
   imports: [PassportModule],
-  providers: [AuthService, SupabaseStrategy, supabaseProvider],
+  providers: [AuthService, SupabaseStrategy, supabaseProvider, JwtStrategy],
   exports: [AuthService, SupabaseStrategy, SUPABASE_CLIENT],
   controllers: [AuthController],
 })

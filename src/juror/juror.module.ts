@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { JurorService } from './juror.service';
 import { JurorController } from './juror.controller';
-import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [AuthModule],
   controllers: [JurorController],
   providers: [JurorService],
 })

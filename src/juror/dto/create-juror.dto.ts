@@ -1,11 +1,12 @@
-import { IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsString, IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
 
 export class CreateJurorDto {
+  @IsString()
   @IsNotEmpty()
-  @MaxLength(20)
   name: string;
 
+  @IsNotEmpty()
   @IsEmail()
-  @MaxLength(30)
+  @IsString()
   email: string;
 }

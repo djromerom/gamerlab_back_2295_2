@@ -17,6 +17,15 @@ import { AppUser } from './supabase.strategy';
 import { GetUser } from './decorators/get-user.decorator';
 import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
+import { SetPasswordDto } from './dto/set-password.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+
+interface RequestWithUser extends Request {
+  user: {
+    sub: string;
+    email: string;
+  };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -43,6 +52,19 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(JwtAuthGuard)
+  @Post('set-password')
+  @HttpCode(HttpStatus.OK)
+  async setPassword(
+    @Req() req: RequestWithUser,
+    @Body() setPasswordDto: SetPasswordDto,
+  ): Promise<{ message: string }> {
+    const userId = req.user.sub; // Obtains 'sub' from the validated payload
+    await this.authService.setUserPassword(userId, setPasswordDto.password);
+    return { message: 'Password updated successfully' };
+  }
+
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) res: Response) {
@@ -56,5 +78,15 @@ export class AuthController {
   // by the SupabaseStrategy after successful cookie authentication
   async getMyProfile(@GetUser() user: AppUser) {
     return this.authService.getMyProfile(user.id);
+  }
+
+  @Post('update-user')
+  @HttpCode(HttpStatus.OK)
+  async updateUserProfile(
+    @Req() req: RequestWithUser,
+    @Body() updateData: Partial<User>,
+  ): Promise<Partial<User>> {
+    const userId = req.user.sub;
+    return this.authService.updateUserProfile(userId, updateData);
   }
 }

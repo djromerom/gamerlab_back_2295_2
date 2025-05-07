@@ -12,9 +12,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { User, ConfirmationStatus } from '@prisma/client';
 import { SupabaseUser } from 'nestjs-supabase-auth';
 import { SUPABASE_CLIENT } from './auth.constants';
-import { SupabaseClient, AuthError } from '@supabase/supabase-js';
+import {
+  SupabaseClient,
+  AuthError,
+  User as UserSupabase,
+} from '@supabase/supabase-js';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
+import { RegisterDto } from './dto/register.dto';
+import { randomUUID } from 'node:crypto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -35,8 +41,8 @@ export class AuthService {
     refresh_token: string,
   ) {
     const secure = this.configService.get<string>('NODE_ENV') !== 'development';
-    const accessTokenMaxAge = 1000 * 60 * 15; // 15 minutes for now
-    const refreshTokenMaxAge = 1000 * 60 * 60 * 24 * 7; // 7 days for now
+    const accessTokenMaxAge = this.configService.get<number>('ACCESS_TOKEN_EXPIRATION_MINUTES', 15) * 1000 * 60; // So if 15 minutes -> 15*60*1000 = 900.000 seconds
+    const refreshTokenMaxAge = this.configService.get<number>('REFRESH_TOKEN_EXPIRATION_DAYS', 7) * 1000 * 60 * 60 * 24; // So if 7 days -> 1000*(60^2)*24*7 = 604.800.000 seconds
 
     res.cookie(ACCESS_TOKEN_COOKIE, access_token, {
       httpOnly: true,
@@ -110,14 +116,129 @@ export class AuthService {
     );
   }
 
-  /**
-   * Handles user login using email/password via Supabase,
-   * synchronizes with the local DB, and sets auth cookies.
-   */
+  async setUserPassword(userId: string, newPassword: string): Promise<void> {
+    this.logger.log(`Attempting to set password for user ID: ${userId}`);
+    const CONFIRMED_STATUS_NAME = 'CONFIRMADO';
+
+    const confirmedStatus: ConfirmationStatus = this.prisma.confirmationStatus.findUnique({
+      where: { status: CONFIRMED_STATUS_NAME },
+    })
+    const confirmedStatusId: number = confirmedStatus.id;
+
+    try {
+      const { data, error: adminUpdateError } =
+        await this.supabase.auth.admin.updateUserById(userId, {
+          password: newPassword,
+        });
+
+      if (adminUpdateError) {
+        this.logger.error(
+          `Supabase admin updateUserById error for user ${userId}: ${adminUpdateError.message}`,
+          adminUpdateError,
+        );
+        throw new InternalServerErrorException(
+          `There was an error updating the password: ${adminUpdateError.message}`,
+        );
+      }
+
+      if (!data?.user) {
+        this.logger.warn(
+          `Supabase admin updateUserById for user ${userId} completed but returned no user data.`,
+        );
+      }
+
+      this.logger.log(
+        `Password successfully set/updated for user ID: ${userId}`,
+      );
+
+      try {
+        this.logger.log(
+          `Attempting to update local user status for ID: ${userId} to CONFIRMADO (ID: ${confirmedStatusId})`,
+        );
+        const updatedLocalUser = await this.prisma.user.update({
+          where: {
+            id: userId,
+          },
+          data: {
+            confirmationStatusId: confirmedStatusId,
+            isActive: true
+          },
+        });
+        this.logger.log(
+          `Local user status updated successfully for ID: ${userId}. New status ID: ${updatedLocalUser.confirmationStatusId}`,
+        );
+      } catch (prismaError) {
+        this.logger.error(
+          `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
+          prismaError.stack,
+        );
+      }
+
+    } catch (error) {
+      if (
+        error instanceof InternalServerErrorException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Unexpected error setting password for user ${userId}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        `An unexpected error happened updating the password for user ${userId}`,
+      );
+    }
+  }
+
+  async registerUser(
+    registerDto: RegisterDto,
+  ): Promise<{ user: UserSupabase }> {
+    this.logger.log(`Attempting to register user: ${registerDto.email}`);
+
+    try {
+      const { data, error } = await this.supabase.auth.signUp({
+        email: registerDto.email,
+        password: randomUUID(), // We generate a secure, random password for users once they signup
+        options: {
+          emailRedirectTo: this.configService.get<string>('SIGNUP_REDIRECTION_URL', 'http://localhost:5173/verificar-cuenta'),
+        },
+      });
+
+      if (error) {
+        this.handleSupabaseError(error, 'signUp');
+      }
+      if (!data?.user) {
+        this.logger.error('Supabase signUp returned no user data.');
+        throw new InternalServerErrorException(
+          'Registration failed: Incomplete data from auth provider.',
+        );
+      }
+
+      this.logger.log(
+        `Supabase registration successful for: ${registerDto.email}`,
+      );
+      return { user: data.user };
+    } catch (error) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Unexpected error during Supabase registration: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'An unexpected error occurred during registration.',
+      );
+    }
+  }
+
   async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
     let supabaseSessionData;
-
     try {
       const { data, error } = await this.supabase.auth.signInWithPassword({
         email: loginDto.email,
@@ -154,7 +275,6 @@ export class AuthService {
       );
     }
 
-    // We use the user object from the Supabase session data
     const supabaseUserForSync = {
       sub: supabaseSessionData.user.id,
       email: supabaseSessionData.user.email,
