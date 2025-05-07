@@ -167,7 +167,6 @@ export class AuthService {
         const updatedLocalUser = await this.prisma.user.update({
           where: {
             id: userId,
-            id: userId,
           },
           data: {
             confirmationStatusId: confirmedStatusId,
