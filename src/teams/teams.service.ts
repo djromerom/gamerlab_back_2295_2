@@ -24,7 +24,7 @@ export class TeamsService {
     const { teamName, videogame } = createTeamDto;
 
     const studentRole = await this.prisma.role.findUnique({
-      where: { name: 'ESTUDIANTE' },
+      where: { name: 'Estudiante' },
     });
 
     if (!studentRole) {
