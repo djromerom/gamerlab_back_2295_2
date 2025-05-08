@@ -13,6 +13,8 @@ import { CreateCriterionDto } from './dto/create-criterion.dto';
 import { Criterion } from "@prisma/client";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { SelectOption } from './types/select-option.type';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('criteria')
 export class CriterionController {
@@ -27,6 +29,12 @@ export class CriterionController {
   findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Criterion>> {
     const { includeInactive, limit, page } = query;
     return this.criterionService.findAll(includeInactive, limit, page);
+  }
+
+  @Public()
+  @Get('select-options')
+  findSelectOptions(): Promise<SelectOption[]> {
+    return this.criterionService.findForSelect();
   }
 
   @Get(':id')
