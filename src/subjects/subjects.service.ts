@@ -12,7 +12,7 @@ import { SelectOption } from './types/select-option.type';
 
 @Injectable()
 export class SubjectsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(createSubjectDto: CreateSubjectDto): Promise<Subject> {
     return this.prisma.subject.create({
@@ -24,37 +24,34 @@ export class SubjectsService {
     const subjects = await this.prisma.subject.findMany({
       where: { isActive: true },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true }
-    })
+      select: { id: true, name: true, code: true },
+    });
 
-    return subjects
-
+    return subjects;
   }
 
   async findAll(
     includeInactive: boolean,
     limit: number,
-    page: number): Promise<PaginatedResult<Subject>> {
-
+    page: number,
+  ): Promise<PaginatedResult<Subject>> {
     const offset = (page - 1) * limit;
 
-    const whereClause: Prisma.SubjectWhereInput = {}
+    const whereClause: Prisma.SubjectWhereInput = {};
 
-    if (!includeInactive)
-      whereClause.isActive = true;
+    if (!includeInactive) whereClause.isActive = true;
 
     const [items, totalItems] = await this.prisma.$transaction([
       this.prisma.subject.findMany({
         where: whereClause,
         skip: offset,
         take: limit,
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
       }),
       this.prisma.subject.count({
-        where: whereClause
-      })
-    ]
-    );
+        where: whereClause,
+      }),
+    ]);
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -66,8 +63,8 @@ export class SubjectsService {
         currentPage: page,
         itemsPerPage: limit,
         totalPages: totalPages,
-      }
-    }
+      },
+    };
   }
 
   async findOne(id: number): Promise<Subject> {
