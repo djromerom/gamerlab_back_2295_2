@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNumber } from 'class-validator';
 
 export class CreateVideogameDto {
   @IsString()
@@ -12,5 +12,5 @@ export class CreateVideogameDto {
 
   @IsOptional()
   @IsString()
-  logoUrl?: string;
+  logo_url?: string;
 }

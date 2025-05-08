@@ -8,6 +8,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
+import { PendingGamesModule } from './pending-games/pg.module';
+import { VideogameModule } from './videogames/videogames.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
@@ -20,10 +22,12 @@ import { JurorModule } from './juror/juror.module';
     AuthModule,
     SubjectsModule,
     NrcsModule,
+    PendingGamesModule,
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
     JurorModule,
+    VideogameModule,
   ],
   controllers: [AppController], 
   providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],

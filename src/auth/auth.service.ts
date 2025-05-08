@@ -41,8 +41,16 @@ export class AuthService {
     refresh_token: string,
   ) {
     const secure = this.configService.get<string>('NODE_ENV') !== 'development';
-    const accessTokenMaxAge = this.configService.get<number>('ACCESS_TOKEN_EXPIRATION_MINUTES', 15) * 1000 * 60; // So if 15 minutes -> 15*60*1000 = 900.000 seconds
-    const refreshTokenMaxAge = this.configService.get<number>('REFRESH_TOKEN_EXPIRATION_DAYS', 7) * 1000 * 60 * 60 * 24; // So if 7 days -> 1000*(60^2)*24*7 = 604.800.000 seconds
+    const accessTokenMaxAge =
+      this.configService.get<number>('ACCESS_TOKEN_EXPIRATION_MINUTES', 15) *
+      1000 *
+      60; // So if 15 minutes -> 15*60*1000 = 900.000 seconds
+    const refreshTokenMaxAge =
+      this.configService.get<number>('REFRESH_TOKEN_EXPIRATION_DAYS', 7) *
+      1000 *
+      60 *
+      60 *
+      24; // So if 7 days -> 1000*(60^2)*24*7 = 604.800.000 seconds
 
     res.cookie(ACCESS_TOKEN_COOKIE, access_token, {
       httpOnly: true,
@@ -120,9 +128,10 @@ export class AuthService {
     this.logger.log(`Attempting to set password for user ID: ${userId}`);
     const CONFIRMED_STATUS_NAME = 'CONFIRMADO';
 
-    const confirmedStatus: ConfirmationStatus = this.prisma.confirmationStatus.findUnique({
-      where: { status: CONFIRMED_STATUS_NAME },
-    })
+    const confirmedStatus: ConfirmationStatus =
+      this.prisma.confirmationStatus.findUnique({
+        where: { status: CONFIRMED_STATUS_NAME },
+      });
     const confirmedStatusId: number = confirmedStatus.id;
 
     try {
@@ -161,7 +170,7 @@ export class AuthService {
           },
           data: {
             confirmationStatusId: confirmedStatusId,
-            isActive: true
+            isActive: true,
           },
         });
         this.logger.log(
@@ -173,7 +182,6 @@ export class AuthService {
           prismaError.stack,
         );
       }
-
     } catch (error) {
       if (
         error instanceof InternalServerErrorException ||
@@ -201,7 +209,10 @@ export class AuthService {
         email: registerDto.email,
         password: randomUUID(), // We generate a secure, random password for users once they signup
         options: {
-          emailRedirectTo: this.configService.get<string>('SIGNUP_REDIRECTION_URL', 'http://localhost:5173/verificar-cuenta'),
+          emailRedirectTo: this.configService.get<string>(
+            'SIGNUP_REDIRECTION_URL',
+            'http://localhost:5173/verificar-cuenta',
+          ),
         },
       });
 

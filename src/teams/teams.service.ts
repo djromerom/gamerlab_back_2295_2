@@ -23,9 +23,13 @@ export class TeamsService {
 
     const { teamName, videogame } = createTeamDto;
 
-    const studentRole: Role = await this.prisma.role.findUnique({
-      where: { name: 'ESTUDIANTE' },
+    const studentRole = await this.prisma.role.findUnique({
+      where: { name: 'Estudiante' },
     });
+
+    if (!studentRole) {
+      throw new Error('Role "ESTUDIANTE" not found');
+    }
 
     const { user } = await this.authService.registerUser(userRegister);
 
@@ -74,6 +78,7 @@ export class TeamsService {
         description: videogame.description,
         logoUrl: videogame.logoURL,
         teamId: team.id, // ID of the team
+        videogameStatusId: 1, // Replace '1' with the appropriate status ID
       },
     });
 

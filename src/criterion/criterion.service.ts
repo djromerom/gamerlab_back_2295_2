@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Criterion } from "@prisma/client";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { CreateCriterionDto } from './dto/create-criterion.dto';
+import { SelectOption } from './types/select-option.type';
 
 @Injectable()
 export class CriterionService {
@@ -50,6 +51,16 @@ export class CriterionService {
       }
     }
 
+  }
+
+  async findForSelect(): Promise<SelectOption[]> {
+
+    const criterions = this.prisma.criterion.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true }
+    })
+
+    return criterions;
   }
 
   async findOne(id: number) {
