@@ -10,7 +10,8 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, User, Role } from '@prisma/client';
+import { PaginatedResult } from '../common/types/paginated-result.type';
 
 
 
@@ -20,10 +21,23 @@ export class JurorService {
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
   ) {}
-  
-  private readonly JUROR_ROLE_ID = 4;
+
+  private async getJurorRoleId(): Promise<number> {
+  const jurorRole = await this.prisma.role.findUnique({
+    where: { name: 'Jurado' },
+  });
+
+  if (!jurorRole) {
+    throw new Error('Role "Jurado" not found');
+  }
+
+  return jurorRole.id;
+}
+
 
   async create(dto: CreateJurorDto): Promise<User> {
+
+    const jurorRoleId = await this.getJurorRoleId();
 
     let user;
     try {
@@ -31,27 +45,27 @@ export class JurorService {
         email: dto.email,
         name: dto.name,
       });
-  
+
       user = result.user as { id: string; email: string };
-  
+
       if (!user || !user.id) {
         throw new InternalServerErrorException(
-          `Supabase no devolvió un ID de usuario para el email: ${dto.email}`,
+          `Supabase did not return a user ID for the email: ${dto.email}`,
         );
       }
-  
+
     } catch (error) {
       if (error.message?.includes('User already registered')) {
         throw new ConflictException(
-          `El email ${dto.email} ya está registrado.`,
+          `The email ${dto.email} is already registered.`,
         );
       }
-  
+
       throw new InternalServerErrorException(
-        `Error durante el registro en Supabase para ${dto.email}: ${error.message}`,
+        `Error during registration in Supabase for ${dto.email}: ${error.message}`,
       );
     }
-  
+
     try {
       const juror = await this.prisma.user.create({
         data: {
@@ -59,43 +73,57 @@ export class JurorService {
           name: dto.name,
           email: dto.email,
           username: dto.name,
-          roleId: this.JUROR_ROLE_ID,
+          roleId: jurorRoleId,
           isActive: true,
         },
       });
-  
+
       return juror;
-  
+
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ConflictException(
-            `Ya existe un jurado con el email ${dto.email} o el ID ${user.id}.`,
+            `A juror with the email ${dto.email} or ID ${user.id} already exists.`,
           );
         }
       }
-  
+
       throw new InternalServerErrorException(
-        `No se pudo guardar el jurado en la base de datos para ${dto.email}: ${error.message}`,
+        `Could not save the juror to the database for ${dto.email}: ${error.message}`,
       );
     }
   }
-  
-  
-  
-  
 
-  findAll() {
-    return this.prisma.user.findMany({
-      where: { 
-        roleId: this.JUROR_ROLE_ID, 
-        isActive: true,   
-      },
+
+
+
+  async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<User>> {
+  const offset = (page - 1) * limit;
+
+  const jurorRoleId = await this.getJurorRoleId();
+
+  const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
+
+  if (!includeInactive) {
+    whereClause.isActive = true;
+  }
+
+  const [items, totalItems] = await this.prisma.$transaction([
+    this.prisma.user.findMany({
+      where: whereClause,
+      skip: offset,
+      take: limit,
+      orderBy: { name: 'asc' },
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         confirmationStatusId: true,
+        isActive: true,
+        roleId: true,
+        createdAt: true,
         updatedAt: true,
         _count: {
           select: {
@@ -103,58 +131,86 @@ export class JurorService {
           },
         },
       },
-    });
-  }
+    }),
+    this.prisma.user.count({
+      where: whereClause,
+    }),
+  ]);
+
+  const totalPages = Math.ceil(totalItems / limit);
+
+  return {
+    data: items,
+    metadata: {
+      totalItems: totalItems,
+      itemsOnCurrentPage: items.length,
+      currentPage: page,
+      itemsPerPage: limit,
+      totalPages: totalPages,
+    },
+  };
+}
+
+
+
 
   async findOne(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
-  
+    const jurorRoleId = await this.getJurorRoleId();
+
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found.');
     }
-  
-    if (user.roleId !== this.JUROR_ROLE_ID) {
-      throw new NotFoundException('User is not a juror');
+
+    if (user.roleId !== jurorRoleId) {
+      throw new NotFoundException('User is not a juror.');
     }
-  
+
     if (!user.isActive) {
-      throw new NotFoundException('User is not active');
+      throw new NotFoundException('User is not active.');
     }
-  
+
     return user;
   }
-  
-  async update(id: string, dto: UpdateJurorDto):Promise<User> {
-    const existingjuror = await this.findOne(id);
 
-    if (!existingjuror || existingjuror.roleId !== this.JUROR_ROLE_ID) {
-      throw new NotFoundException(`Professor with ID ${id} not found.`);
+
+  async update(id: string, dto: UpdateJurorDto): Promise<User> {
+    const existingJuror = await this.findOne(id);
+    const jurorRoleId = await this.getJurorRoleId();
+
+    if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
+      throw new NotFoundException(`Juror with ID ${id} not found.`);
     }
-    if (dto.email) {
-      const existingEmail = await this.prisma.user.findUnique(
-        { where: { email: dto.email, isActive: true, } });
 
-      if (existingEmail && existingEmail.id !== id){
-        throw new ConflictException('Email is already in use by another user');
+    if (dto.email) {
+      const existingEmail = await this.prisma.user.findUnique({
+        where: { email: dto.email, isActive: true },
+      });
+
+      if (existingEmail && existingEmail.id !== id) {
+        throw new ConflictException('Email is already in use by another user.');
       }
     }
 
     return this.prisma.user.update({
-      where: { id: existingjuror.id },
+      where: { id: existingJuror.id },
       data: dto,
     });
   }
 
+  
   async remove(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
+    const jurorRoleId = await this.getJurorRoleId();
 
-    if (!user|| user.roleId !== this.JUROR_ROLE_ID) {
-      throw new NotFoundException(`User with ID ${id} not found.`);
+    if (!user || user.roleId !== jurorRoleId) {
+      throw new NotFoundException(`Juror with ID ${id} not found.`);
     }
+
     return this.prisma.user.update({
       where: { id: user.id },
-      data: { isActive: false,
-        }, 
+      data: { isActive: false },
     });
   }
 }
+
