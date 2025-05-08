@@ -19,7 +19,8 @@ import {
 } from '@supabase/supabase-js';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
-import { RegisterDto } from './dto/Register.dto';
+import { RegisterUserDto } from 'src/teams/dto/register-user.dto';
+import { randomUUID } from 'node:crypto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -40,8 +41,16 @@ export class AuthService {
     refresh_token: string,
   ) {
     const secure = this.configService.get<string>('NODE_ENV') !== 'development';
-    const accessTokenMaxAge = 1000 * 60 * 15 * 60 * 24; // 15 days for now
-    const refreshTokenMaxAge = 1000 * 60 * 60 * 24 * 7; // 7 days for now
+    const accessTokenMaxAge =
+      this.configService.get<number>('ACCESS_TOKEN_EXPIRATION_MINUTES', 15) *
+      1000 *
+      60; // So if 15 minutes -> 15*60*1000 = 900.000 seconds
+    const refreshTokenMaxAge =
+      this.configService.get<number>('REFRESH_TOKEN_EXPIRATION_DAYS', 7) *
+      1000 *
+      60 *
+      60 *
+      24; // So if 7 days -> 1000*(60^2)*24*7 = 604.800.000 seconds
 
     res.cookie(ACCESS_TOKEN_COOKIE, access_token, {
       httpOnly: true,
@@ -117,12 +126,21 @@ export class AuthService {
 
   async setUserPassword(userId: string, newPassword: string): Promise<void> {
     this.logger.log(`Attempting to set password for user ID: ${userId}`);
-    const CONFIRMED_STATUS_NAME = 'Confirmado'; // O el nombre exacto que uses
-    let confirmedStatusId: number = 1;
-    // La validación de complejidad ya la hizo el DTO gracias a class-validator
+    const CONFIRMED_STATUS_NAME = 'CONFIRMADO';
+
+    const confirmedStatus: ConfirmationStatus | null =
+      await this.prisma.confirmationStatus.findUnique({
+        where: { status: CONFIRMED_STATUS_NAME },
+      });
+
+    if (!confirmedStatus) {
+      throw new InternalServerErrorException(
+        `Confirmation status '${CONFIRMED_STATUS_NAME}' not found.`,
+      );
+    }
+    const confirmedStatusId: number = confirmedStatus.id;
 
     try {
-      // Usa la API de Admin para actualizar por ID
       const { data, error: adminUpdateError } =
         await this.supabase.auth.admin.updateUserById(userId, {
           password: newPassword,
@@ -133,18 +151,15 @@ export class AuthService {
           `Supabase admin updateUserById error for user ${userId}: ${adminUpdateError.message}`,
           adminUpdateError,
         );
-        // Puedes mapear errores específicos de Supabase si es necesario
         throw new InternalServerErrorException(
-          `No se pudo actualizar la contraseña: ${adminUpdateError.message}`,
+          `There was an error updating the password: ${adminUpdateError.message}`,
         );
       }
 
-      // Verifica si la actualización realmente devolvió un usuario (opcional pero bueno)
       if (!data?.user) {
         this.logger.warn(
           `Supabase admin updateUserById for user ${userId} completed but returned no user data.`,
         );
-        // Considera esto un éxito parcial o un error dependiendo de tu lógica
       }
 
       this.logger.log(
@@ -157,62 +172,55 @@ export class AuthService {
         );
         const updatedLocalUser = await this.prisma.user.update({
           where: {
-            id: userId, // Asegúrate que el ID en tu tabla usuarios coincida con el de Supabase Auth
+            id: userId,
           },
           data: {
-            // Actualiza el campo usando el ID mapeado @map("id_estado_confirmacion")
-            confirmationStatusId: confirmedStatusId, // Usa el ID obtenido arriba (o 1 si estás seguro)
-            // Podrías querer activar al usuario también si no lo estaba,
-            // aunque tu lógica de syncSupabaseUser parece manejar esto
-            // isActive: true,
+            confirmationStatusId: confirmedStatusId,
+            isActive: true,
           },
         });
         this.logger.log(
           `Local user status updated successfully for ID: ${userId}. New status ID: ${updatedLocalUser.confirmationStatusId}`,
         );
       } catch (prismaError) {
-        // Manejo de errores específicos de Prisma al actualizar
         this.logger.error(
           `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
           prismaError.stack,
         );
-        // Considera qué hacer aquí. ¿Es un error fatal si falla la actualización local?
-        // Por ahora, solo lo logueamos, ya que la contraseña SÍ se estableció en Supabase.
-        // Podrías lanzar una excepción si es crítico que ambos pasos funcionen:
-        // throw new InternalServerErrorException('Failed to update local user status.');
       }
-
-      // No necesitas devolver nada en caso de éxito, o podrías devolver un mensaje simple
     } catch (error) {
-      // Captura errores no esperados o los re-lanzados desde el if(adminUpdateError)
       if (
         error instanceof InternalServerErrorException ||
         error instanceof BadRequestException
       ) {
-        throw error; // Re-lanza excepciones HTTP conocidas
+        throw error;
+        throw error;
       }
       this.logger.error(
         `Unexpected error setting password for user ${userId}: ${error.message}`,
         error.stack,
       );
       throw new InternalServerErrorException(
-        'Ocurrió un error inesperado al actualizar la contraseña.',
+        `An unexpected error happened updating the password for user ${userId}`,
+        `An unexpected error happened updating the password for user ${userId}`,
       );
     }
   }
 
   async registerUser(
-    registerDto: RegisterDto,
+    registerDto: RegisterUserDto,
   ): Promise<{ user: UserSupabase }> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
     try {
-      const password = '1236547890';
       const { data, error } = await this.supabase.auth.signUp({
         email: registerDto.email,
-        password: password,
+        password: randomUUID(), // We generate a secure, random password for users once they signup
         options: {
-          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+          emailRedirectTo: this.configService.get<string>(
+            'SIGNUP_REDIRECTION_URL',
+            'http://localhost:5173/verificar-cuenta',
+          ),
         },
       });
 

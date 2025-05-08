@@ -9,7 +9,7 @@ export class VideogamesService {
 
   async create(dto: CreateVideogameDto) {
     try {
-      const { name, description, teamId, logo_url } = dto;
+      const { name, description, teamId, logoUrl } = dto;
 
       const teamIdInt = parseInt(teamId);
 
@@ -18,7 +18,7 @@ export class VideogamesService {
       });
 
       if (!existingTeam) {
-        throw new Error(`No existe el equipo con ID ${teamId}`);
+        throw new Error(`There is no team with ID ${teamId}`);
       }
 
       const existingGame = await this.prisma.videogame.findUnique({
@@ -26,32 +26,36 @@ export class VideogamesService {
       });
 
       if (existingGame) {
-        throw new Error(`Este equipo ya tiene un videojuego registrado.`);
+        throw new Error(`This team already has a registered videogame.`);
       }
-
-      const estado = await this.prisma.estado_videojuego.findFirst({
-        where: { estado: 'pendiente' },
-      });
-
-      if (!estado) {
-        throw new Error('No se encontró el estado inicial para el videojuego.');
-      }
-
-      console.log(dto);
 
       return await this.prisma.videogame.create({
         data: {
           name,
           description,
-          logo_url: logo_url || '',
-          id_estado_videojuego: estado.id_estado,
+          logoUrl: logoUrl || '',
           teamId: teamIdInt,
         },
       });
-
     } catch (error) {
       console.error('Error al crear videojuego:', error);
       throw error;
     }
+  }
+
+  async findAll() {
+    return 'This action returns all videogames';
+  }
+
+  async findOne(id: string) {
+    return 'This action returns a single videogame';
+  }
+
+  async update(id: string, dto: UpdateVideogameDto) {
+    return 'This action updates a videogame';
+  }
+
+  async remove(id: string) {
+    return 'This action removes a videogame';
   }
 }
