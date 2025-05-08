@@ -23,6 +23,8 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
+import { Public } from '../auth/decorators/public.decorator';
+import { SelectOption } from './types/select-option.type';
 
 @Controller('subjects')
 export class SubjectsController {
@@ -41,6 +43,12 @@ export class SubjectsController {
   async findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Subject>> {
     const { includeInactive, limit, page } = query;
     return this.subjectsService.findAll(includeInactive, limit, page);
+  }
+
+  @Public()
+  @Get('select-options')
+  async selectOptions(): Promise<SelectOption[]> {
+    return this.subjectsService.findForSelect();
   }
 
   @Get(':id')
