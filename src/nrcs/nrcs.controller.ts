@@ -11,11 +11,13 @@ import {
 } from '@nestjs/common';
 import { NrcsService } from './nrcs.service';
 import { Prisma } from '@prisma/client';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('nrcs')
 export class NrcsController {
   constructor(private readonly nrcService: NrcsService) {}
 
+  @Public()
   @Get()
   findAll() {
     return this.nrcService.findAll();
