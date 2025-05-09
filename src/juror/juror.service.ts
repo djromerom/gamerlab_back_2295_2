@@ -96,60 +96,54 @@ export class JurorService {
   }
 
 
+  async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<JurorListItem>> {
+    const offset = (page - 1) * limit;
 
+    const jurorRoleId = await this.getJurorRoleId();
 
-  async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<User>> {
-  const offset = (page - 1) * limit;
+    const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
 
-  const jurorRoleId = await this.getJurorRoleId();
+    if (!includeInactive) {
+      whereClause.isActive = true;
+    }
 
-  const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
-
-  if (!includeInactive) {
-    whereClause.isActive = true;
-  }
-
-  const [items, totalItems] = await this.prisma.$transaction([
-    this.prisma.user.findMany({
-      where: whereClause,
-      skip: offset,
-      take: limit,
-      orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        email: true,
-        confirmationStatusId: true,
-        isActive: true,
-        roleId: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            evaluationsSubmitted: true,
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where: whereClause,
+        skip: offset,
+        take: limit,
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          confirmationStatusId: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              evaluationsSubmitted: true,
+            },
           },
         },
+      }),
+      this.prisma.user.count({
+        where: whereClause,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data: items,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
       },
-    }),
-    this.prisma.user.count({
-      where: whereClause,
-    }),
-  ]);
-
-  const totalPages = Math.ceil(totalItems / limit);
-
-  return {
-    data: items,
-    metadata: {
-      totalItems: totalItems,
-      itemsOnCurrentPage: items.length,
-      currentPage: page,
-      itemsPerPage: limit,
-      totalPages: totalPages,
-    },
-  };
-}
+    };
+  }
 
 
 
@@ -198,7 +192,7 @@ export class JurorService {
     });
   }
 
-  
+
   async remove(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     const jurorRoleId = await this.getJurorRoleId();
@@ -214,3 +208,13 @@ export class JurorService {
   }
 }
 
+  export type JurorListItem = {
+    id: string;
+    name: string | null;
+    email: string;
+    confirmationStatusId: number;
+    updatedAt: Date;
+    _count: {
+      evaluationsSubmitted: number;
+    };
+  };

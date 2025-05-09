@@ -1,10 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { JurorService } from './juror.service';
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { UseGuards } from '@nestjs/common';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { User } from '@prisma/client';
+import { JurorListItem } from './juror.service';
 
 
 @Controller('juror')
@@ -17,8 +21,9 @@ export class JurorController {
   }
 
   @Get()
-  findAll() {
-    return this.jurorService.findAll();
+  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<JurorListItem>> {
+    const { includeInactive, limit, page } = query;
+    return this.jurorService.findAll(includeInactive, limit, page);
   }
 
   @Get(':id')
