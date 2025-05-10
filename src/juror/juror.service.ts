@@ -36,7 +36,6 @@ export class JurorService {
 
 
   async create(dto: CreateJurorDto): Promise<User & { _count: number } >{
-
     const jurorRoleId = await this.getJurorRoleId();
 
     let user;
@@ -110,7 +109,7 @@ export class JurorService {
 
     const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
 
-    // Problem with includeInactive when passed from fronted, therefore the condition has been deleted meanwhile
+    // TODO: Implement support for 'includeInactive' query param
     whereClause.isActive = true;
 
     const [items, totalItems] = await this.prisma.$transaction([
@@ -174,38 +173,39 @@ export class JurorService {
   }
 
 
-async update(id: string, dto: UpdateJurorDto): Promise<User & { _count: number }> {
-  const existingJuror = await this.findOne(id);
-  const jurorRoleId = await this.getJurorRoleId();
 
-  if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
-    throw new NotFoundException(`Juror with ID ${id} not found.`);
-  }
+  async update(id: string, dto: UpdateJurorDto): Promise<User & { _count: number }> {
+    const existingJuror = await this.findOne(id);
+    const jurorRoleId = await this.getJurorRoleId();
 
-  if (dto.email) {
-    const existingEmail = await this.prisma.user.findUnique({
-      where: { email: dto.email, isActive: true },
+    if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
+      throw new NotFoundException(`Juror with ID ${id} not found.`);
+    }
+
+    if (dto.email) {
+      const existingEmail = await this.prisma.user.findUnique({
+        where: { email: dto.email, isActive: true },
+      });
+
+      if (existingEmail && existingEmail.id !== id) {
+        throw new ConflictException('Email is already in use by another user.');
+      }
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: existingJuror.id },
+      data: dto,
     });
 
-    if (existingEmail && existingEmail.id !== id) {
-      throw new ConflictException('Email is already in use by another user.');
-    }
+    const _count = await this.prisma.evaluation.count({
+      where: { jurorId: id },
+    });
+
+    return {
+      ...updatedUser,
+      _count,
+    };
   }
-
-  const updatedUser = await this.prisma.user.update({
-    where: { id: existingJuror.id },
-    data: dto,
-  });
-
-  const _count = await this.prisma.evaluation.count({
-    where: { jurorId: id },
-  });
-
-  return {
-    ...updatedUser,
-    _count,
-  };
-}
 
   async remove(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
