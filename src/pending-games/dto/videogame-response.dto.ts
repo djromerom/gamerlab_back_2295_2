@@ -13,7 +13,7 @@ export class VideogameResponseDto {
 
   @IsString()
   @IsOptional()
-  descripcion?: string; // Agregar el campo "descripcion"
+  description?: string; // Agregar el campo "descripcion"
 
   @IsString()
   teamName: string;

@@ -7,13 +7,15 @@ export class VideogamesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getAllVideogamesWithDetails(
+    jurorId: string,
     page: number = 1,
     limit: number = 10,
   ): Promise<{ data: VideogameResponseDto[]; metadata: any }> {
     const offset = (page - 1) * limit;
 
-    // Obtener los IDs de los videojuegos que ya están en la tabla "evaluacion"
-    const evaluatedVideogameIds = await this.prisma.evaluation.findMany({
+    // Obtener las evaluaciones realizadas por el usuario actual
+    const evaluationsByUser = await this.prisma.evaluation.findMany({
+      where: { jurorId },
       select: {
         videogameId: true,
       },
@@ -57,20 +59,29 @@ export class VideogamesService {
 
     const totalPages = Math.ceil(totalItems / limit);
 
-    // Mapear los videojuegos y agregar el indicador "isEvaluated"
-    const data = videogames.map((videogame) => ({
-      videogameId: videogame.id,
-      videogameName: videogame.name,
-      logoUrl: videogame.logoUrl,
-      descripcion: videogame.description || 'Sin descripción',
-      teamName: videogame.team?.teamName || 'Sin equipo',
-      members: videogame.team?.members?.map((member) => ({
-        fullName: `${member.firstName} ${member.lastName}`,
-      })) || [],
-      nrc: videogame.team?.members?.[0]?.nrcs?.[0]?.code || 'Sin NRC',
-      subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
-      isEvaluated: evaluatedVideogameIds.includes(videogame.id),
-    }));
+    // Mapear los videojuegos y agregar el indicador "isEvaluated" y NRCs únicos
+    const data = videogames.map((videogame) => {
+      const uniqueNrcs = Array.from(
+        new Set(
+          videogame.team?.members
+            ?.flatMap((member) => member.nrcs?.map((nrc) => nrc.code) || [])
+        )
+      );
+
+      return {
+        videogameId: videogame.id,
+        videogameName: videogame.name,
+        logoUrl: videogame.logoUrl,
+        description: videogame.description || 'Sin descripción',
+        teamName: videogame.team?.teamName || 'Sin equipo',
+        members: videogame.team?.members?.map((member) => ({
+          fullName: `${member.firstName} ${member.lastName}`,
+        })) || [],
+        nrc: uniqueNrcs.join(', ') || 'Sin NRC',
+        subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
+        isEvaluated: evaluationsByUser.includes(videogame.id), // Verificar si fue evaluado por el usuario actual
+      };
+    });
 
     return {
       data,

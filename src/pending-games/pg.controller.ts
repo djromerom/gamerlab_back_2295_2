@@ -17,6 +17,7 @@ export class VideogamesController {
   ) {
     const jurorId = req.user.id; // Obtener el ID del jurado desde el usuario autenticado
     const videogames = await this.videogamesService.getAllVideogamesWithDetails(
+      jurorId, // Pasar el jurorId al servicio
       page,
       limit,
     );
