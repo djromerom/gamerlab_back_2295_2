@@ -23,6 +23,7 @@ export class PendingGamesGuard implements CanActivate {
     // 2. Get user object from request
     const request = context.switchToHttp().getRequest();
     const user = request.user as AppUser;
+    const jurorId = user.id; // Aquí obtienes el ID del jurado
 
     if (!user) {
       throw new UnauthorizedException('Usuario no autenticado');

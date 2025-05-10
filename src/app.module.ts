@@ -10,10 +10,10 @@ import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { PendingGamesModule } from './pending-games/pg.module';
 import { join } from 'path';
-
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
+import { EvaluationModule } from './evaluation/evaluation.module';
 
 @Module({
   imports: [
@@ -26,6 +26,8 @@ import { TeamsModule } from './teams/teams.module';
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
+    EvaluationModule
+
   ],
   controllers: [AppController],
   // We provide the AuthGuard as a global guard for all routes
