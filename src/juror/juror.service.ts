@@ -168,30 +168,38 @@ export class JurorService {
   }
 
 
-  async update(id: string, dto: UpdateJurorDto): Promise<User> {
-    const existingJuror = await this.findOne(id);
-    const jurorRoleId = await this.getJurorRoleId();
+async update(id: string, dto: UpdateJurorDto): Promise<{ user: User; evaluatedGamesCount: number }> {
+  const existingJuror = await this.findOne(id);
+  const jurorRoleId = await this.getJurorRoleId();
 
-    if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
-      throw new NotFoundException(`Juror with ID ${id} not found.`);
-    }
-
-    if (dto.email) {
-      const existingEmail = await this.prisma.user.findUnique({
-        where: { email: dto.email, isActive: true },
-      });
-
-      if (existingEmail && existingEmail.id !== id) {
-        throw new ConflictException('Email is already in use by another user.');
-      }
-    }
-
-    return this.prisma.user.update({
-      where: { id: existingJuror.id },
-      data: dto,
-    });
+  if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
+    throw new NotFoundException(`Juror with ID ${id} not found.`);
   }
 
+  if (dto.email) {
+    const existingEmail = await this.prisma.user.findUnique({
+      where: { email: dto.email, isActive: true },
+    });
+
+    if (existingEmail && existingEmail.id !== id) {
+      throw new ConflictException('Email is already in use by another user.');
+    }
+  }
+
+  const updatedUser = await this.prisma.user.update({
+    where: { id: existingJuror.id },
+    data: dto,
+  });
+
+  const evaluatedGamesCount = await this.prisma.evaluation.count({
+    where: { jurorId: id },
+  });
+
+  return {
+    user: updatedUser,
+    evaluatedGamesCount,
+  };
+}
 
   async remove(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
