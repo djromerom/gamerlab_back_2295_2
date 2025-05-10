@@ -35,7 +35,7 @@ export class JurorService {
 }
 
 
-  async create(dto: CreateJurorDto): Promise<User> {
+  async create(dto: CreateJurorDto): Promise<User & { _count: number } >{
 
     const jurorRoleId = await this.getJurorRoleId();
 
@@ -77,8 +77,15 @@ export class JurorService {
           isActive: true,
         },
       });
+      
+      const _count = await this.prisma.evaluation.count({
+        where: { jurorId: juror.id },
+      });
 
-      return juror;
+      return {
+        ...juror,
+        _count,
+      };
 
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -103,9 +110,8 @@ export class JurorService {
 
     const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
 
-    if (!includeInactive) {
-      whereClause.isActive = true;
-    }
+    // Problem with includeInactive when passed from fronted, therefore the condition has been deleted meanwhile
+    whereClause.isActive = true;
 
     const [items, totalItems] = await this.prisma.$transaction([
       this.prisma.user.findMany({
@@ -168,7 +174,7 @@ export class JurorService {
   }
 
 
-async update(id: string, dto: UpdateJurorDto): Promise<{ user: User; evaluatedGamesCount: number }> {
+async update(id: string, dto: UpdateJurorDto): Promise<User & { _count: number }> {
   const existingJuror = await this.findOne(id);
   const jurorRoleId = await this.getJurorRoleId();
 
@@ -191,13 +197,13 @@ async update(id: string, dto: UpdateJurorDto): Promise<{ user: User; evaluatedGa
     data: dto,
   });
 
-  const evaluatedGamesCount = await this.prisma.evaluation.count({
+  const _count = await this.prisma.evaluation.count({
     where: { jurorId: id },
   });
 
   return {
-    user: updatedUser,
-    evaluatedGamesCount,
+    ...updatedUser,
+    _count,
   };
 }
 
