@@ -35,8 +35,7 @@ export class JurorService {
 }
 
 
-  async create(dto: CreateJurorDto): Promise<User> {
-
+  async create(dto: CreateJurorDto): Promise<User & { _count: number } >{
     const jurorRoleId = await this.getJurorRoleId();
 
     let user;
@@ -77,8 +76,15 @@ export class JurorService {
           isActive: true,
         },
       });
+      
+      const _count = await this.prisma.evaluation.count({
+        where: { jurorId: juror.id },
+      });
 
-      return juror;
+      return {
+        ...juror,
+        _count,
+      };
 
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -103,9 +109,8 @@ export class JurorService {
 
     const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
 
-    if (!includeInactive) {
-      whereClause.isActive = true;
-    }
+    // TODO: Implement support for 'includeInactive' query param
+    whereClause.isActive = true;
 
     const [items, totalItems] = await this.prisma.$transaction([
       this.prisma.user.findMany({
@@ -168,7 +173,8 @@ export class JurorService {
   }
 
 
-  async update(id: string, dto: UpdateJurorDto): Promise<User> {
+
+  async update(id: string, dto: UpdateJurorDto): Promise<User & { _count: number }> {
     const existingJuror = await this.findOne(id);
     const jurorRoleId = await this.getJurorRoleId();
 
@@ -186,12 +192,20 @@ export class JurorService {
       }
     }
 
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: existingJuror.id },
       data: dto,
     });
-  }
 
+    const _count = await this.prisma.evaluation.count({
+      where: { jurorId: id },
+    });
+
+    return {
+      ...updatedUser,
+      _count,
+    };
+  }
 
   async remove(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
