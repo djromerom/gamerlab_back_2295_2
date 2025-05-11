@@ -11,7 +11,8 @@ import { NrcsModule } from './nrcs/nrcs.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
-import { EvaluationsModule } from './evaluations/evaluations.module';
+import { ReportsModule } from './reports/reports.module';
+
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { EvaluationsModule } from './evaluations/evaluations.module';
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
-    EvaluationsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   // We provide the AuthGuard as a global guard for all routes
