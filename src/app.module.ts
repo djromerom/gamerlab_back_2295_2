@@ -9,10 +9,11 @@ import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { PendingGamesModule } from './pending-games/pg.module';
-import { join } from 'path';
+import { VideogameModule } from './videogames/videogames.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
+import { JurorModule } from './juror/juror.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
 
 @Module({
@@ -26,11 +27,11 @@ import { EvaluationModule } from './evaluation/evaluation.module';
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
-    EvaluationModule
-
+    JurorModule,
+    VideogameModule,
+    EvaluationModule,
   ],
   controllers: [AppController],
-  // We provide the AuthGuard as a global guard for all routes
   providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],
 })
 export class AppModule {}

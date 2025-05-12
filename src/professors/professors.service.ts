@@ -12,6 +12,7 @@ import { Prisma, User, Role } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
+import { SelectOption } from './types/select-option.type';
 
 @Injectable()
 export class ProfessorsService {
@@ -95,6 +96,23 @@ export class ProfessorsService {
     }
   }
 
+  async findForSelect(): Promise<SelectOption[]> {
+
+    const PROFESSOR_ROLE_NAME = 'Profesor';
+
+    const professorRole: Role | null = await this.prisma.role.findUnique({
+      where: { name: PROFESSOR_ROLE_NAME, isActive: true }
+    })
+
+    const professorRoleId = professorRole.id;
+
+    const professors = await this.prisma.user.findMany({
+      where: { roleId: professorRoleId, isActive: true },
+      select: { name: true, id: true }
+    });
+
+    return professors;
+  }
   async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<User>> {
 
     const offset = (page - 1) * limit;

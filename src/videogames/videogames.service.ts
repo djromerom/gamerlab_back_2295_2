@@ -9,7 +9,7 @@ export class VideogamesService {
 
   async create(dto: CreateVideogameDto) {
     try {
-      const { name, description, teamId, logoUrl } = dto;
+      const { name, description, teamId, logo_url } = dto;
 
       const teamIdInt = parseInt(teamId);
 
@@ -18,7 +18,7 @@ export class VideogamesService {
       });
 
       if (!existingTeam) {
-        throw new Error(`There is no team with ID ${teamId}`);
+        throw new Error(`No existe el equipo con ID ${teamId}`);
       }
 
       const existingGame = await this.prisma.videogame.findUnique({
@@ -26,14 +26,25 @@ export class VideogamesService {
       });
 
       if (existingGame) {
-        throw new Error(`This team already has a registered videogame.`);
+        throw new Error(`Este equipo ya tiene un videojuego registrado.`);
       }
+
+      const estado = await this.prisma.estado_videojuego.findFirst({
+        where: { estado: 'pendiente' },
+      });
+
+      if (!estado) {
+        throw new Error('No se encontró el estado inicial para el videojuego.');
+      }
+
+      console.log(dto);
 
       return await this.prisma.videogame.create({
         data: {
           name,
           description,
-          logoUrl: logoUrl || '',
+          logo_url: logo_url || '',
+          id_estado_videojuego: estado.id_estado,
           teamId: teamIdInt,
         },
       });
@@ -44,18 +55,26 @@ export class VideogamesService {
   }
 
   async findAll() {
-    return 'This action returns all videogames';
-  }
+    const videogames = await this.prisma.videogame.findMany({
+      include: {
+        team: {
+          select: {
+            teamName: true,
+          },
+        },
+        videogameStatus: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
 
-  async findOne(id: string) {
-    return 'This action returns a single videogame';
-  }
-
-  async update(id: string, dto: UpdateVideogameDto) {
-    return 'This action updates a videogame';
-  }
-
-  async remove(id: string) {
-    return 'This action removes a videogame';
+    return videogames.map((vg) => ({
+      name: vg.name,
+      logoUrl: vg.logoUrl,
+      teamName: vg.team.teamName,
+      status: vg.videogameStatus.status,
+    }));
   }
 }
