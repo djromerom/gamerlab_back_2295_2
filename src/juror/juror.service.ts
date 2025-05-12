@@ -13,8 +13,6 @@ import { AuthService } from 'src/auth/auth.service';
 import { Prisma, User, Role } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 
-
-
 @Injectable()
 export class JurorService {
   constructor(
@@ -23,19 +21,18 @@ export class JurorService {
   ) {}
 
   private async getJurorRoleId(): Promise<number> {
-  const jurorRole = await this.prisma.role.findUnique({
-    where: { name: 'Jurado' },
-  });
+    const jurorRole = await this.prisma.role.findUnique({
+      where: { name: 'Jurado' },
+    });
 
-  if (!jurorRole) {
-    throw new Error('Role "Jurado" not found');
+    if (!jurorRole) {
+      throw new Error('Role "Jurado" not found');
+    }
+
+    return jurorRole.id;
   }
 
-  return jurorRole.id;
-}
-
-
-  async create(dto: CreateJurorDto): Promise<User & { _count: number } >{
+  async create(dto: CreateJurorDto): Promise<User & { _count: number }> {
     const jurorRoleId = await this.getJurorRoleId();
 
     let user;
@@ -52,7 +49,6 @@ export class JurorService {
           `Supabase did not return a user ID for the email: ${dto.email}`,
         );
       }
-
     } catch (error) {
       if (error.message?.includes('User already registered')) {
         throw new ConflictException(
@@ -76,7 +72,7 @@ export class JurorService {
           isActive: true,
         },
       });
-      
+
       const _count = await this.prisma.evaluation.count({
         where: { jurorId: juror.id },
       });
@@ -85,7 +81,6 @@ export class JurorService {
         ...juror,
         _count,
       };
-
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -101,8 +96,11 @@ export class JurorService {
     }
   }
 
-
-  async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<JurorListItem>> {
+  async findAll(
+    includeInactive: boolean,
+    limit: number,
+    page: number,
+  ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
 
     const jurorRoleId = await this.getJurorRoleId();
@@ -123,7 +121,7 @@ export class JurorService {
           name: true,
           email: true,
           confirmationStatusId: true,
-          updatedAt: true,
+          lastSignInAt: true,
           _count: {
             select: {
               evaluationsSubmitted: true,
@@ -150,9 +148,6 @@ export class JurorService {
     };
   }
 
-
-
-
   async findOne(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     const jurorRoleId = await this.getJurorRoleId();
@@ -172,9 +167,10 @@ export class JurorService {
     return user;
   }
 
-
-
-  async update(id: string, dto: UpdateJurorDto): Promise<User & { _count: number }> {
+  async update(
+    id: string,
+    dto: UpdateJurorDto,
+  ): Promise<User & { _count: number }> {
     const existingJuror = await this.findOne(id);
     const jurorRoleId = await this.getJurorRoleId();
 
@@ -222,13 +218,13 @@ export class JurorService {
   }
 }
 
-  export type JurorListItem = {
-    id: string;
-    name: string | null;
-    email: string;
-    confirmationStatusId: number;
-    updatedAt: Date;
-    _count: {
-      evaluationsSubmitted: number;
-    };
+export type JurorListItem = {
+  id: string;
+  name: string | null;
+  email: string;
+  confirmationStatusId: number;
+  updatedAt: Date;
+  _count: {
+    evaluationsSubmitted: number;
   };
+};
