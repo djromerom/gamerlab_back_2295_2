@@ -29,7 +29,7 @@ export class ReportsController {
 
   @Get('DatosGraficoMateria')
   async getAverageScorePerSubject() {
-    return this.reportsService.getAverageScorePerSubject();
+    return this.reportsService.getSubjectAverageScores();
 }
 
 
