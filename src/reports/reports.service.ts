@@ -145,11 +145,11 @@ export class ReportsService {
     });
   }
 
-  async getSubjects(): Promise<{ id: number; nombre: string }[]> {
+  async getSubjects(): Promise<{ id: number; name: string }[]> {
     return this.prisma.subject.findMany({
       select: {
         id: true,
-        nombre: true,
+        name: true,
       },
     });
   }
@@ -189,7 +189,7 @@ async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
                     include: {
                       evaluations: {
                         include: {
-                          detalleEvaluaciones: true,
+                          details: true,
                         },
                       },
                     },
@@ -216,7 +216,7 @@ async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
         const evaluations = videogame?.evaluations ?? [];
 
         for (const evaluation of evaluations) {
-          for (const detail of evaluation.detalleEvaluaciones) {
+          for (const detail of evaluation.details) {
             totalScore += detail.score;
             scoreCount++;
           }
