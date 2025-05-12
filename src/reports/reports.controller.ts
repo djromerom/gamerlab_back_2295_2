@@ -16,6 +16,22 @@ export class ReportsController {
   async getWithMateriaYNRC() {
     return this.reportsService.getVideogamesWithSubjectAndNRC();
   }
-  
+
+  @Get('subjects')
+  async getSubjects() {
+    return this.reportsService.getSubjects();
+}
+
+  @Get('nrc-subjects')
+  async getNrcWithSubjectName() {
+    return this.reportsService.getNrcWithSubjectName();
+}
+
+  @Get('average-by-subject')
+  async getAverageScorePerSubject() {
+    return this.reportsService.getAverageScorePerSubject();
+}
+
+
 
 }

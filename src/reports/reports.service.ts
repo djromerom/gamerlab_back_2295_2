@@ -144,5 +144,85 @@ export class ReportsService {
       };
     });
   }
-  
+
+  async getSubjects(): Promise<{ id: number; nombre: string }[]> {
+    return this.prisma.subject.findMany({
+      select: {
+        id: true,
+        nombre: true,
+      },
+    });
+  }
+
+  async getNrcWithSubjectName(): Promise<
+  { id: number; codigo: number; materiaNombre: string }[]
+> {
+  const nrcs = await this.prisma.nRC.findMany({
+    select: {
+      id: true,
+      code: true,
+      subject: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  return nrcs.map(nrc => ({
+    id: nrc.id,
+    codigo: nrc.code,
+    materiaNombre: nrc.subject.name,
+  }));
+}
+
+  async getAverageScorePerSubject(): Promise<{ name: string; value: number }[]> {
+    const subjects = await this.prisma.subject.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        nrcs: {
+          select: {
+            videogames: {
+              select: {
+                evaluations: {
+                  select: {
+                    evaluationDetails: {
+                      select: { score: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const result = subjects.map((subject) => {
+      const allScores: number[] = [];
+
+      subject.nrcs.forEach((nrc) => {
+        nrc.videogames.forEach((vg) => {
+          vg.evaluations.forEach((ev) => {
+            ev.evaluationDetails.forEach((detail) => {
+              allScores.push(detail.score);
+            });
+          });
+        });
+      });
+
+      const total = allScores.reduce((acc, curr) => acc + curr, 0);
+      const avg = allScores.length > 0 ? total / allScores.length : 0;
+
+      return {
+        name: subject.name,
+        value: parseFloat(avg.toFixed(2)),
+      };
+    });
+
+    return result;
+  }
+
 }
