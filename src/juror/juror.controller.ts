@@ -8,12 +8,12 @@ import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { User } from '@prisma/client';
-import { JurorListItem } from './juror.service';
+import { JurorListItem } from './types/juror-list-item.type';
 
 
 @Controller('juror')
 export class JurorController {
-  constructor(private readonly jurorService: JurorService) {}
+  constructor(private readonly jurorService: JurorService) { }
 
   @Post()
   create(@Body() dto: CreateJurorDto) {
@@ -41,5 +41,5 @@ export class JurorController {
     return this.jurorService.remove(id);
   }
 
-  
+
 }

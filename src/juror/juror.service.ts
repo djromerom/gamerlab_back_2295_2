@@ -18,7 +18,7 @@ export class JurorService {
   constructor(
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   private async getJurorRoleId(): Promise<number> {
     const jurorRole = await this.prisma.role.findUnique({
@@ -218,6 +218,7 @@ export class JurorService {
   }
 }
 
+<<<<<<< Updated upstream
 export type JurorListItem = {
   id: string;
   name: string | null;
@@ -228,3 +229,5 @@ export type JurorListItem = {
     evaluationsSubmitted: number;
   };
 };
+=======
+>>>>>>> Stashed changes
