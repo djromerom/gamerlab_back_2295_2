@@ -13,6 +13,7 @@ import { VideogameModule } from './videogames/videogames.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
+import { JurorModule } from './juror/juror.module';
 
 @Module({
   imports: [
@@ -25,10 +26,11 @@ import { TeamsModule } from './teams/teams.module';
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
+    JurorModule,
     VideogameModule,
   ],
-  controllers: [AppController],
-  // We provide the AuthGuard as a global guard for all routes
+  controllers: [AppController], 
   providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],
 })
 export class AppModule {}
+
