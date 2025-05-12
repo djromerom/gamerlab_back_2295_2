@@ -12,22 +12,22 @@ export class ReportsController {
     return this.reportsService.getEvaluationsByVideogame(id);
   }
 
-  @Get('con-materia-nrc')
+  @Get('videojuegoData')
   async getWithMateriaYNRC() {
     return this.reportsService.getVideogamesWithSubjectAndNRC();
   }
 
-  @Get('subjects')
+  @Get('materiaData')
   async getSubjects() {
     return this.reportsService.getSubjects();
 }
 
-  @Get('nrc-subjects')
+  @Get('NRCData')
   async getNrcWithSubjectName() {
     return this.reportsService.getNrcWithSubjectName();
 }
 
-  @Get('average-by-subject')
+  @Get('DatosGraficoMateria')
   async getAverageScorePerSubject() {
     return this.reportsService.getAverageScorePerSubject();
 }
