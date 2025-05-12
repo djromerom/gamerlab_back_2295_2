@@ -116,6 +116,7 @@ model User {
   roleId               Int                 @map("id_rol")
   createdAt            DateTime            @default(now()) @map("creado_en")
   updatedAt            DateTime            @updatedAt @map("actualizado_en")
+  lastSignInAt         DateTime            @default(now()) @map("ultimoInicioSesion")
   createdTeam          Team?               @relation("createdTeam")
   evaluationsSubmitted Evaluation[]        @relation("JurorEvaluations")
   managedNrcs          NRC[]               @relation("ProfessorNRC")

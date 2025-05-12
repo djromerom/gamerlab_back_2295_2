@@ -331,7 +331,26 @@ export class AuthService {
     this.setAuthCookies(res, access_token, refresh_token);
     this.logger.log(`Auth cookies set for user: ${localUser.email}`);
 
+    this.updateLastSignIn(loginDto.email);
+
     return { message: 'Login successful' };
+  }
+
+  async updateLastSignIn(emailUser: string) {
+    const data = await this.prisma.user.findUnique({
+      where: { email: emailUser },
+    });
+
+    if (!data) {
+      throw new Error('User not found');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: data.id },
+      data: { lastSignInAt: new Date() },
+    });
+
+    return updatedUser; // O lo que quieras retornar
   }
 
   /**
