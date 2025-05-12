@@ -176,20 +176,22 @@ export class ReportsService {
   }));
 }
 
-  async getAverageScorePerSubject(): Promise<{ name: string; value: number }[]> {
-    const subjects = await this.prisma.subject.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        nrcs: {
-          select: {
-            videogames: {
-              select: {
-                evaluations: {
-                  select: {
-                    evaluationDetails: {
-                      select: { score: true },
+async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
+  const subjects = await this.prisma.subject.findMany({
+    include: {
+      nrcs: {
+        include: {
+          members: {
+            include: {
+              team: {
+                include: {
+                  videogame: {
+                    include: {
+                      evaluations: {
+                        include: {
+                          detalleEvaluaciones: true,
+                        },
+                      },
                     },
                   },
                 },
@@ -198,31 +200,37 @@ export class ReportsService {
           },
         },
       },
+    },
+  });
+
+  const results: { name: string; value: number }[] = [];
+
+  for (const subject of subjects) {
+    let totalScore = 0;
+    let scoreCount = 0;
+
+    for (const nrc of subject.nrcs) {
+      for (const member of nrc.members) {
+        const team = member.team;
+        const videogame = team?.videogame;
+        const evaluations = videogame?.evaluations ?? [];
+
+        for (const evaluation of evaluations) {
+          for (const detail of evaluation.detalleEvaluaciones) {
+            totalScore += detail.score;
+            scoreCount++;
+          }
+        }
+      }
+    }
+
+    results.push({
+      name: subject.name,
+      value: scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
     });
-
-    const result = subjects.map((subject) => {
-      const allScores: number[] = [];
-
-      subject.nrcs.forEach((nrc) => {
-        nrc.videogames.forEach((vg) => {
-          vg.evaluations.forEach((ev) => {
-            ev.evaluationDetails.forEach((detail) => {
-              allScores.push(detail.score);
-            });
-          });
-        });
-      });
-
-      const total = allScores.reduce((acc, curr) => acc + curr, 0);
-      const avg = allScores.length > 0 ? total / allScores.length : 0;
-
-      return {
-        name: subject.name,
-        value: parseFloat(avg.toFixed(2)),
-      };
-    });
-
-    return result;
   }
+
+  return results;
+}
 
 }
