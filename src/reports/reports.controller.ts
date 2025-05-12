@@ -11,4 +11,11 @@ export class ReportsController {
   async getReportByVideogame(@Param('id', ParseIntPipe) id: number) {
     return this.reportsService.getEvaluationsByVideogame(id);
   }
+
+  @Get('con-materia-nrc')
+  async getWithMateriaYNRC() {
+    return this.reportsService.getVideogamesWithSubjectAndNRC();
+  }
+  
+
 }

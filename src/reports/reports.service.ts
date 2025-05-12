@@ -103,4 +103,46 @@ export class ReportsService {
       promedioTotal: Number(promedioTotal.toFixed(2)),
     };
   }
+
+  async getVideogamesWithSubjectAndNRC() {
+    const videojuegos = await this.prisma.videogame.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        team: {
+          select: {
+            members: {
+              select: {
+                nrc: {
+                  select: {
+                    code: true,
+                    subject: {
+                      select: {
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  
+    // Estructurar los datos
+    return videojuegos.map((v) => {
+      const firstNRC = v.team.members[0]?.nrc;
+      return {
+        id: v.id,
+        nombre: v.name,
+        logoUrl: v.logoUrl,
+        materia: firstNRC?.subject.name ?? null,
+        nrc: firstNRC?.code ?? null,
+      };
+    });
+  }
+  
 }
