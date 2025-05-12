@@ -115,7 +115,7 @@ export class ReportsService {
           select: {
             members: {
               select: {
-                nrc: {
+                nrcs: {
                   select: {
                     code: true,
                     subject: {
