@@ -37,6 +37,7 @@ export class TeamsService {
       // --> Create the user in the database
       data: {
         id: user.id,
+        username: userRegister.name,
         name: userRegister.name,
         email: userRegister.email,
         roleId: studentRole.id,

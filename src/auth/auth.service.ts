@@ -128,10 +128,17 @@ export class AuthService {
     this.logger.log(`Attempting to set password for user ID: ${userId}`);
     const CONFIRMED_STATUS_NAME = 'CONFIRMADO';
 
-    const confirmedStatus: ConfirmationStatus =
-      this.prisma.confirmationStatus.findUnique({
+    const confirmedStatus: ConfirmationStatus | null =
+      await this.prisma.confirmationStatus.findUnique({
         where: { status: CONFIRMED_STATUS_NAME },
       });
+
+    if (!confirmedStatus) {
+      throw new NotFoundException(
+        `Confirmation status '${CONFIRMED_STATUS_NAME}' not found.`,
+      );
+    }
+
     const confirmedStatusId: number = confirmedStatus.id;
 
     try {
@@ -207,12 +214,9 @@ export class AuthService {
     try {
       const { data, error } = await this.supabase.auth.signUp({
         email: registerDto.email,
-        password: randomUUID(), // We generate a secure, random password for users once they signup
+        password: randomUUID(),
         options: {
-          emailRedirectTo: this.configService.get<string>(
-            'SIGNUP_REDIRECTION_URL',
-            'http://localhost:5173/verificar-cuenta',
-          ),
+          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
         },
       });
 
