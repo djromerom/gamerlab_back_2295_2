@@ -9,6 +9,7 @@ import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { PendingGamesModule } from './pending-games/pg.module';
+import { GradedGamesModule } from './graded-games/gg.module';
 import { VideogameModule } from './videogames/videogames.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
@@ -24,6 +25,7 @@ import { EvaluationModule } from './evaluation/evaluation.module';
     SubjectsModule,
     NrcsModule,
     PendingGamesModule,
+    GradedGamesModule,
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
