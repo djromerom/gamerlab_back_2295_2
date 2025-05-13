@@ -5,7 +5,7 @@ import { UpdateReportDto } from './dto/update-report.dto';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getEvaluationsByVideogame(videogameId: number) {
     // Verificar que el videojuego exista
@@ -131,7 +131,7 @@ export class ReportsService {
         },
       },
     });
-  
+
     // Estructurar los datos
     return videojuegos.map((v) => {
       const firstNRC = v.team.members[0]?.nrc;
@@ -155,41 +155,42 @@ export class ReportsService {
   }
 
   async getNrcWithSubjectName(): Promise<
-  { id: number; codigo: number; materiaNombre: string }[]
-> {
-  const nrcs = await this.prisma.nRC.findMany({
-    select: {
-      id: true,
-      code: true,
-      subject: {
-        select: {
-          name: true,
+    { id: number; codigo: number; materiaNombre: string }[]
+  > {
+    const nrcs = await this.prisma.nRC.findMany({
+      select: {
+        id: true,
+        code: true,
+        subject: {
+          select: {
+            name: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  return nrcs.map(nrc => ({
-    id: nrc.id,
-    codigo: nrc.code,
-    materiaNombre: nrc.subject.name,
-  }));
-}
+    return nrcs.map(nrc => ({
+      id: nrc.id,
+      codigo: nrc.code,
+      materiaNombre: nrc.subject.name,
+    }));
+  }
 
-async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
-  const subjects = await this.prisma.subject.findMany({
-    include: {
-      nrcs: {
-        include: {
-          members: {
-            include: {
-              team: {
-                include: {
-                  videogame: {
-                    include: {
-                      evaluations: {
-                        include: {
-                          details: true,
+  async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
+    const subjects = await this.prisma.subject.findMany({
+      include: {
+        nrcs: {
+          include: {
+            members: {
+              include: {
+                team: {
+                  include: {
+                    videogame: {
+                      include: {
+                        evaluations: {
+                          include: {
+                            details: true,
+                          },
                         },
                       },
                     },
@@ -200,37 +201,36 @@ async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
           },
         },
       },
-    },
-  });
+    });
 
-  const results: { name: string; value: number }[] = [];
+    const results: { name: string; value: number }[] = [];
 
-  for (const subject of subjects) {
-    let totalScore = 0;
-    let scoreCount = 0;
+    for (const subject of subjects) {
+      let totalScore = 0;
+      let scoreCount = 0;
 
-    for (const nrc of subject.nrcs) {
-      for (const member of nrc.members) {
-        const team = member.team;
-        const videogame = team?.videogame;
-        const evaluations = videogame?.evaluations ?? [];
+      for (const nrc of subject.nrcs) {
+        for (const member of nrc.members) {
+          const team = member.team;
+          const videogame = team?.videogame;
+          const evaluations = videogame?.evaluations ?? [];
 
-        for (const evaluation of evaluations) {
-          for (const detail of evaluation.details) {
-            totalScore += detail.score;
-            scoreCount++;
+          for (const evaluation of evaluations) {
+            for (const detail of evaluation.details) {
+              totalScore += detail.score;
+              scoreCount++;
+            }
           }
         }
       }
+
+      results.push({
+        name: subject.name,
+        value: scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
+      });
     }
 
-    results.push({
-      name: subject.name,
-      value: scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
-    });
+    return results;
   }
-
-  return results;
-}
 
 }
