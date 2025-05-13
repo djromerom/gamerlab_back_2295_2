@@ -14,7 +14,7 @@ export class ReportsController {
 
   @Get('videojuegoData')
   async getWithMateriaYNRC() {
-    return this.reportsService.getVideogamesWithSubjectAndNRC();
+    return this.reportsService.getVideogamesData();
   }
 
   @Get('materiaData')
