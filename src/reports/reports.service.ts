@@ -103,47 +103,100 @@ export class ReportsService {
       promedioTotal: Number(promedioTotal.toFixed(2)),
     };
   }
-
-  async getVideogamesWithSubjectAndNRC() {
+  
+  async getVideogamesData(): Promise<
+  {
+    id: number | string;
+    nombre: string;
+    logoUrl?: string | null;
+    materia?: string | null;
+    nrc?: number | string | null;
+    promedio: number;
+    criterios: { [nombreCriterio: string]: number };
+    evaluacionesCompletadas?: number;
+    totalJuradosAsignados?: number;}[]
+  > {
     const videojuegos = await this.prisma.videogame.findMany({
       where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        logoUrl: true,
+      include: {
         team: {
-          select: {
+          include: {
             members: {
-              select: {
+              include: {
                 nrcs: {
-                  select: {
-                    code: true,
-                    subject: {
-                      select: {
-                        name: true,
-                      },
-                    },
+                  include: {
+                    subject: true,
                   },
                 },
               },
             },
+            assignedJurors: true,
           },
         },
+        evaluations: {
+          where: { isActive: true },
+          include: {
+            details: {
+              include: {
+                criterion: true,
+              },
+            },
+          },
+        },
+        videogameStatus: true,
       },
     });
-
-    // Estructurar los datos
+  
     return videojuegos.map((v) => {
-      const firstNRC = v.team.members[0]?.nrc;
+      const firstMember = v.team.members[0];
+      const firstNRC = firstMember?.nrcs[0];
+      
+      // Calcular promedios y criterios
+      const criterios: { [nombreCriterio: string]: number } = {};
+      let totalScore = 0;
+      let evaluacionesCompletadas = 0;
+      
+      // Procesar evaluaciones
+      v.evaluations.forEach(evaluation => {
+        if (evaluation.totalScore !== null) { // Considero completas las evaluaciones con score
+          evaluacionesCompletadas++;
+          totalScore += evaluation.totalScore;
+          
+          // Procesar detalles de cada evaluación
+          evaluation.details.forEach(detail => {
+            const criterioNombre = detail.criterion.name;
+            const puntajePonderado = detail.score * (detail.criterion.weight ?? 1) / 100;
+            
+            criterios[criterioNombre] = (criterios[criterioNombre] || 0) + puntajePonderado;
+          });
+        }
+      });
+  
+      // Calcular promedios por criterio
+      if (evaluacionesCompletadas > 0) {
+        for (const [criterio, suma] of Object.entries(criterios)) {
+          criterios[criterio] = suma / evaluacionesCompletadas;
+        }
+      }
+  
+      const promedio = evaluacionesCompletadas > 0 
+        ? totalScore / evaluacionesCompletadas 
+        : 0;
+  
       return {
         id: v.id,
         nombre: v.name,
-        logoUrl: v.logoUrl,
+        logoUrl: v.logoUrl ?? null,
         materia: firstNRC?.subject.name ?? null,
-        nrc: firstNRC?.code ?? null,
+        nrc: firstNRC?.code ? String(firstNRC.code) : null,
+        promedio,
+        criterios,
+        evaluacionesCompletadas,
+        totalJuradosAsignados: v.team.assignedJurors.length,
       };
     });
   }
+  
 
   async getSubjects(): Promise<{ id: number; name: string }[]> {
     return this.prisma.subject.findMany({
