@@ -15,6 +15,36 @@ export class TeamsService {
     private readonly prisma: PrismaService,
   ) {}
 
+  async findByTeamName(teamName: string) {
+    const team = await this.prisma.team.findUnique({
+      where: { teamName: teamName }
+    });
+
+    // validate for uppercase and lowercase, and return true if the team exists, if not, return false
+    if (!team) {
+      // If the team is not found, check for uppercase version
+      const teamUpper = await this.prisma.team.findUnique({
+        where: { teamName: teamName.toUpperCase() },
+      });
+
+      // If the team is not found, check for lowercase version
+      const teamLower = await this.prisma.team.findUnique({
+        where: { teamName: teamName.toLowerCase() },
+      });
+
+      if (teamLower || teamUpper) {
+        return true; // If either version is found, return true
+      } else {
+        return false; // If neither version is found, return false
+      }
+      
+    }
+
+    // If the team is found, return true
+    return true;
+
+  }
+
   async create(createTeamDto: CreateTeamDto) {
     const userRegister: RegisterDto = {
       name: createTeamDto.members[0].memberFirstName + ' ' + createTeamDto.members[0].memberLastName,
