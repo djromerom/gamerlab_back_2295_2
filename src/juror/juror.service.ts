@@ -18,7 +18,7 @@ export class JurorService {
   constructor(
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   private async getJurorRoleId(): Promise<number> {
     const jurorRole = await this.prisma.role.findUnique({
@@ -217,14 +217,3 @@ export class JurorService {
     });
   }
 }
-
-export type JurorListItem = {
-  id: string;
-  name: string | null;
-  email: string;
-  confirmationStatusId: number;
-  updatedAt: Date;
-  _count: {
-    evaluationsSubmitted: number;
-  };
-};
