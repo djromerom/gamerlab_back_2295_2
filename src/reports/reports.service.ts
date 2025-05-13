@@ -184,6 +184,7 @@ export class ReportsService {
         ? totalScore / evaluacionesCompletadas 
         : 0;
   
+      //console.log(`Videojuego: ${v.name}, Promedio: ${promedio}`); // Depuración
       return {
         id: v.id,
         nombre: v.name,

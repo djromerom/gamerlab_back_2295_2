@@ -16,6 +16,7 @@ import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
 import { JurorModule } from './juror/juror.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { EvaluationModule } from './evaluation/evaluation.module';
     TeamsModule,
     JurorModule,
     VideogameModule,
+    ReportsModule,
     EvaluationModule,
   ],
   controllers: [AppController],
