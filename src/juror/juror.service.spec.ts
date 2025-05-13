@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { JurorService } from './juror.service';
 
 describe('JurorService', () => {
