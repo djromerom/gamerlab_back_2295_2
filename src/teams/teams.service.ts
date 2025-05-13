@@ -17,7 +17,7 @@ export class TeamsService {
 
   async create(createTeamDto: CreateTeamDto) {
     const userRegister: RegisterDto = {
-      name: createTeamDto.members[0].memberName,
+      name: createTeamDto.members[0].memberFirstName + ' ' + createTeamDto.members[0].memberLastName,
       email: createTeamDto.members[0].memberEmail,
     }; // Get the first member's name and email
 
@@ -54,13 +54,11 @@ export class TeamsService {
 
     const members = await Promise.all(
       createTeamDto.members.map((member) => {
-        const [firstName, ...lastNameParts] = member.memberName.split(' ');
-        const lastName = lastNameParts.join(' ');
 
         return this.prisma.member.create({
           data: {
-            firstName,
-            lastName,
+            firstName: member.memberFirstName,
+            lastName: member.memberLastName,
             email: member.memberEmail,
             studentCode: member.studentCode,
             teamId: team.id,
