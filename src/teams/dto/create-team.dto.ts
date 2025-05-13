@@ -12,7 +12,11 @@ import { Type } from 'class-transformer';
 export class MemberDto {
   @IsString()
   @IsNotEmpty({ message: 'El nombre del integrante es obligatorio' })
-  memberName: string; // Split into first name and last name
+  memberFirstName: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'El apellido del integrante es obligatorio' })
+  memberLastName: string;
 
   @IsEmail()
   @IsNotEmpty({ message: 'El correo del integrante es obligatorio' })
