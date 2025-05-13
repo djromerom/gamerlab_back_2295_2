@@ -1,20 +1,73 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, NRC } from '@prisma/client';
+import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { SelectOption } from './types/select-option.type';
+
 
 @Injectable()
 export class NrcsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  async findAll() {
-    return this.prisma.nRC.findMany({
+  async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<NRC>> {
+
+    const offset = (page - 1) * limit;
+
+    const whereClause: Prisma.NRCWhereInput = {};
+
+    if (!includeInactive)
+      whereClause.isActive = true;
+
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.nRC.findMany({
+        where: whereClause,
+        skip: offset,
+        take: limit,
+        include: {
+          subject: true,
+          professor: true,
+          members: true
+        }
+      }),
+      this.prisma.nRC.count({
+        where: whereClause
+      })
+    ])
+
+    const totalPages = Math.ceil(totalItems / limit)
+
+    return {
+      data: items,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
+      }
+    }
+  }
+
+  async findForSelect(includeSubjects: boolean = false): Promise<SelectOption[]> {
+
+    const selectClause: Prisma.NRCSelect = {
+      id: true,
+      code: true
+    }
+
+    if (includeSubjects)
+      selectClause.subject = {
+        select: { id: true, name: true }
+      }
+
+
+    const nrcs = await this.prisma.nRC.findMany({
       where: { isActive: true },
-      include: {
-        subject: true,
-        professor: true,
-        members: true,
-      },
+      select: selectClause,
     });
+
+    return nrcs;
+
   }
 
   async findOne(id: number) {
@@ -28,7 +81,7 @@ export class NrcsService {
     });
 
     if (!nrc || !nrc.isActive) {
-      throw new NotFoundException('NRC no encontrado o inactivo');
+      throw new NotFoundException('NRC not found or inactive');
     }
 
     return nrc;

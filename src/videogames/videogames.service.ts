@@ -48,10 +48,33 @@ export class VideogamesService {
           teamId: teamIdInt,
         },
       });
-
     } catch (error) {
       console.error('Error al crear videojuego:', error);
       throw error;
     }
+  }
+
+  async findAll() {
+    const videogames = await this.prisma.videogame.findMany({
+      include: {
+        team: {
+          select: {
+            teamName: true,
+          },
+        },
+        videogameStatus: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    return videogames.map((vg) => ({
+      name: vg.name,
+      logoUrl: vg.logoUrl,
+      teamName: vg.team.teamName,
+      status: vg.videogameStatus.status,
+    }));
   }
 }

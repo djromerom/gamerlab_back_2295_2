@@ -3,37 +3,78 @@ import { CreateTeamDto, MemberDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { RegisterDto } from 'src/auth/dto/Register.dto';
+import { Role } from '@prisma/client';
+import { RegisterDto } from 'src/auth/dto/register.dto';
 import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
 
 @Injectable()
 export class TeamsService {
   constructor(
-    private authService: AuthService,
-    private prismaService: PrismaService,
+    private readonly authService: AuthService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  async findByTeamName(teamName: string) {
+    const team = await this.prisma.team.findUnique({
+      where: { teamName: teamName }
+    });
+
+    // validate for uppercase and lowercase, and return true if the team exists, if not, return false
+    if (!team) {
+      // If the team is not found, check for uppercase version
+      const teamUpper = await this.prisma.team.findUnique({
+        where: { teamName: teamName.toUpperCase() },
+      });
+
+      // If the team is not found, check for lowercase version
+      const teamLower = await this.prisma.team.findUnique({
+        where: { teamName: teamName.toLowerCase() },
+      });
+
+      if (teamLower || teamUpper) {
+        return true; // If either version is found, return true
+      } else {
+        return false; // If neither version is found, return false
+      }
+      
+    }
+
+    // If the team is found, return true
+    return true;
+
+  }
 
   async create(createTeamDto: CreateTeamDto) {
     const userRegister: RegisterDto = {
-      name: createTeamDto.members[0].memberName,
+      name: createTeamDto.members[0].memberFirstName + ' ' + createTeamDto.members[0].memberLastName,
       email: createTeamDto.members[0].memberEmail,
     }; // Get the first member's name and email
 
     const { teamName, videogame } = createTeamDto;
+
+    const studentRole = await this.prisma.role.findUnique({
+      where: { name: 'Estudiante' },
+    });
+
+    if (!studentRole) {
+      throw new Error('Role "ESTUDIANTE" not found');
+    }
+
     const { user } = await this.authService.registerUser(userRegister);
 
-    const dataUser = await this.prismaService.user.create({
+    const dataUser = await this.prisma.user.create({
       // --> Create the user in the database
       data: {
         id: user.id,
+        username: userRegister.name,
         name: userRegister.name,
         email: userRegister.email,
-        roleId: 2, // Role ID for student
+        roleId: studentRole.id,
       },
     });
 
-    const team = await this.prismaService.team.create({
+    const team = await this.prisma.team.create({
       // --> Create the team in the database
       data: {
         teamName: teamName,
@@ -41,16 +82,13 @@ export class TeamsService {
       },
     });
 
-    // 4. Crear miembros (con Promise.all)
     const members = await Promise.all(
       createTeamDto.members.map((member) => {
-        const [firstName, ...lastNameParts] = member.memberName.split(' ');
-        const lastName = lastNameParts.join(' ');
 
-        return this.prismaService.member.create({
+        return this.prisma.member.create({
           data: {
-            firstName,
-            lastName,
+            firstName: member.memberFirstName,
+            lastName: member.memberLastName,
             email: member.memberEmail,
             studentCode: member.studentCode,
             teamId: team.id,
@@ -63,21 +101,22 @@ export class TeamsService {
     );
 
     // Create videogame in the database
-    const vg = await this.prismaService.videogame.create({
+    const createdVideogame = await this.prisma.videogame.create({
       data: {
         name: videogame.vgName,
         description: videogame.description,
         logoUrl: videogame.logoURL,
         teamId: team.id, // ID of the team
-        videogameStatusId: 2, // Status ID for "pending"
+        videogameStatusId: 1, // Replace '1' with the appropriate status ID
       },
     });
 
-    //enviar correo al representante del equipo
+    // TODO: send email to team representative
 
-    return { dataUser, team, members, vg }; // Return the created team and members
+    return { dataUser, team, members, createdVideogame };
   }
 
+  //TODO: remove sensitive variables from the codebase. I assume these are just for testing
   sendEmail(email: string, id: string, name: string) {
     const resend = new Resend('re_dP24beoj_2JuvsZwCCFUiEatdKxG6YwNK');
 

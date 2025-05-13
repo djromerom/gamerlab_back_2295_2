@@ -8,9 +8,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, User, Role } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
+import { PaginatedResult } from '../common/types/paginated-result.type';
+import { SelectOption } from './types/select-option.type';
 
 @Injectable()
 export class ProfessorsService {
@@ -19,8 +21,8 @@ export class ProfessorsService {
 
   constructor(
     private readonly authService: AuthService,
-    private readonly prismaService: PrismaService,
-  ) {}
+    private readonly prisma: PrismaService,
+  ) { }
 
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
@@ -61,7 +63,7 @@ export class ProfessorsService {
     }
 
     try {
-      const newProfessor = await this.prismaService.user.create({
+      const newProfessor = await this.prisma.user.create({
         data: {
           id: supabaseUser.id,
           name: createProfessorDto.name,
@@ -94,19 +96,67 @@ export class ProfessorsService {
     }
   }
 
-  async findAll(): Promise<User[]> {
-    this.logger.log('Finding all active professors');
-    return this.prismaService.user.findMany({
-      where: {
-        roleId: this.professorRoleId,
-        isActive: true,
-      },
+  async findForSelect(): Promise<SelectOption[]> {
+
+    const PROFESSOR_ROLE_NAME = 'Profesor';
+
+    const professorRole: Role | null = await this.prisma.role.findUnique({
+      where: { name: PROFESSOR_ROLE_NAME, isActive: true }
+    })
+
+    const professorRoleId = professorRole.id;
+
+    const professors = await this.prisma.user.findMany({
+      where: { roleId: professorRoleId, isActive: true },
+      select: { name: true, id: true }
     });
+
+    return professors;
+  }
+  async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<User>> {
+
+    const offset = (page - 1) * limit;
+
+
+    const professorRole: Role = await this.prisma.role.findUnique({ where: { name: "Profesor" } });
+
+    const professorRoleId = professorRole.id
+
+    const whereClause: Prisma.UserWhereInput = { roleId: professorRoleId }
+
+    if (!includeInactive)
+      whereClause.isActive = true;
+
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where: whereClause,
+        skip: offset,
+        take: limit,
+        orderBy: { name: 'asc' }
+      }),
+      this.prisma.user.count({
+        where: whereClause
+      })
+    ]
+    );
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data: items,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
+      }
+    }
   }
 
   async findOne(id: string): Promise<User> {
     this.logger.log(`Finding professor with ID: ${id}`);
-    const professor = await this.prismaService.user.findUnique({
+    const professor = await this.prisma.user.findUnique({
       where: {
         id: id,
       },
@@ -134,7 +184,7 @@ export class ProfessorsService {
   ): Promise<User> {
     this.logger.log(`Attempting to update professor with ID: ${id}`);
 
-    const existingProfessor = await this.prismaService.user.findUnique({
+    const existingProfessor = await this.prisma.user.findUnique({
       where: { id: id },
     });
 
@@ -149,7 +199,7 @@ export class ProfessorsService {
     }
 
     try {
-      const updatedProfessor = await this.prismaService.user.update({
+      const updatedProfessor = await this.prisma.user.update({
         where: {
           id: id,
         },
@@ -178,7 +228,7 @@ export class ProfessorsService {
   async remove(id: string): Promise<User> {
     this.logger.log(`Attempting to soft delete professor with ID: ${id}`);
 
-    const professor = await this.prismaService.user.findUnique({
+    const professor = await this.prisma.user.findUnique({
       where: { id: id },
     });
 
@@ -199,7 +249,7 @@ export class ProfessorsService {
     }
 
     try {
-      const deactivatedProfessor = await this.prismaService.user.update({
+      const deactivatedProfessor = await this.prisma.user.update({
         where: { id: id },
         data: { isActive: false },
       });

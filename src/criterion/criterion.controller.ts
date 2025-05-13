@@ -4,17 +4,21 @@ import {
   Post,
   Body,
   Param,
+  Query,
   Patch,
   Delete,
-  Query,
 } from '@nestjs/common';
 import { CriterionService } from './criterion.service';
 import { CreateCriterionDto } from './dto/create-criterion.dto';
-
+import { Criterion } from "@prisma/client";
+import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { SelectOption } from './types/select-option.type';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller('criteria')
 export class CriterionController {
-  constructor(private readonly criterionService: CriterionService) {}
+  constructor(private readonly criterionService: CriterionService) { }
 
   @Post()
   create(@Body() createCriterionDto: CreateCriterionDto) {
@@ -22,8 +26,15 @@ export class CriterionController {
   }
 
   @Get()
-  findAll(@Query('includeInactive') includeInactive: boolean = false) {
-    return this.criterionService.findAll(includeInactive);
+  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Criterion>> {
+    const { includeInactive, limit, page } = query;
+    return this.criterionService.findAll(includeInactive, limit, page);
+  }
+
+  @Public()
+  @Get('select-options')
+  findSelectOptions(): Promise<SelectOption[]> {
+    return this.criterionService.findForSelect();
   }
 
   @Get(':id')
