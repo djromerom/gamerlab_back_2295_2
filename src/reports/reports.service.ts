@@ -161,11 +161,12 @@ export class ReportsService {
         if (evaluation.totalScore !== null) { // Considero completas las evaluaciones con score
           evaluacionesCompletadas++;
           totalScore += evaluation.totalScore;
-          
+          // console.log(`Evaluación: ${evaluation.id}, Puntaje Total: ${evaluation.totalScore}`); // Depuración
           // Procesar detalles de cada evaluación
           evaluation.details.forEach(detail => {
             const criterioNombre = detail.criterion.name;
-            const puntajePonderado = detail.score * (detail.criterion.weight ?? 1) / 100;
+            const puntajePonderado = detail.score * (detail.criterion.weight ?? 1); // "/ 100";
+            // console.log(`Criterio: ${criterioNombre}, Puntaje Ponderado: ${puntajePonderado}`); // Depuración
             
             criterios[criterioNombre] = (criterios[criterioNombre] || 0) + puntajePonderado;
           });
