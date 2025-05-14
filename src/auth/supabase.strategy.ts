@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy as JwtStrategy } from 'passport-jwt';
+import { JwtPayload } from './types/jwt-payload.type';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { AuthService } from './auth.service';
@@ -15,13 +16,6 @@ import { StrategyOptionsWithRequest } from 'passport-jwt';
 import { SupabaseAuthUser as SupabaseUser } from 'nestjs-supabase-auth';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
-
-interface JwtPayload {
-  sub: string;
-  email?: string;
-  aud?: string;
-  role?: string;
-}
 
 export type AppUser = User & { supabaseUser?: JwtPayload };
 

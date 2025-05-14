@@ -51,7 +51,7 @@ export class NrcsService {
   async findForSelect(includeSubjects: boolean = false): Promise<SelectOption[]> {
 
 
-    let selectClause = {
+    let selectClause: Prisma.NRCSelect = {
       id: true,
       code: true
     };

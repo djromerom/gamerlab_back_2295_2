@@ -21,7 +21,7 @@ export class RolePermissionGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // 1. Get required service name from decorator
@@ -126,7 +126,6 @@ export class RolePermissionGuard implements CanActivate {
         );
       }
 
-      return true;
     } catch (error) {
       if (
         error instanceof ForbiddenException ||
@@ -141,16 +140,21 @@ export class RolePermissionGuard implements CanActivate {
         );
         throw error;
       }
-      this.logger.error(
-        `Unexpected error during permission check for User ${userId}, Role ${userRoleId}, Service '${requiredServiceName}': ${error.message}`,
-        error.stack,
-      );
+
+      if (error instanceof Error) {
+        this.logger.error(
+          `Unexpected error during permission check for User ${userId}, Role ${userRoleId}, Service '${requiredServiceName}': ${error.message}`,
+          error.stack,
+        );
+        throw new InternalServerErrorException(
+          'An error occurred while checking permissions.',
+        );
+
+      }
       this.logger.debug(
         '--- RolePermissionGuard canActivate END (Denied via Unexpected Error) ---',
       );
-      throw new InternalServerErrorException(
-        'An error occurred while checking permissions.',
-      );
     }
+    return true;
   }
 }

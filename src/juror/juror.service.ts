@@ -10,6 +10,7 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { Prisma, User, Role } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
@@ -36,14 +37,12 @@ export class JurorService {
   async create(dto: CreateJurorDto): Promise<User & { _count: number }> {
     const jurorRoleId = await this.getJurorRoleId();
 
-    let user;
+    let user: SupabaseUser;
     try {
-      const result = await this.auth.registerUser({
+      user = await this.auth.registerUser({
         email: dto.email,
         name: dto.name,
       });
-
-      user = result.user as { id: string; email: string };
 
       if (!user || !user.id) {
         throw new InternalServerErrorException(
@@ -51,21 +50,27 @@ export class JurorService {
         );
       }
     } catch (error) {
-      if (error.message?.includes('User already registered')) {
-        throw new ConflictException(
-          `The email ${dto.email} is already registered.`,
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new ConflictException(
+            `A juror with the email ${dto.email} already exists.`,
+          );
+        }
+      }
+      if (error instanceof Error) {
+        throw new InternalServerErrorException(
+          `Error during registration in Supabase for ${dto.email}: ${error.message}`,
         );
       }
 
-      throw new InternalServerErrorException(
-        `Error during registration in Supabase for ${dto.email}: ${error.message}`,
-      );
     }
 
+    let juror: User;
+    let _count: number = 0;
     try {
-      const juror = await this.prisma.user.create({
+      juror = await this.prisma.user.create({
         data: {
-          id: user.id,
+          id: user!.id,
           name: dto.name,
           email: dto.email,
           username: dto.name,
@@ -74,27 +79,30 @@ export class JurorService {
         },
       });
 
-      const _count = await this.prisma.evaluation.count({
+      _count = await this.prisma.evaluation.count({
         where: { jurorId: juror.id },
       });
 
-      return {
-        ...juror,
-        _count,
-      };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ConflictException(
-            `A juror with the email ${dto.email} or ID ${user.id} already exists.`,
+            `A juror with the email ${dto.email} or ID ${user!.id} already exists.`,
           );
         }
       }
 
-      throw new InternalServerErrorException(
-        `Could not save the juror to the database for ${dto.email}: ${error.message}`,
-      );
+      if (error instanceof Error)
+        throw new InternalServerErrorException(
+          `Could not save the juror to the database for ${dto.email}: ${error.message}`,
+        );
     }
+
+
+    return {
+      ...juror!,
+      _count,
+    };
   }
 
   async findAll(

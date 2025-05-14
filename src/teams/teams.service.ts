@@ -4,6 +4,7 @@ import { UpdateTeamDto } from './dto/update-team.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Role } from '@prisma/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { RegisterDto } from 'src/auth/dto/register.dto';
 import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -13,7 +14,7 @@ export class TeamsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async findByTeamName(teamName: string) {
     const team = await this.prisma.team.findUnique({
@@ -37,7 +38,7 @@ export class TeamsService {
       } else {
         return false; // If neither version is found, return false
       }
-      
+
     }
 
     // If the team is found, return true
@@ -61,10 +62,9 @@ export class TeamsService {
       throw new Error('Role "ESTUDIANTE" not found');
     }
 
-    const { user } = await this.authService.registerUser(userRegister);
+    const user: SupabaseUser = await this.authService.registerUser(userRegister);
 
     const dataUser = await this.prisma.user.create({
-      // --> Create the user in the database
       data: {
         id: user.id,
         username: userRegister.name,
@@ -137,7 +137,7 @@ export class TeamsService {
       password: registerDto.password,
       name: registerDto.name,
     };
-    const { user } = await this.authService.registerUser(authRegisterPayload);
+    const user: SupabaseUser = await this.authService.registerUser(authRegisterPayload);
     return user;
   }
 
