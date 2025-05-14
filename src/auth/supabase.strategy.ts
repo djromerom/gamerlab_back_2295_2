@@ -79,11 +79,7 @@ export class SupabaseStrategy extends PassportStrategy(
       this.logger.debug(`VALIDATE - Calling syncSupabaseUser`);
       user = await this.authService.syncSupabaseUser(supabaseUserPayload);
       this.logger.debug(`VALIDATE - syncSupabaseUser returned successfully`);
-    } catch (error) {
-      this.logger.error(
-        `VALIDATE - Error caught during syncSupabaseUser call: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
 
       if (error instanceof NotFoundException) {
         this.logger.warn(`VALIDATE - User ${payload.sub} not found locally.`);
