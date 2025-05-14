@@ -22,7 +22,11 @@ export class ProfessorsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) { 
+
+    // TODO: Fetch once the professorRole id. It's not ideal to do this on
+    // each service function when it can be done here in the constructor!
+  }
 
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
@@ -104,6 +108,9 @@ export class ProfessorsService {
       where: { name: PROFESSOR_ROLE_NAME, isActive: true }
     })
 
+    if (!professorRole)
+      throw new InternalServerErrorException(`The role '${PROFESSOR_ROLE_NAME}' was not found in the database`); 
+
     const professorRoleId = professorRole.id;
 
     const professors = await this.prisma.user.findMany({
@@ -113,12 +120,17 @@ export class ProfessorsService {
 
     return professors;
   }
+
   async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<User>> {
 
     const offset = (page - 1) * limit;
 
+    const PROFESSOR_ROLE_NAME = 'Profesor';
+    const professorRole: Role | null = await this.prisma.role.findUnique(
+      { where: { name: PROFESSOR_ROLE_NAME, isActive: true } });
 
-    const professorRole: Role = await this.prisma.role.findUnique({ where: { name: "Profesor" } });
+    if (!professorRole)
+      throw new InternalServerErrorException(`The role '${PROFESSOR_ROLE_NAME}' was not found in the database`); 
 
     const professorRoleId = professorRole.id
 

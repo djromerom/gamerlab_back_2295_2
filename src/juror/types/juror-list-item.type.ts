@@ -3,7 +3,7 @@ export class JurorListItem {
   name: string | null;
   email: string;
   confirmationStatusId: number;
-  updatedAt: Date;
+  lastSignInAt: Date;
   _count: {
     evaluationsSubmitted: number;
   };
