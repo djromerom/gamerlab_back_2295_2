@@ -1,16 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VideogameResponseDto } from './dto/videogame-response.dto';
+import { PendingGames } from './types/pending-games.type';
+import { PaginatedResult } from 'src/common/types/paginated-result.type';
 
 @Injectable()
 export class VideogamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getPendingVideogames(
     jurorId: string,
     page: number = 1,
     limit: number = 10,
-  ): Promise<{ data: VideogameResponseDto[]; metadata: any }> {
+  ): Promise<PaginatedResult<PendingGames>> {
     const offset = (page - 1) * limit;
 
     // Obtener los IDs de videojuegos ya evaluados por el jurado
@@ -81,7 +82,7 @@ export class VideogamesService {
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
         isEvaluated: false,
-      };
+      } as PendingGames;
     });
 
     return {

@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   Logger,
+  NotFoundException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
@@ -10,7 +11,8 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { Request } from 'express';
-import { SupabaseUser } from 'nestjs-supabase-auth';
+import { StrategyOptionsWithRequest } from 'passport-jwt';
+import { SupabaseAuthUser as SupabaseUser } from 'nestjs-supabase-auth';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 
@@ -34,15 +36,19 @@ export class SupabaseStrategy extends PassportStrategy(
     private readonly configService: ConfigService,
     private readonly authService: AuthService,
   ) {
+    const supabaseJwtSecret = configService.get<string>('SUPABASE_JWT_SECRET');
+
+    if (!supabaseJwtSecret) {
+      throw new Error('SUPABASE_JWT_SECRET is not defined. JWT strategy cannot be initialized.');
+    }
+
     super({
-      secretOrKey: configService.get<string>('SUPABASE_JWT_SECRET'),
+      secretOrKey: supabaseJwtSecret,
       jwtFromRequest: ExtractJwt.fromExtractors([
         SupabaseStrategy.extractJWTFromCookie,
       ]),
-      // issuer: configService.get<string>('SUPABASE_URL'),
-      // audience: 'authenticated',
       ignoreExpiration: false,
-    });
+    } as StrategyOptionsWithRequest);
   }
 
   private static extractJWTFromCookie(req: Request): string | null {
@@ -69,7 +75,7 @@ export class SupabaseStrategy extends PassportStrategy(
 
     let user: User | null = null;
     try {
-      const supabaseUserPayload = payload as SupabaseUser;
+      const supabaseUserPayload = payload;
       this.logger.debug(`VALIDATE - Calling syncSupabaseUser`);
       user = await this.authService.syncSupabaseUser(supabaseUserPayload);
       this.logger.debug(`VALIDATE - syncSupabaseUser returned successfully`);

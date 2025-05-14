@@ -10,7 +10,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, ConfirmationStatus } from '@prisma/client';
-import { SupabaseUser } from 'nestjs-supabase-auth';
 import { SUPABASE_CLIENT } from './auth.constants';
 import {
   SupabaseClient,
@@ -33,7 +32,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) {}
+  ) { }
 
   private setAuthCookies(
     res: Response,
@@ -89,23 +88,6 @@ export class AuthService {
     this.logger.error(
       `Supabase Error Object in ${context}: ${JSON.stringify(error, null, 2)}`,
     );
-
-    if (error.response) {
-      this.logger.error(`Error Response Status: ${error.response.status}`);
-      try {
-        this.logger.error(
-          `Error Response Data: ${JSON.stringify(error.response.data)}`,
-        );
-      } catch (e) {
-        this.logger.error(
-          `Error Response Data (non-JSON or logging failed): ${error.response.data}`,
-        );
-      }
-    } else if (error.originalError) {
-      this.logger.error(
-        `Original Error: ${JSON.stringify(error.originalError, null, 2)}`,
-      );
-    }
 
     if (
       error.status === 400 ||
@@ -293,7 +275,7 @@ export class AuthService {
     const supabaseUserForSync = {
       sub: supabaseSessionData.user.id,
       email: supabaseSessionData.user.email,
-    } as SupabaseUser;
+    };
 
     let localUser: User;
     try {
@@ -448,7 +430,7 @@ export class AuthService {
    * @throws {InternalServerErrorException} If required statuses are missing in DB or if local user record is unexpectedly missing.
    * @throws {UnauthorizedException} If the found user is marked as inactive AFTER potential activation.
    */
-  async syncSupabaseUser(supabaseUser: SupabaseUser): Promise<User> {
+  async syncSupabaseUser(supabaseUser): Promise<User> {
     const supabaseId = supabaseUser?.sub;
     const userEmail = supabaseUser?.email;
 
