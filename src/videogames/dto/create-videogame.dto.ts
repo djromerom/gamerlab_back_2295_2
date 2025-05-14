@@ -12,5 +12,5 @@ export class CreateVideogameDto {
 
   @IsOptional()
   @IsString()
-  logo_url?: string;
+  logoUrl?: string;
 }
