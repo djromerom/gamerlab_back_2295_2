@@ -17,64 +17,31 @@ export class TeamsService {
   ) { }
 
   async findByTeamName(teamName: string) {
-    const team = await this.prisma.team.findUnique({
-      where: { teamName: teamName }
+    const team = await this.prisma.team.findFirst({
+      where: { 
+        teamName: {
+          equals: teamName,
+          mode: 'insensitive',
+        },
+      },
     });
 
-    // validate for uppercase and lowercase, and return true if the team exists, if not, return false
-    if (!team) {
-      // If the team is not found, check for uppercase version
-      const teamUpper = await this.prisma.team.findUnique({
-        where: { teamName: teamName.toUpperCase() },
-      });
-
-      // If the team is not found, check for lowercase version
-      const teamLower = await this.prisma.team.findUnique({
-        where: { teamName: teamName.toLowerCase() },
-      });
-
-      if (teamLower || teamUpper) {
-        return true; // If either version is found, return true
-      } else {
-        return false; // If neither version is found, return false
-      }
-
-    }
-
-    // If the team is found, return true
-    return true;
+    return !!team; // Return true if the team exists, false otherwise
 
   }
 
-  // Validate if videogame exists
+  // Validate if videogame exists (case-insensitive)
   async findByVideogameName(videogameName: string) {
     const videogame = await this.prisma.videogame.findFirst({
-      where: { name: videogameName }
+      where: {
+        name: {
+          equals: videogameName,
+          mode: 'insensitive',
+        },
+      },
     });
 
-    // validate for uppercase and lowercase, and return true if the videogame exists, if not, return false
-    if (!videogame) {
-      // If the videogame is not found, check for uppercase version
-      const videogameUpper = await this.prisma.videogame.findFirst({
-        where: { name: videogameName.toUpperCase() },
-      });
-
-      // If the videogame is not found, check for lowercase version
-      const videogameLower = await this.prisma.videogame.findFirst({
-        where: { name: videogameName.toLowerCase() },
-      });
-
-      if (videogameLower || videogameUpper) {
-        return true; // If either version is found, return true
-      } else {
-        return false; // If neither version is found, return false
-      }
-
-    }
-
-    // If the videogame is found, return true
-    return true;
-
+    return !!videogame; // true if found, false if not
   }
 
   async create(createTeamDto: CreateTeamDto) {
