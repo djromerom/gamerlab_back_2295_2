@@ -46,6 +46,37 @@ export class TeamsService {
 
   }
 
+  // Validate if videogame exists
+  async findByVideogameName(videogameName: string) {
+    const videogame = await this.prisma.videogame.findFirst({
+      where: { name: videogameName }
+    });
+
+    // validate for uppercase and lowercase, and return true if the videogame exists, if not, return false
+    if (!videogame) {
+      // If the videogame is not found, check for uppercase version
+      const videogameUpper = await this.prisma.videogame.findFirst({
+        where: { name: videogameName.toUpperCase() },
+      });
+
+      // If the videogame is not found, check for lowercase version
+      const videogameLower = await this.prisma.videogame.findFirst({
+        where: { name: videogameName.toLowerCase() },
+      });
+
+      if (videogameLower || videogameUpper) {
+        return true; // If either version is found, return true
+      } else {
+        return false; // If neither version is found, return false
+      }
+
+    }
+
+    // If the videogame is found, return true
+    return true;
+
+  }
+
   async create(createTeamDto: CreateTeamDto) {
     const userRegister: RegisterDto = {
       name: createTeamDto.members[0].memberFirstName + ' ' + createTeamDto.members[0].memberLastName,

@@ -32,6 +32,12 @@ export class TeamsController {
     return this.teamsService.findByTeamName(teamName);
   }
 
+  @Public()
+  @Get('videogame/:videogameName')
+  findByVideogameName(@Param('videogameName') videogameName: string) {
+    return this.teamsService.findByVideogameName(videogameName);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.teamsService.findOne(+id);
