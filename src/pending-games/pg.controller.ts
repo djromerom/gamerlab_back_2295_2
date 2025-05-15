@@ -12,16 +12,13 @@ export class VideogamesController {
   @RequiredService('PendingGamesService')
   async getPendingVideogames
   (
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
     @Request() req: any,
   ) {
     const jurorId =  req.user.id; //Obtener el ID del jurado desde el usuario autenticado
     const videogames = await this.videogamesService.getPendingVideogames
     (
       jurorId, // Pasar el jurorId al servicio
-      page,
-      limit,
+      
     );
     return { jurorId, ...videogames }; // Incluir el ID del jurado en la respuesta
   }

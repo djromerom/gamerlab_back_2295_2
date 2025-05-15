@@ -4,14 +4,12 @@ import { VideogameResponseDto } from './dto/videogame-response.dto';
 
 @Injectable()
 export class VideogamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getPendingVideogames(
     jurorId: string,
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<{ data: VideogameResponseDto[]; metadata: any }> {
-    const offset = (page - 1) * limit;
+  
+  ): Promise<{ data: VideogameResponseDto[]}> {
 
     // Obtener los IDs de videojuegos ya evaluados por el jurado
     const evaluatedIds = await this.prisma.evaluation.findMany({
@@ -27,8 +25,7 @@ export class VideogamesService {
     // Obtener datos y total para paginación
     const [videogames, totalItems] = await this.prisma.$transaction([
       this.prisma.videogame.findMany({
-        skip: offset,
-        take: limit,
+        
         where: whereClause,
         select: {
           id: true,
@@ -59,7 +56,7 @@ export class VideogamesService {
       this.prisma.videogame.count({ where: whereClause }),
     ]);
 
-    const totalPages = Math.ceil(totalItems / limit);
+    // Cálculo de metadatos mejorado
 
     const data = videogames.map((videogame) => {
       const uniqueNrcs = Array.from(
@@ -86,13 +83,6 @@ export class VideogamesService {
 
     return {
       data,
-      metadata: {
-        totalItems,
-        itemsOnCurrentPage: data.length,
-        currentPage: page,
-        itemsPerPage: limit,
-        totalPages,
-      },
     };
   }
 }

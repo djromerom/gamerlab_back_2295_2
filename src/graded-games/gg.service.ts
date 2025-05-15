@@ -1,4 +1,3 @@
-// src/graded-games/gg.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { VideogameResponseDto } from './dto/videogame-response.dto';
@@ -7,41 +6,41 @@ import { VideogameResponseDto } from './dto/videogame-response.dto';
 export class GradedGamesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getGradedVideogames(
-    jurorId: string,
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<{ data: VideogameResponseDto[]; metadata: any }> {
-    const offset = (page - 1) * limit;
-
-    const evaluatedIds = await this.prisma.evaluation.findMany({
+  async getGradedVideogames(jurorId: string): Promise<{ data: VideogameResponseDto[] }> {
+    // Obtener los IDs de videojuegos evaluados por el jurado y su puntaje total
+    const evaluations = await this.prisma.evaluation.findMany({
       where: { jurorId },
-      select: { videogameId: true },
-    }).then((evaluations) => evaluations.map((e) => e.videogameId));
+      select: {
+        videogameId: true,
+        totalScore: true,
+      },
+    });
 
-    const [videogames, totalItems] = await this.prisma.$transaction([
-      this.prisma.videogame.findMany({
-        skip: offset,
-        take: limit,
-        where: { id: { in: evaluatedIds } },
-        select: {
-          id: true,
-          name: true,
-          logoUrl: true,
-          description: true,
-          team: {
-            select: {
-              teamName: true,
-              members: {
-                select: {
-                  firstName: true,
-                  lastName: true,
-                  nrcs: {
-                    select: {
-                      code: true,
-                      subject: {
-                        select: { name: true },
-                      },
+    const evaluatedIds = evaluations.map((e) => e.videogameId);
+    const scoresMap = new Map(
+      evaluations.map((e) => [e.videogameId, e.totalScore]),
+    );
+
+    // Obtener todos los videojuegos calificados
+    const videogames = await this.prisma.videogame.findMany({
+      where: { id: { in: evaluatedIds } },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        description: true,
+        team: {
+          select: {
+            teamName: true,
+            members: {
+              select: {
+                firstName: true,
+                lastName: true,
+                nrcs: {
+                  select: {
+                    code: true,
+                    subject: {
+                      select: { name: true },
                     },
                   },
                 },
@@ -49,18 +48,15 @@ export class GradedGamesService {
             },
           },
         },
-      }),
-      this.prisma.videogame.count({ where: { id: { in: evaluatedIds } } }),
-    ]);
-
-    const totalPages = Math.ceil(totalItems / limit);
+      },
+    });
 
     const data = videogames.map((videogame) => {
       const uniqueNrcs = Array.from(
         new Set(
           videogame.team?.members
-            ?.flatMap((member) => member.nrcs?.map((nrc) => nrc.code) || [])
-        )
+            ?.flatMap((member) => member.nrcs?.map((nrc) => nrc.code) || []),
+        ),
       );
 
       return {
@@ -74,19 +70,11 @@ export class GradedGamesService {
         })) || [],
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
+        totalScore: scoresMap.get(videogame.id) || 0,
         isEvaluated: true,
       };
     });
 
-    return {
-      data,
-      metadata: {
-        totalItems,
-        itemsOnCurrentPage: data.length,
-        currentPage: page,
-        itemsPerPage: limit,
-        totalPages,
-      },
-    };
+    return { data }; // Devolver los datos en una lista llamada "data"
   }
 }

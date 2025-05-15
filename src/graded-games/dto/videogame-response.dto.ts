@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsArray, IsOptional } from 'class-validator';
+import { IsString, IsInt, IsArray, IsOptional, IsNumber } from 'class-validator';
 
 export class VideogameResponseDto {
   @IsInt()
@@ -28,4 +28,8 @@ export class VideogameResponseDto {
   @IsString()
   @IsOptional()
   subject?: string;
+
+  @IsNumber()
+  @IsOptional()
+  totalScore?: number;
 }
