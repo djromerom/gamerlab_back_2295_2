@@ -165,7 +165,7 @@ export class ReportsService {
           // Procesar detalles de cada evaluación
           evaluation.details.forEach(detail => {
             const criterioNombre = detail.criterion.name;
-            const puntajePonderado = detail.score * (detail.criterion.weight ?? 1); // "/ 100";
+            const puntajePonderado = detail.score; // * (detail.criterion.weight ?? 1); // "/ 100";
             // console.log(`Criterio: ${criterioNombre}, Puntaje Ponderado: ${puntajePonderado}`); // Depuración
             
             criterios[criterioNombre] = (criterios[criterioNombre] || 0) + puntajePonderado;
