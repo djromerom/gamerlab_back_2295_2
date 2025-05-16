@@ -32,4 +32,8 @@ export class VideogameResponseDto {
   @IsNumber()
   @IsOptional()
   totalScore?: number;
+
+  @IsString()
+  @IsOptional()
+  comments?: string;
 }

@@ -7,18 +7,22 @@ export class GradedGamesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getGradedVideogames(jurorId: string): Promise<{ data: VideogameResponseDto[] }> {
-    // Obtener los IDs de videojuegos evaluados por el jurado y su puntaje total
+    // Obtener los IDs de videojuegos evaluados por el jurado, su puntaje total y comentarios
     const evaluations = await this.prisma.evaluation.findMany({
       where: { jurorId },
       select: {
         videogameId: true,
         totalScore: true,
+        comments: true, // Incluir los comentarios
       },
     });
 
     const evaluatedIds = evaluations.map((e) => e.videogameId);
     const scoresMap = new Map(
       evaluations.map((e) => [e.videogameId, e.totalScore]),
+    );
+    const commentsMap = new Map(
+      evaluations.map((e) => [e.videogameId, e.comments]),
     );
 
     // Obtener todos los videojuegos calificados
@@ -71,6 +75,7 @@ export class GradedGamesService {
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
         totalScore: scoresMap.get(videogame.id) || 0,
+        comments: commentsMap.get(videogame.id) || 'Sin comentarios', // Agregar los comentarios
         isEvaluated: true,
       };
     });
