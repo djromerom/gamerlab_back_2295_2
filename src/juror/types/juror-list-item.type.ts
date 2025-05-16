@@ -1,10 +1,13 @@
 export class JurorListItem {
   id: string;
-  name: string | null;
+  name: string;
+  LastName: string | null;
   email: string;
-  confirmationStatusId: number;
-  updatedAt: Date;
-  _count: {
-    evaluationsSubmitted: number;
-  };
+  confirmationStatusId: number | null;
+  lastSignInAt: Date | null;
+  evaluatedCount: number;
+  evaluatedGameNames: string[];
+  unevaluatedCount: number;
+  unevaluatedGameNames: string[];
 }
+

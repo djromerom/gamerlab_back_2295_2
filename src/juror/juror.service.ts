@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
 import { Prisma, User, Role } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
+import { JurorListItem } from './types/juror-list-item.type';
 
 @Injectable()
 export class JurorService {
@@ -66,6 +67,7 @@ export class JurorService {
         data: {
           id: user.id,
           name: dto.name,
+          LastName: dto.lastname,
           email: dto.email,
           username: dto.name,
           roleId: jurorRoleId,
@@ -107,10 +109,10 @@ export class JurorService {
 
     const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
 
-    // TODO: Implement support for 'includeInactive' query param
+    
     whereClause.isActive = true;
 
-    const [items, totalItems] = await this.prisma.$transaction([
+    const [items, totalItems, allVideogames] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         where: whereClause,
         skip: offset,
@@ -119,34 +121,61 @@ export class JurorService {
         select: {
           id: true,
           name: true,
+          LastName: true,
           email: true,
           confirmationStatusId: true,
           lastSignInAt: true,
-          _count: {
-            select: {
-              evaluationsSubmitted: true,
-            },
+          evaluationsSubmitted: {
+            select: { videogame: { select: { id: true, name: true } } },
           },
         },
       }),
       this.prisma.user.count({
         where: whereClause,
       }),
+      this.prisma.videogame.findMany({
+        select: { id: true, name: true },
+      }),
     ]);
+
+    const result = items.map(juror => {
+      const evaluatedGameNames = juror.evaluationsSubmitted.map(e => e.videogame.name);
+
+      const evaluatedIds = new Set(juror.evaluationsSubmitted.map(e => e.videogame.id));
+
+      const unevaluatedGameNames = allVideogames
+        .filter(vg => !evaluatedIds.has(vg.id))
+        .map(vg => vg.name);
+
+      return {
+        id: juror.id,
+        name: juror.name ?? '',
+        LastName: juror.LastName ?? '',
+        email: juror.email,
+        confirmationStatusId: juror.confirmationStatusId,
+        lastSignInAt: juror.lastSignInAt,
+        evaluatedCount: evaluatedGameNames.length,
+        evaluatedGameNames,
+        unevaluatedCount: unevaluatedGameNames.length,
+        unevaluatedGameNames,
+      };
+    });
 
     const totalPages = Math.ceil(totalItems / limit);
 
     return {
-      data: items,
+      data: result,
       metadata: {
         totalItems: totalItems,
-        itemsOnCurrentPage: items.length,
+        itemsOnCurrentPage: result.length,
         currentPage: page,
         itemsPerPage: limit,
         totalPages: totalPages,
       },
     };
   }
+
+
 
   async findOne(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
