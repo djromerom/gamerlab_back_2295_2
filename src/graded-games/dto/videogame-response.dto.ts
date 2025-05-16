@@ -1,0 +1,31 @@
+import { IsString, IsInt, IsArray, IsOptional } from 'class-validator';
+
+export class VideogameResponseDto {
+  @IsInt()
+  videogameId: number;
+
+  @IsString()
+  videogameName: string;
+
+  @IsString()
+  @IsOptional()
+  logoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string; // Agregar el campo "descripcion"
+
+  @IsString()
+  teamName: string;
+
+  @IsArray()
+  members: { fullName: string }[];
+
+  @IsString()
+  @IsOptional()
+  nrc?: string;
+
+  @IsString()
+  @IsOptional()
+  subject?: string;
+}
