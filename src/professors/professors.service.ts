@@ -140,7 +140,7 @@ export class ProfessorsService {
         `The role '${PROFESSOR_ROLE_NAME}' was not found in the database`,
       );
 
-    const whereClause: Prisma.UserWhereInput = { roleId: professorRoleId };
+    const whereClause: Prisma.UserWhereInput = { roleId: professorRole.id };
 
     if (!includeInactive) whereClause.isActive = true;
 
