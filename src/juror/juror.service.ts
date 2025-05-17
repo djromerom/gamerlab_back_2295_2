@@ -122,8 +122,8 @@ async create(dto: CreateJurorDto): Promise<JurorListItem> {
 
   return {
     id: juror.id,
-    firstname: juror.firstName ?? '',
-    lastname: juror.LastName ?? '',
+    firstName: juror.firstName ?? '',
+    LastName: juror.LastName ?? '',
     email: juror.email,
     confirmationStatusId: juror.confirmationStatusId,
     lastSignInAt: juror.lastSignInAt,
@@ -186,8 +186,8 @@ async create(dto: CreateJurorDto): Promise<JurorListItem> {
 
       return {
         id: juror.id,
-        firstname: juror.firstName ?? '',
-        lastname: juror.LastName ?? '',
+        firstName: juror.firstName ?? '',
+        LastName: juror.LastName ?? '',
         email: juror.email,
         confirmationStatusId: juror.confirmationStatusId,
         lastSignInAt: juror.lastSignInAt,

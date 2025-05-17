@@ -1,7 +1,7 @@
 export class JurorListItem {
   id: string;
-  firstname: string;
-  lastname: string | null;
+  firstName: string;
+  LastName: string | null;
   email: string;
   confirmationStatusId: number | null;
   lastSignInAt: Date | null;
