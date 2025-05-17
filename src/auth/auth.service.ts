@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   Inject,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -604,4 +605,53 @@ export class AuthService {
     const { roleId, confirmationStatusId, ...profileData } = user;
     return profileData;
   }
+
+  /**
+   * Resends the confirmation email to the user.
+   * @param email The email address of the user to resend the confirmation email to.
+   * @throws {NotFoundException} If the user is not found in the local database.
+   * @throws {ConflictException} If the user is already confirmed.
+   * @throws {InternalServerErrorException} If there is an error sending the email.
+   */
+
+async resendConfirmationEmail(email: string): Promise<void> {
+  this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+
+  const user = await this.prisma.user.findUnique({
+    where: { email },
+    include: { confirmationStatus: true }, // opcional si usas relación
+  });
+
+  if (!user) {
+    this.logger.error(`User with email ${email} not found in local DB.`);
+    throw new NotFoundException('The email address is not registered.');
+  }
+
+  if (user.confirmationStatus?.status === 'CONFIRMADO') {
+    this.logger.warn(`User with email ${email} is already confirmed.`);
+    throw new ConflictException('The email has already been confirmed.');
+  }
+  const { error } = await this.supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+    },
+  });
+
+  if (error) {
+    this.logger.error(`Error sending confirmation email: ${error.message}`);
+
+    if (error.message.includes('User not found')) {
+      throw new NotFoundException('El correo electrónico no está registrado.');
+    }
+
+    throw new InternalServerErrorException(
+      'Error al reenviar el correo de confirmación.',
+    );
+  }
+
+  this.logger.log(`Confirmation email resent successfully to: ${email}`);
+}
+
 }
