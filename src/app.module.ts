@@ -17,7 +17,6 @@ import { TeamsModule } from './teams/teams.module';
 import { JurorModule } from './juror/juror.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
 import { ReportsModule } from './reports/reports.module';
-import { ProfessorViewModule } from './professor-view/pv.module';
 
 @Module({
   imports: [
@@ -35,7 +34,6 @@ import { ProfessorViewModule } from './professor-view/pv.module';
     VideogameModule,
     ReportsModule,
     EvaluationModule,
-    ProfessorViewModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],

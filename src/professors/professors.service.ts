@@ -14,6 +14,9 @@ import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
+import * as ExcelJS from 'exceljs';
+import { Response } from 'express';
+
 
 @Injectable()
 export class ProfessorsService {
@@ -273,5 +276,264 @@ export class ProfessorsService {
         `Failed to deactivate professor ${id}.`,
       );
     }
+  }
+
+  async getNRCreport(nrcCode: number, includeInactive: boolean, limit: number, page: number) {
+    const offset = (page - 1) * limit;
+
+    const nrcSubjectSelect = {
+      code: true,
+      subject: {
+        select: {
+          name: true,
+        },
+      },
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: {
+          totalScore: true,
+        },
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      email: true,
+      nrcs: {
+        select: nrcSubjectSelect,
+      },
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const memberWhere = {
+      nrcs: {
+        some: {
+          code: nrcCode,
+        },
+      },
+    };
+
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.member.findMany({
+        where: memberWhere,
+        select: memberSelect,
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.member.count({
+        where: memberWhere,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+
+    if (!items || items.length === 0) {
+      throw new NotFoundException(`No students found for NRC with code ${nrcCode}`);
+    }
+
+    const matchingNRC = items[0].nrcs.find((nrc) => nrc.code === nrcCode);
+
+    if (!matchingNRC) {
+      throw new NotFoundException(`No matching NRC ${nrcCode} found in the student data`);
+    }
+
+    const subject = matchingNRC.subject.name;
+    const NRC = matchingNRC.code;
+    const reporte = items.map((i) => {
+      const videojuego = i.team?.videogame;
+      const grade = videojuego?.evaluations?.[0]?.totalScore ?? null;
+
+      return {
+        NRC,
+        subject,
+        student: `${i.firstName} ${i.lastName}`,
+        email: i.email,
+        student_code: i.studentCode,
+        team: i.team?.teamName ?? 'No team',
+        videogame: videojuego?.name ?? 'No videogame',
+        grade,
+      };
+    });
+
+    return {
+      data: reporte,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
+      },
+    };
+  }
+
+
+  async GetSignatureReport(Subjectname: string, includeInactive: boolean, limit: number, page: number) {
+    const offset = (page - 1) * limit;
+
+    const evaluationSelect = {
+      totalScore: true,
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: evaluationSelect,
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const nrcsSelect = {
+      members: {
+        select: memberSelect,
+      },
+    };
+
+    const subjectSelect = {
+      name: true,
+      nrcs: {
+        select: nrcsSelect,
+      },
+    };
+
+    const subjectWhere = {
+      name: Subjectname,
+    };
+
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.subject.findMany({
+        where: subjectWhere,
+        select: subjectSelect,
+      }),
+      this.prisma.subject.count({
+        where: subjectWhere,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    if (!items) {
+      throw new NotFoundException(`Subject ${Subjectname} it is not exist`);
+    }
+
+    const reports = [];
+    for (const subject of items) {
+      for (const nrc of subject.nrcs) {
+        for (const member of nrc.members) {
+          const videogame = member.team?.videogame;
+          const grade = videogame?.evaluations?.[0]?.totalScore ?? null;
+
+          reports.push({
+            subject: subject.name,
+            student: `${member.firstName} ${member.lastName}`,
+            student_code: member.studentCode,
+            team: member.team?.teamName ?? 'No team',
+            videogame: videogame?.name ?? 'No videogame',
+            grade
+          });
+        }
+      }
+    }
+
+    return {
+      data: reports,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
+      },
+    };
+  }
+
+  async exportNRCreportToExcel(
+    nrcCode: number,
+    includeInactive: boolean,
+    limit: number,
+    page: number,
+    res: Response,
+  ): Promise<void> {
+    const { data } = await this.getNRCreport(nrcCode, includeInactive, limit, page);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('NRC Report');
+
+    worksheet.columns = [
+      { header: 'NRC', key: 'NRC', width: 10 },
+      { header: 'Subject', key: 'subject', width: 40 },
+      { header: 'Student', key: 'student', width: 30 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Student Code', key: 'student_code', width: 20 },
+      { header: 'Team', key: 'team', width: 20 },
+      { header: 'Videogame', key: 'videogame', width: 20 },
+      { header: 'Score', key: 'grade', width: 10 },
+    ];
+
+    data.forEach(item => worksheet.addRow(item));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=nrc-report-${nrcCode}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  }
+
+  async exportSignatureReportToExcel(
+    subjectName: string,
+    includeInactive: boolean,
+    limit: number,
+    page: number,
+    res: Response,
+  ): Promise<void> {
+    const { data } = await this.GetSignatureReport(subjectName, includeInactive, limit, page);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Signature Report');
+
+    worksheet.columns = [
+      { header: 'Subject', key: 'subject', width: 40 },
+      { header: 'Student', key: 'student', width: 30 },
+      { header: 'Student Code', key: 'student_code', width: 20 },
+      { header: 'Team', key: 'team', width: 20 },
+      { header: 'Videogame', key: 'videogame', width: 20 },
+      { header: 'Score', key: 'grade', width: 10 },
+    ];
+
+    data.forEach(item => worksheet.addRow(item));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=signature-report-${subjectName}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
   }
 }
