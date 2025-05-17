@@ -126,6 +126,7 @@ export class ReportsService {
             members: {
               include: {
                 nrcs: {
+                  where: { isActive: true },
                   include: {
                     subject: true,
                   },
@@ -204,6 +205,7 @@ export class ReportsService {
 
   async getSubjects(): Promise<{ id: number; name: string }[]> {
     return this.prisma.subject.findMany({
+      where: { isActive: true },
       select: {
         id: true,
         name: true,
@@ -235,8 +237,10 @@ export class ReportsService {
 
   async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
     const subjects = await this.prisma.subject.findMany({
+      where: { isActive: true },
       include: {
         nrcs: {
+          where: { isActive: true },
           include: {
             members: {
               include: {
