@@ -34,78 +34,106 @@ export class JurorService {
     return jurorRole.id;
   }
 
-  async create(dto: CreateJurorDto): Promise<User & { _count: number }> {
-    const jurorRoleId = await this.getJurorRoleId();
+async create(dto: CreateJurorDto): Promise<JurorListItem> {
+  const jurorRoleId = await this.getJurorRoleId();
 
-    let user: SupabaseUser;
-    try {
-      user = await this.auth.registerUser({
-        email: dto.email,
-        name: `${dto.firstname} ${dto.lastname}`.trim(),
-      });
+  let user: SupabaseUser;
+  try {
+    user = await this.auth.registerUser({
+      email: dto.email,
+      name: `${dto.firstname} ${dto.lastname}`.trim(),
+    });
 
-      if (!user || !user.id) {
-        throw new InternalServerErrorException(
-          `Supabase did not return a user ID for the email: ${dto.email}`,
-        );
-      }
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new ConflictException(
-            `A juror with the email ${dto.email} already exists.`,
-          );
-        }
-      }
-      if (error instanceof Error) {
-        throw new InternalServerErrorException(
-          `Error during registration in Supabase for ${dto.email}: ${error.message}`,
-        );
-      }
-
+    if (!user || !user.id) {
+      throw new InternalServerErrorException(
+        `Supabase did not return a user ID for the email: ${dto.email}`,
+      );
     }
-
-    let juror: User;
-    let _count: number = 0;
-    try {
-      juror = await this.prisma.user.create({
-        data: {
-          id: user!.id,
-          name: `${dto.firstname} ${dto.lastname}`.trim(),
-          firstName: dto.firstname,
-          LastName: dto.lastname,
-          email: dto.email,
-          username: dto.firstname,
-          roleId: jurorRoleId,
-          isActive: true,
-        },
-      });
-
-      _count = await this.prisma.evaluation.count({
-        where: { jurorId: juror.id },
-      });
-
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new ConflictException(
-            `A juror with the email ${dto.email} or ID ${user!.id} already exists.`,
-          );
-        }
-      }
-
-      if (error instanceof Error)
-        throw new InternalServerErrorException(
-          `Could not save the juror to the database for ${dto.email}: ${error.message}`,
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          `A juror with the email ${dto.email} already exists.`,
         );
+      }
     }
-
-
-    return {
-      ...juror!,
-      _count,
-    };
+    if (error instanceof Error) {
+      throw new InternalServerErrorException(
+        `Error during registration in Supabase for ${dto.email}: ${error.message}`,
+      );
+    }
   }
+
+  let juror: User | null = null;
+  let _count: number = 0;
+  try {
+    juror = await this.prisma.user.create({
+      data: {
+        id: user!.id,
+        firstName: dto.firstname,
+        LastName: dto.lastname,
+        email: dto.email,
+        username: dto.firstname,
+        roleId: jurorRoleId,
+        isActive: true,
+      },
+    });
+
+    _count = await this.prisma.evaluation.count({
+      where: { jurorId: juror.id },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          `A juror with the email ${dto.email} or ID ${user!.id} already exists.`,
+        );
+      }
+    }
+
+    if (error instanceof Error)
+      throw new InternalServerErrorException(
+        `Could not save the juror to the database for ${dto.email}: ${error.message}`,
+      );
+  }
+
+  if (!juror) {
+    throw new InternalServerErrorException(
+      `Juror could not be created for email: ${dto.email}`
+    );
+  }
+
+  const [evaluatedGames, allVideogames] = await this.prisma.$transaction([
+    this.prisma.evaluation.findMany({
+      where: { jurorId: juror.id },
+      select: { videogame: { select: { id: true, name: true } } },
+    }),
+    this.prisma.videogame.findMany({
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const evaluatedGameNames = evaluatedGames.map(e => e.videogame.name);
+  const evaluatedIds = new Set(evaluatedGames.map(e => e.videogame.id));
+
+  const unevaluatedGameNames = allVideogames
+    .filter(vg => !evaluatedIds.has(vg.id))
+    .map(vg => vg.name);
+
+  return {
+    id: juror.id,
+    firstname: juror.firstName ?? '',
+    lastname: juror.LastName ?? '',
+    email: juror.email,
+    confirmationStatusId: juror.confirmationStatusId,
+    lastSignInAt: juror.lastSignInAt,
+    evaluatedCount: evaluatedGameNames.length,
+    evaluatedGameNames,
+    unevaluatedCount: unevaluatedGameNames.length,
+    unevaluatedGameNames,
+  };
+}
+
 
   async findAll(
     includeInactive: boolean,
