@@ -15,6 +15,26 @@ export class SubjectsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createSubjectDto: CreateSubjectDto): Promise<Subject> {
+    // Check for existing subject with the same name or code
+    const existingSubjectByNameOrCode = await this.prisma.subject.findFirst({
+      where: {
+        OR: [{ name: createSubjectDto.name }, { code: createSubjectDto.code }],
+      },
+    });
+
+    if (existingSubjectByNameOrCode) {
+      let conflictField = '';
+      if (existingSubjectByNameOrCode.name === createSubjectDto.name) {
+        conflictField = 'name';
+      }
+      if (existingSubjectByNameOrCode.code === createSubjectDto.code) {
+        conflictField = conflictField ? 'name and code' : 'code';
+      }
+      throw new ConflictException(
+        `A subject with this ${conflictField} already exists.`,
+      );
+    }
+
     return this.prisma.subject.create({
       data: createSubjectDto,
     });
@@ -81,18 +101,63 @@ export class SubjectsService {
     id: number,
     updateSubjectDto: UpdateSubjectDto,
   ): Promise<Subject> {
-    const existingSubject = await this.prisma.subject.findUnique({
+    const existingSubjectToUpdate = await this.prisma.subject.findUnique({
       where: { id },
     });
-    if (!existingSubject) {
+
+    if (!existingSubjectToUpdate) {
       throw new NotFoundException(`Subject with ID ${id} not found.`);
     }
+
+    // Check if the new name or code conflicts with another existing subject
+    if (updateSubjectDto.name || updateSubjectDto.code) {
+      const conflictWhereClauses: Prisma.SubjectWhereInput[] = [];
+
+      if (updateSubjectDto.name) {
+        conflictWhereClauses.push({ name: updateSubjectDto.name });
+      }
+      if (updateSubjectDto.code) {
+        conflictWhereClauses.push({ code: updateSubjectDto.code });
+      }
+
+      const conflictingSubject = await this.prisma.subject.findFirst({
+        where: {
+          AND: [
+            { id: { not: id } }, // Exclude the current subject being updated
+            { OR: conflictWhereClauses },
+          ],
+        },
+      });
+
+      if (conflictingSubject) {
+        let conflictField = '';
+        if (
+          updateSubjectDto.name &&
+          conflictingSubject.name === updateSubjectDto.name
+        ) {
+          conflictField = 'name';
+        }
+        if (
+          updateSubjectDto.code &&
+          conflictingSubject.code === updateSubjectDto.code
+        ) {
+          conflictField = conflictField ? 'name and code' : 'code';
+        }
+        throw new ConflictException(
+          `Another subject with this ${conflictField} already exists.`,
+        );
+      }
+    }
+
     try {
       return await this.prisma.subject.update({
         where: { id: id },
         data: updateSubjectDto,
       });
     } catch (error) {
+      // You might want to specifically handle Prisma P2002 errors here too,
+      // though the above checks should prevent them for name/code.
+      // This catch block is more for other potential update errors.
       throw error;
     }
   }
