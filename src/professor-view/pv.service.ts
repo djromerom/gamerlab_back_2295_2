@@ -82,9 +82,14 @@ export class ProfessorViewService {
             throw new NotFoundException(`No students found for NRC with code ${nrcCode}`);
         }
 
-        const curso = items[0].nrcs[0].subject.name;
-        const NRC = items[0].nrcs[0].code;
+        const matchingNRC = items[0].nrcs.find((nrc) => nrc.code === nrcCode);
 
+        if (!matchingNRC) {
+            throw new NotFoundException(`No matching NRC ${nrcCode} found in the student data`);
+        }
+
+        const curso = matchingNRC.subject.name;
+        const NRC = matchingNRC.code;
         const reporte = items.map((i) => {
             const videojuego = i.team?.videogame;
             const nota = videojuego?.evaluations?.[0]?.totalScore ?? null;
