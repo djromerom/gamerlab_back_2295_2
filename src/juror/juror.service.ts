@@ -41,7 +41,7 @@ export class JurorService {
     try {
       user = await this.auth.registerUser({
         email: dto.email,
-        name: dto.name,
+        name: `${dto.firstname} ${dto.lastname}`.trim(),
       });
 
       if (!user || !user.id) {
@@ -71,10 +71,11 @@ export class JurorService {
       juror = await this.prisma.user.create({
         data: {
           id: user!.id,
-          name: dto.name,
+          name: `${dto.firstname} ${dto.lastname}`.trim(),
+          firstName: dto.firstname,
           LastName: dto.lastname,
           email: dto.email,
-          username: dto.name,
+          username: dto.firstname,
           roleId: jurorRoleId,
           isActive: true,
         },
@@ -125,10 +126,10 @@ export class JurorService {
         where: whereClause,
         skip: offset,
         take: limit,
-        orderBy: { name: 'asc' },
+        orderBy: { LastName: 'asc' },
         select: {
           id: true,
-          name: true,
+          firstName: true,
           LastName: true,
           email: true,
           confirmationStatusId: true,
@@ -157,8 +158,8 @@ export class JurorService {
 
       return {
         id: juror.id,
-        name: juror.name ?? '',
-        LastName: juror.LastName ?? '',
+        firstname: juror.firstName ?? '',
+        lastname: juror.LastName ?? '',
         email: juror.email,
         confirmationStatusId: juror.confirmationStatusId,
         lastSignInAt: juror.lastSignInAt,
