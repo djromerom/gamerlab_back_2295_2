@@ -209,8 +209,8 @@ model Evaluation {
 
 model Subject {
   id        Int      @id @default(autoincrement()) @map("id_materia")
-  name      String   @map("nombre") @db.VarChar(50)
-  code      String   @map("codigo") @db.VarChar(50)
+  name      String   @map("nombre") @unique @db.VarChar(50)
+  code      String   @map("codigo") @unique @db.VarChar(50)
   semester  Int      @map("semestre")
   isActive  Boolean  @default(true) @map("activo")
   createdAt DateTime @default(now()) @map("creado_en")
