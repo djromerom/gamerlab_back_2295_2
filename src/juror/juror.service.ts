@@ -42,21 +42,41 @@ export class JurorService {
     };
   }
 
-  private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]; unevaluated: string[] }> {
-    const [evaluated, allGames] = await this.prisma.$transaction([
-      this.prisma.evaluation.findMany({
-        where: { jurorId },
-        select: { videogame: { select: { id: true, name: true } } },
-      }),
-      this.prisma.videogame.findMany({ select: { id: true, name: true } }),
-    ]);
+private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]; unevaluated: string[] }> {
+  const [evaluated, assignedTeams] = await this.prisma.$transaction([
+    this.prisma.evaluation.findMany({
+      where: { jurorId },
+      select: { videogame: { select: { id: true, name: true } } },
+    }),
+    this.prisma.team.findMany({
+      where: {
+        assignedJurors: {
+          some: { id: jurorId },}, videogame: { isNot: null,},},
+      select: {
+        videogame: {
+          select: { id: true, name: true },
+        },
+      },
+    }),
+  ]);
 
-    const evaluatedNames = evaluated.map(e => e.videogame.name);
-    const evaluatedIds = new Set(evaluated.map(e => e.videogame.id));
-    const unevaluatedNames = allGames.filter(g => !evaluatedIds.has(g.id)).map(g => g.name);
+  const assignedGames = assignedTeams
+    .filter(t => t.videogame !== null)
+    .map(t => t.videogame!);
 
-    return { evaluated: evaluatedNames, unevaluated: unevaluatedNames };
-  }
+  const evaluatedIds = new Set(evaluated.map(e => e.videogame.id));
+  const evaluatedNames = evaluated.map(e => e.videogame.name);
+
+  const unevaluatedNames = assignedGames
+    .filter(vg => !evaluatedIds.has(vg.id))
+    .map(vg => vg.name);
+
+  return {
+    evaluated: evaluatedNames,
+    unevaluated: unevaluatedNames,
+  };
+}
+
 
   async create(dto: CreateJurorDto): Promise<JurorListItem> {
     const roleId = await this.getJurorRoleId();
@@ -131,15 +151,34 @@ export class JurorService {
         },
       }),
       this.prisma.user.count({ where }),
-      this.prisma.videogame.findMany({ select: { id: true, name: true } }),
+            this.prisma.team.findMany({
+        where: {
+          assignedJurors: { some: { roleId } },
+          videogame: { isNot: null },
+        },
+        select: {
+          videogame: { select: { id: true, name: true } },
+          assignedJurors: { select: { id: true } },
+        },
+      }),
+
     ]);
+
+    const gameMap = new Map<string, string[]>(); 
+    allGames.forEach(team => {
+      team.assignedJurors.forEach(juror => {
+        if (!gameMap.has(juror.id)) gameMap.set(juror.id, []);
+        if (team.videogame) gameMap.get(juror.id)?.push(team.videogame.name);
+      });
+    });
 
     const data = users.map(user => {
       const evaluated = user.evaluationsSubmitted.map(e => e.videogame.name);
-      const evaluatedIds = new Set(user.evaluationsSubmitted.map(e => e.videogame.id));
-      const unevaluated = allGames.filter(g => !evaluatedIds.has(g.id)).map(g => g.name);
+      const assigned = gameMap.get(user.id) || [];
+      const unevaluated = assigned.filter(name => !evaluated.includes(name));
       return this.mapToJurorListItem(user, evaluated, unevaluated);
     });
+
 
     return {
       data,
