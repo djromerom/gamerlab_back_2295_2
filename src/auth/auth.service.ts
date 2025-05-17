@@ -619,7 +619,7 @@ async resendConfirmationEmail(email: string): Promise<void> {
 
   const user = await this.prisma.user.findUnique({
     where: { email },
-    include: { confirmationStatus: true }, // opcional si usas relación
+    include: { confirmationStatus: true }, 
   });
 
   if (!user) {
@@ -642,12 +642,8 @@ async resendConfirmationEmail(email: string): Promise<void> {
   if (error) {
     this.logger.error(`Error sending confirmation email: ${error.message}`);
 
-    if (error.message.includes('User not found')) {
-      throw new NotFoundException('El correo electrónico no está registrado.');
-    }
-
     throw new InternalServerErrorException(
-      'Error al reenviar el correo de confirmación.',
+      'Error sending confirmation email',
     );
   }
 
