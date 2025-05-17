@@ -65,19 +65,6 @@ export class AuthController {
   }
 
   @Public()
-  @UseGuards(JwtAuthGuard)
-  @Post('set-password')
-  @HttpCode(HttpStatus.OK)
-  async setPassword(
-    @Req() req: RequestWithUser,
-    @Body() setPasswordDto: SetPasswordDto,
-  ): Promise<{ message: string }> {
-    const userId = req.user.sub; // Obtains 'sub' from the validated payload
-    await this.authService.setUserPassword(userId, setPasswordDto.password);
-    return { message: 'Password updated successfully' };
-  }
-
-  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) res: Response) {

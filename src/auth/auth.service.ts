@@ -22,6 +22,7 @@ import { Request, Response } from 'express';
 import { RegisterUserDto } from 'src/teams/dto/register-user.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { RegisterDto } from './dto/register.dto';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -199,7 +200,28 @@ export class AuthService {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
     let user: UserSupabase;
+
     try {
+      // Verificar si el correo ya existe
+      const { data: existingUser, error: fetchError } = await this.supabase
+        .from('auth.users')
+        .select('id') // Solo necesitamos el ID para verificar la existencia
+        .eq('email', registerDto.email)
+        .single(); // Obtener un solo registro
+
+      if (fetchError) {
+        this.logger.error(`Error fetching user: ${fetchError.message}`);
+        throw new InternalServerErrorException(
+          'Error checking email existence.',
+        );
+      }
+
+      if (existingUser) {
+        this.logger.error(`Email already exists: ${registerDto.email}`);
+        throw new BadRequestException('El correo electrónico ya está en uso.');
+      }
+
+      // Si el correo no existe, proceder a registrar el usuario
       const { data, error } = await this.supabase.auth.signUp({
         email: registerDto.email,
         password: randomUUID(),
@@ -221,7 +243,6 @@ export class AuthService {
       this.logger.log(
         `Supabase registration successful for: ${registerDto.email}`,
       );
-
       user = data.user;
     } catch (error) {
       if (
