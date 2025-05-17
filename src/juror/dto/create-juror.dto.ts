@@ -4,12 +4,12 @@ export class CreateJurorDto {
   @MaxLength(50)
   @IsString()
   @IsNotEmpty()
-  firstname: string;
+  firstName: string;
 
   @MaxLength(50)
   @IsString()
   @IsNotEmpty()
-  lastname: string;
+  LastName: string;
 
   @IsNotEmpty()
   @IsEmail()

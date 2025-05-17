@@ -41,7 +41,7 @@ async create(dto: CreateJurorDto): Promise<JurorListItem> {
   try {
     user = await this.auth.registerUser({
       email: dto.email,
-      name: `${dto.firstname} ${dto.lastname}`.trim(),
+      name: `${dto.firstName} ${dto.LastName}`.trim(),
     });
 
     if (!user || !user.id) {
@@ -70,10 +70,10 @@ async create(dto: CreateJurorDto): Promise<JurorListItem> {
     juror = await this.prisma.user.create({
       data: {
         id: user!.id,
-        firstName: dto.firstname,
-        LastName: dto.lastname,
+        firstName: dto.firstName,
+        LastName: dto.LastName,
         email: dto.email,
-        username: dto.firstname,
+        username: dto.firstName,
         roleId: jurorRoleId,
         isActive: true,
       },
