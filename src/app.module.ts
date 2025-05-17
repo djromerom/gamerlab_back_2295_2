@@ -17,7 +17,7 @@ import { TeamsModule } from './teams/teams.module';
 import { JurorModule } from './juror/juror.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
 import { ReportsModule } from './reports/reports.module';
-
+import { StudentsModule } from './students/students.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -34,6 +34,7 @@ import { ReportsModule } from './reports/reports.module';
     VideogameModule,
     ReportsModule,
     EvaluationModule,
+    StudentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],
