@@ -23,13 +23,18 @@ export class ReportsController {
 }
 
   @Get('NRCData')
-  async getNrcWithSubjectName() {
-    return this.reportsService.getNrcWithSubjectName();
+  async getNrcWithSubjectNameAndAverage() {
+    return this.reportsService.getNrcWithSubjectNameAndAverage();
 }
 
   @Get('DatosGraficoMateria')
   async getAverageScorePerSubject() {
     return this.reportsService.getSubjectAverageScores();
 }
+
+  @Get('JuradosData')
+  async getJuradosData() {
+    return this.reportsService.getJuradosData();
+  }
 
 }
