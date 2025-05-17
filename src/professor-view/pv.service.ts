@@ -7,13 +7,16 @@ import {
     BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Prisma, Member, Subject } from '@prisma/client';
 
 
 @Injectable()
 export class ProfessorViewService {
     constructor(private prisma: PrismaService) { }
 
-    async getNRCreport(nrcCode: number) {
+    async getNRCreport(nrcCode: number, includeInactive: boolean, limit: number, page: number) {
+        const offset = (page - 1) * limit;
+
         const nrcSubjectSelect = {
             code: true,
             subject: {
@@ -60,20 +63,29 @@ export class ProfessorViewService {
             },
         };
 
-        const integrantes = await this.prisma.member.findMany({
-            where: memberWhere,
-            select: memberSelect,
-        });
+        const [items, totalItems] = await this.prisma.$transaction([
+            this.prisma.member.findMany({
+                where: memberWhere,
+                select: memberSelect,
+                skip: offset,
+                take: limit,
+            }),
+            this.prisma.member.count({
+                where: memberWhere,
+            }),
+        ]);
+
+        const totalPages = Math.ceil(totalItems / limit);
 
 
-        if (!integrantes || integrantes.length === 0) {
+        if (!items || items.length === 0) {
             throw new NotFoundException(`No students found for NRC with code ${nrcCode}`);
         }
 
-        const curso = integrantes[0].nrcs[0].subject.name;
-        const NRC = integrantes[0].nrcs[0].code;
+        const curso = items[0].nrcs[0].subject.name;
+        const NRC = items[0].nrcs[0].code;
 
-        const reporte = integrantes.map((i) => {
+        const reporte = items.map((i) => {
             const videojuego = i.team?.videogame;
             const nota = videojuego?.evaluations?.[0]?.totalScore ?? null;
 
@@ -83,17 +95,28 @@ export class ProfessorViewService {
                 estudiante: `${i.firstName} ${i.lastName}`,
                 correo: i.email,
                 codigo_estudiantil: i.studentCode,
-                equipo: i.team?.teamName ?? 'Sin equipo',
-                videojuego: videojuego?.name ?? 'Sin videojuego',
+                equipo: i.team?.teamName ?? 'No team',
+                videojuego: videojuego?.name ?? 'No videogame',
                 nota,
             };
         });
 
-        return reporte;
+        return {
+            data: reporte,
+            metadata: {
+                totalItems: totalItems,
+                itemsOnCurrentPage: items.length,
+                currentPage: page,
+                itemsPerPage: limit,
+                totalPages: totalPages,
+            },
+        };
     }
 
 
-    async GetSignatureReport(Subjectname: string) {
+    async GetSignatureReport(Subjectname: string, includeInactive: boolean, limit: number, page: number) {
+        const offset = (page - 1) * limit;
+
         const evaluationSelect = {
             totalScore: true,
         };
@@ -138,18 +161,24 @@ export class ProfessorViewService {
             name: Subjectname,
         };
 
-        const subjects = await this.prisma.subject.findMany({
-            where: subjectWhere,
-            select: subjectSelect,
-        });
+        const [items, totalItems] = await this.prisma.$transaction([
+            this.prisma.subject.findMany({
+                where: subjectWhere,
+                select: subjectSelect,
+            }),
+            this.prisma.subject.count({
+                where: subjectWhere,
+            }),
+        ]);
 
+        const totalPages = Math.ceil(totalItems / limit);
 
-        if (!subjects) {
+        if (!items) {
             throw new NotFoundException(`Subject ${Subjectname} it is not exist`);
         }
 
         const reports = [];
-        for (const subject of subjects) {
+        for (const subject of items) {
             for (const nrc of subject.nrcs) {
                 for (const member of nrc.members) {
                     const videogame = member.team?.videogame;
@@ -166,6 +195,16 @@ export class ProfessorViewService {
                 }
             }
         }
-        return reports;
+
+        return {
+            data: reports,
+            metadata: {
+                totalItems: totalItems,
+                itemsOnCurrentPage: items.length,
+                currentPage: page,
+                itemsPerPage: limit,
+                totalPages: totalPages,
+            },
+        };
     }
 }
