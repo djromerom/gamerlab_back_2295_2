@@ -1,31 +1,36 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VideogameResponseDto } from './dto/videogame-response.dto';
+import { PendingGames } from './types/pending-games.type';
+import { PaginatedResult } from 'src/common/types/paginated-result.type';
 
 @Injectable()
 export class VideogamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  async getAllVideogamesWithDetails(
+  async getPendingVideogames(
     jurorId: string,
     page: number = 1,
     limit: number = 10,
-  ): Promise<{ data: VideogameResponseDto[]; metadata: any }> {
+  ): Promise<PaginatedResult<PendingGames>> {
     const offset = (page - 1) * limit;
 
-    // Obtener las evaluaciones realizadas por el usuario actual
-    const evaluationsByUser = await this.prisma.evaluation.findMany({
+    // Obtener los IDs de videojuegos ya evaluados por el jurado
+    const evaluatedIds = await this.prisma.evaluation.findMany({
       where: { jurorId },
-      select: {
-        videogameId: true,
-      },
-    }).then((evaluations) => evaluations.map((evaluation) => evaluation.videogameId));
+      select: { videogameId: true },
+    }).then((evaluations) => evaluations.map((e) => e.videogameId));
 
-    // Obtener todos los videojuegos con paginación
+    // Filtrar solo los NO evaluados
+    const whereClause = {
+      id: { notIn: evaluatedIds },
+    };
+
+    // Obtener datos y total para paginación
     const [videogames, totalItems] = await this.prisma.$transaction([
       this.prisma.videogame.findMany({
         skip: offset,
         take: limit,
+        where: whereClause,
         select: {
           id: true,
           name: true,
@@ -42,9 +47,7 @@ export class VideogamesService {
                     select: {
                       code: true,
                       subject: {
-                        select: {
-                          name: true,
-                        },
+                        select: { name: true },
                       },
                     },
                   },
@@ -54,12 +57,11 @@ export class VideogamesService {
           },
         },
       }),
-      this.prisma.videogame.count(), // Contar el total de videojuegos
+      this.prisma.videogame.count({ where: whereClause }),
     ]);
 
     const totalPages = Math.ceil(totalItems / limit);
 
-    // Mapear los videojuegos y agregar el indicador "isEvaluated" y NRCs únicos
     const data = videogames.map((videogame) => {
       const uniqueNrcs = Array.from(
         new Set(
@@ -79,8 +81,8 @@ export class VideogamesService {
         })) || [],
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
-        isEvaluated: evaluationsByUser.includes(videogame.id), // Verificar si fue evaluado por el usuario actual
-      };
+        isEvaluated: false,
+      } as PendingGames;
     });
 
     return {

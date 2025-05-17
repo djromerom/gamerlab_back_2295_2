@@ -4,6 +4,7 @@ import { UpdateTeamDto } from './dto/update-team.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Role } from '@prisma/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { RegisterDto } from 'src/auth/dto/register.dto';
 import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -13,36 +14,34 @@ export class TeamsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async findByTeamName(teamName: string) {
-    const team = await this.prisma.team.findUnique({
-      where: { teamName: teamName }
+    const team = await this.prisma.team.findFirst({
+      where: { 
+        teamName: {
+          equals: teamName,
+          mode: 'insensitive',
+        },
+      },
     });
 
-    // validate for uppercase and lowercase, and return true if the team exists, if not, return false
-    if (!team) {
-      // If the team is not found, check for uppercase version
-      const teamUpper = await this.prisma.team.findUnique({
-        where: { teamName: teamName.toUpperCase() },
-      });
+    return !!team; // Return true if the team exists, false otherwise
 
-      // If the team is not found, check for lowercase version
-      const teamLower = await this.prisma.team.findUnique({
-        where: { teamName: teamName.toLowerCase() },
-      });
+  }
 
-      if (teamLower || teamUpper) {
-        return true; // If either version is found, return true
-      } else {
-        return false; // If neither version is found, return false
-      }
-      
-    }
+  // Validate if videogame exists (case-insensitive)
+  async findByVideogameName(videogameName: string) {
+    const videogame = await this.prisma.videogame.findFirst({
+      where: {
+        name: {
+          equals: videogameName,
+          mode: 'insensitive',
+        },
+      },
+    });
 
-    // If the team is found, return true
-    return true;
-
+    return !!videogame; // true if found, false if not
   }
 
   async create(createTeamDto: CreateTeamDto) {
@@ -61,10 +60,9 @@ export class TeamsService {
       throw new Error('Role "ESTUDIANTE" not found');
     }
 
-    const { user } = await this.authService.registerUser(userRegister);
+    const user: SupabaseUser = await this.authService.registerUser(userRegister);
 
     const dataUser = await this.prisma.user.create({
-      // --> Create the user in the database
       data: {
         id: user.id,
         username: userRegister.name,
@@ -137,7 +135,7 @@ export class TeamsService {
       password: registerDto.password,
       name: registerDto.name,
     };
-    const { user } = await this.authService.registerUser(authRegisterPayload);
+    const user: SupabaseUser = await this.authService.registerUser(authRegisterPayload);
     return user;
   }
 

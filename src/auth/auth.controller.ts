@@ -29,7 +29,7 @@ interface RequestWithUser extends Request {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Public()
   @Post('login')
@@ -78,15 +78,5 @@ export class AuthController {
   // by the SupabaseStrategy after successful cookie authentication
   async getMyProfile(@GetUser() user: AppUser) {
     return this.authService.getMyProfile(user.id);
-  }
-
-  @Post('update-user')
-  @HttpCode(HttpStatus.OK)
-  async updateUserProfile(
-    @Req() req: RequestWithUser,
-    @Body() updateData: Partial<User>,
-  ): Promise<Partial<User>> {
-    const userId = req.user.sub;
-    return this.authService.updateUserProfile(userId, updateData);
   }
 }

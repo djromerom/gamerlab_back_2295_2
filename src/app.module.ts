@@ -9,12 +9,14 @@ import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { PendingGamesModule } from './pending-games/pg.module';
+import { GradedGamesModule } from './graded-games/gg.module';
 import { VideogameModule } from './videogames/videogames.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
 import { JurorModule } from './juror/juror.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -24,11 +26,13 @@ import { EvaluationModule } from './evaluation/evaluation.module';
     SubjectsModule,
     NrcsModule,
     PendingGamesModule,
+    GradedGamesModule,
     CriterionModule,
     ProfessorsModule,
     TeamsModule,
     JurorModule,
     VideogameModule,
+    ReportsModule,
     EvaluationModule,
   ],
   controllers: [AppController],

@@ -11,6 +11,7 @@ import { AuthService } from 'src/auth/auth.service';
 import { Prisma, User, Role } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 
@@ -22,22 +23,25 @@ export class ProfessorsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {
+
+    // TODO: Fetch once the professorRole id. It's not ideal to do this on
+    // each service function when it can be done here in the constructor!
+  }
 
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
       `Attempting to create professor: ${createProfessorDto.email}`,
     );
 
-    let supabaseUser;
+    let user: SupabaseUser;
     try {
-      const result = await this.authService.registerUser({
+      const user = await this.authService.registerUser({
         email: createProfessorDto.email,
         name: createProfessorDto.name,
       });
-      supabaseUser = result.user as { id: string; email: string }; // Asegura el tipo mínimo
 
-      if (!supabaseUser || !supabaseUser.id) {
+      if (!user || !user.id) {
         this.logger.error(
           `Supabase registration failed or did not return a user ID for email: ${createProfessorDto.email}`,
         );
@@ -46,18 +50,21 @@ export class ProfessorsService {
         );
       }
       this.logger.log(
-        `Supabase user registered successfully: ${supabaseUser.id}`,
+        `Supabase user registered successfully: ${user.id}`,
       );
     } catch (error) {
-      this.logger.error(
-        `Error during Supabase registration for ${createProfessorDto.email}: ${error.message}`,
-        error.stack,
-      );
 
-      if (error.message?.includes('User already registered')) {
-        throw new ConflictException(
-          `Email ${createProfessorDto.email} is already registered.`,
+      if (error instanceof Error) {
+        this.logger.error(
+          `Error during Supabase registration for ${createProfessorDto.email}: ${error.message}`,
+          error.stack,
         );
+
+        if (error.message?.includes('User already registered')) {
+          throw new ConflictException(
+            `Email ${createProfessorDto.email} is already registered.`,
+          );
+        }
       }
       throw error;
     }
@@ -65,7 +72,7 @@ export class ProfessorsService {
     try {
       const newProfessor = await this.prisma.user.create({
         data: {
-          id: supabaseUser.id,
+          id: user!.id,
           name: createProfessorDto.name,
           email: createProfessorDto.email,
           username: createProfessorDto.name,
@@ -77,15 +84,17 @@ export class ProfessorsService {
       );
       return newProfessor;
     } catch (error) {
-      this.logger.error(
-        `Error creating professor in local DB for ${createProfessorDto.email} (Supabase ID: ${supabaseUser.id}): ${error.message}`,
-        error.stack,
-      );
+      if (error instanceof Error) {
+        this.logger.error(
+          `Error creating professor in local DB for ${createProfessorDto.email} (Supabase ID: ${user!.id}): ${error.message}`,
+          error.stack,
+        );
+      }
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ConflictException(
-            `Professor with email ${createProfessorDto.email} or ID ${supabaseUser.id} already exists locally.`,
+            `Professor with email ${createProfessorDto.email} or ID ${user!.id} already exists locally.`,
           );
         }
       }
@@ -104,6 +113,9 @@ export class ProfessorsService {
       where: { name: PROFESSOR_ROLE_NAME, isActive: true }
     })
 
+    if (!professorRole)
+      throw new InternalServerErrorException(`The role '${PROFESSOR_ROLE_NAME}' was not found in the database`);
+
     const professorRoleId = professorRole.id;
 
     const professors = await this.prisma.user.findMany({
@@ -113,12 +125,17 @@ export class ProfessorsService {
 
     return professors;
   }
+
   async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<User>> {
 
     const offset = (page - 1) * limit;
 
+    const PROFESSOR_ROLE_NAME = 'Profesor';
+    const professorRole: Role | null = await this.prisma.role.findUnique(
+      { where: { name: PROFESSOR_ROLE_NAME, isActive: true } });
 
-    const professorRole: Role = await this.prisma.role.findUnique({ where: { name: "Profesor" } });
+    if (!professorRole)
+      throw new InternalServerErrorException(`The role '${PROFESSOR_ROLE_NAME}' was not found in the database`);
 
     const professorRoleId = professorRole.id
 
@@ -208,10 +225,6 @@ export class ProfessorsService {
       this.logger.log(`Professor ${id} updated successfully.`);
       return updatedProfessor;
     } catch (error) {
-      this.logger.error(
-        `Error updating professor ${id}: ${error.message}`,
-        error.stack,
-      );
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ConflictException(
@@ -256,10 +269,6 @@ export class ProfessorsService {
       this.logger.log(`Professor ${id} soft deleted successfully.`);
       return deactivatedProfessor;
     } catch (error) {
-      this.logger.error(
-        `Error during soft delete for professor ${id}: ${error.message}`,
-        error.stack,
-      );
       throw new InternalServerErrorException(
         `Failed to deactivate professor ${id}.`,
       );
