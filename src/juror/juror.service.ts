@@ -233,41 +233,60 @@ async create(dto: CreateJurorDto): Promise<JurorListItem> {
     return user;
   }
 
-  async update(
-    id: string,
-    dto: UpdateJurorDto,
-  ): Promise<User & { _count: number }> {
-    const existingJuror = await this.findOne(id);
-    const jurorRoleId = await this.getJurorRoleId();
+async update(id: string, dto: UpdateJurorDto): Promise<JurorListItem> {
+  const existingJuror = await this.findOne(id);
+  const jurorRoleId = await this.getJurorRoleId();
 
-    if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
-      throw new NotFoundException(`Juror with ID ${id} not found.`);
-    }
-
-    if (dto.email) {
-      const existingEmail = await this.prisma.user.findUnique({
-        where: { email: dto.email, isActive: true },
-      });
-
-      if (existingEmail && existingEmail.id !== id) {
-        throw new ConflictException('Email is already in use by another user.');
-      }
-    }
-
-    const updatedUser = await this.prisma.user.update({
-      where: { id: existingJuror.id },
-      data: dto,
-    });
-
-    const _count = await this.prisma.evaluation.count({
-      where: { jurorId: id },
-    });
-
-    return {
-      ...updatedUser,
-      _count,
-    };
+  if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
+    throw new NotFoundException(`Juror with ID ${id} not found.`);
   }
+
+  if (dto.email) {
+    const existingEmail = await this.prisma.user.findUnique({
+      where: { email: dto.email, isActive: true },
+    });
+
+    if (existingEmail && existingEmail.id !== id) {
+      throw new ConflictException('Email is already in use by another user.');
+    }
+  }
+
+  const updatedUser = await this.prisma.user.update({
+    where: { id: existingJuror.id },
+    data: dto,
+  });
+
+  const [evaluatedGames, allVideogames] = await this.prisma.$transaction([
+    this.prisma.evaluation.findMany({
+      where: { jurorId: id },
+      select: { videogame: { select: { id: true, name: true } } },
+    }),
+    this.prisma.videogame.findMany({
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const evaluatedGameNames = evaluatedGames.map(e => e.videogame.name);
+  const evaluatedIds = new Set(evaluatedGames.map(e => e.videogame.id));
+
+  const unevaluatedGameNames = allVideogames
+    .filter(vg => !evaluatedIds.has(vg.id))
+    .map(vg => vg.name);
+
+  return {
+    id: updatedUser.id,
+    firstName: updatedUser.firstName ?? '',
+    LastName: updatedUser.LastName ?? '',
+    email: updatedUser.email,
+    confirmationStatusId: updatedUser.confirmationStatusId,
+    lastSignInAt: updatedUser.lastSignInAt,
+    evaluatedCount: evaluatedGameNames.length,
+    evaluatedGameNames,
+    unevaluatedCount: unevaluatedGameNames.length,
+    unevaluatedGameNames,
+  };
+}
+
 
   async remove(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
