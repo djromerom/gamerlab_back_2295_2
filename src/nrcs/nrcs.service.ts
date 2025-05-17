@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, NRC } from '@prisma/client';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { SelectOption } from './types/select-option.type';
 
 @Injectable()
 export class NrcsService {
@@ -46,6 +47,27 @@ export class NrcsService {
         totalPages: totalPages,
       },
     };
+  }
+
+  async findForSelect(
+    includeSubjects: boolean = false,
+  ): Promise<SelectOption[]> {
+    let selectClause: Prisma.NRCSelect = {
+      id: true,
+      code: true,
+    };
+
+    if (includeSubjects)
+      selectClause['subject'] = {
+        select: { id: true, name: true },
+      };
+
+    const nrcs = await this.prisma.nRC.findMany({
+      where: { isActive: true },
+      select: selectClause,
+    });
+
+    return nrcs;
   }
 
   async findOne(id: number) {

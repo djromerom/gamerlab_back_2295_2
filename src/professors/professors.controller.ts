@@ -17,6 +17,8 @@ import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { User } from '@prisma/client';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { Public } from 'src/auth/decorators/public.decorator';
+import { SelectOption } from './types/select-option.type';
 
 @Controller('professors')
 export class ProfessorsController {
@@ -31,6 +33,12 @@ export class ProfessorsController {
   findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<User>> {
     const { includeInactive, limit, page } = query;
     return this.professorsService.findAll(includeInactive, limit, page);
+  }
+
+  @Public()
+  @Get('select-options')
+  async findSelectOptions(): Promise<SelectOption[]> {
+    return this.professorsService.findForSelect();
   }
 
   @Get(':id')

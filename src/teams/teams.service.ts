@@ -4,6 +4,9 @@ import { UpdateTeamDto } from './dto/update-team.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Role } from '@prisma/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { RegisterDto } from 'src/auth/dto/register.dto';
+import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { Resend } from 'resend';
 
@@ -14,24 +17,59 @@ export class TeamsService {
     private readonly prisma: PrismaService,
   ) {}
 
+  async findByTeamName(teamName: string) {
+    const team = await this.prisma.team.findFirst({
+      where: {
+        teamName: {
+          equals: teamName,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    return !!team; // Return true if the team exists, false otherwise
+  }
+
+  // Validate if videogame exists (case-insensitive)
+  async findByVideogameName(videogameName: string) {
+    const videogame = await this.prisma.videogame.findFirst({
+      where: {
+        name: {
+          equals: videogameName,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    return !!videogame; // true if found, false if not
+  }
+
   async create(createTeamDto: CreateTeamDto) {
-    const userRegister: RegisterUserDto = {
-      name: createTeamDto.members[0].memberName,
+    const userRegister: RegisterDto = {
+      name:
+        createTeamDto.members[0].memberFirstName +
+        ' ' +
+        createTeamDto.members[0].memberLastName,
       email: createTeamDto.members[0].memberEmail,
     }; // Get the first member's name and email
 
     const { teamName, videogame } = createTeamDto;
 
-    const studentRole: Role = await this.prisma.role.findUnique({
-      where: { name: 'ESTUDIANTE' },
+    const studentRole = await this.prisma.role.findUnique({
+      where: { name: 'Estudiante' },
     });
 
-    const { user } = await this.authService.registerUser(userRegister);
+    if (!studentRole) {
+      throw new Error('Role "ESTUDIANTE" not found');
+    }
+
+    const user: SupabaseUser =
+      await this.authService.registerUser(userRegister);
 
     const dataUser = await this.prisma.user.create({
-      // --> Create the user in the database
       data: {
         id: user.id,
+        username: userRegister.name,
         name: userRegister.name,
         email: userRegister.email,
         roleId: studentRole.id,
@@ -48,13 +86,10 @@ export class TeamsService {
 
     const members = await Promise.all(
       createTeamDto.members.map((member) => {
-        const [firstName, ...lastNameParts] = member.memberName.split(' ');
-        const lastName = lastNameParts.join(' ');
-
         return this.prisma.member.create({
           data: {
-            firstName,
-            lastName,
+            firstName: member.memberFirstName,
+            lastName: member.memberLastName,
             email: member.memberEmail,
             studentCode: member.studentCode,
             teamId: team.id,
@@ -73,6 +108,7 @@ export class TeamsService {
         description: videogame.description,
         logoUrl: videogame.logoURL,
         teamId: team.id, // ID of the team
+        videogameStatusId: 1, // Replace '1' with the appropriate status ID
       },
     });
 
@@ -101,7 +137,8 @@ export class TeamsService {
       email: registerDto.email,
       name: registerDto.name,
     };
-    const { user } = await this.authService.registerUser(authRegisterPayload);
+    const user: SupabaseUser =
+      await this.authService.registerUser(authRegisterPayload);
     return user;
   }
 

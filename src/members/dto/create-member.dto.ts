@@ -4,7 +4,11 @@ import { IsString, IsEmail, IsNotEmpty } from 'class-validator';
 export class CreateMemberDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  firstName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
 
   @IsEmail()
   @IsNotEmpty()

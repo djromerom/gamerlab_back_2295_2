@@ -8,22 +8,16 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  app.useGlobalPipes(new ValidationPipe({ 
-        whitelist: true, 
-        transform: true,
-        transformOptions: {
-        enableImplicitConversion: true,
-      }}));
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    }
+  }));
 
   app.enableCors({
-    origin: (origin, callback) => {
-      const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: true, // permite todos los orígenes
     credentials: true,
   });
 

@@ -8,6 +8,7 @@ import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { Prisma, Subject } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
+import { SelectOption } from './types/select-option.type';
 
 @Injectable()
 export class SubjectsService {
@@ -17,6 +18,16 @@ export class SubjectsService {
     return this.prisma.subject.create({
       data: createSubjectDto,
     });
+  }
+
+  async findForSelect(): Promise<SelectOption[]> {
+    const subjects = await this.prisma.subject.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true },
+    });
+
+    return subjects;
   }
 
   async findAll(
