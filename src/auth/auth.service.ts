@@ -6,11 +6,11 @@ import {
   UnauthorizedException,
   Inject,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, ConfirmationStatus } from '@prisma/client';
-import { SupabaseUser } from 'nestjs-supabase-auth';
 import { SUPABASE_CLIENT } from './auth.constants';
 import {
   SupabaseClient,
@@ -18,9 +18,11 @@ import {
   User as UserSupabase,
 } from '@supabase/supabase-js';
 import { LoginDto } from './dto/login.dto';
+import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -89,23 +91,6 @@ export class AuthService {
     this.logger.error(
       `Supabase Error Object in ${context}: ${JSON.stringify(error, null, 2)}`,
     );
-
-    if (error.response) {
-      this.logger.error(`Error Response Status: ${error.response.status}`);
-      try {
-        this.logger.error(
-          `Error Response Data: ${JSON.stringify(error.response.data)}`,
-        );
-      } catch (e) {
-        this.logger.error(
-          `Error Response Data (non-JSON or logging failed): ${error.response.data}`,
-        );
-      }
-    } else if (error.originalError) {
-      this.logger.error(
-        `Original Error: ${JSON.stringify(error.originalError, null, 2)}`,
-      );
-    }
 
     if (
       error.status === 400 ||
@@ -184,10 +169,11 @@ export class AuthService {
           `Local user status updated successfully for ID: ${userId}. New status ID: ${updatedLocalUser.confirmationStatusId}`,
         );
       } catch (prismaError) {
-        this.logger.error(
-          `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
-          prismaError.stack,
-        );
+        if (prismaError instanceof PrismaClientKnownRequestError)
+          this.logger.error(
+            `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
+            prismaError.stack,
+          );
       }
     } catch (error) {
       if (
@@ -196,21 +182,23 @@ export class AuthService {
       ) {
         throw error;
       }
-      this.logger.error(
-        `Unexpected error setting password for user ${userId}: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException(
-        `An unexpected error happened updating the password for user ${userId}`,
-      );
+
+      if (error instanceof Error) {
+        this.logger.error(
+          `Unexpected error setting password for user ${userId}: ${error.message}`,
+          error.stack,
+        );
+        throw new InternalServerErrorException(
+          `An unexpected error happened updating the password for user ${userId}`,
+        );
+      }
     }
   }
 
-  async registerUser(
-    registerDto: RegisterDto,
-  ): Promise<{ user: UserSupabase }> {
+  async registerUser(registerDto: RegisterDto): Promise<UserSupabase> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
+    let user: UserSupabase;
     try {
       const { data, error } = await this.supabase.auth.signUp({
         email: registerDto.email,
@@ -233,7 +221,8 @@ export class AuthService {
       this.logger.log(
         `Supabase registration successful for: ${registerDto.email}`,
       );
-      return { user: data.user };
+
+      user = data.user;
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -241,14 +230,19 @@ export class AuthService {
       ) {
         throw error;
       }
-      this.logger.error(
-        `Unexpected error during Supabase registration: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException(
-        'An unexpected error occurred during registration.',
-      );
+
+      if (error instanceof Error) {
+        this.logger.error(
+          `Unexpected error during Supabase registration: ${error.message}`,
+          error.stack,
+        );
+        throw new InternalServerErrorException(
+          'An unexpected error occurred during registration.',
+        );
+      }
     }
+
+    return user!;
   }
 
   async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
@@ -281,29 +275,28 @@ export class AuthService {
       ) {
         throw error;
       }
-      this.logger.error(
-        `Unexpected error during Supabase login: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException(
-        'An unexpected error occurred during login.',
-      );
+
+      if (error instanceof Error) {
+        this.logger.error(
+          `Unexpected error during Supabase login: ${error.message}`,
+          error.stack,
+        );
+        throw new InternalServerErrorException(
+          'An unexpected error occurred during login.',
+        );
+      }
     }
 
     const supabaseUserForSync = {
-      sub: supabaseSessionData.user.id,
-      email: supabaseSessionData.user.email,
-    } as SupabaseUser;
+      sub: supabaseSessionData!.user.id,
+      email: supabaseSessionData!.user.email,
+    };
 
     let localUser: User;
     try {
       localUser = await this.syncSupabaseUser(supabaseUserForSync);
       this.logger.log(`Local user sync successful for: ${localUser.email}`);
     } catch (error) {
-      this.logger.error(
-        `Local user sync failed after successful Supabase login for ${loginDto.email}: ${error.message}`,
-        error.stack,
-      );
       // If sync fails (e.g., user not found locally, DB error, or became inactive), we don't proceed.
       await this.supabase.auth.signOut(); // Sign out the potentially just signed-in Supabase session
       if (
@@ -317,7 +310,7 @@ export class AuthService {
       );
     }
 
-    const { access_token, refresh_token } = supabaseSessionData.session;
+    const { access_token, refresh_token } = supabaseSessionData!.session;
     if (!access_token || !refresh_token) {
       this.logger.error(
         'Supabase session data missing access or refresh token.',
@@ -399,8 +392,6 @@ export class AuthService {
       // We set the new tokens in cookies
       this.setAuthCookies(res, access_token, new_refresh_token);
       this.logger.log('Session refreshed successfully.');
-
-      return { message: 'Session refreshed' };
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -408,15 +399,19 @@ export class AuthService {
       ) {
         throw error;
       }
-      this.logger.error(
-        `Unexpected error during session refresh: ${error.message}`,
-        error.stack,
-      );
-      this.clearAuthCookies(res); // When unexpected errors occurs we clear the cookies
-      throw new InternalServerErrorException(
-        'An unexpected error occurred during session refresh.',
-      );
+
+      if (error instanceof Error) {
+        this.logger.error(
+          `Unexpected error during session refresh: ${error.message}`,
+          error.stack,
+        );
+        this.clearAuthCookies(res); // When unexpected errors occurs we clear the cookies
+        throw new InternalServerErrorException(
+          'An unexpected error occurred during session refresh.',
+        );
+      }
     }
+    return { message: 'Session refreshed' };
   }
 
   /**
@@ -432,7 +427,8 @@ export class AuthService {
         );
       }
     } catch (e) {
-      this.logger.warn(`Error calling Supabase signOut: ${e.message}`);
+      if (e instanceof Error)
+        this.logger.warn(`Error calling Supabase signOut: ${e.message}`);
     }
 
     this.clearAuthCookies(res);
@@ -448,7 +444,7 @@ export class AuthService {
    * @throws {InternalServerErrorException} If required statuses are missing in DB or if local user record is unexpectedly missing.
    * @throws {UnauthorizedException} If the found user is marked as inactive AFTER potential activation.
    */
-  async syncSupabaseUser(supabaseUser: SupabaseUser): Promise<User> {
+  async syncSupabaseUser(supabaseUser: JwtPayload): Promise<User> {
     const supabaseId = supabaseUser?.sub;
     const userEmail = supabaseUser?.email;
 
@@ -466,6 +462,7 @@ export class AuthService {
       `Syncing local user for: ${userEmail} (Supabase ID: ${supabaseId})`,
     );
 
+    let user: User | null;
     try {
       let confirmedStatus: ConfirmationStatus | null;
       let pendingStatus: ConfirmationStatus | null;
@@ -483,16 +480,18 @@ export class AuthService {
           }),
         ]);
       } catch (dbError) {
-        this.logger.error(
-          `Database error fetching confirmation statuses: ${dbError.message}`,
-          dbError.stack,
-        );
-        throw new InternalServerErrorException(
-          'Database error during status lookup.',
-        );
+        if (dbError instanceof Error) {
+          this.logger.error(
+            `Database error fetching confirmation statuses: ${dbError.message}`,
+            dbError.stack,
+          );
+          throw new InternalServerErrorException(
+            'Database error during status lookup.',
+          );
+        }
       }
 
-      if (!confirmedStatus) {
+      if (!confirmedStatus!) {
         this.logger.error(
           `Configuration Error: Status '${CONFIRMED_STATUS_NAME}' not found in 'estados_confirmacion' table.`,
         );
@@ -500,7 +499,7 @@ export class AuthService {
           'Server configuration error: Missing required user status.',
         );
       }
-      if (!pendingStatus) {
+      if (!pendingStatus!) {
         this.logger.error(
           `Configuration Error: Status '${PENDING_STATUS_NAME}' not found in 'estados_confirmacion' table.`,
         );
@@ -509,7 +508,7 @@ export class AuthService {
         );
       }
 
-      let user = await this.prisma.user.findUnique({
+      user = await this.prisma.user.findUnique({
         where: { id: supabaseId },
       });
 
@@ -555,7 +554,6 @@ export class AuthService {
       this.logger.log(
         `Local user sync successful: ${user.email} (Active: ${user.isActive})`,
       );
-      return user;
     } catch (error) {
       if (
         error instanceof InternalServerErrorException ||
@@ -566,14 +564,18 @@ export class AuthService {
         throw error;
       }
 
-      this.logger.error(
-        `Unexpected error during user synchronization for ${userEmail} (ID: ${supabaseId}): ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException(
-        'An error occurred while synchronizing user profile.',
-      );
+      if (error instanceof Error) {
+        this.logger.error(
+          `Unexpected error during user synchronization for ${userEmail} (ID: ${supabaseId}): ${error.message}`,
+          error.stack,
+        );
+        throw new InternalServerErrorException(
+          'An error occurred while synchronizing user profile.',
+        );
+      }
     }
+
+    return user!;
   }
 
   /**
@@ -597,5 +599,67 @@ export class AuthService {
 
     const { roleId, confirmationStatusId, ...profileData } = user;
     return profileData;
+  }
+
+  /**
+   * Resends the confirmation email to the user.
+   * @param email The email address of the user to resend the confirmation email to.
+   * @throws {NotFoundException} If the user is not found in the local database.
+   * @throws {ConflictException} If the user is already confirmed.
+   * @throws {InternalServerErrorException} If there is an error sending the email.
+   */
+  async resendConfirmationEmail(email: string) {
+    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+    
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { confirmationStatus: true }, 
+    });
+
+    if (!user) {
+      this.logger.error(`User with email ${email} not found in local DB.`);
+      throw new NotFoundException('The email address is not registered.');
+    }
+
+    if (user.confirmationStatus?.status === 'CONFIRMADO') {
+      this.logger.warn(`User with email ${email} is already confirmed.`);
+      throw new ConflictException('The email has already been confirmed.');
+    }
+    
+    
+    try {
+      const result = await this.supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+        },
+      });
+      const { error } = result;
+      if (error) {
+        this.logger.log(error);
+        if (error.message.includes('User not found')) {
+          throw new NotFoundException(
+            'El correo electrónico no está registrado.',
+          );
+        }
+        if (error.message.includes('User already confirmed')) {
+          throw new BadRequestException(
+            'El correo electrónico ya está confirmado.',
+          );
+        }
+        throw new InternalServerErrorException(
+          'Error al reenviar el correo de confirmación.',
+        );
+      }
+      this.logger.log(`Confirmation email resent successfully to: ${email}`);
+      return { message: 'Correo reenviado con éxito' };
+    } catch (err) {
+      this.logger.error(`Unhandled error: ${err}`);
+      throw new InternalServerErrorException(
+        'Error al reenviar el correo de confirmación.',
+      );
+    }
   }
 }

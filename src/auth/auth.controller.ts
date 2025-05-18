@@ -19,6 +19,7 @@ import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 
 interface RequestWithUser extends Request {
   user: {
@@ -51,6 +52,12 @@ export class AuthController {
     return this.authService.refresh(req, res);
   }
 
+  @Post('resend-confirmation')
+  @HttpCode(HttpStatus.OK)
+  async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
+    return await this.authService.resendConfirmationEmail(body.email);
+  }
+
   @Public()
   @UseGuards(JwtAuthGuard)
   @Post('set-password')
@@ -78,15 +85,5 @@ export class AuthController {
   // by the SupabaseStrategy after successful cookie authentication
   async getMyProfile(@GetUser() user: AppUser) {
     return this.authService.getMyProfile(user.id);
-  }
-
-  @Post('update-user')
-  @HttpCode(HttpStatus.OK)
-  async updateUserProfile(
-    @Req() req: RequestWithUser,
-    @Body() updateData: Partial<User>,
-  ): Promise<Partial<User>> {
-    const userId = req.user.sub;
-    return this.authService.updateUserProfile(userId, updateData);
   }
 }

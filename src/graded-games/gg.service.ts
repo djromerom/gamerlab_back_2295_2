@@ -1,17 +1,17 @@
-// src/graded-games/gg.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VideogameResponseDto } from './dto/videogame-response.dto';
+import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { GradedVideogame } from './types/graded-videogame.type';
 
 @Injectable()
 export class GradedGamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getGradedVideogames(
     jurorId: string,
     page: number = 1,
     limit: number = 10,
-  ): Promise<{ data: VideogameResponseDto[]; metadata: any }> {
+  ): Promise<PaginatedResult<GradedVideogame>> {
     const offset = (page - 1) * limit;
 
     const evaluatedIds = await this.prisma.evaluation.findMany({
@@ -75,7 +75,7 @@ export class GradedGamesService {
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
         isEvaluated: true,
-      };
+      } as GradedVideogame;
     });
 
     return {

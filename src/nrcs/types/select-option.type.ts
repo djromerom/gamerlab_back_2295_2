@@ -1,5 +1,5 @@
 export class SelectOption {
   id: number;
-  nrc: string;
+  code: number;
   subject?: { id: number, name: string }
 }

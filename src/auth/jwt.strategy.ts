@@ -10,13 +10,15 @@ interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(
-    private configService: ConfigService,
-  ) {
+  constructor(private configService: ConfigService) {
+    const SECRET_KEY = configService.get<string>('SUPABASE_JWT_SECRET');
+
+    if (!SECRET_KEY) throw new Error('SUPABASE_JWT_SECRET is not defined');
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('SUPABASE_JWT_SECRET'),
+      secretOrKey: SECRET_KEY,
     });
   }
 

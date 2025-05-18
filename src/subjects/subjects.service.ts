@@ -15,8 +15,42 @@ export class SubjectsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createSubjectDto: CreateSubjectDto): Promise<Subject> {
+    // Check for existing ACTIVE subject with the same name or code
+    const existingSubject = await this.prisma.subject.findFirst({
+      where: {
+        AND: [
+          { isActive: true },
+          {
+            OR: [
+              { name: createSubjectDto.name },
+              { code: createSubjectDto.code }
+            ]
+          }
+        ]
+      },
+    });
+
+    if (existingSubject) {
+      let conflictFields = [];
+      
+      if (existingSubject.name === createSubjectDto.name) {
+        conflictFields.push('nombre');
+      }
+      if (existingSubject.code === createSubjectDto.code) {
+        conflictFields.push('código');
+      }
+
+      const fieldsMessage = conflictFields.join(' y ');
+      throw new ConflictException(
+        `Ya existe una materia con el mismo ${fieldsMessage}.`,
+      );
+    }
+
     return this.prisma.subject.create({
-      data: createSubjectDto,
+      data: {
+        ...createSubjectDto,
+        isActive: true // Asegurar que se cree como activo
+      },
     });
   }
 
@@ -69,11 +103,13 @@ export class SubjectsService {
 
   async findOne(id: number): Promise<Subject> {
     const subject = await this.prisma.subject.findUnique({
-      where: { id: id },
+      where: { id },
     });
+    
     if (!subject) {
-      throw new NotFoundException(`Subject with ID ${id} not found.`);
+      throw new NotFoundException(`Materia con ID ${id} no encontrada.`);
     }
+    
     return subject;
   }
 
@@ -84,33 +120,71 @@ export class SubjectsService {
     const existingSubject = await this.prisma.subject.findUnique({
       where: { id },
     });
+
     if (!existingSubject) {
-      throw new NotFoundException(`Subject with ID ${id} not found.`);
+      throw new NotFoundException(`Materia con ID ${id} no encontrada.`);
     }
-    try {
-      return await this.prisma.subject.update({
-        where: { id: id },
-        data: updateSubjectDto,
+
+    // Verificar conflictos solo si se están actualizando name o code
+    if (updateSubjectDto.name || updateSubjectDto.code) {
+      const conflictConditions: Prisma.SubjectWhereInput[] = [];
+      
+      if (updateSubjectDto.name) {
+        conflictConditions.push({ name: updateSubjectDto.name });
+      }
+      if (updateSubjectDto.code) {
+        conflictConditions.push({ code: updateSubjectDto.code });
+      }
+
+      const conflictingSubject = await this.prisma.subject.findFirst({
+        where: {
+          AND: [
+            { id: { not: id } }, // Excluir el registro actual
+            { isActive: true },   // Solo verificar activos
+            { OR: conflictConditions }
+          ]
+        },
       });
-    } catch (error) {
-      throw error;
+
+      if (conflictingSubject) {
+        let conflictFields = [];
+        
+        if (updateSubjectDto.name && conflictingSubject.name === updateSubjectDto.name) {
+          conflictFields.push('nombre');
+        }
+        if (updateSubjectDto.code && conflictingSubject.code === updateSubjectDto.code) {
+          conflictFields.push('código');
+        }
+
+        const fieldsMessage = conflictFields.join(' y ');
+        throw new ConflictException(
+          `Ya existe otra materia con el mismo ${fieldsMessage}.`,
+        );
+      }
     }
+
+    return this.prisma.subject.update({
+      where: { id },
+      data: updateSubjectDto,
+    });
   }
 
   async remove(id: number): Promise<Subject> {
     const subject = await this.prisma.subject.findUnique({
-      where: { id: id },
+      where: { id },
     });
+    
     if (!subject) {
-      throw new NotFoundException(`Subject with ID ${id} not found.`);
+      throw new NotFoundException(`Materia con ID ${id} no encontrada.`);
     }
+    
     if (!subject.isActive) {
-      throw new ConflictException(`Subject with ID ${id} is already inactive.`);
+      throw new ConflictException(`La materia con ID ${id} ya está inactiva.`);
     }
-    const updatedSubject = await this.prisma.subject.update({
-      where: { id: id },
+
+    return this.prisma.subject.update({
+      where: { id },
       data: { isActive: false },
     });
-    return updatedSubject;
   }
 }
