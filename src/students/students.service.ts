@@ -9,7 +9,6 @@ export class StudentsService {
     async getStudentsGrades(
         userId: string
     ): Promise<StudentsGrade[]> {
-        console.log("userId", userId);
         if (!userId) {
             throw new NotFoundException("user not found");
         }
