@@ -656,18 +656,4 @@ export class ProfessorsService {
     await workbook.xlsx.write(res);
     res.end();
   }
-
-  async nrcProfessor(id: string): Promise<professorNrc[]> {
-    const professor = await this.prisma.nRC.findMany({
-      where: {
-        professorId: id,
-      },
-      select: {
-        code: true,
-      },
-    });
-    return professor.map((professor) => ({
-      nrcId: professor.code,
-    }));
-  }
 }

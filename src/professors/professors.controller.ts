@@ -92,10 +92,5 @@ export class ProfessorsController {
   async exportSignatureReport(@Param('subjectName') subjectName: string, @Res({ passthrough: true }) res: Response) {
     await this.professorsService.exportSignatureReportToExcel(subjectName, res);
   }
-
-  @Get('nrc')
-  nrcFp(@GetUser('id') id: string): Promise<professorNrc[]> {
-      return this.professorsService.nrcProfessor(id);
-  }
 }
 
