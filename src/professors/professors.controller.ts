@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Res
 } from '@nestjs/common';
 import { ProfessorsService } from './professors.service';
 import { CreateProfessorDto } from './dto/create-professor.dto';
@@ -19,6 +20,9 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { SelectOption } from './types/select-option.type';
+import { Response } from 'express';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { professorNrc } from './types/select-option.type';
 
 @Controller('professors')
 export class ProfessorsController {
@@ -59,4 +63,34 @@ export class ProfessorsController {
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.professorsService.remove(id);
   }
+
+  @Get('nrc-report/:nrcCode')
+  async GetReportByNRC(
+    @Param('nrcCode') nrcCode: number,
+    @Query() query: PaginationQueryDto
+  ) {
+    const { includeInactive, limit, page } = query;
+    return this.professorsService.getNRCreport(nrcCode, includeInactive, limit, page);
+  }
+
+  @Public()
+  @Get('exportNRC/:nrcCode')
+  async exportNRCReportToExcel(@Param('nrcCode') nrcCode: number, @Res({ passthrough: true }) res: Response) {
+    await this.professorsService.exportNRCreportToExcel(nrcCode, res);
+  }
+
+  @Get('signature-report/:subjectName')
+  async getSignatureReport(
+    @Param('subjectName') subjectName: string,
+    @Query() query: PaginationQueryDto
+  ) {
+    const { includeInactive, limit, page } = query;
+    return this.professorsService.GetSignatureReport(subjectName, includeInactive, limit, page);
+  }
+
+  @Get('exportSubject/:subjectName')
+  async exportSignatureReport(@Param('subjectName') subjectName: string, @Res({ passthrough: true }) res: Response) {
+    await this.professorsService.exportSignatureReportToExcel(subjectName, res);
+  }
 }
+
