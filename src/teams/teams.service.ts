@@ -88,7 +88,7 @@ export class TeamsService {
             studentCode: member.studentCode,
             teamId: team.id,
             nrcs: {
-              connect: member.nrc.map((code) => ({ code: parseInt(code) })),
+              connect: member.nrc.map((code) => ({ id: parseInt(code) })),
             },
           },
         });
