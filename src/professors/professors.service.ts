@@ -8,54 +8,64 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { Prisma, User, Role } from '@prisma/client';
+import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
+import * as ExcelJS from 'exceljs';
+import { Response } from 'express';
+import { PassThrough } from 'stream';
+import { professorNrc } from './types/select-option.type';
+
 
 @Injectable()
 export class ProfessorsService {
   private readonly logger = new Logger(ProfessorsService.name);
+  private readonly PROFESSOR_ROLE_NAME = "Profesor";
+
   private professorRoleId: number;
 
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) {
-    this.initializeProfessorRoleId();
-  }
+  ) { }
 
-  private async initializeProfessorRoleId() {
-    const PROFESSOR_ROLE_NAME = 'Profesor';
+  async onModuleInit() {
+
+    this.logger.log('Initializing Professor module: Fetching Professor role id');
+
     try {
-      const professorRole = await this.prisma.role.findUnique({
-        where: { name: PROFESSOR_ROLE_NAME, isActive: true },
+
+      const professorRole: Role | null = await this.prisma.role.findUnique({
+        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true }
       });
+
       if (!professorRole) {
         this.logger.error(
-          `CRITICAL: The role '${PROFESSOR_ROLE_NAME}' was not found or is inactive during service initialization.`,
+          `FATAL: Configuration Error during onModuleInit - Role '${this.PROFESSOR_ROLE_NAME}' not found. Application might not function correctly.`,
         );
         throw new InternalServerErrorException(
-          `Professor role configuration is missing.`,
+          `Server configuration error: Missing required role '${this.PROFESSOR_ROLE_NAME}'.`,
         );
       }
+
       this.professorRoleId = professorRole.id;
       this.logger.log(
-        `Professor Role ID initialized to: ${this.professorRoleId}`,
+        `Professor role ID initialized: Professor role ID=${this.professorRoleId}`,
       );
+
     } catch (error) {
-      let message = 'Failed to initialize Professor Role ID.';
-      let stack: string | undefined;
-      if (error instanceof Error) {
-        message = `Failed to initialize Professor Role ID: ${error.message}`;
-        stack = error.stack;
-      }
-      this.logger.error(message, stack);
-      throw error; // Re-throw original error or a new wrapped error
+      if (error instanceof Error)
+        this.logger.error(
+          `Failed to initialize professor role id: ${error.message}`,
+          error.stack,
+        );
+      throw error;
     }
   }
+
 
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
@@ -162,7 +172,7 @@ export class ProfessorsService {
         stack = error.stack;
       }
       this.logger.error(message, stack);
-
+      
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const target = error.meta?.target as string[] | undefined;
@@ -174,9 +184,11 @@ export class ProfessorsService {
           );
         }
       }
+      
       throw new InternalServerErrorException(
         'Failed to save professor profile locally after successful authentication provider registration.',
       );
+      
     }
   }
 
@@ -195,7 +207,6 @@ export class ProfessorsService {
   ): Promise<PaginatedResult<User>> {
     const offset = (page - 1) * limit;
     const whereClause: Prisma.UserWhereInput = { roleId: this.professorRoleId };
-
     if (!includeInactive) whereClause.isActive = true;
 
     const [items, totalItems] = await this.prisma.$transaction([
@@ -222,6 +233,63 @@ export class ProfessorsService {
         totalPages: totalPages,
       },
     };
+  }
+
+
+  async findNrcs(professorId: string, includeSubjects: boolean): Promise<NRC[]> {
+
+    const selectOptions: Prisma.NRCSelect = {
+      id: true,
+      code: true,
+      ...(includeSubjects && {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      }),
+    };
+
+    const nrcs = await this.prisma.nRC.findMany({
+      where: { professorId },
+      select: selectOptions,
+    });
+
+    return nrcs;
+  }
+
+  async findSubjects(professorId: string, includeNrcs: boolean): Promise<Subject[]> {
+
+    const subjectSelectOptions: Prisma.SubjectSelect = {
+      id: true,
+      name: true,
+      code: true,
+      semester: true,
+      ...(includeNrcs && {
+        where: {
+          professorId: professorId,
+        },
+        select: {
+          id: true,
+          code: true,
+        },
+      })
+    };
+
+    const subjects = await this.prisma.subject.findMany({
+      where: {
+        nrcs: {
+          some: {
+            professorId: professorId,
+          },
+        },
+      },
+      select: subjectSelectOptions,
+    });
+
+    return subjects;
   }
 
   async findOne(id: string): Promise<User> {
@@ -286,6 +354,10 @@ export class ProfessorsService {
         data: updateProfessorDto,
       });
       this.logger.log(`Professor ${id} updated successfully.`);
+
+
+      this.authService.invalidateUserProfileCache(id);
+
       return updatedProfessor;
     } catch (error) {
       let message = `Failed to update professor ${id}.`;
@@ -341,6 +413,8 @@ export class ProfessorsService {
         data: { isActive: false },
       });
       this.logger.log(`Professor ${id} soft deleted successfully.`);
+
+      this.authService.invalidateUserProfileCache(id);
       return deactivatedProfessor;
     } catch (error) {
       let message = `Failed to deactivate professor ${id}.`;
@@ -354,5 +428,382 @@ export class ProfessorsService {
         `Failed to deactivate professor ${id}.`, // Mensaje genérico aquí o el message específico
       );
     }
+  }
+
+
+  async getNRCreport(nrcCode: number, includeInactive: boolean, limit: number, page: number) {
+    const offset = (page - 1) * limit;
+
+    const nrcSubjectSelect = {
+      code: true,
+      subject: {
+        select: {
+          name: true,
+        },
+      },
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: {
+          totalScore: true,
+        },
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      email: true,
+      nrcs: {
+        select: nrcSubjectSelect,
+      },
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const memberWhere = {
+      nrcs: {
+        some: {
+          code: nrcCode,
+        },
+      },
+    };
+
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.member.findMany({
+        where: memberWhere,
+        select: memberSelect,
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.member.count({
+        where: memberWhere,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+
+    if (!items || items.length === 0) {
+      throw new NotFoundException(`No students found for NRC with code ${nrcCode}`);
+    }
+
+    const matchingNRC = items[0].nrcs.find((nrc) => nrc.code === nrcCode);
+
+    if (!matchingNRC) {
+      throw new NotFoundException(`No matching NRC ${nrcCode} found in the student data`);
+    }
+
+    const subject = matchingNRC.subject.name;
+    const NRC = matchingNRC.code;
+    const report = items.map((i) => {
+      const selectedVideogame = i.team?.videogame;
+      const grade = selectedVideogame?.evaluations?.[0]?.totalScore ?? null;
+
+      return {
+        NRC,
+        subject,
+        student: `${i.firstName} ${i.lastName}`,
+        email: i.email,
+        studentCode: i.studentCode,
+        team: i.team?.teamName ?? 'No team',
+        videogame: selectedVideogame?.name ?? 'No videogame',
+        grade,
+      };
+    });
+
+    return {
+      data: report,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
+      },
+    };
+  }
+
+
+  async GetSignatureReport(subjectName: string, includeInactive: boolean, limit: number, page: number) {
+    const offset = (page - 1) * limit;
+
+    const evaluationSelect = {
+      totalScore: true,
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: evaluationSelect,
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const nrcsSelect = {
+      members: {
+        select: memberSelect,
+      },
+    };
+
+    const subjectSelect = {
+      name: true,
+      nrcs: {
+        select: nrcsSelect,
+      },
+    };
+
+    const subjectWhere = {
+      name: subjectName,
+    };
+
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.subject.findMany({
+        where: subjectWhere,
+        select: subjectSelect,
+      }),
+      this.prisma.subject.count({
+        where: subjectWhere,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    if (!items) {
+      throw new NotFoundException(`Subject ${subjectName} does not exist`);
+    }
+
+    const reports = [];
+    for (const subject of items) {
+      for (const nrc of subject.nrcs) {
+        for (const member of nrc.members) {
+          const videogame = member.team?.videogame;
+          const grade = videogame?.evaluations?.[0]?.totalScore ?? null;
+
+          reports.push({
+            subject: subject.name,
+            student: `${member.firstName} ${member.lastName}`,
+            studentCode: member.studentCode,
+            team: member.team?.teamName ?? 'No team',
+            videogame: videogame?.name ?? 'No videogame',
+            grade
+          });
+        }
+      }
+    }
+
+    return {
+      data: reports,
+      metadata: {
+        totalItems: totalItems,
+        itemsOnCurrentPage: items.length,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: totalPages,
+      },
+    };
+  }
+
+  async exportNRCreportToExcel(nrcCode: number, res: Response): Promise<void> {
+
+    const nrcSubjectSelect = {
+      code: true,
+      subject: {
+        select: {
+          name: true,
+        },
+      },
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: {
+          totalScore: true,
+        },
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      email: true,
+      nrcs: {
+        select: nrcSubjectSelect,
+      },
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const memberWhere = {
+      nrcs: {
+        some: {
+          code: nrcCode,
+        },
+      },
+    };
+
+    const data = await this.prisma.member.findMany({
+      where: memberWhere,
+      select: memberSelect,
+    });
+
+    const flattenedData = data.map((member) => {
+      const nrc = member.nrcs.find(n => n.code === nrcCode);
+
+      return {
+        NRC: nrc?.code ?? '',
+        subject: nrc?.subject?.name ?? '',
+        student: `${member.firstName} ${member.lastName}`,
+        email: member.email,
+        studentCode: member.studentCode,
+        team: member.team?.teamName ?? '',
+        videogame: member.team?.videogame?.name ?? '',
+        grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
+      };
+    });
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('NRC Report');
+
+    worksheet.columns = [
+      { header: 'NRC', key: 'NRC', width: 10 },
+      { header: 'Subject', key: 'subject', width: 40 },
+      { header: 'Student', key: 'student', width: 30 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Student Code', key: 'studentCode', width: 20 },
+      { header: 'Team', key: 'team', width: 20 },
+      { header: 'Videogame', key: 'videogame', width: 20 },
+      { header: 'Score', key: 'grade', width: 10 },
+    ];
+
+    flattenedData.forEach(item => worksheet.addRow(item));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=nrc-report-${nrcCode}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  }
+
+  async exportSignatureReportToExcel(subjectName: string, res: Response): Promise<void> {
+    const evaluationSelect = {
+      totalScore: true,
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: evaluationSelect,
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const nrcsSelect = {
+      code: true,
+      members: {
+        select: memberSelect,
+      },
+    };
+
+    const subjectSelect = {
+      name: true,
+      nrcs: {
+        select: nrcsSelect,
+      },
+    };
+
+    const subjectWhere = {
+      name: subjectName,
+    };
+
+    const data = await this.prisma.subject.findMany({
+      where: subjectWhere,
+      select: subjectSelect,
+    });
+
+    const flattenedData = data.flatMap(subject =>
+      subject.nrcs.flatMap(nrc =>
+        nrc.members.map(member => ({
+          NRC: nrc.code,
+          subject: subject.name,
+          student: `${member.firstName} ${member.lastName}`,
+          studentCode: member.studentCode,
+          team: member.team?.teamName ?? '',
+          videogame: member.team?.videogame?.name ?? '',
+          grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
+        }))
+      )
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Subject Report');
+
+    worksheet.columns = [
+      { header: 'NRC', key: 'NRC', width: 10 },
+      { header: 'Subject', key: 'subject', width: 40 },
+      { header: 'Student', key: 'student', width: 30 },
+      { header: 'Student Code', key: 'studentCode', width: 20 },
+      { header: 'Team', key: 'team', width: 20 },
+      { header: 'Videogame', key: 'videogame', width: 20 },
+      { header: 'Score', key: 'grade', width: 10 },
+    ];
+
+    flattenedData.forEach(item => worksheet.addRow(item));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=subject-report-${subjectName}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
   }
 }

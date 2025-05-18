@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { SUPABASE_CLIENT } from './auth.constants';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { CacheModule } from 'src/cache/cache.module';
 
 const supabaseProvider: Provider = {
   provide: SUPABASE_CLIENT,
@@ -26,9 +27,9 @@ const supabaseProvider: Provider = {
 };
 
 @Module({
-  imports: [PassportModule],
+  imports: [PassportModule, CacheModule],
   providers: [AuthService, SupabaseStrategy, supabaseProvider, JwtStrategy],
   exports: [AuthService, SupabaseStrategy, SUPABASE_CLIENT],
   controllers: [AuthController],
 })
-export class AuthModule {}
+export class AuthModule { }
