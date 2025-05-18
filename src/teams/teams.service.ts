@@ -6,9 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { RegisterDto } from 'src/auth/dto/register.dto';
-import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
-import { Resend } from 'resend';
 
 @Injectable()
 export class TeamsService {
@@ -115,21 +113,6 @@ export class TeamsService {
     // TODO: send email to team representative
 
     return { dataUser, team, members, createdVideogame };
-  }
-
-  //TODO: remove sensitive variables from the codebase. I assume these are just for testing
-  sendEmail(email: string, id: string, name: string) {
-    const resend = new Resend('re_dP24beoj_2JuvsZwCCFUiEatdKxG6YwNK');
-
-    const envio = resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: email,
-      subject: 'Vive la feria UNINORTE!',
-      html: `<a href="http://localhost:5173/verificar-cuenta/${id}">Hola ${name},</a>`,
-    });
-    console.log(email, id, name);
-
-    return envio;
   }
 
   async registerUser(registerDto: RegisterUserDto) {
