@@ -602,7 +602,6 @@ export class AuthService {
 
   async resendConfirmationEmail(email: string) {
     this.logger.log(`Attempting to resend confirmation email to: ${email}`);
-
     try {
       const result = await this.supabase.auth.resend({
         type: 'signup',
@@ -611,10 +610,9 @@ export class AuthService {
           emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
         },
       });
-
       const { error } = result;
-
       if (error) {
+        this.logger.log(error);
         if (error.message.includes('User not found')) {
           throw new NotFoundException(
             'El correo electrónico no está registrado.',
@@ -629,11 +627,10 @@ export class AuthService {
           'Error al reenviar el correo de confirmación.',
         );
       }
-
       this.logger.log(`Confirmation email resent successfully to: ${email}`);
       return { message: 'Correo reenviado con éxito' };
-    } catch (err: any) {
-      this.logger.error(`Unhandled error: ${err.message}`);
+    } catch (err) {
+      this.logger.error(`Unhandled error: ${err}`);
       throw new InternalServerErrorException(
         'Error al reenviar el correo de confirmación.',
       );
