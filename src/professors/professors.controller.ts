@@ -15,8 +15,6 @@ import {
 import { ProfessorsService } from './professors.service';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
-import { ReportNrcDto } from './dto/report-nrc.dto';
-import { ReportSubjectDto } from './dto/report-subject.dto';
 import { User } from "@prisma/client";
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
@@ -67,46 +65,30 @@ export class ProfessorsController {
   @Get('nrc-report/:nrcCode')
   async GetReportByNRC(
     @Param('nrcCode') nrcCode: number,
-    @Query() query: Omit<ReportNrcDto, 'nrcCode'>
+    @Query() query: PaginationQueryDto
   ) {
     const { includeInactive, limit, page } = query;
-    return this.professorsService.getNRCreport(nrcCode, false, 10, 1);
+    return this.professorsService.getNRCreport(nrcCode, includeInactive, limit, page);
   }
 
-  @Get('nrc-report/:nrcCode/export')
-  async exportNRCReportToExcel(
-    @Param('nrcCode') nrcCode: number,
-    @Query('includeInactive') includeInactive = false,
-    @Query('limit') limit = 10000,
-    @Query('page') page = 1,
-    @Res() res: Response,
-  ) {
-    await this.professorsService.exportNRCreportToExcel(+nrcCode, false, +limit, +page, res);
+  @Public()
+  @Get('exportNRC/:nrcCode')
+  async exportNRCReportToExcel(@Param('nrcCode') nrcCode: number, @Res({ passthrough: true }) res: Response) {
+    await this.professorsService.exportNRCreportToExcel(nrcCode, res);
   }
 
   @Get('signature-report/:subjectName')
   async getSignatureReport(
     @Param('subjectName') subjectName: string,
-    @Query() query: Omit<ReportSubjectDto, 'subjectName'>
+    @Query() query: PaginationQueryDto
   ) {
     const { includeInactive, limit, page } = query;
     return this.professorsService.GetSignatureReport(subjectName, includeInactive, limit, page);
   }
 
-  @Get('signature-report/:subjectName/export')
-  async exportSignatureReport(
-    @Param('subjectName') subjectName: string,
-    @Query('includeInactive') includeInactive = false,
-    @Query('limit') limit = 10000,
-    @Query('page') page = 1,
-    @Res() res: Response,
-  ) {
-    await this.professorsService.exportSignatureReportToExcel(
-      subjectName,
-      false,
-      +limit,
-      +page,
-      res,
-    );
+  @Public()
+  @Get('exportSubject/:subjectName')
+  async exportSignatureReport(@Param('subjectName') subjectName: string, @Res({ passthrough: true }) res: Response) {
+    await this.professorsService.exportSignatureReportToExcel(subjectName, res);
   }
 }

@@ -16,6 +16,7 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 import * as ExcelJS from 'exceljs';
 import { Response } from 'express';
+import { PassThrough } from 'stream';
 
 
 @Injectable()
@@ -354,9 +355,9 @@ export class ProfessorsService {
 
     const subject = matchingNRC.subject.name;
     const NRC = matchingNRC.code;
-    const reporte = items.map((i) => {
-      const videojuego = i.team?.videogame;
-      const grade = videojuego?.evaluations?.[0]?.totalScore ?? null;
+    const report = items.map((i) => {
+      const selectedVideogame = i.team?.videogame;
+      const grade = selectedVideogame?.evaluations?.[0]?.totalScore ?? null;
 
       return {
         NRC,
@@ -365,13 +366,13 @@ export class ProfessorsService {
         email: i.email,
         student_code: i.studentCode,
         team: i.team?.teamName ?? 'No team',
-        videogame: videojuego?.name ?? 'No videogame',
+        videogame: selectedVideogame?.name ?? 'No videogame',
         grade,
       };
     });
 
     return {
-      data: reporte,
+      data: report,
       metadata: {
         totalItems: totalItems,
         itemsOnCurrentPage: items.length,
@@ -383,7 +384,7 @@ export class ProfessorsService {
   }
 
 
-  async GetSignatureReport(Subjectname: string, includeInactive: boolean, limit: number, page: number) {
+  async GetSignatureReport(subjectName: string, includeInactive: boolean, limit: number, page: number) {
     const offset = (page - 1) * limit;
 
     const evaluationSelect = {
@@ -427,7 +428,7 @@ export class ProfessorsService {
     };
 
     const subjectWhere = {
-      name: Subjectname,
+      name: subjectName,
     };
 
     const [items, totalItems] = await this.prisma.$transaction([
@@ -443,7 +444,7 @@ export class ProfessorsService {
     const totalPages = Math.ceil(totalItems / limit);
 
     if (!items) {
-      throw new NotFoundException(`Subject ${Subjectname} it is not exist`);
+      throw new NotFoundException(`Subject ${subjectName} it is not exist`);
     }
 
     const reports = [];
@@ -477,14 +478,73 @@ export class ProfessorsService {
     };
   }
 
-  async exportNRCreportToExcel(
-    nrcCode: number,
-    includeInactive: boolean,
-    limit: number,
-    page: number,
-    res: Response,
-  ): Promise<void> {
-    const { data } = await this.getNRCreport(nrcCode, includeInactive, limit, page);
+  async exportNRCreportToExcel(nrcCode: number, res: Response): Promise<void> {
+
+    const nrcSubjectSelect = {
+      code: true,
+      subject: {
+        select: {
+          name: true,
+        },
+      },
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: {
+          totalScore: true,
+        },
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      email: true,
+      nrcs: {
+        select: nrcSubjectSelect,
+      },
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const memberWhere = {
+      nrcs: {
+        some: {
+          code: nrcCode,
+        },
+      },
+    };
+
+    const data = await this.prisma.member.findMany({
+      where: memberWhere,
+      select: memberSelect,
+    });
+
+    const flattenedData = data.map((member) => {
+      const nrc = member.nrcs.find(n => n.code === nrcCode);
+
+      return {
+        NRC: nrc?.code ?? '',
+        subject: nrc?.subject?.name ?? '',
+        student: `${member.firstName} ${member.lastName}`,
+        email: member.email,
+        student_code: member.studentCode,
+        team: member.team?.teamName ?? '',
+        videogame: member.team?.videogame?.name ?? '',
+        grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
+      };
+    });
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('NRC Report');
 
@@ -499,7 +559,7 @@ export class ProfessorsService {
       { header: 'Score', key: 'grade', width: 10 },
     ];
 
-    data.forEach(item => worksheet.addRow(item));
+    flattenedData.forEach(item => worksheet.addRow(item));
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=nrc-report-${nrcCode}.xlsx`);
@@ -508,18 +568,76 @@ export class ProfessorsService {
     res.end();
   }
 
-  async exportSignatureReportToExcel(
-    subjectName: string,
-    includeInactive: boolean,
-    limit: number,
-    page: number,
-    res: Response,
-  ): Promise<void> {
-    const { data } = await this.GetSignatureReport(subjectName, includeInactive, limit, page);
+  async exportSignatureReportToExcel(subjectName: string, res: Response): Promise<void> {
+    const evaluationSelect = {
+      totalScore: true,
+    };
+
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: evaluationSelect,
+      },
+    };
+
+    const teamSelect = {
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelect = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      team: {
+        select: teamSelect,
+      },
+    };
+
+    const nrcsSelect = {
+      code: true,
+      members: {
+        select: memberSelect,
+      },
+    };
+
+    const subjectSelect = {
+      name: true,
+      nrcs: {
+        select: nrcsSelect,
+      },
+    };
+
+    const subjectWhere = {
+      name: subjectName,
+    };
+
+    const data = await this.prisma.subject.findMany({
+      where: subjectWhere,
+      select: subjectSelect,
+    });
+
+    const flattenedData = data.flatMap(subject =>
+      subject.nrcs.flatMap(nrc =>
+        nrc.members.map(member => ({
+          NRC: nrc.code,
+          subject: subject.name,
+          student: `${member.firstName} ${member.lastName}`,
+          student_code: member.studentCode,
+          team: member.team?.teamName ?? '',
+          videogame: member.team?.videogame?.name ?? '',
+          grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
+        }))
+      )
+    );
+
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Signature Report');
+    const worksheet = workbook.addWorksheet('Subject Report');
 
     worksheet.columns = [
+      { header: 'NRC', key: 'NRC', width: 10 },
       { header: 'Subject', key: 'subject', width: 40 },
       { header: 'Student', key: 'student', width: 30 },
       { header: 'Student Code', key: 'student_code', width: 20 },
@@ -528,10 +646,10 @@ export class ProfessorsService {
       { header: 'Score', key: 'grade', width: 10 },
     ];
 
-    data.forEach(item => worksheet.addRow(item));
+    flattenedData.forEach(item => worksheet.addRow(item));
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=signature-report-${subjectName}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=subject-report-${subjectName}.xlsx`);
 
     await workbook.xlsx.write(res);
     res.end();
