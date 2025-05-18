@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class VideogamesService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateVideogameDto) {
     throw new NotImplementedException('Method create not implemented yet');
@@ -46,5 +46,4 @@ export class VideogamesService {
   async remove(videogameId: number) {
     throw new NotImplementedException('Method delete not implemented yet');
   }
-
 }

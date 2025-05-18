@@ -14,7 +14,7 @@ import {
 import { ProfessorsService } from './professors.service';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
-import { User } from "@prisma/client";
+import { User } from '@prisma/client';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -22,7 +22,7 @@ import { SelectOption } from './types/select-option.type';
 
 @Controller('professors')
 export class ProfessorsController {
-  constructor(private readonly professorsService: ProfessorsService) { }
+  constructor(private readonly professorsService: ProfessorsService) {}
 
   @Post()
   create(@Body() createProfessorDto: CreateProfessorDto) {

@@ -8,17 +8,18 @@ import { User as SupabaseUser } from '@supabase/supabase-js';
 import { RegisterDto } from 'src/auth/dto/register.dto';
 import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
+import { Resend } from 'resend';
 
 @Injectable()
 export class TeamsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   async findByTeamName(teamName: string) {
     const team = await this.prisma.team.findFirst({
-      where: { 
+      where: {
         teamName: {
           equals: teamName,
           mode: 'insensitive',
@@ -27,7 +28,6 @@ export class TeamsService {
     });
 
     return !!team; // Return true if the team exists, false otherwise
-
   }
 
   // Validate if videogame exists (case-insensitive)
@@ -46,7 +46,10 @@ export class TeamsService {
 
   async create(createTeamDto: CreateTeamDto) {
     const userRegister: RegisterDto = {
-      name: createTeamDto.members[0].memberFirstName + ' ' + createTeamDto.members[0].memberLastName,
+      name:
+        createTeamDto.members[0].memberFirstName +
+        ' ' +
+        createTeamDto.members[0].memberLastName,
       email: createTeamDto.members[0].memberEmail,
     }; // Get the first member's name and email
 
@@ -60,7 +63,8 @@ export class TeamsService {
       throw new Error('Role "ESTUDIANTE" not found');
     }
 
-    const user: SupabaseUser = await this.authService.registerUser(userRegister);
+    const user: SupabaseUser =
+      await this.authService.registerUser(userRegister);
 
     const dataUser = await this.prisma.user.create({
       data: {
@@ -82,7 +86,6 @@ export class TeamsService {
 
     const members = await Promise.all(
       createTeamDto.members.map((member) => {
-
         return this.prisma.member.create({
           data: {
             firstName: member.memberFirstName,
@@ -132,10 +135,10 @@ export class TeamsService {
   async registerUser(registerDto: RegisterUserDto) {
     const authRegisterPayload = {
       email: registerDto.email,
-      password: registerDto.password,
       name: registerDto.name,
     };
-    const user: SupabaseUser = await this.authService.registerUser(authRegisterPayload);
+    const user: SupabaseUser =
+      await this.authService.registerUser(authRegisterPayload);
     return user;
   }
 

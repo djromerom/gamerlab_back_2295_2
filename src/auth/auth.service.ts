@@ -34,7 +34,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) { }
+  ) {}
 
   private setAuthCookies(
     res: Response,
@@ -168,7 +168,6 @@ export class AuthService {
           `Local user status updated successfully for ID: ${userId}. New status ID: ${updatedLocalUser.confirmationStatusId}`,
         );
       } catch (prismaError) {
-
         if (prismaError instanceof PrismaClientKnownRequestError)
           this.logger.error(
             `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
@@ -195,9 +194,7 @@ export class AuthService {
     }
   }
 
-  async registerUser(
-    registerDto: RegisterDto,
-  ): Promise<UserSupabase> {
+  async registerUser(registerDto: RegisterDto): Promise<UserSupabase> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
     let user: UserSupabase;
@@ -394,7 +391,6 @@ export class AuthService {
       // We set the new tokens in cookies
       this.setAuthCookies(res, access_token, new_refresh_token);
       this.logger.log('Session refreshed successfully.');
-
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -483,7 +479,6 @@ export class AuthService {
           }),
         ]);
       } catch (dbError) {
-
         if (dbError instanceof Error) {
           this.logger.error(
             `Database error fetching confirmation statuses: ${dbError.message}`,
@@ -603,5 +598,45 @@ export class AuthService {
 
     const { roleId, confirmationStatusId, ...profileData } = user;
     return profileData;
+  }
+
+  async resendConfirmationEmail(email: string) {
+    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+
+    try {
+      const result = await this.supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+        },
+      });
+
+      const { error } = result;
+
+      if (error) {
+        if (error.message.includes('User not found')) {
+          throw new NotFoundException(
+            'El correo electrónico no está registrado.',
+          );
+        }
+        if (error.message.includes('User already confirmed')) {
+          throw new BadRequestException(
+            'El correo electrónico ya está confirmado.',
+          );
+        }
+        throw new InternalServerErrorException(
+          'Error al reenviar el correo de confirmación.',
+        );
+      }
+
+      this.logger.log(`Confirmation email resent successfully to: ${email}`);
+      return { message: 'Correo reenviado con éxito' };
+    } catch (err: any) {
+      this.logger.error(`Unhandled error: ${err.message}`);
+      throw new InternalServerErrorException(
+        'Error al reenviar el correo de confirmación.',
+      );
+    }
   }
 }
