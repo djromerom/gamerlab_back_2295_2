@@ -21,6 +21,8 @@ import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { SelectOption } from './types/select-option.type';
 import { Response } from 'express';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { professorNrc } from './types/select-option.type';
 
 @Controller('professors')
 export class ProfessorsController {
@@ -90,4 +92,10 @@ export class ProfessorsController {
   async exportSignatureReport(@Param('subjectName') subjectName: string, @Res({ passthrough: true }) res: Response) {
     await this.professorsService.exportSignatureReportToExcel(subjectName, res);
   }
+
+  @Get('nrc')
+  nrcFp(@GetUser('id') id: string): Promise<professorNrc[]> {
+      return this.professorsService.nrcProfessor(id);
+  }
 }
+

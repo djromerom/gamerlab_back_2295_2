@@ -17,6 +17,7 @@ import { SelectOption } from './types/select-option.type';
 import * as ExcelJS from 'exceljs';
 import { Response } from 'express';
 import { PassThrough } from 'stream';
+import { professorNrc } from './types/select-option.type';
 
 
 @Injectable()
@@ -278,6 +279,7 @@ export class ProfessorsService {
       );
     }
   }
+
 
   async getNRCreport(nrcCode: number, includeInactive: boolean, limit: number, page: number) {
     const offset = (page - 1) * limit;
@@ -653,5 +655,19 @@ export class ProfessorsService {
 
     await workbook.xlsx.write(res);
     res.end();
+  }
+
+  async nrcProfessor(id: string): Promise<professorNrc[]> {
+    const professor = await this.prisma.nRC.findMany({
+      where: {
+        professorId: id,
+      },
+      select: {
+        code: true,
+      },
+    });
+    return professor.map((professor) => ({
+      nrcId: professor.code,
+    }));
   }
 }
