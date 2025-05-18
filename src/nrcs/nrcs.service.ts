@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, NRC } from '@prisma/client';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
@@ -80,14 +84,31 @@ export class NrcsService {
       },
     });
 
-    if (!nrc || !nrc.isActive) {
-      throw new NotFoundException('NRC not found or inactive');
+    if (!nrc) {
+      throw new NotFoundException(`NRC con ID ${id} no encontrado.`);
+    }
+    if (!nrc.isActive) {
+      throw new ConflictException(`NRC con ID ${id} está inactivo.`);
     }
 
     return nrc;
   }
 
   async create(data: Prisma.NRCCreateInput) {
+    // Check for existing ACTIVE NRC with the same code
+    const existingNrc = await this.prisma.nRC.findFirst({
+      where: {
+        code: data.code,
+        isActive: true, // Solo verificar NRCs activos
+      },
+    });
+
+    if (existingNrc) {
+      throw new ConflictException(
+        `Ya existe un NRC con el código ${data.code}.`,
+      );
+    }
+
     return this.prisma.nRC.create({
       data,
       include: { subject: true, professor: true },
@@ -95,6 +116,43 @@ export class NrcsService {
   }
 
   async update(id: number, data: Prisma.NRCUpdateInput) {
+    const existingNrc = await this.prisma.nRC.findUnique({
+      where: { id },
+    });
+
+    if (!existingNrc) {
+      throw new NotFoundException(`NRC con ID ${id} no encontrado.`);
+    }
+
+    // Check if the code is being updated and conflicts with another ACTIVE NRC
+    if (data.code !== undefined) {
+      const codeValue =
+        typeof data.code === 'object' ? data.code.set : data.code;
+
+      if (codeValue !== undefined) {
+        const numericCode =
+          typeof codeValue === 'string' ? parseInt(codeValue, 10) : codeValue;
+
+        if (isNaN(numericCode)) {
+          throw new ConflictException(`El código debe ser un número válido.`);
+        }
+
+        const conflictingNrc = await this.prisma.nRC.findFirst({
+          where: {
+            code: numericCode,
+            id: { not: id },
+            isActive: true, // Solo verificar contra NRCs activos
+          },
+        });
+
+        if (conflictingNrc) {
+          throw new ConflictException(
+            `Ya existe otro NRC con el código ${numericCode}.`,
+          );
+        }
+      }
+    }
+
     return this.prisma.nRC.update({
       where: { id },
       data,
@@ -105,11 +163,16 @@ export class NrcsService {
     });
   }
 
-  // Soft delete: set isActive to false
   async remove(id: number) {
-    const nrc = await this.prisma.nRC.findUnique({ where: { id } });
-    if (!nrc || !nrc.isActive) {
-      throw new NotFoundException('NRC no encontrado o ya inactivo');
+    const nrc = await this.prisma.nRC.findUnique({
+      where: { id },
+    });
+
+    if (!nrc) {
+      throw new NotFoundException(`NRC con ID ${id} no encontrado.`);
+    }
+    if (!nrc.isActive) {
+      throw new ConflictException(`NRC con ID ${id} ya está inactivo.`);
     }
 
     return this.prisma.nRC.update({
