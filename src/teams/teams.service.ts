@@ -1,24 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { CreateTeamDto, MemberDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Prisma, User, Role } from '@prisma/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { RegisterDto } from 'src/auth/dto/register.dto';
-import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
 
 @Injectable()
 export class TeamsService {
+
+  private readonly logger = new Logger(TeamsService.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   async findByTeamName(teamName: string) {
     const team = await this.prisma.team.findFirst({
-      where: { 
+      where: {
         teamName: {
           equals: teamName,
           mode: 'insensitive',
@@ -27,7 +29,6 @@ export class TeamsService {
     });
 
     return !!team; // Return true if the team exists, false otherwise
-
   }
 
   // Validate if videogame exists (case-insensitive)
@@ -45,97 +46,125 @@ export class TeamsService {
   }
 
   async create(createTeamDto: CreateTeamDto) {
-    const userRegister: RegisterDto = {
-      name: createTeamDto.members[0].memberFirstName + ' ' + createTeamDto.members[0].memberLastName,
-      email: createTeamDto.members[0].memberEmail,
-    }; // Get the first member's name and email
+    const firstMember = createTeamDto.members[0];
 
-    const { teamName, videogame } = createTeamDto;
-
-    const studentRole = await this.prisma.role.findUnique({
-      where: { name: 'Estudiante' },
+    // Check if the email already exists in your local DB
+    const existingUserByEmail = await this.prisma.user.findUnique({
+      where: {
+        email: firstMember.memberEmail,
+      },
     });
 
-    if (!studentRole) {
-      throw new Error('Role "ESTUDIANTE" not found');
+    if (existingUserByEmail) {
+      throw new ConflictException(`The email ${firstMember.memberEmail} is already in use.`);
     }
 
-    const user: SupabaseUser = await this.authService.registerUser(userRegister);
+    // Check for duplicate student codes before doing anything else
+    for (const member of createTeamDto.members) {
+      const existingMember = await this.prisma.member.findUnique({
+        where: { studentCode: member.studentCode },
+      });
+      if (existingMember) {
+        throw new ConflictException(`Student code ${member.studentCode} is already in use.`);
+      }
+    }
 
-    const dataUser = await this.prisma.user.create({
-      data: {
-        id: user.id,
-        username: userRegister.name,
-        name: userRegister.name,
-        email: userRegister.email,
-        roleId: studentRole.id,
-      },
-    });
+    // Attempt to register the user in Supabase
+    let supabaseUser: SupabaseUser;
+    try {
+      supabaseUser = await this.authService.registerUser({
+        email: firstMember.memberEmail,
+      });
 
-    const team = await this.prisma.team.create({
-      // --> Create the team in the database
-      data: {
-        teamName: teamName,
-        userId: user.id, // ID of the first member (user)
-      },
-    });
+      if (!supabaseUser || !supabaseUser.id) {
+        throw new InternalServerErrorException('User registration failed.');
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown Supabase registration error';
+      if (errorMessage.toLowerCase().includes('user already registered')) {
+        throw new ConflictException(`Email ${firstMember.memberEmail} is already registered.`);
+      }
+      throw new InternalServerErrorException(`Supabase error: ${errorMessage}`);
+    }
 
-    const members = await Promise.all(
-      createTeamDto.members.map((member) => {
+    // All validations passed → continue inside a transaction
+    try {
+      const { teamName, videogame } = createTeamDto;
 
-        return this.prisma.member.create({
+      const result = await this.prisma.$transaction(async (tx) => {
+        const studentRole = await tx.role.findUnique({
+          where: { name: 'Estudiante' },
+        });
+
+        if (!studentRole) {
+          throw new Error('Role "Estudiante" not found.');
+        }
+
+        const createdUser = await tx.user.create({
           data: {
-            firstName: member.memberFirstName,
-            lastName: member.memberLastName,
-            email: member.memberEmail,
-            studentCode: member.studentCode,
-            teamId: team.id,
-            nrcs: {
-              connect: member.nrc.map((code) => ({ code: parseInt(code) })),
-            },
+            id: supabaseUser.id,
+            firstName: firstMember.memberFirstName,
+            lastName: firstMember.memberLastName,
+            email: firstMember.memberEmail,
+            roleId: studentRole.id,
           },
         });
-      }),
-    );
 
-    // Create videogame in the database
-    const createdVideogame = await this.prisma.videogame.create({
-      data: {
-        name: videogame.vgName,
-        description: videogame.description,
-        logoUrl: videogame.logoURL,
-        teamId: team.id, // ID of the team
-        videogameStatusId: 1, // Replace '1' with the appropriate status ID
-      },
-    });
+        const team = await tx.team.create({
+          data: {
+            teamName,
+            userId: createdUser.id,
+          },
+        });
 
-    // TODO: send email to team representative
+        const members = await Promise.all(
+          createTeamDto.members.map((member) => {
+            tx.member.create({
+              data: {
+                firstName: member.memberFirstName,
+                lastName: member.memberLastName,
+                email: member.memberEmail,
+                studentCode: member.studentCode,
+                teamId: team.id,
+                nrcs: {
+                  connect: member.nrc.map((code) => ({ id: parseInt(code) })),
+                },
+              },
+            });
+          }),
+        );
 
-    return { dataUser, team, members, createdVideogame };
-  }
+        const createdVideogame = await tx.videogame.create({
+          data: {
+            name: videogame.vgName,
+            description: videogame.description,
+            logoUrl: videogame.logoURL,
+            teamId: team.id,
+            videogameStatusId: 1,
+          },
+        });
 
-  //TODO: remove sensitive variables from the codebase. I assume these are just for testing
-  sendEmail(email: string, id: string, name: string) {
-    const resend = new Resend('re_dP24beoj_2JuvsZwCCFUiEatdKxG6YwNK');
+        return { createdUser, team, members, createdVideogame };
+      });
 
-    const envio = resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: email,
-      subject: 'Vive la feria UNINORTE!',
-      html: `<a href="http://localhost:5173/verificar-cuenta/${id}">Hola ${name},</a>`,
-    });
-    console.log(email, id, name);
+      // Send confirmation email only if everything above succeeds
+      // await this.emailService.sendConfirmation(result.team);
 
-    return envio;
+      return result;
+    } catch (err) {
+      this.logger.error('Transaction failed:', err);
+      throw new InternalServerErrorException('Failed to create team.');
+    }
   }
 
   async registerUser(registerDto: RegisterUserDto) {
     const authRegisterPayload = {
       email: registerDto.email,
-      password: registerDto.password,
       name: registerDto.name,
     };
-    const user: SupabaseUser = await this.authService.registerUser(authRegisterPayload);
+    const user: SupabaseUser =
+      await this.authService.registerUser(authRegisterPayload);
     return user;
   }
 

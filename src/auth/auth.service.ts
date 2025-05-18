@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   Inject,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +23,7 @@ import { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { CacheService } from 'src/cache/cache.service';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -29,13 +31,72 @@ const REFRESH_TOKEN_COOKIE = 'refresh-token';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private confirmedStatusId: number;
+  private pendingStatusId: number;
+
+  private readonly CONFIRMED_STATUS_NAME = 'CONFIRMADO';
+  private readonly PENDING_STATUS_NAME = 'PENDIENTE';
+
+  // Cache
+  private readonly USER_PROFILE_CACHE_PREFIX = 'user_profile:';
+  private USER_PROFILE_CACHE_TTL: number;
+
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly cacheService: CacheService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) { }
+  ) {}
 
+  async onModuleInit() {
+    this.logger.log('Initializing AuthService: Fetching confirmation statuses...');
+    try {
+      const [confirmedStatus, pendingStatus] = await Promise.all([
+        this.prisma.confirmationStatus.findUnique({
+          where: { status: this.CONFIRMED_STATUS_NAME },
+        }),
+        this.prisma.confirmationStatus.findUnique({
+          where: { status: this.PENDING_STATUS_NAME },
+        }),
+      ]);
+
+      if (!confirmedStatus) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Status '${this.CONFIRMED_STATUS_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required status '${this.CONFIRMED_STATUS_NAME}'.`,
+        );
+      }
+      if (!pendingStatus) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Status '${this.PENDING_STATUS_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required status '${this.PENDING_STATUS_NAME}'.`,
+        );
+      }
+
+      this.confirmedStatusId = confirmedStatus.id;
+      this.pendingStatusId = pendingStatus.id;
+      this.logger.log(
+        `Confirmation statuses initialized: CONFIRMADO ID=${this.confirmedStatusId}, PENDIENTE ID=${this.pendingStatusId}`,
+      );
+
+      this.logger.log("Setting USER_PROFILE_CACHE_TTL");
+      this.USER_PROFILE_CACHE_TTL = this.configService.get<number>('USER_PROFILE_CACHE_TTL', 15) * 60 * 1000 // By default, 15 minutes
+      this.logger.log(`USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`);
+
+    } catch (error) {
+      if (error instanceof Error)
+        this.logger.error(
+          `Failed to initialize confirmation statuses: ${error.message}`,
+          error.stack,
+        );
+      throw error;
+    }
+  }
   private setAuthCookies(
     res: Response,
     access_token: string,
@@ -168,7 +229,6 @@ export class AuthService {
           `Local user status updated successfully for ID: ${userId}. New status ID: ${updatedLocalUser.confirmationStatusId}`,
         );
       } catch (prismaError) {
-
         if (prismaError instanceof PrismaClientKnownRequestError)
           this.logger.error(
             `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
@@ -195,9 +255,7 @@ export class AuthService {
     }
   }
 
-  async registerUser(
-    registerDto: RegisterDto,
-  ): Promise<UserSupabase> {
+  async registerUser(registerDto: RegisterDto): Promise<UserSupabase> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
     let user: UserSupabase;
@@ -394,7 +452,6 @@ export class AuthService {
       // We set the new tokens in cookies
       this.setAuthCookies(res, access_token, new_refresh_token);
       this.logger.log('Session refreshed successfully.');
-
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -439,6 +496,10 @@ export class AuthService {
     return { message: 'Logout successful' };
   }
 
+  private getUserProfileCacheKey(supabaseId: string): string {
+    return `${this.USER_PROFILE_CACHE_PREFIX}${supabaseId}`;
+  }
+
   /**
    * Finds an existing user by Supabase ID. If the user was previously invited
    * (inactive/pending), it activates them upon this first successful login post-confirmation.
@@ -461,56 +522,25 @@ export class AuthService {
       );
     }
 
-    this.logger.log(
-      `Syncing local user for: ${userEmail} (Supabase ID: ${supabaseId})`,
-    );
+    const cacheKey = this.getUserProfileCacheKey(supabaseId);
+
+    const cachedUser: User = await this.cacheService.get(cacheKey);
+    if (cachedUser) {
+      if (!cachedUser.isActive) {
+        this.logger.warn(
+          `Cached user ${cachedUser.email} (ID: ${cachedUser.id}) is inactive. Access denied. Re-validating with DB.`,
+        );
+        await this.cacheService.delete(cacheKey);
+        throw new UnauthorizedException('User account is currently inactive (checked from cache).');
+      }
+      this.logger.log(`Cache hit for user: ${userEmail} (Supabase ID: ${supabaseId})`);
+      return cachedUser;
+    }
+
+    this.logger.log(`Cache miss. Syncing local user from DB: ${userEmail} (Supabase ID: ${supabaseId})`);
 
     let user: User | null;
     try {
-      let confirmedStatus: ConfirmationStatus | null;
-      let pendingStatus: ConfirmationStatus | null;
-
-      const CONFIRMED_STATUS_NAME = 'CONFIRMADO';
-      const PENDING_STATUS_NAME = 'PENDIENTE';
-
-      try {
-        [confirmedStatus, pendingStatus] = await Promise.all([
-          this.prisma.confirmationStatus.findUnique({
-            where: { status: CONFIRMED_STATUS_NAME },
-          }),
-          this.prisma.confirmationStatus.findUnique({
-            where: { status: PENDING_STATUS_NAME },
-          }),
-        ]);
-      } catch (dbError) {
-
-        if (dbError instanceof Error) {
-          this.logger.error(
-            `Database error fetching confirmation statuses: ${dbError.message}`,
-            dbError.stack,
-          );
-          throw new InternalServerErrorException(
-            'Database error during status lookup.',
-          );
-        }
-      }
-
-      if (!confirmedStatus!) {
-        this.logger.error(
-          `Configuration Error: Status '${CONFIRMED_STATUS_NAME}' not found in 'estados_confirmacion' table.`,
-        );
-        throw new InternalServerErrorException(
-          'Server configuration error: Missing required user status.',
-        );
-      }
-      if (!pendingStatus!) {
-        this.logger.error(
-          `Configuration Error: Status '${PENDING_STATUS_NAME}' not found in 'estados_confirmacion' table.`,
-        );
-        throw new InternalServerErrorException(
-          'Server configuration error: Missing required user status.',
-        );
-      }
 
       user = await this.prisma.user.findUnique({
         where: { id: supabaseId },
@@ -529,7 +559,7 @@ export class AuthService {
       // If for some reason the user needs activation
       if (
         !user.isActive && // User is currently inactive
-        user.confirmationStatusId === pendingStatus.id // And has the 'PENDIENTE' status
+        user.confirmationStatusId === this.pendingStatusId // And has the 'PENDIENTE' status
       ) {
         this.logger.log(
           `Activating previously pending user: ${user.email} (ID: ${user.id})`,
@@ -538,7 +568,7 @@ export class AuthService {
           where: { id: supabaseId },
           data: {
             isActive: true,
-            confirmationStatusId: confirmedStatus.id,
+            confirmationStatusId: this.confirmedStatusId,
           },
         });
         this.logger.log(`User ${user.email} successfully activated.`);
@@ -558,6 +588,11 @@ export class AuthService {
       this.logger.log(
         `Local user sync successful: ${user.email} (Active: ${user.isActive})`,
       );
+
+
+      await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
+      this.logger.log(`User ${user.email} synced and cached successfully.`);
+
     } catch (error) {
       if (
         error instanceof InternalServerErrorException ||
@@ -603,5 +638,73 @@ export class AuthService {
 
     const { roleId, confirmationStatusId, ...profileData } = user;
     return profileData;
+  }
+
+  async invalidateUserProfileCache(supabaseId: string): Promise<void> {
+    const cacheKey = this.getUserProfileCacheKey(supabaseId);
+    await this.cacheService.delete(cacheKey);
+    this.logger.log(`User profile cache invalidated for Supabase ID: ${supabaseId}`);
+  }
+
+  /**
+   * Resends the confirmation email to the user.
+   * @param email The email address of the user to resend the confirmation email to.
+   * @throws {NotFoundException} If the user is not found in the local database.
+   * @throws {ConflictException} If the user is already confirmed.
+   * @throws {InternalServerErrorException} If there is an error sending the email.
+   */
+  async resendConfirmationEmail(email: string) {
+    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+    
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { confirmationStatus: true }, 
+    });
+
+    if (!user) {
+      this.logger.error(`User with email ${email} not found in local DB.`);
+      throw new NotFoundException('The email address is not registered.');
+    }
+
+    if (user.confirmationStatus?.status === 'CONFIRMADO') {
+      this.logger.warn(`User with email ${email} is already confirmed.`);
+      throw new ConflictException('The email has already been confirmed.');
+    }
+    
+    
+    try {
+      const result = await this.supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+        },
+      });
+      const { error } = result;
+      if (error) {
+        this.logger.log(error);
+        if (error.message.includes('User not found')) {
+          throw new NotFoundException(
+            'El correo electrónico no está registrado.',
+          );
+        }
+        if (error.message.includes('User already confirmed')) {
+          throw new BadRequestException(
+            'El correo electrónico ya está confirmado.',
+          );
+        }
+        throw new InternalServerErrorException(
+          'Error al reenviar el correo de confirmación.',
+        );
+      }
+      this.logger.log(`Confirmation email resent successfully to: ${email}`);
+      return { message: 'Correo reenviado con éxito' };
+    } catch (err) {
+      this.logger.error(`Unhandled error: ${err}`);
+      throw new InternalServerErrorException(
+        'Error al reenviar el correo de confirmación.',
+      );
+    }
   }
 }
