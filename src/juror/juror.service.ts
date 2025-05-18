@@ -3,6 +3,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
   Logger,
+  Inject,
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
@@ -17,25 +18,52 @@ import { JurorListItem } from './types/juror-list-item.type';
 
 @Injectable()
 export class JurorService {
+  private readonly logger = new Logger(AuthService.name);
+  private readonly JUROR_ROLE_NAME = "Jurado";
+  private jurorRoleId: number;
+
   constructor(
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
   ) { }
 
-  private async getJurorRoleId(): Promise<number> {
-    const jurorRole = await this.prisma.role.findUnique({
-      where: { name: 'Jurado' },
-    });
+  async onModuleInit() {
 
-    if (!jurorRole) {
-      throw new Error('Role "Jurado" not found');
+    this.logger.log('Initializing Juror module: Fetching Juror role id');
+
+    try {
+
+      const jurorRole: Role | null = await this.prisma.role.findUnique({
+        where: { name: this.JUROR_ROLE_NAME, isActive: true }
+      });
+
+      if (!jurorRole) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Role '${this.JUROR_ROLE_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required role '${this.JUROR_ROLE_NAME}'.`,
+        );
+      }
+
+      this.jurorRoleId = jurorRole.id;
+      this.logger.log(
+        `Juror role ID initialized: Juror role ID=${this.jurorRoleId}`,
+      );
+
+    } catch (error) {
+      if (error instanceof Error)
+        this.logger.error(
+          `Failed to initialize juror role id: ${error.message}`,
+          error.stack,
+        );
+      throw error;
     }
 
-    return jurorRole.id;
+
   }
 
   async create(dto: CreateJurorDto): Promise<User & { _count: number }> {
-    const jurorRoleId = await this.getJurorRoleId();
 
     let user: SupabaseUser;
     try {
@@ -74,7 +102,7 @@ export class JurorService {
           name: dto.name,
           email: dto.email,
           username: dto.name,
-          roleId: jurorRoleId,
+          roleId: this.jurorRoleId,
           isActive: true,
         },
       });
@@ -112,9 +140,8 @@ export class JurorService {
   ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
 
-    const jurorRoleId = await this.getJurorRoleId();
 
-    const whereClause: Prisma.UserWhereInput = { roleId: jurorRoleId };
+    const whereClause: Prisma.UserWhereInput = { roleId: this.jurorRoleId };
 
     // TODO: Implement support for 'includeInactive' query param
     whereClause.isActive = true;
@@ -159,13 +186,12 @@ export class JurorService {
 
   async findOne(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    const jurorRoleId = await this.getJurorRoleId();
 
     if (!user) {
       throw new NotFoundException('User not found.');
     }
 
-    if (user.roleId !== jurorRoleId) {
+    if (user.roleId !== this.jurorRoleId) {
       throw new NotFoundException('User is not a juror.');
     }
 
@@ -181,9 +207,8 @@ export class JurorService {
     dto: UpdateJurorDto,
   ): Promise<User & { _count: number }> {
     const existingJuror = await this.findOne(id);
-    const jurorRoleId = await this.getJurorRoleId();
 
-    if (!existingJuror || existingJuror.roleId !== jurorRoleId) {
+    if (!existingJuror || existingJuror.roleId !== this.jurorRoleId) {
       throw new NotFoundException(`Juror with ID ${id} not found.`);
     }
 
@@ -206,6 +231,9 @@ export class JurorService {
       where: { jurorId: id },
     });
 
+    // Just in case, it's important to invalidate the cache of the current user
+    this.auth.invalidateUserProfileCache(id);
+
     return {
       ...updatedUser,
       _count,
@@ -214,15 +242,21 @@ export class JurorService {
 
   async remove(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    const jurorRoleId = await this.getJurorRoleId();
 
-    if (!user || user.roleId !== jurorRoleId) {
+    if (!user || user.roleId !== this.jurorRoleId) {
       throw new NotFoundException(`Juror with ID ${id} not found.`);
     }
 
-    return this.prisma.user.update({
+    const updatedUser = this.prisma.user.update({
       where: { id: user.id },
       data: { isActive: false },
     });
+
+
+    // We invalidate the cache of the user being deleted
+    this.auth.invalidateUserProfileCache(id);
+
+    return updatedUser;
+
   }
 }

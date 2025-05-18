@@ -22,6 +22,7 @@ import { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { CacheService } from 'src/cache/cache.service';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -29,13 +30,72 @@ const REFRESH_TOKEN_COOKIE = 'refresh-token';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private confirmedStatusId: number;
+  private pendingStatusId: number;
+
+  private readonly CONFIRMED_STATUS_NAME = 'CONFIRMADO';
+  private readonly PENDING_STATUS_NAME = 'PENDIENTE';
+
+  // Cache
+  private readonly USER_PROFILE_CACHE_PREFIX = 'user_profile:';
+  private USER_PROFILE_CACHE_TTL: number;
+
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly cacheService: CacheService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
   ) { }
 
+  async onModuleInit() {
+    this.logger.log('Initializing AuthService: Fetching confirmation statuses...');
+    try {
+      const [confirmedStatus, pendingStatus] = await Promise.all([
+        this.prisma.confirmationStatus.findUnique({
+          where: { status: this.CONFIRMED_STATUS_NAME },
+        }),
+        this.prisma.confirmationStatus.findUnique({
+          where: { status: this.PENDING_STATUS_NAME },
+        }),
+      ]);
+
+      if (!confirmedStatus) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Status '${this.CONFIRMED_STATUS_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required status '${this.CONFIRMED_STATUS_NAME}'.`,
+        );
+      }
+      if (!pendingStatus) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Status '${this.PENDING_STATUS_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required status '${this.PENDING_STATUS_NAME}'.`,
+        );
+      }
+
+      this.confirmedStatusId = confirmedStatus.id;
+      this.pendingStatusId = pendingStatus.id;
+      this.logger.log(
+        `Confirmation statuses initialized: CONFIRMADO ID=${this.confirmedStatusId}, PENDIENTE ID=${this.pendingStatusId}`,
+      );
+
+      this.logger.log("Setting USER_PROFILE_CACHE_TTL");
+      this.USER_PROFILE_CACHE_TTL = this.configService.get<number>('USER_PROFILE_CACHE_TTL', 15) * 60 * 1000 // By default, 15 minutes
+      this.logger.log(`USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`);
+
+    } catch (error) {
+      if (error instanceof Error)
+        this.logger.error(
+          `Failed to initialize confirmation statuses: ${error.message}`,
+          error.stack,
+        );
+      throw error;
+    }
+  }
   private setAuthCookies(
     res: Response,
     access_token: string,
@@ -439,6 +499,10 @@ export class AuthService {
     return { message: 'Logout successful' };
   }
 
+  private getUserProfileCacheKey(supabaseId: string): string {
+    return `${this.USER_PROFILE_CACHE_PREFIX}${supabaseId}`;
+  }
+
   /**
    * Finds an existing user by Supabase ID. If the user was previously invited
    * (inactive/pending), it activates them upon this first successful login post-confirmation.
@@ -461,56 +525,26 @@ export class AuthService {
       );
     }
 
-    this.logger.log(
-      `Syncing local user for: ${userEmail} (Supabase ID: ${supabaseId})`,
-    );
+    const cacheKey = this.getUserProfileCacheKey(supabaseId);
+
+    const cachedUser: User = await this.cacheService.get(cacheKey);
+    if (cachedUser) {
+      if (!cachedUser.isActive) {
+        this.logger.warn(
+          `Cached user ${cachedUser.email} (ID: ${cachedUser.id}) is inactive. Access denied. Re-validating with DB.`,
+        );
+        await this.cacheService.delete(cacheKey);
+        throw new UnauthorizedException('User account is currently inactive (checked from cache).');
+      }
+      this.logger.log(`Cache hit for user: ${userEmail} (Supabase ID: ${supabaseId})`);
+      return cachedUser;
+    }
+
+
+    this.logger.log(`Cache miss. Syncing local user from DB: ${userEmail} (Supabase ID: ${supabaseId})`);
 
     let user: User | null;
     try {
-      let confirmedStatus: ConfirmationStatus | null;
-      let pendingStatus: ConfirmationStatus | null;
-
-      const CONFIRMED_STATUS_NAME = 'CONFIRMADO';
-      const PENDING_STATUS_NAME = 'PENDIENTE';
-
-      try {
-        [confirmedStatus, pendingStatus] = await Promise.all([
-          this.prisma.confirmationStatus.findUnique({
-            where: { status: CONFIRMED_STATUS_NAME },
-          }),
-          this.prisma.confirmationStatus.findUnique({
-            where: { status: PENDING_STATUS_NAME },
-          }),
-        ]);
-      } catch (dbError) {
-
-        if (dbError instanceof Error) {
-          this.logger.error(
-            `Database error fetching confirmation statuses: ${dbError.message}`,
-            dbError.stack,
-          );
-          throw new InternalServerErrorException(
-            'Database error during status lookup.',
-          );
-        }
-      }
-
-      if (!confirmedStatus!) {
-        this.logger.error(
-          `Configuration Error: Status '${CONFIRMED_STATUS_NAME}' not found in 'estados_confirmacion' table.`,
-        );
-        throw new InternalServerErrorException(
-          'Server configuration error: Missing required user status.',
-        );
-      }
-      if (!pendingStatus!) {
-        this.logger.error(
-          `Configuration Error: Status '${PENDING_STATUS_NAME}' not found in 'estados_confirmacion' table.`,
-        );
-        throw new InternalServerErrorException(
-          'Server configuration error: Missing required user status.',
-        );
-      }
 
       user = await this.prisma.user.findUnique({
         where: { id: supabaseId },
@@ -529,7 +563,7 @@ export class AuthService {
       // If for some reason the user needs activation
       if (
         !user.isActive && // User is currently inactive
-        user.confirmationStatusId === pendingStatus.id // And has the 'PENDIENTE' status
+        user.confirmationStatusId === this.pendingStatusId // And has the 'PENDIENTE' status
       ) {
         this.logger.log(
           `Activating previously pending user: ${user.email} (ID: ${user.id})`,
@@ -538,7 +572,7 @@ export class AuthService {
           where: { id: supabaseId },
           data: {
             isActive: true,
-            confirmationStatusId: confirmedStatus.id,
+            confirmationStatusId: this.confirmedStatusId,
           },
         });
         this.logger.log(`User ${user.email} successfully activated.`);
@@ -558,6 +592,11 @@ export class AuthService {
       this.logger.log(
         `Local user sync successful: ${user.email} (Active: ${user.isActive})`,
       );
+
+
+      await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
+      this.logger.log(`User ${user.email} synced and cached successfully.`);
+
     } catch (error) {
       if (
         error instanceof InternalServerErrorException ||
@@ -603,5 +642,11 @@ export class AuthService {
 
     const { roleId, confirmationStatusId, ...profileData } = user;
     return profileData;
+  }
+
+  async invalidateUserProfileCache(supabaseId: string): Promise<void> {
+    const cacheKey = this.getUserProfileCacheKey(supabaseId);
+    await this.cacheService.delete(cacheKey);
+    this.logger.log(`User profile cache invalidated for Supabase ID: ${supabaseId}`);
   }
 }

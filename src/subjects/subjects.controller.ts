@@ -14,6 +14,7 @@ import {
   HttpStatus,
   ConflictException,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
@@ -28,6 +29,7 @@ import { SelectOption } from './types/select-option.type';
 
 @Controller('subjects')
 export class SubjectsController {
+  private readonly logger = new Logger(SubjectsService.name);
   constructor(private readonly subjectsService: SubjectsService) { }
 
   @Post()

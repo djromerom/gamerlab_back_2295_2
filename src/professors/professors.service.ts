@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { Prisma, User, Role } from '@prisma/client';
+import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -18,17 +18,49 @@ import { SelectOption } from './types/select-option.type';
 @Injectable()
 export class ProfessorsService {
   private readonly logger = new Logger(ProfessorsService.name);
-  private readonly professorRoleId = 3;
+  private readonly PROFESSOR_ROLE_NAME = "Profesor";
+  private professorRoleId: number;
 
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) {
+  ) { }
 
-    // TODO: Fetch once the professorRole id. It's not ideal to do this on
-    // each service function when it can be done here in the constructor!
+  async onModuleInit() {
+
+    this.logger.log('Initializing Professor module: Fetching Professor role id');
+
+    try {
+
+      const professorRole: Role | null = await this.prisma.role.findUnique({
+        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true }
+      });
+
+      if (!professorRole) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Role '${this.PROFESSOR_ROLE_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required role '${this.PROFESSOR_ROLE_NAME}'.`,
+        );
+      }
+
+      this.professorRoleId = professorRole.id;
+      this.logger.log(
+        `Professor role ID initialized: Professor role ID=${this.professorRoleId}`,
+      );
+
+    } catch (error) {
+      if (error instanceof Error)
+        this.logger.error(
+          `Failed to initialize professor role id: ${error.message}`,
+          error.stack,
+        );
+      throw error;
+    }
+
+
   }
-
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
       `Attempting to create professor: ${createProfessorDto.email}`,
@@ -36,7 +68,7 @@ export class ProfessorsService {
 
     let user: SupabaseUser;
     try {
-      const user = await this.authService.registerUser({
+      user = await this.authService.registerUser({
         email: createProfessorDto.email,
         name: createProfessorDto.name,
       });
@@ -84,12 +116,6 @@ export class ProfessorsService {
       );
       return newProfessor;
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(
-          `Error creating professor in local DB for ${createProfessorDto.email} (Supabase ID: ${user!.id}): ${error.message}`,
-          error.stack,
-        );
-      }
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -97,6 +123,13 @@ export class ProfessorsService {
             `Professor with email ${createProfessorDto.email} or ID ${user!.id} already exists locally.`,
           );
         }
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(
+          `Error creating professor in local DB for ${createProfessorDto.email} (Supabase ID: ${user!.id}): ${error.message}`,
+          error.stack,
+        );
       }
 
       throw new InternalServerErrorException(
@@ -107,19 +140,8 @@ export class ProfessorsService {
 
   async findForSelect(): Promise<SelectOption[]> {
 
-    const PROFESSOR_ROLE_NAME = 'Profesor';
-
-    const professorRole: Role | null = await this.prisma.role.findUnique({
-      where: { name: PROFESSOR_ROLE_NAME, isActive: true }
-    })
-
-    if (!professorRole)
-      throw new InternalServerErrorException(`The role '${PROFESSOR_ROLE_NAME}' was not found in the database`);
-
-    const professorRoleId = professorRole.id;
-
     const professors = await this.prisma.user.findMany({
-      where: { roleId: professorRoleId, isActive: true },
+      where: { roleId: this.professorRoleId, isActive: true },
       select: { name: true, id: true }
     });
 
@@ -130,16 +152,7 @@ export class ProfessorsService {
 
     const offset = (page - 1) * limit;
 
-    const PROFESSOR_ROLE_NAME = 'Profesor';
-    const professorRole: Role | null = await this.prisma.role.findUnique(
-      { where: { name: PROFESSOR_ROLE_NAME, isActive: true } });
-
-    if (!professorRole)
-      throw new InternalServerErrorException(`The role '${PROFESSOR_ROLE_NAME}' was not found in the database`);
-
-    const professorRoleId = professorRole.id
-
-    const whereClause: Prisma.UserWhereInput = { roleId: professorRoleId }
+    const whereClause: Prisma.UserWhereInput = { roleId: this.professorRoleId }
 
     if (!includeInactive)
       whereClause.isActive = true;
@@ -169,6 +182,63 @@ export class ProfessorsService {
         totalPages: totalPages,
       }
     }
+  }
+
+
+  async findNrcs(professorId: string, includeSubjects: boolean): Promise<NRC[]> {
+
+    const selectOptions: Prisma.NRCSelect = {
+      id: true,
+      code: true,
+      ...(includeSubjects && {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      }),
+    };
+
+    const nrcs = await this.prisma.nRC.findMany({
+      where: { professorId },
+      select: selectOptions,
+    });
+
+    return nrcs;
+  }
+
+  async findSubjects(professorId: string, includeNrcs: boolean): Promise<Subject[]> {
+
+    const subjectSelectOptions: Prisma.SubjectSelect = {
+      id: true,
+      name: true,
+      code: true,
+      semester: true,
+      ...(includeNrcs && {
+        where: {
+          professorId: professorId,
+        },
+        select: {
+          id: true,
+          code: true,
+        },
+      })
+    };
+
+    const subjects = await this.prisma.subject.findMany({
+      where: {
+        nrcs: {
+          some: {
+            professorId: professorId,
+          },
+        },
+      },
+      select: subjectSelectOptions,
+    });
+
+    return subjects;
   }
 
   async findOne(id: string): Promise<User> {
@@ -223,6 +293,10 @@ export class ProfessorsService {
         data: updateProfessorDto,
       });
       this.logger.log(`Professor ${id} updated successfully.`);
+
+
+      this.authService.invalidateUserProfileCache(id);
+
       return updatedProfessor;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -267,6 +341,8 @@ export class ProfessorsService {
         data: { isActive: false },
       });
       this.logger.log(`Professor ${id} soft deleted successfully.`);
+
+      this.authService.invalidateUserProfileCache(id);
       return deactivatedProfessor;
     } catch (error) {
       throw new InternalServerErrorException(
