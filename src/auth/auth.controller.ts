@@ -19,6 +19,7 @@ import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 
 interface RequestWithUser extends Request {
   user: {
@@ -49,6 +50,12 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.authService.refresh(req, res);
+  }
+
+  @Post('resend-confirmation')
+  @HttpCode(HttpStatus.OK)
+  async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
+    return await this.authService.resendConfirmationEmail(body.email);
   }
 
   @Public()

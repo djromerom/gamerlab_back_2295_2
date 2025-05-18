@@ -599,4 +599,44 @@ export class AuthService {
     const { roleId, confirmationStatusId, ...profileData } = user;
     return profileData;
   }
+
+  async resendConfirmationEmail(email: string) {
+    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+
+    try {
+      const result = await this.supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+        },
+      });
+
+      const { error } = result;
+
+      if (error) {
+        if (error.message.includes('User not found')) {
+          throw new NotFoundException(
+            'El correo electrónico no está registrado.',
+          );
+        }
+        if (error.message.includes('User already confirmed')) {
+          throw new BadRequestException(
+            'El correo electrónico ya está confirmado.',
+          );
+        }
+        throw new InternalServerErrorException(
+          'Error al reenviar el correo de confirmación.',
+        );
+      }
+
+      this.logger.log(`Confirmation email resent successfully to: ${email}`);
+      return { message: 'Correo reenviado con éxito' };
+    } catch (err: any) {
+      this.logger.error(`Unhandled error: ${err.message}`);
+      throw new InternalServerErrorException(
+        'Error al reenviar el correo de confirmación.',
+      );
+    }
+  }
 }
