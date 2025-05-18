@@ -9,7 +9,7 @@ import {
   Delete,
   ParseIntPipe,
   ParseBoolPipe,
-  DefaultValuePipe
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { NrcsService } from './nrcs.service';
 import { Prisma, NRC } from '@prisma/client';
@@ -18,10 +18,9 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 
-
 @Controller('nrcs')
 export class NrcsController {
-  constructor(private readonly nrcService: NrcsService) { }
+  constructor(private readonly nrcService: NrcsService) {}
 
   @Public()
   @Get()
@@ -33,8 +32,8 @@ export class NrcsController {
   @Public()
   @Get('select-options')
   async findSelectOptions(
-    @Query('includeSubjects',
-    new DefaultValuePipe(false), ParseBoolPipe) includeSubjects: boolean
+    @Query('includeSubjects', new DefaultValuePipe(false), ParseBoolPipe)
+    includeSubjects: boolean,
   ): Promise<SelectOption[]> {
     return this.nrcService.findForSelect(includeSubjects);
   }
