@@ -7,14 +7,24 @@ import { PaginatedResult } from 'src/common/types/paginated-result.type';
 export class StudentsService {
     constructor(private readonly prisma: PrismaService) {}
     async getStudentsGrades(
-        teamId: number
+        userId: string
     ): Promise<StudentsGrade[]> {
-        if (!teamId) {
+        console.log("userId", userId);
+        if (!userId) {
+            throw new NotFoundException("user not found");
+        }
+        const team = await this.prisma.team.findUnique({
+            where: { userId: userId },
+            select: {
+                id: true
+            }
+        });
+        if (!team) {
             throw new NotFoundException("teamId not found");
         }
 
         const videogame = await this.prisma.videogame.findUnique({
-            where: { teamId: teamId },
+            where: { teamId: team.id },
             select: {
                 id: true,
                 name: true,
@@ -44,7 +54,7 @@ export class StudentsService {
         }
         const average: number = sum / studentsGrades.length;
         const Grades = studentsGrades.map((student) => ({
-            teamId: teamId,
+            teamId: team.id,
             grade: average
         }));
         return Grades;
@@ -54,24 +64,25 @@ export class StudentsService {
     async getStudentsEvaluations(
         page: number,
         limit: number,
-        userId: number
+        userId: string
     ): Promise<PaginatedResult<StudentsEvaluations>> {
     const offset = (page - 1) * limit;
-    // if (!userId) {
-    //     throw new NotFoundException("user not found");
-    // }
-    // const team = await this.prisma.team.findUnique({
-    //     where: { userId: userId },
-    //     select: {
-    //         id: true
-    //     }
-    // });
-    // if (!team) {
-    //     throw new NotFoundException("team not found");
-    // }
+    console.log("userId", userId);
+    if (!userId) {
+        throw new NotFoundException("user not found");
+    }
+    const team = await this.prisma.team.findUnique({
+        where: { userId: userId },
+        select: {
+            id: true
+        }
+    });
+    if (!team) {
+        throw new NotFoundException("team not found");
+    }
 
     const videogame = await this.prisma.videogame.findUnique({
-        where: { teamId: userId },
+        where: { teamId: team.id },
             select: {
                 id: true,
         }
