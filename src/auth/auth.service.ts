@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   Inject,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -600,8 +601,33 @@ export class AuthService {
     return profileData;
   }
 
+  /**
+   * Resends the confirmation email to the user.
+   * @param email The email address of the user to resend the confirmation email to.
+   * @throws {NotFoundException} If the user is not found in the local database.
+   * @throws {ConflictException} If the user is already confirmed.
+   * @throws {InternalServerErrorException} If there is an error sending the email.
+   */
   async resendConfirmationEmail(email: string) {
     this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+    
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { confirmationStatus: true }, 
+    });
+
+    if (!user) {
+      this.logger.error(`User with email ${email} not found in local DB.`);
+      throw new NotFoundException('The email address is not registered.');
+    }
+
+    if (user.confirmationStatus?.status === 'CONFIRMADO') {
+      this.logger.warn(`User with email ${email} is already confirmed.`);
+      throw new ConflictException('The email has already been confirmed.');
+    }
+    
+    
     try {
       const result = await this.supabase.auth.resend({
         type: 'signup',
