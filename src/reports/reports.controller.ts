@@ -73,12 +73,12 @@ export class ReportsController {
 
       const columnDefinitions: Partial<ExcelJS.Column>[] = [ // Usar Partial<ExcelJS.Column> para mejor tipado
         { header: 'ID', key: 'id', width: 10 },
-        { header: 'Nombre', key: 'nombre', width: 30 },
+        { header: 'Nombre del videojuego', key: 'nombre', width: 30 },
         { header: 'Materia', key: 'materia', width: 25 },
         { header: 'NRC', key: 'nrc', width: 10 },
         { header: 'Promedio', key: 'promedio', width: 12 },
-        { header: 'Evaluaciones Completadas', key: 'evaluacionesCompletadas', width: 25 },
-        { header: 'Jurados Asignados', key: 'totalJuradosAsignados', width: 20 },
+        { header: 'No. Evaluaciones Completadas', key: 'evaluacionesCompletadas', width: 25 },
+        { header: 'No. Jurados Asignados', key: 'totalJuradosAsignados', width: 20 },
       ];
 
       // Agregar criterios como columnas dinámicas

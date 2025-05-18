@@ -164,12 +164,10 @@ export class ReportsService {
         if (evaluation.totalScore !== null) { // Considero completas las evaluaciones con score
           evaluacionesCompletadas++;
           totalScore += evaluation.totalScore;
-          // console.log(`Evaluación: ${evaluation.id}, Puntaje Total: ${evaluation.totalScore}`); // Depuración
           // Procesar detalles de cada evaluación
           evaluation.details.forEach(detail => {
             const criterioNombre = detail.criterion.name;
             const puntajePonderado = detail.score; // * (detail.criterion.weight ?? 1); // "/ 100";
-            // console.log(`Criterio: ${criterioNombre}, Puntaje Ponderado: ${puntajePonderado}`); // Depuración
 
             criterios[criterioNombre] = (criterios[criterioNombre] || 0) + puntajePonderado;
           });
@@ -187,7 +185,6 @@ export class ReportsService {
         ? totalScore / evaluacionesCompletadas
         : 0;
 
-      //console.log(`Videojuego: ${v.name}, Promedio: ${promedio}`); // Depuración
       return {
         id: v.id,
         nombre: v.name,
@@ -202,7 +199,6 @@ export class ReportsService {
     });
   }
 
-
   async getSubjects(): Promise<{ id: number; name: string }[]> {
     return this.prisma.subject.findMany({
       where: { isActive: true },
@@ -211,28 +207,6 @@ export class ReportsService {
         name: true,
       },
     });
-  }
-
-  async getNrcWithSubjectName(): Promise<  // Este no se usa
-    { id: number; codigo: number; materiaNombre: string }[]
-  > {
-    const nrcs = await this.prisma.nRC.findMany({
-      select: {
-        id: true,
-        code: true,
-        subject: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    });
-
-    return nrcs.map(nrc => ({
-      id: nrc.id,
-      codigo: nrc.code,
-      materiaNombre: nrc.subject.name,
-    }));
   }
 
   async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
@@ -527,6 +501,7 @@ async getVideogamesDataFilter(
             members: {
               include: {
                 nrcs: {
+                  where: { isActive: true },
                   include: {
                     subject: true,
                   },
@@ -564,12 +539,10 @@ async getVideogamesDataFilter(
         if (evaluation.totalScore !== null) { // Considero completas las evaluaciones con score
           evaluacionesCompletadas++;
           totalScore += evaluation.totalScore;
-          // console.log(`Evaluación: ${evaluation.id}, Puntaje Total: ${evaluation.totalScore}`); // Depuración
           // Procesar detalles de cada evaluación
           evaluation.details.forEach(detail => {
             const criterioNombre = detail.criterion.name;
-            const puntajePonderado = detail.score * (detail.criterion.weight ?? 1); // "/ 100";
-            // console.log(`Criterio: ${criterioNombre}, Puntaje Ponderado: ${puntajePonderado}`); // Depuración
+            const puntajePonderado = detail.score; //* (detail.criterion.weight ?? 1); // "/ 100";
             
             criterios[criterioNombre] = (criterios[criterioNombre] || 0) + puntajePonderado;
           });
@@ -587,7 +560,6 @@ async getVideogamesDataFilter(
         ? totalScore / evaluacionesCompletadas 
         : 0;
   
-      //console.log(`Videojuego: ${v.name}, Promedio: ${promedio}`); // Depuración
       return {
         id: v.id,
         nombre: v.name,
