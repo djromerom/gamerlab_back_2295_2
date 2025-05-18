@@ -364,7 +364,7 @@ export class ProfessorsService {
         subject,
         student: `${i.firstName} ${i.lastName}`,
         email: i.email,
-        student_code: i.studentCode,
+        studentCode: i.studentCode,
         team: i.team?.teamName ?? 'No team',
         videogame: selectedVideogame?.name ?? 'No videogame',
         grade,
@@ -444,7 +444,7 @@ export class ProfessorsService {
     const totalPages = Math.ceil(totalItems / limit);
 
     if (!items) {
-      throw new NotFoundException(`Subject ${subjectName} it is not exist`);
+      throw new NotFoundException(`Subject ${subjectName} does not exist`);
     }
 
     const reports = [];
@@ -457,7 +457,7 @@ export class ProfessorsService {
           reports.push({
             subject: subject.name,
             student: `${member.firstName} ${member.lastName}`,
-            student_code: member.studentCode,
+            studentCode: member.studentCode,
             team: member.team?.teamName ?? 'No team',
             videogame: videogame?.name ?? 'No videogame',
             grade
@@ -539,7 +539,7 @@ export class ProfessorsService {
         subject: nrc?.subject?.name ?? '',
         student: `${member.firstName} ${member.lastName}`,
         email: member.email,
-        student_code: member.studentCode,
+        studentCode: member.studentCode,
         team: member.team?.teamName ?? '',
         videogame: member.team?.videogame?.name ?? '',
         grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
@@ -553,7 +553,7 @@ export class ProfessorsService {
       { header: 'Subject', key: 'subject', width: 40 },
       { header: 'Student', key: 'student', width: 30 },
       { header: 'Email', key: 'email', width: 30 },
-      { header: 'Student Code', key: 'student_code', width: 20 },
+      { header: 'Student Code', key: 'studentCode', width: 20 },
       { header: 'Team', key: 'team', width: 20 },
       { header: 'Videogame', key: 'videogame', width: 20 },
       { header: 'Score', key: 'grade', width: 10 },
@@ -625,7 +625,7 @@ export class ProfessorsService {
           NRC: nrc.code,
           subject: subject.name,
           student: `${member.firstName} ${member.lastName}`,
-          student_code: member.studentCode,
+          studentCode: member.studentCode,
           team: member.team?.teamName ?? '',
           videogame: member.team?.videogame?.name ?? '',
           grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
@@ -640,7 +640,7 @@ export class ProfessorsService {
       { header: 'NRC', key: 'NRC', width: 10 },
       { header: 'Subject', key: 'subject', width: 40 },
       { header: 'Student', key: 'student', width: 30 },
-      { header: 'Student Code', key: 'student_code', width: 20 },
+      { header: 'Student Code', key: 'studentCode', width: 20 },
       { header: 'Team', key: 'team', width: 20 },
       { header: 'Videogame', key: 'videogame', width: 20 },
       { header: 'Score', key: 'grade', width: 10 },

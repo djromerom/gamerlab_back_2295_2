@@ -71,6 +71,7 @@ export class ProfessorsController {
     return this.professorsService.getNRCreport(nrcCode, includeInactive, limit, page);
   }
 
+  @Public()
   @Get('exportNRC/:nrcCode')
   async exportNRCReportToExcel(@Param('nrcCode') nrcCode: number, @Res({ passthrough: true }) res: Response) {
     await this.professorsService.exportNRCreportToExcel(nrcCode, res);
