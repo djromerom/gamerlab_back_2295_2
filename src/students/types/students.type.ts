@@ -12,6 +12,5 @@ export class StudentsEvaluations {
 }
 
 export class StudentsGrade {
-  teamId: number;
   grade: number;
 }

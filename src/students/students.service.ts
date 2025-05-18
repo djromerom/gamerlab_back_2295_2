@@ -8,43 +8,35 @@ export class StudentsService {
     constructor(private readonly prisma: PrismaService) {}
     async getStudentsGrades(
         userId: string
-    ): Promise<StudentsGrade[]> {
+    ): Promise<StudentsGrade> {
         if (!userId) {
             throw new NotFoundException("user not found");
         }
-        const team = await this.prisma.team.findUnique({
+        const videogame = await this.prisma.team.findUnique({
             where: { userId: userId },
-            select: {
-                id: true
+            select:{
+                videogame: {
+                    select:{
+                        id : true,
+                    }
+                }
             }
         });
-        if (!team) {
-            throw new NotFoundException("teamId not found");
-        }
-
-        const videogame = await this.prisma.videogame.findUnique({
-            where: { teamId: team.id },
-            select: {
-                id: true,
-                name: true,
-                logoUrl: true
-            }
-        });
-
-        if (!videogame) {
+        if (!videogame?.videogame) {
             throw new NotFoundException("team not found");
         }
-
+        console.log(videogame.videogame.id)
         const studentsGrades = await this.prisma.evaluation.findMany({
-            where: { videogameId: videogame.id },
+            where: { videogameId: videogame.videogame.id },
             select: {
-                id: true,
                 totalScore: true,
             }
         });
+
         if (!studentsGrades) {
             throw new NotFoundException("No evaluations found");
         }
+
         var sum: number = 0;
         for (const student of studentsGrades) {
             if (student.totalScore !== null) {
@@ -52,13 +44,10 @@ export class StudentsService {
             }
         }
         const average: number = sum / studentsGrades.length;
-        const Grades = studentsGrades.map((student) => ({
-            teamId: team.id,
-            grade: average
-        }));
-        return Grades;
+        return { 
+            grade : average
+        };
     }
-
 
     async getStudentsEvaluations(
         page: number,
@@ -70,31 +59,24 @@ export class StudentsService {
     if (!userId) {
         throw new NotFoundException("user not found");
     }
-    const team = await this.prisma.team.findUnique({
-        where: { userId: userId },
-        select: {
-            id: true
-        }
-    });
-    if (!team) {
-        throw new NotFoundException("team not found");
-    }
-
-    const videogame = await this.prisma.videogame.findUnique({
-        where: { teamId: team.id },
-            select: {
-                id: true,
-        }
-    });
-    if (!videogame) {
+    const videogame = await this.prisma.team.findUnique({
+            where: { userId: userId },
+            select:{
+                videogame: {
+                    select:{
+                        id : true,
+                    }
+                }
+            }
+        });
+    if (!videogame?.videogame) {
         throw new NotFoundException("videogame not found");
     }
 
     const whereClause = {
-        videogameId: videogame.id,
+        videogameId: videogame.videogame.id,
         isActive: true
     };
-
 
     const [evaluations, totalItems] = await this.prisma.$transaction([
         this.prisma.evaluation.findMany({

@@ -79,4 +79,6 @@ export class AuthController {
   async getMyProfile(@GetUser() user: AppUser) {
     return this.authService.getMyProfile(user.id);
   }
+
+
 }

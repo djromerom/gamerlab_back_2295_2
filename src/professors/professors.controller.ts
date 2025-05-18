@@ -18,7 +18,8 @@ import { User } from "@prisma/client";
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Public } from 'src/auth/decorators/public.decorator';
-import { SelectOption } from './types/select-option.type';
+import { SelectOption, professorNrc } from './types/select-option.type';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
 
 @Controller('professors')
 export class ProfessorsController {
@@ -58,5 +59,10 @@ export class ProfessorsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.professorsService.remove(id);
+  }
+
+  @Get('/nrc')
+  nrcFp(@GetUser('id') id: string): Promise<professorNrc[]> {
+      return this.professorsService.nrcProfessor(id);
   }
 }

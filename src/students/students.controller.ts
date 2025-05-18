@@ -29,7 +29,7 @@ export class StudentsController {
     }
 
     @Get('/grades')
-    findGrades(@GetUser('id') id: string): Promise<StudentsGrade[]> {
+    findGrades(@GetUser('id') id: string): Promise<StudentsGrade> {
         return this.studentsService.getStudentsGrades(id);
     }
     

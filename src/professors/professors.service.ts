@@ -13,7 +13,7 @@ import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { PaginatedResult } from '../common/types/paginated-result.type';
-import { SelectOption } from './types/select-option.type';
+import { professorNrc, SelectOption } from './types/select-option.type';
 
 @Injectable()
 export class ProfessorsService {
@@ -28,6 +28,22 @@ export class ProfessorsService {
     // TODO: Fetch once the professorRole id. It's not ideal to do this on
     // each service function when it can be done here in the constructor!
   }
+
+  async nrcProfessor(id: string): Promise<professorNrc[]> {
+    console.log('User ID:', id);
+    const professor = await this.prisma.nRC.findMany({
+      where: {
+        professorId: id,
+      },
+      select: {
+        code: true,
+      },
+    });
+    return professor.map((professor) => ({
+      nrcId: professor.code,
+    }));
+  }
+
 
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
