@@ -22,16 +22,22 @@ export class JurorService {
   ) {}
 
   private async getJurorRoleId(): Promise<number> {
-    const role = await this.prisma.role.findUnique({ where: { name: 'Jurado' } });
+    const role = await this.prisma.role.findUnique({
+      where: { name: 'Jurado' },
+    });
     if (!role) throw new Error('Role "Jurado" not found');
     return role.id;
   }
 
-  private mapToJurorListItem(user: User, evaluatedNames: string[], unevaluatedNames: string[]): JurorListItem {
+  private mapToJurorListItem(
+    user: User,
+    evaluatedNames: string[],
+    unevaluatedNames: string[],
+  ): JurorListItem {
     return {
       id: user.id,
       firstName: user.firstName ?? '',
-      lastName: user.LastName ?? '',
+      lastName: user.lastName ?? '',
       email: user.email,
       confirmationStatusId: user.confirmationStatusId,
       lastSignInAt: user.lastSignInAt,
@@ -42,41 +48,45 @@ export class JurorService {
     };
   }
 
-private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]; unevaluated: string[] }> {
-  const [evaluated, assignedTeams] = await this.prisma.$transaction([
-    this.prisma.evaluation.findMany({
-      where: { jurorId },
-      select: { videogame: { select: { id: true, name: true } } },
-    }),
-    this.prisma.team.findMany({
-      where: {
-        assignedJurors: {
-          some: { id: jurorId },}, videogame: { isNot: null,},},
-      select: {
-        videogame: {
-          select: { id: true, name: true },
+  private async getEvaluationStats(
+    jurorId: string,
+  ): Promise<{ evaluated: string[]; unevaluated: string[] }> {
+    const [evaluated, assignedTeams] = await this.prisma.$transaction([
+      this.prisma.evaluation.findMany({
+        where: { jurorId },
+        select: { videogame: { select: { id: true, name: true } } },
+      }),
+      this.prisma.team.findMany({
+        where: {
+          assignedJurors: {
+            some: { id: jurorId },
+          },
+          videogame: { isNot: null },
         },
-      },
-    }),
-  ]);
+        select: {
+          videogame: {
+            select: { id: true, name: true },
+          },
+        },
+      }),
+    ]);
 
-  const assignedGames = assignedTeams
-    .filter(t => t.videogame !== null)
-    .map(t => t.videogame!);
+    const assignedGames = assignedTeams
+      .filter((t) => t.videogame !== null)
+      .map((t) => t.videogame!);
 
-  const evaluatedIds = new Set(evaluated.map(e => e.videogame.id));
-  const evaluatedNames = evaluated.map(e => e.videogame.name);
+    const evaluatedIds = new Set(evaluated.map((e) => e.videogame.id));
+    const evaluatedNames = evaluated.map((e) => e.videogame.name);
 
-  const unevaluatedNames = assignedGames
-    .filter(vg => !evaluatedIds.has(vg.id))
-    .map(vg => vg.name);
+    const unevaluatedNames = assignedGames
+      .filter((vg) => !evaluatedIds.has(vg.id))
+      .map((vg) => vg.name);
 
-  return {
-    evaluated: evaluatedNames,
-    unevaluated: unevaluatedNames,
-  };
-}
-
+    return {
+      evaluated: evaluatedNames,
+      unevaluated: unevaluatedNames,
+    };
+  }
 
   async create(dto: CreateJurorDto): Promise<JurorListItem> {
     const roleId = await this.getJurorRoleId();
@@ -85,17 +95,25 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
     try {
       user = await this.auth.registerUser({
         email: dto.email,
-        name: `${dto.firstName} ${dto.lastName}`.trim(),
       });
 
       if (!user?.id) {
-        throw new InternalServerErrorException(`Supabase did not return a user ID for ${dto.email}`);
+        throw new InternalServerErrorException(
+          `Supabase did not return a user ID for ${dto.email}`,
+        );
       }
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(`Juror with email ${dto.email} already exists.`);
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          `Juror with email ${dto.email} already exists.`,
+        );
       }
-      throw new InternalServerErrorException(`Error during registration in Supabase for ${dto.email}: ${error instanceof Error ? error.message : error}`);
+      throw new InternalServerErrorException(
+        `Error during registration in Supabase for ${dto.email}: ${error instanceof Error ? error.message : error}`,
+      );
     }
 
     try {
@@ -103,21 +121,30 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
         data: {
           id: user.id,
           firstName: dto.firstName,
-          LastName: dto.lastName,
+          lastName: dto.lastName,
           email: dto.email,
-          username: dto.firstName,
           roleId,
           isActive: true,
         },
       });
       const stats = await this.getEvaluationStats(created.id);
-      return this.mapToJurorListItem(created, stats.evaluated, stats.unevaluated);
+      return this.mapToJurorListItem(
+        created,
+        stats.evaluated,
+        stats.unevaluated,
+      );
     } catch (error) {
-      throw new InternalServerErrorException(`Database error: ${error instanceof Error ? error.message : error}`);
+      throw new InternalServerErrorException(
+        `Database error: ${error instanceof Error ? error.message : error}`,
+      );
     }
   }
 
-  async findAll(includeInactive: boolean, limit: number, page: number): Promise<PaginatedResult<JurorListItem>> {
+  async findAll(
+    includeInactive: boolean,
+    limit: number,
+    page: number,
+  ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
     const roleId = await this.getJurorRoleId();
 
@@ -131,13 +158,11 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
         where,
         skip: offset,
         take: limit,
-        orderBy: { LastName: 'asc' },
+        orderBy: { lastName: 'asc' },
         select: {
           id: true,
-          name: true,
-          username: true,
           firstName: true,
-          LastName: true,
+          lastName: true,
           email: true,
           confirmationStatusId: true,
           isActive: true,
@@ -151,7 +176,7 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
         },
       }),
       this.prisma.user.count({ where }),
-            this.prisma.team.findMany({
+      this.prisma.team.findMany({
         where: {
           assignedJurors: { some: { roleId } },
           videogame: { isNot: null },
@@ -161,24 +186,22 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
           assignedJurors: { select: { id: true } },
         },
       }),
-
     ]);
 
-    const gameMap = new Map<string, string[]>(); 
-    allGames.forEach(team => {
-      team.assignedJurors.forEach(juror => {
+    const gameMap = new Map<string, string[]>();
+    allGames.forEach((team) => {
+      team.assignedJurors.forEach((juror) => {
         if (!gameMap.has(juror.id)) gameMap.set(juror.id, []);
         if (team.videogame) gameMap.get(juror.id)?.push(team.videogame.name);
       });
     });
 
-    const data = users.map(user => {
-      const evaluated = user.evaluationsSubmitted.map(e => e.videogame.name);
+    const data = users.map((user) => {
+      const evaluated = user.evaluationsSubmitted.map((e) => e.videogame.name);
       const assigned = gameMap.get(user.id) || [];
-      const unevaluated = assigned.filter(name => !evaluated.includes(name));
+      const unevaluated = assigned.filter((name) => !evaluated.includes(name));
       return this.mapToJurorListItem(user, evaluated, unevaluated);
     });
-
 
     return {
       data,
@@ -207,7 +230,9 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
     const juror = await this.findOne(id);
 
     if (dto.email) {
-      const emailOwner = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      const emailOwner = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+      });
       if (emailOwner && emailOwner.id !== id) {
         throw new ConflictException('Email is already used by another user.');
       }
@@ -220,7 +245,9 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
 
   async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
-    return this.prisma.user.update({ where: { id: user.id }, data: { isActive: false } });
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: { isActive: false },
+    });
   }
 }
-

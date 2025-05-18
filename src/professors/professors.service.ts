@@ -81,7 +81,6 @@ export class ProfessorsService {
     try {
       supabaseUser = await this.authService.registerUser({
         email: createProfessorDto.email,
-        name: createProfessorDto.name,
       });
 
       if (!supabaseUser || !supabaseUser.id) {
@@ -144,9 +143,9 @@ export class ProfessorsService {
       const newProfessor = await this.prisma.user.create({
         data: {
           id: supabaseUser.id,
-          name: createProfessorDto.name,
+          firstName: createProfessorDto.firstName,
+          lastName: createProfessorDto.lastName,
           email: createProfessorDto.email,
-          username: createProfessorDto.name,
           roleId: this.professorRoleId,
         },
       });
@@ -184,7 +183,7 @@ export class ProfessorsService {
   async findForSelect(): Promise<SelectOption[]> {
     const professors = await this.prisma.user.findMany({
       where: { roleId: this.professorRoleId, isActive: true },
-      select: { name: true, id: true },
+      select: { firstName: true, lastName: true, id: true },
     });
     return professors;
   }
@@ -204,7 +203,7 @@ export class ProfessorsService {
         where: whereClause,
         skip: offset,
         take: limit,
-        orderBy: { name: 'asc' },
+        orderBy: { lastName: 'asc' },
       }),
       this.prisma.user.count({
         where: whereClause,
