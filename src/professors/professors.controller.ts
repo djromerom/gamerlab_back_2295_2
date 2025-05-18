@@ -71,7 +71,6 @@ export class ProfessorsController {
     return this.professorsService.getNRCreport(nrcCode, includeInactive, limit, page);
   }
 
-  @Public()
   @Get('exportNRC/:nrcCode')
   async exportNRCReportToExcel(@Param('nrcCode') nrcCode: number, @Res({ passthrough: true }) res: Response) {
     await this.professorsService.exportNRCreportToExcel(nrcCode, res);
@@ -86,7 +85,6 @@ export class ProfessorsController {
     return this.professorsService.GetSignatureReport(subjectName, includeInactive, limit, page);
   }
 
-  @Public()
   @Get('exportSubject/:subjectName')
   async exportSignatureReport(@Param('subjectName') subjectName: string, @Res({ passthrough: true }) res: Response) {
     await this.professorsService.exportSignatureReportToExcel(subjectName, res);
