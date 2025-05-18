@@ -123,7 +123,7 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
 
     const where: Prisma.UserWhereInput = {
       roleId,
-      ...(includeInactive ? {} : { isActive: true }),
+      isActive: true,
     };
 
     const [users, total, allGames] = await this.prisma.$transaction([
