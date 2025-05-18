@@ -31,7 +31,7 @@ export class JurorService {
     return {
       id: user.id,
       firstName: user.firstName ?? '',
-      LastName: user.LastName ?? '',
+      lastName: user.LastName ?? '',
       email: user.email,
       confirmationStatusId: user.confirmationStatusId,
       lastSignInAt: user.lastSignInAt,
@@ -85,7 +85,7 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
     try {
       user = await this.auth.registerUser({
         email: dto.email,
-        name: `${dto.firstName} ${dto.LastName}`.trim(),
+        name: `${dto.firstName} ${dto.lastName}`.trim(),
       });
 
       if (!user?.id) {
@@ -103,7 +103,7 @@ private async getEvaluationStats(jurorId: string): Promise<{ evaluated: string[]
         data: {
           id: user.id,
           firstName: dto.firstName,
-          LastName: dto.LastName,
+          LastName: dto.lastName,
           email: dto.email,
           username: dto.firstName,
           roleId,

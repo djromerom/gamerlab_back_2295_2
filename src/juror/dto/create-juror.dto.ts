@@ -9,7 +9,7 @@ export class CreateJurorDto {
   @MaxLength(50)
   @IsString()
   @IsNotEmpty()
-  LastName: string;
+  lastName: string;
 
   @IsNotEmpty()
   @IsEmail()
