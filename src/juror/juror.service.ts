@@ -11,7 +11,7 @@ import { UpdateJurorDto } from './dto/update-juror.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
 import { User as SupabaseUser } from '@supabase/supabase-js';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, User, Role } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
 
@@ -24,7 +24,7 @@ export class JurorService {
   constructor(
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
 
@@ -155,7 +155,6 @@ export class JurorService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           email: dto.email,
-          username: dto.name,
           roleId: this.jurorRoleId,
           isActive: true,
         },
@@ -187,7 +186,7 @@ export class JurorService {
 
     const [users, total, allGames] = await this.prisma.$transaction([
       this.prisma.user.findMany({
-        where,
+        where: whereClause,
         skip: offset,
         take: limit,
         orderBy: { lastName: 'asc' },
@@ -207,10 +206,10 @@ export class JurorService {
           },
         },
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: whereClause }),
       this.prisma.team.findMany({
         where: {
-          assignedJurors: { some: { this.jurorRoleId } },
+          assignedJurors: { some: { roleId: this.jurorRoleId } },
           videogame: { isNot: null },
         },
         select: {
@@ -278,7 +277,7 @@ export class JurorService {
     return this.mapToJurorListItem(updated, stats.evaluated, stats.unevaluated);
   }
 
-  
+
   async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
     // We invalidate the cache of the user being deleted
@@ -288,5 +287,5 @@ export class JurorService {
       data: { isActive: false },
     });
   }
-  
+
 }
