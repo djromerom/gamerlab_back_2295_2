@@ -1,7 +1,7 @@
-import { 
-  Injectable, 
-  NotFoundException, 
-  ConflictException 
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, NRC } from '@prisma/client';
@@ -97,15 +97,15 @@ export class NrcsService {
   async create(data: Prisma.NRCCreateInput) {
     // Check for existing ACTIVE NRC with the same code
     const existingNrc = await this.prisma.nRC.findFirst({
-      where: { 
+      where: {
         code: data.code,
-        isActive: true
+        isActive: true, // Solo verificar NRCs activos
       },
     });
 
     if (existingNrc) {
       throw new ConflictException(
-        `Ya existe un NRC con este código.`,
+        `Ya existe un NRC con el código ${data.code}.`,
       );
     }
 
@@ -126,15 +126,13 @@ export class NrcsService {
 
     // Check if the code is being updated and conflicts with another ACTIVE NRC
     if (data.code !== undefined) {
-      const codeValue = typeof data.code === 'object' ? data.code.set : data.code;
-      
-      if (codeValue !== undefined) {
-        // Convertir a número si es string
-        const numericCode = typeof codeValue === 'string' 
-          ? parseInt(codeValue, 10) 
-          : codeValue;
+      const codeValue =
+        typeof data.code === 'object' ? data.code.set : data.code;
 
-        // Validar que sea un número válido
+      if (codeValue !== undefined) {
+        const numericCode =
+          typeof codeValue === 'string' ? parseInt(codeValue, 10) : codeValue;
+
         if (isNaN(numericCode)) {
           throw new ConflictException(`El código debe ser un número válido.`);
         }
@@ -143,13 +141,13 @@ export class NrcsService {
           where: {
             code: numericCode,
             id: { not: id },
-            isActive: true
+            isActive: true, // Solo verificar contra NRCs activos
           },
         });
 
         if (conflictingNrc) {
           throw new ConflictException(
-            `Ya existe otro NRC con este código.`,
+            `Ya existe otro NRC con el código ${numericCode}.`,
           );
         }
       }
@@ -166,10 +164,10 @@ export class NrcsService {
   }
 
   async remove(id: number) {
-    const nrc = await this.prisma.nRC.findUnique({ 
-      where: { id } 
+    const nrc = await this.prisma.nRC.findUnique({
+      where: { id },
     });
-    
+
     if (!nrc) {
       throw new NotFoundException(`NRC con ID ${id} no encontrado.`);
     }
