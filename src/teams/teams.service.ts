@@ -44,10 +44,6 @@ export class TeamsService {
 
   async create(createTeamDto: CreateTeamDto) {
     const userRegister: RegisterDto = {
-      name:
-        createTeamDto.members[0].memberFirstName +
-        ' ' +
-        createTeamDto.members[0].memberLastName,
       email: createTeamDto.members[0].memberEmail,
     }; // Get the first member's name and email
 
@@ -67,8 +63,8 @@ export class TeamsService {
     const dataUser = await this.prisma.user.create({
       data: {
         id: user.id,
-        username: userRegister.name,
-        name: userRegister.name,
+        firstName: createTeamDto.members[0].memberFirstName,
+        lastName: createTeamDto.members[0].memberLastName,
         email: userRegister.email,
         roleId: studentRole.id,
       },
@@ -92,7 +88,7 @@ export class TeamsService {
             studentCode: member.studentCode,
             teamId: team.id,
             nrcs: {
-              connect: member.nrc.map((code) => ({ code: parseInt(code) })),
+              connect: member.nrc.map((code) => ({ id: parseInt(code) })),
             },
           },
         });
