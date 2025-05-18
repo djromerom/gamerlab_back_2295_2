@@ -66,7 +66,7 @@ export class StudentsService {
         userId: string
     ): Promise<PaginatedResult<StudentsEvaluations>> {
     const offset = (page - 1) * limit;
-    console.log("userId", userId);
+
     if (!userId) {
         throw new NotFoundException("user not found");
     }
