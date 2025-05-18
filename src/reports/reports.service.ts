@@ -7,104 +7,6 @@ import { UpdateReportDto } from './dto/update-report.dto';
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) { }
 
-  // Este no se usa 
-  async getEvaluationsByVideogame(videogameId: number) {
-    // Verificar que el videojuego exista
-    const videojuego = await this.prisma.videogame.findUnique({
-      where: { id: videogameId },
-      select: { id: true, name: true },
-    });
-
-    if (!videojuego) {
-      throw new NotFoundException('Videojuego no encontrado');
-    }
-
-    // Obtener evaluaciones activas con detalles y criterios
-    const evaluaciones = await this.prisma.evaluation.findMany({
-      where: {
-        videogameId,
-        isActive: true,
-      },
-      include: {
-        juror: {
-          select: { name: true }, // Ajusta al modelo User si es necesario
-        },
-        details: {
-          where: { isActive: true },
-          include: {
-            criterion: {
-              select: { id: true, name: true },
-            },
-          },
-        },
-      },
-    });
-
-    // Si no hay evaluaciones
-    if (evaluaciones.length === 0) {
-      return {
-        videojuegoId: videojuego.id,
-        nombre: videojuego.name,
-        evaluaciones: [],
-        promedioPorCriterio: [],
-        promedioTotal: 0,
-      };
-    }
-
-    // Calcular evaluaciones individuales con promedio
-    const evaluacionesFormateadas = evaluaciones.map((ev) => {
-      const detalles = ev.details.map((d) => ({
-        criterio: d.criterion.name,
-        puntaje: d.score,
-      }));
-
-      const promedio =
-        detalles.reduce((sum, d) => sum + d.puntaje, 0) / detalles.length;
-
-      return {
-        jurado: ev.juror.name,
-        fecha: ev.date,
-        detalles,
-        promedio: Number(promedio.toFixed(2)),
-      };
-    });
-
-    // Calcular promedio por criterio global
-    const criterioMap = new Map<string, number[]>();
-
-    evaluaciones.forEach((ev) => {
-      ev.details.forEach((d) => {
-        const nombre = d.criterion.name;
-        if (!criterioMap.has(nombre)) {
-          criterioMap.set(nombre, []);
-        }
-        criterioMap.get(nombre)!.push(d.score);
-      });
-    });
-
-    const promedioPorCriterio = Array.from(criterioMap.entries()).map(
-      ([criterio, scores]) => ({
-        criterio,
-        promedio: Number(
-          (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2),
-        ),
-      }),
-    );
-
-    // Calcular promedio total (promedio de los promedios)
-    const promedioTotal =
-      evaluacionesFormateadas.reduce((acc, ev) => acc + ev.promedio, 0) /
-      evaluacionesFormateadas.length;
-
-    return {
-      videojuegoId: videojuego.id,
-      nombre: videojuego.name,
-      evaluaciones: evaluacionesFormateadas,
-      promedioPorCriterio,
-      promedioTotal: Number(promedioTotal.toFixed(2)),
-    };
-  }
-
   async getVideogamesData(): Promise<
     {
       id: number | string;
@@ -396,7 +298,8 @@ async getJuradosData(): Promise<
     },
     select: {
       id: true,
-      name: true, // Usamos 'name' como el nombre principal del jurado
+      firstName: true, // Usamos 'firstName' como el nombre principal del jurado
+      lastName: true, // Usamos 'lastName' como el apellido del jurado
       email: true,
       // Para videojuegosAsignados: User -> teamsToEvaluate (Team[]) -> videogame (Videogame)
       teamsToEvaluate: {
@@ -449,9 +352,12 @@ async getJuradosData(): Promise<
     const uniqueAsignados = [...new Set(videojuegosAsignadosNombres)];
     const uniqueCompletos = [...new Set(videojuegosCompletosNombres)];
 
+    const partesNombre = [user.firstName, user.lastName].filter(Boolean); // Filtrar valores falsy
+    const nombreCompleto = partesNombre.join(" ").trim(); // Unir con espacio
+
     return {
       id: user.id,
-      nombre: user.name || "Nombre no disponible", // Fallback si 'name' es null
+      nombre: nombreCompleto || "Nombre no disponible", // Fallback si 'firstName' es null
       correo: user.email, // 'email' es requerido en tu modelo User, así que debería estar
       videojuegosAsignados: uniqueAsignados,
       videojuegosCompletos: uniqueCompletos,

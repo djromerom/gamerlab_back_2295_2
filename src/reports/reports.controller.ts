@@ -10,12 +10,6 @@ import * as ExcelJS from 'exceljs';
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) { }
 
-
-  @Get('videogame/:id')
-  async getReportByVideogame(@Param('id', ParseIntPipe) id: number) {
-    return this.reportsService.getEvaluationsByVideogame(id);
-  }
-
   @Public()
   @Get('videojuegoData')
   async getWithMateriaYNRC() {
