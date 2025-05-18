@@ -3,7 +3,11 @@ import { IsString, IsNotEmpty, MinLength } from 'class-validator';
 export class CreateProfessorDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  firstName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
 
   @IsString()
   @IsNotEmpty()

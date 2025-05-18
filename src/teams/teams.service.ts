@@ -6,7 +6,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { RegisterDto } from 'src/auth/dto/register.dto';
-import { Resend } from 'resend';
 import { RegisterUserDto } from './dto/register-user.dto';
 
 @Injectable()
@@ -14,11 +13,11 @@ export class TeamsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   async findByTeamName(teamName: string) {
     const team = await this.prisma.team.findFirst({
-      where: { 
+      where: {
         teamName: {
           equals: teamName,
           mode: 'insensitive',
@@ -27,7 +26,6 @@ export class TeamsService {
     });
 
     return !!team; // Return true if the team exists, false otherwise
-
   }
 
   // Validate if videogame exists (case-insensitive)
@@ -46,7 +44,6 @@ export class TeamsService {
 
   async create(createTeamDto: CreateTeamDto) {
     const userRegister: RegisterDto = {
-      name: createTeamDto.members[0].memberFirstName + ' ' + createTeamDto.members[0].memberLastName,
       email: createTeamDto.members[0].memberEmail,
     }; // Get the first member's name and email
 
@@ -60,13 +57,14 @@ export class TeamsService {
       throw new Error('Role "ESTUDIANTE" not found');
     }
 
-    const user: SupabaseUser = await this.authService.registerUser(userRegister);
+    const user: SupabaseUser =
+      await this.authService.registerUser(userRegister);
 
     const dataUser = await this.prisma.user.create({
       data: {
         id: user.id,
-        username: userRegister.name,
-        name: userRegister.name,
+        firstName: createTeamDto.members[0].memberFirstName,
+        lastName: createTeamDto.members[0].memberLastName,
         email: userRegister.email,
         roleId: studentRole.id,
       },
@@ -82,7 +80,6 @@ export class TeamsService {
 
     const members = await Promise.all(
       createTeamDto.members.map((member) => {
-
         return this.prisma.member.create({
           data: {
             firstName: member.memberFirstName,
@@ -91,7 +88,7 @@ export class TeamsService {
             studentCode: member.studentCode,
             teamId: team.id,
             nrcs: {
-              connect: member.nrc.map((code) => ({ code: parseInt(code) })),
+              connect: member.nrc.map((code) => ({ id: parseInt(code) })),
             },
           },
         });
@@ -114,28 +111,13 @@ export class TeamsService {
     return { dataUser, team, members, createdVideogame };
   }
 
-  //TODO: remove sensitive variables from the codebase. I assume these are just for testing
-  sendEmail(email: string, id: string, name: string) {
-    const resend = new Resend('re_dP24beoj_2JuvsZwCCFUiEatdKxG6YwNK');
-
-    const envio = resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: email,
-      subject: 'Vive la feria UNINORTE!',
-      html: `<a href="http://localhost:5173/verificar-cuenta/${id}">Hola ${name},</a>`,
-    });
-    console.log(email, id, name);
-
-    return envio;
-  }
-
   async registerUser(registerDto: RegisterUserDto) {
     const authRegisterPayload = {
       email: registerDto.email,
-      password: registerDto.password,
       name: registerDto.name,
     };
-    const user: SupabaseUser = await this.authService.registerUser(authRegisterPayload);
+    const user: SupabaseUser =
+      await this.authService.registerUser(authRegisterPayload);
     return user;
   }
 

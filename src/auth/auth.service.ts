@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   Inject,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,7 +47,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     this.logger.log('Initializing AuthService: Fetching confirmation statuses...');
@@ -228,7 +229,6 @@ export class AuthService {
           `Local user status updated successfully for ID: ${userId}. New status ID: ${updatedLocalUser.confirmationStatusId}`,
         );
       } catch (prismaError) {
-
         if (prismaError instanceof PrismaClientKnownRequestError)
           this.logger.error(
             `Failed to update local user status for ID ${userId} after password set: ${prismaError.message}`,
@@ -255,9 +255,7 @@ export class AuthService {
     }
   }
 
-  async registerUser(
-    registerDto: RegisterDto,
-  ): Promise<UserSupabase> {
+  async registerUser(registerDto: RegisterDto): Promise<UserSupabase> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
     let user: UserSupabase;
@@ -454,7 +452,6 @@ export class AuthService {
       // We set the new tokens in cookies
       this.setAuthCookies(res, access_token, new_refresh_token);
       this.logger.log('Session refreshed successfully.');
-
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -539,7 +536,6 @@ export class AuthService {
       this.logger.log(`Cache hit for user: ${userEmail} (Supabase ID: ${supabaseId})`);
       return cachedUser;
     }
-
 
     this.logger.log(`Cache miss. Syncing local user from DB: ${userEmail} (Supabase ID: ${supabaseId})`);
 
@@ -648,5 +644,67 @@ export class AuthService {
     const cacheKey = this.getUserProfileCacheKey(supabaseId);
     await this.cacheService.delete(cacheKey);
     this.logger.log(`User profile cache invalidated for Supabase ID: ${supabaseId}`);
+  }
+
+  /**
+   * Resends the confirmation email to the user.
+   * @param email The email address of the user to resend the confirmation email to.
+   * @throws {NotFoundException} If the user is not found in the local database.
+   * @throws {ConflictException} If the user is already confirmed.
+   * @throws {InternalServerErrorException} If there is an error sending the email.
+   */
+  async resendConfirmationEmail(email: string) {
+    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+    
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { confirmationStatus: true }, 
+    });
+
+    if (!user) {
+      this.logger.error(`User with email ${email} not found in local DB.`);
+      throw new NotFoundException('The email address is not registered.');
+    }
+
+    if (user.confirmationStatus?.status === 'CONFIRMADO') {
+      this.logger.warn(`User with email ${email} is already confirmed.`);
+      throw new ConflictException('The email has already been confirmed.');
+    }
+    
+    
+    try {
+      const result = await this.supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+        },
+      });
+      const { error } = result;
+      if (error) {
+        this.logger.log(error);
+        if (error.message.includes('User not found')) {
+          throw new NotFoundException(
+            'El correo electrónico no está registrado.',
+          );
+        }
+        if (error.message.includes('User already confirmed')) {
+          throw new BadRequestException(
+            'El correo electrónico ya está confirmado.',
+          );
+        }
+        throw new InternalServerErrorException(
+          'Error al reenviar el correo de confirmación.',
+        );
+      }
+      this.logger.log(`Confirmation email resent successfully to: ${email}`);
+      return { message: 'Correo reenviado con éxito' };
+    } catch (err) {
+      this.logger.error(`Unhandled error: ${err}`);
+      throw new InternalServerErrorException(
+        'Error al reenviar el correo de confirmación.',
+      );
+    }
   }
 }
