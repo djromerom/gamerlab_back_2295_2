@@ -14,6 +14,7 @@ import {
   HttpStatus,
   ConflictException,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';

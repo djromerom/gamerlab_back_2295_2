@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { Prisma, User, Role } from '@prisma/client';
+import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -23,44 +23,49 @@ import { professorNrc } from './types/select-option.type';
 @Injectable()
 export class ProfessorsService {
   private readonly logger = new Logger(ProfessorsService.name);
+  private readonly PROFESSOR_ROLE_NAME = "Profesor";
+
   private professorRoleId: number;
 
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) {
-    this.initializeProfessorRoleId();
-  }
+  ) { }
 
-  private async initializeProfessorRoleId() {
-    const PROFESSOR_ROLE_NAME = 'Profesor';
+  async onModuleInit() {
+
+    this.logger.log('Initializing Professor module: Fetching Professor role id');
+
     try {
-      const professorRole = await this.prisma.role.findUnique({
-        where: { name: PROFESSOR_ROLE_NAME, isActive: true },
+
+      const professorRole: Role | null = await this.prisma.role.findUnique({
+        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true }
       });
+
       if (!professorRole) {
         this.logger.error(
-          `CRITICAL: The role '${PROFESSOR_ROLE_NAME}' was not found or is inactive during service initialization.`,
+          `FATAL: Configuration Error during onModuleInit - Role '${this.PROFESSOR_ROLE_NAME}' not found. Application might not function correctly.`,
         );
         throw new InternalServerErrorException(
-          `Professor role configuration is missing.`,
+          `Server configuration error: Missing required role '${this.PROFESSOR_ROLE_NAME}'.`,
         );
       }
+
       this.professorRoleId = professorRole.id;
       this.logger.log(
-        `Professor Role ID initialized to: ${this.professorRoleId}`,
+        `Professor role ID initialized: Professor role ID=${this.professorRoleId}`,
       );
+
     } catch (error) {
-      let message = 'Failed to initialize Professor Role ID.';
-      let stack: string | undefined;
-      if (error instanceof Error) {
-        message = `Failed to initialize Professor Role ID: ${error.message}`;
-        stack = error.stack;
-      }
-      this.logger.error(message, stack);
-      throw error; // Re-throw original error or a new wrapped error
+      if (error instanceof Error)
+        this.logger.error(
+          `Failed to initialize professor role id: ${error.message}`,
+          error.stack,
+        );
+      throw error;
     }
   }
+
 
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
@@ -167,7 +172,7 @@ export class ProfessorsService {
         stack = error.stack;
       }
       this.logger.error(message, stack);
-
+      
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const target = error.meta?.target as string[] | undefined;
@@ -179,9 +184,11 @@ export class ProfessorsService {
           );
         }
       }
+      
       throw new InternalServerErrorException(
         'Failed to save professor profile locally after successful authentication provider registration.',
       );
+      
     }
   }
 
@@ -200,7 +207,6 @@ export class ProfessorsService {
   ): Promise<PaginatedResult<User>> {
     const offset = (page - 1) * limit;
     const whereClause: Prisma.UserWhereInput = { roleId: this.professorRoleId };
-
     if (!includeInactive) whereClause.isActive = true;
 
     const [items, totalItems] = await this.prisma.$transaction([
@@ -227,6 +233,63 @@ export class ProfessorsService {
         totalPages: totalPages,
       },
     };
+  }
+
+
+  async findNrcs(professorId: string, includeSubjects: boolean): Promise<NRC[]> {
+
+    const selectOptions: Prisma.NRCSelect = {
+      id: true,
+      code: true,
+      ...(includeSubjects && {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      }),
+    };
+
+    const nrcs = await this.prisma.nRC.findMany({
+      where: { professorId },
+      select: selectOptions,
+    });
+
+    return nrcs;
+  }
+
+  async findSubjects(professorId: string, includeNrcs: boolean): Promise<Subject[]> {
+
+    const subjectSelectOptions: Prisma.SubjectSelect = {
+      id: true,
+      name: true,
+      code: true,
+      semester: true,
+      ...(includeNrcs && {
+        where: {
+          professorId: professorId,
+        },
+        select: {
+          id: true,
+          code: true,
+        },
+      })
+    };
+
+    const subjects = await this.prisma.subject.findMany({
+      where: {
+        nrcs: {
+          some: {
+            professorId: professorId,
+          },
+        },
+      },
+      select: subjectSelectOptions,
+    });
+
+    return subjects;
   }
 
   async findOne(id: string): Promise<User> {
@@ -291,6 +354,10 @@ export class ProfessorsService {
         data: updateProfessorDto,
       });
       this.logger.log(`Professor ${id} updated successfully.`);
+
+
+      this.authService.invalidateUserProfileCache(id);
+
       return updatedProfessor;
     } catch (error) {
       let message = `Failed to update professor ${id}.`;
@@ -346,6 +413,8 @@ export class ProfessorsService {
         data: { isActive: false },
       });
       this.logger.log(`Professor ${id} soft deleted successfully.`);
+
+      this.authService.invalidateUserProfileCache(id);
       return deactivatedProfessor;
     } catch (error) {
       let message = `Failed to deactivate professor ${id}.`;
