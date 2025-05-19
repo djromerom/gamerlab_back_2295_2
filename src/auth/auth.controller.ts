@@ -4,6 +4,7 @@ import {
   Body,
   UseGuards,
   Get,
+  Query,
   Req,
   Res,
   HttpCode,
@@ -18,19 +19,13 @@ import { GetUser } from './decorators/get-user.decorator';
 import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
 import { SetPasswordDto } from './dto/set-password.dto';
+import { VerifyTokenDto } from './dto/verify-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 
-interface RequestWithUser extends Request {
-  user: {
-    sub: string;
-    email: string;
-  };
-}
-
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Public()
   @Post('login')
@@ -59,16 +54,20 @@ export class AuthController {
   }
 
   @Public()
-  @UseGuards(JwtAuthGuard)
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
-  async setPassword(
-    @Req() req: RequestWithUser,
-    @Body() setPasswordDto: SetPasswordDto,
-  ): Promise<{ message: string }> {
-    const userId = req.user.sub; // Obtains 'sub' from the validated payload
-    await this.authService.setUserPassword(userId, setPasswordDto.password);
+  async setPassword(@Body() setPasswordDto: SetPasswordDto): Promise<{ message: string }> {
+    const { token, password } = setPasswordDto;
+    await this.authService.setUserPassword(token, password);
     return { message: 'Password updated successfully' };
+  }
+
+  @Public()
+  @Get('verify-token')
+  @HttpCode(HttpStatus.OK)
+  async verifyTokenGet(@Query() query: VerifyTokenDto) {
+    const { token, type } = query;
+    return this.authService.verifyTokenValidity(token, type);
   }
 
   @Public()
