@@ -15,6 +15,11 @@ import { AuthService } from 'src/auth/auth.service';
 export class JurorController {
   constructor( private readonly jurorService: JurorService, private readonly authService: AuthService,) { }
 
+  @Get('evaluations-assignment')
+  AsignEvaluations(){
+        return this.jurorService.asingEvaluations();
+  }
+
   @Post()
   create(@Body() dto: CreateJurorDto) {
     return this.jurorService.create(dto);
