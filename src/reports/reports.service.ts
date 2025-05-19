@@ -5,7 +5,7 @@ import { UpdateReportDto } from './dto/update-report.dto';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getVideogamesData(): Promise<
     {
@@ -62,12 +62,13 @@ export class ReportsService {
       let evaluacionesCompletadas = 0;
 
       // Procesar evaluaciones
-      v.evaluations.forEach(evaluation => {
-        if (evaluation.totalScore !== null) { // Considero completas las evaluaciones con score
+      v.evaluations.forEach((evaluation) => {
+        if (evaluation.totalScore !== null) {
+          // Considero completas las evaluaciones con score
           evaluacionesCompletadas++;
           totalScore += evaluation.totalScore;
           // Procesar detalles de cada evaluación
-          evaluation.details.forEach(detail => {
+          evaluation.details.forEach((detail) => {
             const criterioNombre = detail.criterion.name;
             const puntajePonderado = detail.score; // * (detail.criterion.weight ?? 1); // "/ 100";
 
@@ -163,7 +164,8 @@ export class ReportsService {
 
       results.push({
         name: subject.name,
-        value: scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
+        value:
+          scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
       });
     }
 

@@ -1,4 +1,6 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+/* eslint-disable prettier/prettier */
+// src/teams/dto/register-user.dto.ts
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class RegisterUserDto {
   @IsString()
