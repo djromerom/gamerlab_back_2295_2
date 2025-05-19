@@ -1,12 +1,6 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsEmail,
-  IsArray,
-  ValidateNested,
-  IsEmpty,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+/* eslint-disable prettier/prettier */
+// src/teams/dto/create-email-request.dto.ts
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class CreateEmailRequestDto {
   @IsString()
@@ -15,9 +9,9 @@ export class CreateEmailRequestDto {
 
   @IsString()
   @IsNotEmpty()
-  name: string; // Nombre del equipo
+  name: string;
 
   @IsString()
   @IsNotEmpty()
-  id: string; // ID del equipo o usuario
+  id: string;
 }
