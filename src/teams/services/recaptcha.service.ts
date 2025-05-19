@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/teams/services/recaptcha.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { RecaptchaResponse } from '../interfaces/recaptcha-response.interface';
@@ -10,17 +10,35 @@ import { firstValueFrom } from 'rxjs';
 export class RecaptchaService {
   private readonly logger = new Logger(RecaptchaService.name);
   private readonly recaptchaSecret: string;
-  private readonly verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
-  private readonly threshold = 0.5; // Minimum score to consider valid (0.0 to 1.0)
+  private readonly verifyUrl: string;
+  private readonly threshold: number;
 
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.recaptchaSecret = "6LcIWTorAAAAAKpQpnq8a3dfdNdfwB_b_Wu320il";
-    if (!this.recaptchaSecret) {
-      this.logger.warn('RECAPTCHA_SECRET_KEY is not defined in environment');
+    const RECAPTCHA_SECRET_KEY = this.configService.get<string>('RECAPTCHA_SECRET_KEY');
+
+    const RECAPTCHA_URL = this.configService.get<string>('RECAPTCHA_URL');
+
+    const RECAPTCHA_SCORE = this.configService.get<number>('RECAPTCHA_SCORE');
+
+    if (!RECAPTCHA_SECRET_KEY) {
+      this.logger.error(
+        `FATAL: Configuration Error during onModuleInit - Secret 'reCAPTCHA' not found. Application might not function correctly.`,
+      );
+      throw new InternalServerErrorException(
+        `Server configuration error: Missing required status 'reCAPTCHA'.`,
+      );
+    } else if (!RECAPTCHA_URL) {
+      this.logger.warn(`No 'RECAPTCHA_URL' variable was found in the environment. Using default url`);
+      this.verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+    } else if (!RECAPTCHA_SCORE) {
+      this.logger.warn(`No 'RECAPTCHA_SCORE' variable was found in the environment. Using '0.5' as default`);
+      this.threshold = 0.5;
     }
+
+    this.recaptchaSecret = RECAPTCHA_SECRET_KEY;
   }
 
   async verify(token: string): Promise<boolean> {
@@ -50,7 +68,7 @@ export class RecaptchaService {
       );
 
       const data = response.data;
-      
+
       if (!data.success) {
         this.logger.warn(`reCAPTCHA verification failed: ${data['error-codes']?.join(', ')}`);
         return false;
