@@ -206,8 +206,8 @@ export class AuthService {
         email: registerDto.email,
         password: randomUUID(),
         options: {
-          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
-        },
+          emailRedirectTo: this.configService.get<string>('REGISTRATION_REDIRECT_URL', 'http://localhost:5173/verificar-cuenta'),
+        }
       });
 
       if (error) {
