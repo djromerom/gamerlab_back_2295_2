@@ -108,23 +108,17 @@ export class ProfessorsService {
       let errorMessage = 'Unknown error during Supabase registration.';
       let errorStack: string | undefined;
 
+      if (error instanceof ConflictException) {
+        throw new ConflictException(`The email ${createProfessorDto.email} is already registered with the authentication provider.`);
+      }
+
       if (error instanceof Error) {
         errorMessage = error.message;
         errorStack = error.stack;
-
         this.logger.error(
           `Error during Supabase registration for ${createProfessorDto.email}: ${errorMessage}`,
           errorStack,
         );
-
-        if (
-          errorMessage.toLowerCase().includes('user already registered') ||
-          errorMessage.toLowerCase().includes('email link sign-up not allowed')
-        ) {
-          throw new ConflictException(
-            `The email ${createProfessorDto.email} is already registered with the authentication provider.`,
-          );
-        }
       } else {
         this.logger.error(
           `Non-Error thrown during Supabase registration for ${createProfessorDto.email}: ${String(error)}`,
@@ -172,7 +166,7 @@ export class ProfessorsService {
         stack = error.stack;
       }
       this.logger.error(message, stack);
-      
+
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const target = error.meta?.target as string[] | undefined;
@@ -184,11 +178,11 @@ export class ProfessorsService {
           );
         }
       }
-      
+
       throw new InternalServerErrorException(
         'Failed to save professor profile locally after successful authentication provider registration.',
       );
-      
+
     }
   }
 
@@ -567,6 +561,7 @@ export class ProfessorsService {
     };
 
     const nrcsSelect = {
+      code: true,
       members: {
         select: memberSelect,
       },
@@ -607,6 +602,7 @@ export class ProfessorsService {
           const grade = videogame?.evaluations?.[0]?.totalScore ?? null;
 
           reports.push({
+            NRC: nrc.code,
             subject: subject.name,
             student: `${member.firstName} ${member.lastName}`,
             studentCode: member.studentCode,
