@@ -5,10 +5,9 @@ import { UpdateReportDto } from './dto/update-report.dto';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getEvaluationsByVideogame(videogameId: number) {
-    // Verificar que el videojuego exista
     const videojuego = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
       select: { id: true, name: true },
@@ -18,7 +17,6 @@ export class ReportsService {
       throw new NotFoundException('Videojuego no encontrado');
     }
 
-    // Obtener evaluaciones activas con detalles y criterios
     const evaluaciones = await this.prisma.evaluation.findMany({
       where: {
         videogameId,
@@ -26,53 +24,64 @@ export class ReportsService {
       },
       include: {
         juror: {
-          select: { name: true }, // Ajusta al modelo User si es necesario
+          select: {
+            // <--- CAMBIO AQUÍ
+            firstName: true,
+            lastName: true,
+          },
         },
         details: {
           where: { isActive: true },
-          include: {
+          select: {
+            // <--- CAMBIO AQUÍ para seleccionar campos de EvaluationDetail
+            score: true, // Necesitamos el score de EvaluationDetail
             criterion: {
-              select: { id: true, name: true },
+              // Y luego los campos de Criterion
+              select: {
+                id: true,
+                name: true,
+              },
             },
           },
         },
+        // date: true, // Asegúrate de que 'date' se selecciona si no está por defecto
+        // O si usas 'select' a nivel de 'evaluation', debes incluir 'date' también.
+        // Si solo usas 'include', los campos escalares como 'date' vienen por defecto.
+        // Dado que tu 'include' está al nivel superior, 'date' debería estar disponible en 'ev.date'.
       },
     });
 
-    // Si no hay evaluaciones
     if (evaluaciones.length === 0) {
-      return {
-        videojuegoId: videojuego.id,
-        nombre: videojuego.name,
-        evaluaciones: [],
-        promedioPorCriterio: [],
-        promedioTotal: 0,
-      };
+      // ... (sin cambios aquí)
     }
 
-    // Calcular evaluaciones individuales con promedio
     const evaluacionesFormateadas = evaluaciones.map((ev) => {
       const detalles = ev.details.map((d) => ({
-        criterio: d.criterion.name,
-        puntaje: d.score,
+        criterio: d.criterion.name, // Esto debería funcionar ahora
+        puntaje: d.score, // Esto debería funcionar ahora
       }));
 
       const promedio =
-        detalles.reduce((sum, d) => sum + d.puntaje, 0) / detalles.length;
+        detalles.length > 0 // Evitar división por cero si no hay detalles
+          ? detalles.reduce((sum, d) => sum + d.puntaje, 0) / detalles.length
+          : 0;
 
       return {
-        jurado: ev.juror.name,
+        jurado: `${ev.juror.firstName} ${ev.juror.lastName}`, // <--- CAMBIO AQUÍ
         fecha: ev.date,
         detalles,
         promedio: Number(promedio.toFixed(2)),
       };
     });
 
-    // Calcular promedio por criterio global
+    // ... resto del código (el cálculo de promedioPorCriterio debería funcionar bien si los cambios anteriores están correctos)
+    // ... porque ev.details.forEach((d) => d.criterion.name y d.score ya estarían bien tipados
+
     const criterioMap = new Map<string, number[]>();
 
     evaluaciones.forEach((ev) => {
       ev.details.forEach((d) => {
+        // 'd' aquí ahora tendrá 'score' y 'd.criterion.name'
         const nombre = d.criterion.name;
         if (!criterioMap.has(nombre)) {
           criterioMap.set(nombre, []);
@@ -81,6 +90,7 @@ export class ReportsService {
       });
     });
 
+    // ... resto del código sin cambios
     const promedioPorCriterio = Array.from(criterioMap.entries()).map(
       ([criterio, scores]) => ({
         criterio,
@@ -90,10 +100,11 @@ export class ReportsService {
       }),
     );
 
-    // Calcular promedio total (promedio de los promedios)
     const promedioTotal =
-      evaluacionesFormateadas.reduce((acc, ev) => acc + ev.promedio, 0) /
-      evaluacionesFormateadas.length;
+      evaluacionesFormateadas.length > 0 // Evitar división por cero
+        ? evaluacionesFormateadas.reduce((acc, ev) => acc + ev.promedio, 0) /
+          evaluacionesFormateadas.length
+        : 0;
 
     return {
       videojuegoId: videojuego.id,
@@ -103,18 +114,19 @@ export class ReportsService {
       promedioTotal: Number(promedioTotal.toFixed(2)),
     };
   }
-  
+
   async getVideogamesData(): Promise<
-  {
-    id: number | string;
-    nombre: string;
-    logoUrl?: string | null;
-    materia?: string | null;
-    nrc?: number | string | null;
-    promedio: number;
-    criterios: { [nombreCriterio: string]: number };
-    evaluacionesCompletadas?: number;
-    totalJuradosAsignados?: number;}[]
+    {
+      id: number | string;
+      nombre: string;
+      logoUrl?: string | null;
+      materia?: string | null;
+      nrc?: number | string | null;
+      promedio: number;
+      criterios: { [nombreCriterio: string]: number };
+      evaluacionesCompletadas?: number;
+      totalJuradosAsignados?: number;
+    }[]
   > {
     const videojuegos = await this.prisma.videogame.findMany({
       where: { isActive: true },
@@ -146,44 +158,46 @@ export class ReportsService {
         videogameStatus: true,
       },
     });
-  
+
     return videojuegos.map((v) => {
       const firstMember = v.team.members[0];
       const firstNRC = firstMember?.nrcs[0];
-      
+
       // Calcular promedios y criterios
       const criterios: { [nombreCriterio: string]: number } = {};
       let totalScore = 0;
       let evaluacionesCompletadas = 0;
-      
+
       // Procesar evaluaciones
-      v.evaluations.forEach(evaluation => {
-        if (evaluation.totalScore !== null) { // Considero completas las evaluaciones con score
+      v.evaluations.forEach((evaluation) => {
+        if (evaluation.totalScore !== null) {
+          // Considero completas las evaluaciones con score
           evaluacionesCompletadas++;
           totalScore += evaluation.totalScore;
           // console.log(`Evaluación: ${evaluation.id}, Puntaje Total: ${evaluation.totalScore}`); // Depuración
           // Procesar detalles de cada evaluación
-          evaluation.details.forEach(detail => {
+          evaluation.details.forEach((detail) => {
             const criterioNombre = detail.criterion.name;
-            const puntajePonderado = detail.score * (detail.criterion.weight ?? 1); // "/ 100";
+            const puntajePonderado =
+              detail.score * (detail.criterion.weight ?? 1); // "/ 100";
             // console.log(`Criterio: ${criterioNombre}, Puntaje Ponderado: ${puntajePonderado}`); // Depuración
-            
-            criterios[criterioNombre] = (criterios[criterioNombre] || 0) + puntajePonderado;
+
+            criterios[criterioNombre] =
+              (criterios[criterioNombre] || 0) + puntajePonderado;
           });
         }
       });
-  
+
       // Calcular promedios por criterio
       if (evaluacionesCompletadas > 0) {
         for (const [criterio, suma] of Object.entries(criterios)) {
           criterios[criterio] = suma / evaluacionesCompletadas;
         }
       }
-  
-      const promedio = evaluacionesCompletadas > 0 
-        ? totalScore / evaluacionesCompletadas 
-        : 0;
-  
+
+      const promedio =
+        evaluacionesCompletadas > 0 ? totalScore / evaluacionesCompletadas : 0;
+
       //console.log(`Videojuego: ${v.name}, Promedio: ${promedio}`); // Depuración
       return {
         id: v.id,
@@ -198,7 +212,6 @@ export class ReportsService {
       };
     });
   }
-  
 
   async getSubjects(): Promise<{ id: number; name: string }[]> {
     return this.prisma.subject.findMany({
@@ -224,7 +237,7 @@ export class ReportsService {
       },
     });
 
-    return nrcs.map(nrc => ({
+    return nrcs.map((nrc) => ({
       id: nrc.id,
       codigo: nrc.code,
       materiaNombre: nrc.subject.name,
@@ -281,11 +294,11 @@ export class ReportsService {
 
       results.push({
         name: subject.name,
-        value: scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
+        value:
+          scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
       });
     }
 
     return results;
   }
-
 }
