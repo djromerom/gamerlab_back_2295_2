@@ -1,7 +1,11 @@
-import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { VideogamesService } from './pg.service';
 import { PendingGamesGuard } from '../auth/guards/pending-games.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResult } from '../common/types/paginated-result.type';
+import { VideogameResponseDto } from './dto/videogame-response.dto';
 
 @Controller('pending-games')
 @UseGuards(PendingGamesGuard)
@@ -10,16 +14,11 @@ export class VideogamesController {
 
   @Get()
   @RequiredService('PendingGamesService')
-  async getPendingVideogames
-  (
-    @Request() req: any,
-  ) {
-    const jurorId =  req.user.id; //Obtener el ID del jurado desde el usuario autenticado
-    const videogames = await this.videogamesService.getPendingVideogames
-    (
-      jurorId, // Pasar el jurorId al servicio
-      
-    );
-    return { jurorId, ...videogames }; // Incluir el ID del jurado en la respuesta
+  async getPendingVideogames(
+    @GetUser('id') jurorId: string,
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedResult<VideogameResponseDto>> {
+    const { limit, page } = query;
+    return this.videogamesService.getPendingVideogames(jurorId, limit, page);
   }
 }
