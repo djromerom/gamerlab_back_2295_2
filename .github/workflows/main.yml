@@ -35,14 +35,14 @@ jobs:
           git status
           docker stop arkad-api
           docker rm arkad-api
-          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} --build-arg DIRECT_URL=${{ secrets.DIRECT_URL }}  -f Dockerfile -t arkad-api-image . || { echo "Docker build failed"; exit 1; }
+          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} --build-arg DIRECT_URL=${{ secrets.DIRECT_URL_PROD }}  -f Dockerfile -t arkad-api-image . || { echo "Docker build failed"; exit 1; }
           docker run -d \
           -p 5036:3000 \
-          -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
-          -e DIRECT_URL=${{ secrets.DIRECT_URL }} \
-          -e SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-          -e SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }} \
-          -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
+          -e DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} \
+          -e DIRECT_URL=${{ secrets.DIRECT_URL_PROD }} \
+          -e SUPABASE_URL=${{ secrets.SUPABASE_URL_PROD }} \
+          -e SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET_PROD }} \
+          -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY_PROD }} \
           -e REGISTRATION_REDIRECT_URL=${{ secrets.REGISTRATION_REDIRECT_URL }} \
           -e RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }} \
           -e RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
