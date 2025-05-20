@@ -1,0 +1,49 @@
+name: Deploy_back
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ main ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Install dependencies
+      run: npm install
+
+       
+    - name: Deploy using ssh
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          cd /home/proyecto/Arkad-Api
+          git pull origin main
+          git status
+          docker stop arkad-api
+          docker rm arkad-api
+          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} --build-arg DIRECT_URL=${{ secrets.DIRECT_URL }}  -f Dockerfile -t arkad-api-image . || { echo "Docker build failed"; exit 1; }
+          docker run -d \
+          -p 5036:3000 \
+          -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+          -e DIRECT_URL=${{ secrets.DIRECT_URL }} \
+          -e SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+          -e SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }} \
+          -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
+          -e REGISTRATION_REDIRECT_URL=${{ secrets.REGISTRATION_REDIRECT_URL }} \
+          --name arkad-api \
+          arkad-api-image
+          docker ps || echo "No running containers"
