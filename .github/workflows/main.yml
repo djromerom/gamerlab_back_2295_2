@@ -49,7 +49,7 @@ jobs:
           -e EMAIL_PRIVATE_API_KEY=${{ secrets.EMAIL_PRIVATE_API_KEY }} \
           -e EMAIL_SERVICE_ID=${{ secrets.EMAIL_SERVICE_ID }} \
           -e EMAIL_CONFIRMATION_TEMPLATE=${{ secrets.EMAIL_CONFIRMATION_TEMPLATE }} \
-          -e FRONTEND_URL_PROD=${{ secrets.FRONTEND_URL_PROD }} \
+          -e FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }} \
           --name arkad-api \
           arkad-api-image
           docker ps || echo "No running containers"
