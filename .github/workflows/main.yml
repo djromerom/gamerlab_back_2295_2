@@ -44,6 +44,9 @@ jobs:
           -e SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }} \
           -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
           -e REGISTRATION_REDIRECT_URL=${{ secrets.REGISTRATION_REDIRECT_URL }} \
+          -e RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }} \
+          -e RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
+          -e RESEND_EMAIL=${{ secrets.RESEND_EMAIL }} \
           --name arkad-api \
           arkad-api-image
           docker ps || echo "No running containers"
