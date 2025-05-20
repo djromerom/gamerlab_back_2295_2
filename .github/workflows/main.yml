@@ -33,8 +33,8 @@ jobs:
           cd /home/proyecto/Arkad-Api
           git pull origin main
           git status
-          docker stop arkad-api
-          docker rm arkad-api
+          docker stop arkadn-api
+          docker rm arkadn-api
           docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} --build-arg DIRECT_URL=${{ secrets.DIRECT_URL_PROD }}  -f Dockerfile -t arkad-api-image . || { echo "Docker build failed"; exit 1; }
           docker run -d \
           -p 5036:3000 \
@@ -52,5 +52,5 @@ jobs:
           -e FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }} \
           -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
           --name arkad-api \
-          arkad-api-image
+          arkadn-api-image
           docker ps || echo "No running containers"
