@@ -52,16 +52,17 @@ export class AuthService {
   private readonly USER_PROFILE_CACHE_PREFIX = 'user_profile:';
   private USER_PROFILE_CACHE_TTL: number;
 
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) { }
+  ) {}
 
   async onModuleInit() {
-    this.logger.log('Initializing AuthService: Fetching confirmation statuses...');
+    this.logger.log(
+      'Initializing AuthService: Fetching confirmation statuses...',
+    );
     try {
       const [confirmedStatus, pendingStatus] = await Promise.all([
         this.prisma.confirmationStatus.findUnique({
@@ -95,7 +96,9 @@ export class AuthService {
         `Confirmation statuses initialized: CONFIRMADO ID=${this.confirmedStatusId}, PENDIENTE ID=${this.pendingStatusId}`,
       );
 
-      const verificationToken = await this.prisma.tokenType.findUnique({ where: { type: this.VERIFICATION_TOKEN_NAME } })
+      const verificationToken = await this.prisma.tokenType.findUnique({
+        where: { type: this.VERIFICATION_TOKEN_NAME },
+      });
 
       if (!verificationToken) {
         this.logger.error(
@@ -108,9 +111,14 @@ export class AuthService {
 
       this.verificationTokenId = verificationToken.id;
 
-      this.logger.log("Setting USER_PROFILE_CACHE_TTL");
-      this.USER_PROFILE_CACHE_TTL = this.configService.get<number>('USER_PROFILE_CACHE_TTL', 15) * 60 * 1000 // By default, 15 minutes
-      this.logger.log(`USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`);
+      this.logger.log('Setting USER_PROFILE_CACHE_TTL');
+      this.USER_PROFILE_CACHE_TTL =
+        this.configService.get<number>('USER_PROFILE_CACHE_TTL', 15) *
+        60 *
+        1000; // By default, 15 minutes
+      this.logger.log(
+        `USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`,
+      );
 
       this.logger.log('Setting up EmailJS client')
       const EMAIL_PUBLIC_API_KEY = this.configService.get<string>('EMAIL_PUBLIC_API_KEY');
@@ -137,7 +145,6 @@ export class AuthService {
         privateKey: this.EMAIL_PRIVATE_API_KEY
       });
       this.logger.log("EmailJS successfully initialized");
-
     } catch (error) {
       if (error instanceof Error)
         this.logger.error(
@@ -149,7 +156,9 @@ export class AuthService {
   }
 
   async setUserPassword(token: string, newPassword: string): Promise<void> {
-    this.logger.log(`Attempting to set password using token: ${token ? token.substring(0, 8) + '...' : 'UNDEFINED'}`);
+    this.logger.log(
+      `Attempting to set password using token: ${token ? token.substring(0, 8) + '...' : 'UNDEFINED'}`,
+    );
 
     const storedToken = await this.prisma.verificationToken.findUnique({
       where: { token: token },
@@ -157,18 +166,28 @@ export class AuthService {
     });
 
     if (!storedToken) {
-      this.logger.warn(`Set password attempt with invalid token: ${token.substring(0, 8)}...`);
+      this.logger.warn(
+        `Set password attempt with invalid token: ${token.substring(0, 8)}...`,
+      );
       throw new BadRequestException('Invalid or expired link.');
     }
 
     if (new Date() > storedToken.expiresAt) {
-      this.logger.warn(`Set password attempt with expired token: ${token.substring(0, 8)}... for user ${storedToken.userId}`);
-      await this.prisma.verificationToken.delete({ where: { id: storedToken.id } });
-      throw new BadRequestException('This link has expired. Please request a new one.');
+      this.logger.warn(
+        `Set password attempt with expired token: ${token.substring(0, 8)}... for user ${storedToken.userId}`,
+      );
+      await this.prisma.verificationToken.delete({
+        where: { id: storedToken.id },
+      });
+      throw new BadRequestException(
+        'This link has expired. Please request a new one.',
+      );
     }
 
     const userId = storedToken.userId;
-    this.logger.log(`Token validated for user ID: ${userId} (Type: ${storedToken.type.type}). Proceeding to set password.`);
+    this.logger.log(
+      `Token validated for user ID: ${userId} (Type: ${storedToken.type.type}). Proceeding to set password.`,
+    );
 
     try {
       const { data, error: adminUpdateError } =
@@ -225,8 +244,9 @@ export class AuthService {
         where: { id: storedToken.id },
       });
 
-      this.logger.log(`Token invalidated for user ID: ${userId} after successful password set.`);
-
+      this.logger.log(
+        `Token invalidated for user ID: ${userId} after successful password set.`,
+      );
     } catch (error) {
       if (
         error instanceof InternalServerErrorException ||
@@ -251,7 +271,6 @@ export class AuthService {
     tokenString: string,
     expectedTokenType?: string,
   ): Promise<TokenVerification> {
-
     const storedToken = await this.prisma.verificationToken.findUnique({
       where: { token: tokenString },
       include: { type: true },
@@ -263,18 +282,28 @@ export class AuthService {
     }
 
     if (new Date() > storedToken.expiresAt) {
-      this.logger.warn(`Token expired: ${tokenString.substring(0, 8)}... for user ${storedToken.userId}`);
-      return { isValid: false, message: 'This link has expired. Please request a new one.' };
+      this.logger.warn(
+        `Token expired: ${tokenString.substring(0, 8)}... for user ${storedToken.userId}`,
+      );
+      return {
+        isValid: false,
+        message: 'This link has expired. Please request a new one.',
+      };
     }
 
     if (expectedTokenType && storedToken.type.type !== expectedTokenType) {
       this.logger.warn(
         `Token type mismatch for ${tokenString.substring(0, 8)}... Expected ${expectedTokenType}, got ${storedToken.type.type}`,
       );
-      return { isValid: false, message: 'This link cannot be used for this purpose.' };
+      return {
+        isValid: false,
+        message: 'This link cannot be used for this purpose.',
+      };
     }
 
-    this.logger.log(`Token ${tokenString.substring(0, 8)}... is valid for user ${storedToken.userId}`);
+    this.logger.log(
+      `Token ${tokenString.substring(0, 8)}... is valid for user ${storedToken.userId}`,
+    );
     return {
       isValid: true,
       message: 'Token is valid.',
@@ -316,13 +345,18 @@ export class AuthService {
 
       const REDIRECT_TO = this.configService.get<string>(
         'FRONTEND_URL',
-        `http://localhost:5173`
+        `http://localhost:5173`,
       );
 
-      const TOKEN_EXPIRATION_TIME = this.configService.get<number>('REGISTRATION_TOKEN_EXPIRATION', 24);
+      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+        'REGISTRATION_TOKEN_EXPIRATION',
+        24,
+      );
 
       const verificationToken = randomUUID();
-      const expiresAt = new Date(Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000); //24 hours
+      const expiresAt = new Date(
+        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+      ); //24 hours
 
       await this.prisma.verificationToken.create({
         data: {
@@ -338,7 +372,6 @@ export class AuthService {
         email: registerDto.email,
         confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`
       });
-
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -553,7 +586,6 @@ export class AuthService {
     return { message: 'Logout successful' };
   }
 
-
   /**
    * Finds an existing user by Supabase ID. If the user was previously invited
    * (inactive/pending), it activates them upon this first successful login post-confirmation.
@@ -585,17 +617,22 @@ export class AuthService {
           `Cached user ${cachedUser.email} (ID: ${cachedUser.id}) is inactive. Access denied. Re-validating with DB.`,
         );
         await this.cacheService.delete(cacheKey);
-        throw new UnauthorizedException('User account is currently inactive (checked from cache).');
+        throw new UnauthorizedException(
+          'User account is currently inactive (checked from cache).',
+        );
       }
-      this.logger.log(`Cache hit for user: ${userEmail} (Supabase ID: ${supabaseId})`);
+      this.logger.log(
+        `Cache hit for user: ${userEmail} (Supabase ID: ${supabaseId})`,
+      );
       return cachedUser;
     }
 
-    this.logger.log(`Cache miss. Syncing local user from DB: ${userEmail} (Supabase ID: ${supabaseId})`);
+    this.logger.log(
+      `Cache miss. Syncing local user from DB: ${userEmail} (Supabase ID: ${supabaseId})`,
+    );
 
     let user: User | null;
     try {
-
       user = await this.prisma.user.findUnique({
         where: { id: supabaseId },
       });
@@ -643,10 +680,8 @@ export class AuthService {
         `Local user sync successful: ${user.email} (Active: ${user.isActive})`,
       );
 
-
       await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
       this.logger.log(`User ${user.email} synced and cached successfully.`);
-
     } catch (error) {
       if (
         error instanceof InternalServerErrorException ||
@@ -697,7 +732,9 @@ export class AuthService {
   async invalidateUserProfileCache(supabaseId: string): Promise<void> {
     const cacheKey = this.getUserProfileCacheKey(supabaseId);
     await this.cacheService.delete(cacheKey);
-    this.logger.log(`User profile cache invalidated for Supabase ID: ${supabaseId}`);
+    this.logger.log(
+      `User profile cache invalidated for Supabase ID: ${supabaseId}`,
+    );
   }
 
   /**
@@ -709,7 +746,6 @@ export class AuthService {
    */
   async resendConfirmationEmail(email: string) {
     this.logger.log(`Attempting to resend confirmation email to: ${email}`);
-
 
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -725,7 +761,6 @@ export class AuthService {
       this.logger.warn(`User with email ${email} is already confirmed.`);
       throw new ConflictException('The email has already been confirmed.');
     }
-
 
     try {
       const result = await this.supabase.auth.resend({
@@ -775,11 +810,10 @@ export class AuthService {
   ) {
 
     try {
-
       this.logger.log(`Attempting to send verification email to ${templateParams.email} via EmailJS.`);
 
       await emailjs.send(this.EMAIL_SERVICE_ID, template, templateParams);
-
+      
       this.logger.log(`Verification email sent successfully via EmailJS`);
 
     } catch (error) {
@@ -791,9 +825,10 @@ export class AuthService {
 
       this.logger.log(error);
       if (error instanceof InternalServerErrorException) throw error;
-      throw new InternalServerErrorException('An error occurred while preparing the verification email.');
+      throw new InternalServerErrorException(
+        'An error occurred while preparing the verification email.',
+      );
     }
-
   }
 
   private setAuthCookies(
