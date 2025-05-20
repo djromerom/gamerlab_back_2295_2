@@ -567,6 +567,7 @@ export class ProfessorsService {
     };
 
     const nrcsSelect = {
+      code: true,
       members: {
         select: memberSelect,
       },
@@ -607,6 +608,7 @@ export class ProfessorsService {
           const grade = videogame?.evaluations?.[0]?.totalScore ?? null;
 
           reports.push({
+            NRC: nrc.code,
             subject: subject.name,
             student: `${member.firstName} ${member.lastName}`,
             studentCode: member.studentCode,
