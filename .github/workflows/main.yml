@@ -45,8 +45,10 @@ jobs:
           -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY_PROD }} \
           -e REGISTRATION_REDIRECT_URL=${{ secrets.REGISTRATION_REDIRECT_URL }} \
           -e RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }} \
-          -e RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
-          -e RESEND_EMAIL=${{ secrets.RESEND_EMAIL }} \
+          -e EMAIL_PUBLIC_API_KEY=${{ secrets.EMAIL_PUBLIC_API_KEY }} \
+          -e EMAIL_PRIVATE_API_KEY=${{ secrets.EMAIL_PRIVATE_API_KEY }} \
+          -e EMAIL_SERVICE_ID=${{ secrets.EMAIL_SERVICE_ID }} \
+          -e EMAIL_CONFIRMATION_TEMPLATE=${{ secrets.EMAIL_CONFIRMATION_TEMPLATE }} \
           --name arkad-api \
           arkad-api-image
           docker ps || echo "No running containers"
