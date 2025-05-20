@@ -12,8 +12,6 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, ConfirmationStatus } from '@prisma/client';
 import { SUPABASE_CLIENT } from './auth.constants';
-import path from 'node:path';
-import { readFileSync } from 'node:fs';
 import {
   SupabaseClient,
   AuthError,
@@ -22,8 +20,7 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
-import { Resend } from 'resend';
-import Handlebars from 'handlebars';
+import emailjs, { EmailJSResponseStatus } from '@emailjs/nodejs';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
@@ -38,8 +35,10 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   // Mailer configuration
-  private resend: Resend;
-  private RESEND_EMAIL: string;
+  private EMAIL_PUBLIC_API_KEY: string;
+  private EMAIL_PRIVATE_API_KEY: string;
+  private EMAIL_SERVICE_ID: string;
+  private EMAIL_CONFIRMATION_TEMPLATE: string;
 
   private confirmedStatusId: number;
   private pendingStatusId: number;
@@ -121,29 +120,31 @@ export class AuthService {
         `USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`,
       );
 
-      this.logger.log('Setting up Resend client');
-      const RESEND_API_KEY = this.configService.get<string | null>(
-        'RESEND_API_KEY',
-        null,
-      );
-      const RESEND_EMAIL = this.configService.get<string | null>(
-        'RESEND_EMAIL',
-        null,
-      );
+      this.logger.log('Setting up EmailJS client')
+      const EMAIL_PUBLIC_API_KEY = this.configService.get<string>('EMAIL_PUBLIC_API_KEY');
+      const EMAIL_PRIVATE_API_KEY = this.configService.get<string>('EMAIL_PRIVATE_API_KEY');
+      const EMAIL_SERVICE_ID = this.configService.get<string>('EMAIL_SERVICE_ID');
+      const EMAIL_CONFIRMATION_TEMPLATE = this.configService.get<string>('EMAIL_CONFIRMATION_TEMPLATE');
 
-      if (!RESEND_API_KEY)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'RESEND_API_KEY' not found. Application might not function correctly`,
-        );
-      else if (!RESEND_EMAIL)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'RESEND_EMAIL' not found. Application might not found correctly`,
-        );
+      if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
+        throw new InternalServerErrorException(`FATAL: Configuration error during onModuleInit - 'EMAIL_PUBLIC_API_KEY' or 'EMAIL_PRIVATE_API_KEY' variables not found. Application might not function correctly`);
+      else if (!EMAIL_SERVICE_ID)
+        throw new InternalServerErrorException(`FATAL: Configuration error during onModuleInit - 'EMAIL_SERVICE_ID' not found. Application might not function correctly`);
+      else if (!EMAIL_CONFIRMATION_TEMPLATE)
+        throw new InternalServerErrorException(`FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`);
 
-      this.resend = new Resend(RESEND_API_KEY);
-      this.RESEND_EMAIL = RESEND_EMAIL;
 
-      this.logger.log('RESEND client successfully initialized');
+      this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
+      this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY;
+      this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID;
+      this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE;
+
+      this.logger.log("Initializing EmailJS with found EMAIL_API_KEY");
+      emailjs.init({
+        publicKey: this.EMAIL_PUBLIC_API_KEY,
+        privateKey: this.EMAIL_PRIVATE_API_KEY
+      });
+      this.logger.log("EmailJS successfully initialized");
     } catch (error) {
       if (error instanceof Error)
         this.logger.error(
@@ -322,9 +323,11 @@ export class AuthService {
         password: randomUUID(),
       });
 
+
       if (error) {
         this.handleSupabaseError(error, 'signUp');
       }
+
       if (!data?.user) {
         this.logger.error('Supabase signUp returned no user data.');
         throw new InternalServerErrorException(
@@ -365,13 +368,15 @@ export class AuthService {
         },
       });
 
-      this.sendEmailTemplate('account-verification', registerDto.email, {
-        ConfirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
+      this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
+        email: registerDto.email,
+        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`
       });
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
-        error instanceof InternalServerErrorException
+        error instanceof ConflictException ||
+        error instanceof BadRequestException
       ) {
         throw error;
       }
@@ -801,43 +806,23 @@ export class AuthService {
    */
   private async sendEmailTemplate(
     template: string,
-    email: string,
-    templateParams: Object,
+    templateParams: Record<string, unknown>
   ) {
-    const templatePath = path.join(
-      process.cwd(),
-      'src',
-      'templates',
-      'email',
-      `${template}.html`,
-    );
 
     try {
-      const emailSource = readFileSync(templatePath, 'utf-8').toString();
-      const template = Handlebars.compile(emailSource);
-      const htmlToSend = template(templateParams);
+      this.logger.log(`Attempting to send verification email to ${templateParams.email} via EmailJS.`);
 
-      this.logger.log(
-        `Attempting to send verification email to ${email} via Resend.`,
-      );
+      await emailjs.send(this.EMAIL_SERVICE_ID, template, templateParams);
+      
+      this.logger.log(`Verification email sent successfully via EmailJS`);
 
-      const { data, error } = await this.resend.emails.send({
-        from: this.RESEND_EMAIL,
-        to: [email],
-        subject: '¡Confirma tu registro en la Feria Gamer!',
-        html: htmlToSend,
-      });
-
-      if (error) {
-        this.logger.error(`Resend API error: ${error.message}`, error);
-        throw new InternalServerErrorException(
-          'Failed to send verification email via provider.',
-        );
-      }
-      this.logger.log(
-        `Verification email sent successfully via Resend. Message ID: ${data?.id}`,
-      );
     } catch (error) {
+
+      if (error instanceof EmailJSResponseStatus) {
+        this.logger.log(`EmailJS service failed: ${JSON.stringify(error)}`);
+        throw new InternalServerErrorException('An error ocurred while preparing the verification email');
+      }
+
       this.logger.log(error);
       if (error instanceof InternalServerErrorException) throw error;
       throw new InternalServerErrorException(
@@ -900,6 +885,9 @@ export class AuthService {
     this.logger.error(
       `Supabase Error Object in ${context}: ${JSON.stringify(error, null, 2)}`,
     );
+
+    if (error.code === "user_already_exists")
+      throw new ConflictException("A user with that email already exists");
 
     if (
       error.status === 400 ||
