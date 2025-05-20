@@ -18,6 +18,7 @@ import { JurorModule } from './juror/juror.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
 import { ReportsModule } from './reports/reports.module';
 import { CacheModule } from './cache/cache.module';
+import { StudentsModule } from './students/students.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { CacheModule } from './cache/cache.module';
     ReportsModule,
     EvaluationModule,
     CacheModule,
+    StudentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],
