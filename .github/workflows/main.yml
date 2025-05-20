@@ -37,6 +37,7 @@ jobs:
           docker rm arkadn-api
           docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} --build-arg DIRECT_URL=${{ secrets.DIRECT_URL_PROD }}  -f Dockerfile -t arkadn-api-image . || { echo "Docker build failed"; exit 1; }
           docker run -d \
+          --restart=unless-stopped \
           -p 5036:3000 \
           -e DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} \
           -e DIRECT_URL=${{ secrets.DIRECT_URL_PROD }} \
