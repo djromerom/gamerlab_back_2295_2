@@ -7,5 +7,6 @@ export interface PaginatedResult<T> {
     currentPage: number;
     itemsPerPage: number;
     totalPages: number;
+    totalWeight?: number;
   }
 }

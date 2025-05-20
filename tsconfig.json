@@ -14,8 +14,13 @@
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "esModuleInterop": true,
+    // STRICT MODE 
+    "strict": true,
+    "noEmitOnError": true,
+    "strictPropertyInitialization": false,
   }
 }

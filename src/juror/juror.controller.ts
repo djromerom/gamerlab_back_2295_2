@@ -7,17 +7,22 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
-import { User } from '@prisma/client';
 import { JurorListItem } from './types/juror-list-item.type';
+import { AuthService } from 'src/auth/auth.service';
 
 
 @Controller('juror')
 export class JurorController {
-  constructor(private readonly jurorService: JurorService) { }
+  constructor( private readonly jurorService: JurorService, private readonly authService: AuthService,) { }
 
   @Post()
   create(@Body() dto: CreateJurorDto) {
     return this.jurorService.create(dto);
+  }
+
+  @Post('resend-confirmation')
+  async resendConfirmation(@Body('email') email: string) {
+    return await this.authService.resendConfirmationEmail(email);
   }
 
   @Get()
