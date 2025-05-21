@@ -57,7 +57,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     this.logger.log(
@@ -120,31 +120,43 @@ export class AuthService {
         `USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`,
       );
 
-      this.logger.log('Setting up EmailJS client')
-      const EMAIL_PUBLIC_API_KEY = this.configService.get<string>('EMAIL_PUBLIC_API_KEY');
-      const EMAIL_PRIVATE_API_KEY = this.configService.get<string>('EMAIL_PRIVATE_API_KEY');
-      const EMAIL_SERVICE_ID = this.configService.get<string>('EMAIL_SERVICE_ID');
-      const EMAIL_CONFIRMATION_TEMPLATE = this.configService.get<string>('EMAIL_CONFIRMATION_TEMPLATE');
+      this.logger.log('Setting up EmailJS client');
+      const EMAIL_PUBLIC_API_KEY = this.configService.get<string>(
+        'EMAIL_PUBLIC_API_KEY',
+      );
+      const EMAIL_PRIVATE_API_KEY = this.configService.get<string>(
+        'EMAIL_PRIVATE_API_KEY',
+      );
+      const EMAIL_SERVICE_ID =
+        this.configService.get<string>('EMAIL_SERVICE_ID');
+      const EMAIL_CONFIRMATION_TEMPLATE = this.configService.get<string>(
+        'EMAIL_CONFIRMATION_TEMPLATE',
+      );
 
       if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
-        throw new InternalServerErrorException(`FATAL: Configuration error during onModuleInit - 'EMAIL_PUBLIC_API_KEY' or 'EMAIL_PRIVATE_API_KEY' variables not found. Application might not function correctly`);
+        throw new InternalServerErrorException(
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_PUBLIC_API_KEY' or 'EMAIL_PRIVATE_API_KEY' variables not found. Application might not function correctly`,
+        );
       else if (!EMAIL_SERVICE_ID)
-        throw new InternalServerErrorException(`FATAL: Configuration error during onModuleInit - 'EMAIL_SERVICE_ID' not found. Application might not function correctly`);
+        throw new InternalServerErrorException(
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_SERVICE_ID' not found. Application might not function correctly`,
+        );
       else if (!EMAIL_CONFIRMATION_TEMPLATE)
-        throw new InternalServerErrorException(`FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`);
-
+        throw new InternalServerErrorException(
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`,
+        );
 
       this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
       this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY;
       this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID;
       this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE;
 
-      this.logger.log("Initializing EmailJS with found EMAIL_API_KEY");
+      this.logger.log('Initializing EmailJS with found EMAIL_API_KEY');
       emailjs.init({
         publicKey: this.EMAIL_PUBLIC_API_KEY,
-        privateKey: this.EMAIL_PRIVATE_API_KEY
+        privateKey: this.EMAIL_PRIVATE_API_KEY,
       });
-      this.logger.log("EmailJS successfully initialized");
+      this.logger.log('EmailJS successfully initialized');
     } catch (error) {
       if (error instanceof Error)
         this.logger.error(
@@ -323,7 +335,6 @@ export class AuthService {
         password: randomUUID(),
       });
 
-
       if (error) {
         this.handleSupabaseError(error, 'signUp');
       }
@@ -370,7 +381,7 @@ export class AuthService {
 
       this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
         email: registerDto.email,
-        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`
+        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
       });
     } catch (error) {
       if (
@@ -806,21 +817,22 @@ export class AuthService {
    */
   private async sendEmailTemplate(
     template: string,
-    templateParams: Record<string, unknown>
+    templateParams: Record<string, unknown>,
   ) {
-
     try {
-      this.logger.log(`Attempting to send verification email to ${templateParams.email} via EmailJS.`);
+      this.logger.log(
+        `Attempting to send verification email to ${templateParams.email} via EmailJS.`,
+      );
 
       await emailjs.send(this.EMAIL_SERVICE_ID, template, templateParams);
-      
+
       this.logger.log(`Verification email sent successfully via EmailJS`);
-
     } catch (error) {
-
       if (error instanceof EmailJSResponseStatus) {
         this.logger.log(`EmailJS service failed: ${JSON.stringify(error)}`);
-        throw new InternalServerErrorException('An error ocurred while preparing the verification email');
+        throw new InternalServerErrorException(
+          'An error ocurred while preparing the verification email',
+        );
       }
 
       this.logger.log(error);
@@ -886,8 +898,8 @@ export class AuthService {
       `Supabase Error Object in ${context}: ${JSON.stringify(error, null, 2)}`,
     );
 
-    if (error.code === "user_already_exists")
-      throw new ConflictException("A user with that email already exists");
+    if (error.code === 'user_already_exists')
+      throw new ConflictException('A user with that email already exists');
 
     if (
       error.status === 400 ||
