@@ -1,6 +1,5 @@
-/* eslint-disable prettier/prettier */
-// src/teams/dto/member.dto.ts
 import { IsString, IsNotEmpty, IsEmail, IsArray, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class MemberDto {
   @IsString()
@@ -11,6 +10,7 @@ export class MemberDto {
   @IsNotEmpty({ message: 'El apellido del integrante es obligatorio' })
   memberLastName: string;
 
+  @Transform(({ value }) => value && typeof value === 'string' ? value.toLowerCase() : value)
   @IsEmail()
   @IsNotEmpty({ message: 'El correo del integrante es obligatorio' })
   @Matches(/^[\w.+-]+@uninorte\.edu\.co$/, {

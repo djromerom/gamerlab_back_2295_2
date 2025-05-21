@@ -12,8 +12,6 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, ConfirmationStatus } from '@prisma/client';
 import { SUPABASE_CLIENT } from './auth.constants';
-import path from 'node:path';
-import { readFileSync } from 'node:fs';
 import {
   SupabaseClient,
   AuthError,
@@ -59,7 +57,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     this.logger.log(
