@@ -11,7 +11,7 @@ import { Team, Member, Videogame, User } from '@prisma/client';
 export class TeamRepository implements ITeamRepository {
   private readonly logger = new Logger(TeamRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async findByTeamName(teamName: string): Promise<boolean> {
     const team = await this.prisma.team.findFirst({
@@ -39,12 +39,12 @@ export class TeamRepository implements ITeamRepository {
 
   async checkEmailsExist(emails: string[]): Promise<{ [email: string]: boolean }> {
     const result: { [email: string]: boolean } = {};
-    
+
     // Initialize all emails as not existing
     emails.forEach(email => {
       result[email] = false;
     });
-    
+
     // Find existing emails in the database
     const existingUsers = await this.prisma.user.findMany({
       where: {
@@ -68,12 +68,12 @@ export class TeamRepository implements ITeamRepository {
         email: true,
       },
     });
-    
+
     // Mark existing emails as true
     [...existingUsers, ...existingMembers].forEach(user => {
       result[user.email] = true;
     });
-    
+
     return result;
   }
 
@@ -84,20 +84,20 @@ export class TeamRepository implements ITeamRepository {
     createdVideogame: Videogame;
   }> {
     const { teamName, videogame, members } = createTeamDto;
-    
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         // 1. Verificar que el rol de Estudiante existe
         const studentRole = await tx.role.findUnique({
           where: { name: 'Estudiante' },
         });
-        
+
         if (!studentRole) {
           throw new Error('Role "Estudiante" not found.');
         }
-        
+
         const firstMember = members[0];
-        
+
         // 2. Crear el usuario principal
         const createdUser = await tx.user.create({
           data: {
@@ -108,7 +108,7 @@ export class TeamRepository implements ITeamRepository {
             roleId: studentRole.id,
           },
         });
-        
+
         // 3. Crear el equipo
         const team = await tx.team.create({
           data: {
@@ -116,36 +116,41 @@ export class TeamRepository implements ITeamRepository {
             userId: createdUser.id,
           },
         });
-        
+
         // 4. Crear los miembros del equipo - verificando primero si los NRCs existen
         const createdMembers: Member[] = [];
-        
+
         for (const member of members) {
           // Verificar que los NRCs existen antes de intentar conectarlos
           if (member.nrc && member.nrc.length > 0) {
-            // Verificar que todos los NRCs existen
-            const nrcIds = member.nrc.map(nrcId => parseInt(nrcId));
-            const existingNRCs = await tx.nRC.findMany({
+            const nrcCodesFromDto = member.nrc.map(nrcCodeStr => parseInt(nrcCodeStr));
+
+            const nrcsFoundInDb = await tx.nRC.findMany({
               where: {
-                id: {
-                  in: nrcIds,
+                code: {
+                  in: nrcCodesFromDto,
                 },
+                isActive: true
               },
               select: {
                 id: true,
+                code: true,
               },
             });
-            
-            // Si algún NRC no existe, loguearlo y continuar sin ese NRC
-            const existingNRCIds = existingNRCs.map(nrc => nrc.id);
-            const validNRCIds = nrcIds.filter(id => existingNRCIds.includes(id));
-            
-            if (validNRCIds.length !== nrcIds.length) {
-              this.logger.warn(`Some NRCs were not found for member ${member.memberEmail}: Missing ${nrcIds.filter(id => !existingNRCIds.includes(id)).join(', ')}`);
+
+            const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(nrc => nrc.id);
+            const codesOfNrcsFoundInDb = nrcsFoundInDb.map(nrc => nrc.code);
+
+            if (nrcsFoundInDb.length !== nrcCodesFromDto.length) {
+              const missingNrcCodes = nrcCodesFromDto.filter(
+                dtoCode => !codesOfNrcsFoundInDb.includes(dtoCode)
+              );
+              if (missingNrcCodes.length > 0) {
+                this.logger.warn(`Some NRC codes provided for member ${member.memberEmail} were not found or are inactive: Missing ${missingNrcCodes.join(', ')}`);
+              }
             }
-            
-            // Solo conectar los NRCs que existen
-            if (validNRCIds.length > 0) {
+
+            if (dbIdsOfValidNrcsToConnect.length > 0) {
               const createdMember = await tx.member.create({
                 data: {
                   firstName: member.memberFirstName,
@@ -154,14 +159,13 @@ export class TeamRepository implements ITeamRepository {
                   studentCode: member.studentCode,
                   teamId: team.id,
                   nrcs: {
-                    connect: validNRCIds.map(id => ({ id })),
+                    connect: dbIdsOfValidNrcsToConnect.map(id => ({ id })),
                   },
                 },
               });
-              
+
               createdMembers.push(createdMember);
             } else {
-              // Si no hay NRCs válidos, crear el miembro sin conexiones a NRC
               const createdMember = await tx.member.create({
                 data: {
                   firstName: member.memberFirstName,
@@ -171,7 +175,7 @@ export class TeamRepository implements ITeamRepository {
                   teamId: team.id,
                 },
               });
-              
+
               createdMembers.push(createdMember);
             }
           } else {
@@ -185,11 +189,11 @@ export class TeamRepository implements ITeamRepository {
                 teamId: team.id,
               },
             });
-            
+
             createdMembers.push(createdMember);
           }
         }
-        
+
         // 5. Crear el videojuego
         const createdVideogame = await tx.videogame.create({
           data: {
@@ -200,12 +204,12 @@ export class TeamRepository implements ITeamRepository {
             videogameStatusId: 1,
           },
         });
-        
-        return { 
-          createdUser, 
-          team, 
-          members: createdMembers, 
-          createdVideogame 
+
+        return {
+          createdUser,
+          team,
+          members: createdMembers,
+          createdVideogame
         };
       });
     } catch (error) {
