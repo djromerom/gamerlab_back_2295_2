@@ -1,15 +1,15 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Query,
-  Param,
-  Patch,
-  Delete,
-  ParseIntPipe,
-  ParseBoolPipe,
-  DefaultValuePipe
+    Controller,
+    Get,
+    Post,
+    Body,
+    Query,
+    Param,
+    Patch,
+    Delete,
+    ParseIntPipe,
+    ParseBoolPipe,
+    DefaultValuePipe
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { Prisma, Member } from '@prisma/client';
@@ -21,10 +21,10 @@ import { GetUser } from 'src/auth/decorators/get-user.decorator';
 
 @Controller('students')
 export class StudentsController {
-    constructor(private readonly studentsService: StudentsService) {}
-    
+    constructor(private readonly studentsService: StudentsService) { }
+
     @Get()
-    findAll(@GetUser('id') id: string, @Query('page') page : number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<StudentsEvaluations>> {
+    findAll(@GetUser('id') id: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<StudentsEvaluations>> {
         return this.studentsService.getStudentsEvaluations(page, limit, id);
     }
 
@@ -34,18 +34,18 @@ export class StudentsController {
     }
 
     @Get('/members')
-    findAllMembers(@GetUser('id') id: string, @Query('page') page : number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<Members>> {
+    findAllMembers(@GetUser('id') id: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<Members>> {
         return this.studentsService.getMembers(id, page, limit);
     }
 
-    @Post('/members/:memberId/nrcs')
-    async editNrc(
-        @GetUser('id') id: string,
-        @Param('memberId', ParseIntPipe) memberId: number,
-        @Body('nrcCodeEdit', ParseIntPipe) nrcCodeEdit: number,
-        @Body('nrcCodeNew', ParseIntPipe) nrcCodeNew: number
-    ): Promise<boolean> {
-        return this.studentsService.editNrc(id, memberId, nrcCodeEdit, nrcCodeNew);
-    }
-    
+    // @Post('/members/:memberId/nrcs')
+    // async editNrc(
+    //     @GetUser('id') id: string,
+    //     @Param('memberId', ParseIntPipe) memberId: number,
+    //     @Body('nrcCodeEdit', ParseIntPipe) nrcCodeEdit: number,
+    //     @Body('nrcCodeNew', ParseIntPipe) nrcCodeNew: number
+    // ): Promise<boolean> {
+    //     return this.studentsService.editNrc(id, memberId, nrcCodeEdit, nrcCodeNew);
+    // }
+
 }
