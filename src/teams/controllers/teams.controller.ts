@@ -14,11 +14,12 @@ import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
+import { CheckTeamName } from '../dto/check-team-name.dto';
 
 @Controller('teams')
 export class TeamsController {
-  constructor(private readonly teamsService: TeamsService) {}
-  
+  constructor(private readonly teamsService: TeamsService) { }
+
   @Public()
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
@@ -32,7 +33,8 @@ export class TeamsController {
 
   @Public()
   @Get('name/:teamName')
-  findByTeamName(@Param('teamName') teamName: string) {
+  findByTeamName(@Param() checkTeamNameDto: CheckTeamName) {
+    const { teamName } = checkTeamNameDto;
     return this.teamsService.findByTeamName(teamName);
   }
 
@@ -41,7 +43,7 @@ export class TeamsController {
   findByVideogameName(@Param('videogameName') videogameName: string) {
     return this.teamsService.findByVideogameName(videogameName);
   }
-  
+
   @Public()
   @Post('validate-emails')
   validateEmails(@Body() validateEmailsDto: ValidateEmailsDto) {
