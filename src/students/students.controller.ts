@@ -32,7 +32,6 @@ export class StudentsController {
     findGrades(@GetUser('id') id: string): Promise<StudentsGrade> {
         return this.studentsService.getStudentsGrades(id);
     }
-
     // @Get('/members')
     // findAllMembers(@GetUser('id') id: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<Members>> {
     //     return this.studentsService.getMembers(id, page, limit);
@@ -49,3 +48,4 @@ export class StudentsController {
     // }
 
 }
+
