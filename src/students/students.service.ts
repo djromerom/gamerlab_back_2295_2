@@ -1,97 +1,120 @@
-import { Injectable , NotFoundException} from "@nestjs/common";
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { StudentsEvaluations, StudentsGrade, Members } from "./types/students.type";
+import { StudentsEvaluations, StudentsGrade } from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { Member, Prisma } from "@prisma/client";
 
 @Injectable()
 export class StudentsService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(private readonly prisma: PrismaService) { }
 
     async editNrc(
         userId: string,
         memberId: number,
         nrcCodes: number[],
-    ): Promise<boolean> {
-        if (!userId) {
-            throw new NotFoundException("user not found");
-        }
-        if (!Array.isArray(nrcCodes) || nrcCodes.length === 0) {
-            throw new NotFoundException("nrcCodes must be a non-empty array");
-        }
-        const newNrc = await this.prisma.nRC.findMany({
-            where: { code: {in: nrcCodes } },
-            select: { id: true }
-        });
-        
-        if (newNrc.length !== nrcCodes.length) {
-        throw new NotFoundException("One or more NRCs not found");
-        }
-        await this.prisma.member.update({
-            where: { id: memberId },
-            data: {
-                nrcs: {
-                    set: newNrc.map(nrc => ({ id: nrc.id }))
+    ): Promise<Member> {
+
+        const selectClause: Prisma.MemberSelect = {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            studentCode: true,
+            nrcs: {
+                select: {
+                    code: true,
                 }
             }
-        });
-        return true;
+        };
+
+        try {
+            return await this.prisma.$transaction(async (tx) => {
+                const member = await tx.member.findUnique({
+                    where: { id: memberId },
+                    select: {
+                        id: true,
+                        team: {
+                            select: { userId: true }
+                        }
+                    }
+                });
+
+                if (!member)
+                    throw new NotFoundException("The provided member does not exist or is inactive")
+
+                if (member.team.userId !== userId) {
+                    throw new ForbiddenException(
+                        'You are not authorized to modify NRCs for this member.',
+                    );
+                }
+
+
+                const newNrc = await tx.nRC.findMany({
+                    where: { code: { in: nrcCodes }, isActive: true },
+                    select: { id: true }
+                });
+
+                if (newNrc.length !== nrcCodes.length) {
+                    throw new NotFoundException("One or more NRCs not found");
+                }
+
+                const updatedMember = await tx.member.update({
+                    where: { id: memberId },
+                    data: {
+                        nrcs: {
+                            set: newNrc.map(nrc => ({ id: nrc.id }))
+                        }
+                    },
+                    select: selectClause,
+                });
+
+                return updatedMember;
+
+            });
+        } catch (error) {
+            if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+                throw error;
+            }
+            console.error('Failed to set NRCs for member:', error);
+            throw new InternalServerErrorException('An error occurred while updating member NRCs.');
+        }
     }
 
 
     async getMembers(
         userId: string,
-        page: number,
-        limit: number
-    ): Promise<PaginatedResult<Members>> {
-        const offset = (page - 1) * limit;
+    ): Promise<Member[]> {
 
-        if (!userId) {
-            throw new NotFoundException("user not found");
-        }
-        const member = await this.prisma.team.findUnique({
-            where: { userId: userId },
-            select: {
-                members: {
-                    select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                        studentCode: true,
-                        nrcs: {
-                            select: {
-                                code: true,
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        if (!member || !member.members || member.members.length === 0) {
-            throw new NotFoundException("No members found");
-        }
-        const totalItems = member.members.length;
-
-        const totalPages = Math.ceil(totalItems / limit);
-        
-        return {
-            data: member.members.map((member: any) => ({
-                id: member.id,
-                firstName: member.firstName,
-                lastName: member.lastName,
-                email: member.email,
-                studentCode: member.studentCode,
-                nrc: member.nrcs?.map((nrc: any) => nrc.code) ?? [],
-            })),
-            metadata: {
-                totalItems,
-                itemsOnCurrentPage: totalItems,
-                currentPage: page,
-                itemsPerPage: limit,
-                totalPages
+        const whereClause: Prisma.MemberWhereInput = {
+            team: {
+                userId: userId
             }
         };
+
+        const selectClause: Prisma.MemberSelect = {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            studentCode: true,
+            nrcs: {
+                select: {
+                    code: true,
+                }
+            }
+        }
+
+        const members = await this.prisma.member.findMany({
+            where: whereClause,
+            select: selectClause
+        });
+
+        if (members.length === 0) {
+            throw new NotFoundException("No members found for this team");
+        }
+
+
+        return members
     }
 
 
@@ -103,10 +126,10 @@ export class StudentsService {
         }
         const videogame = await this.prisma.team.findUnique({
             where: { userId: userId },
-            select:{
+            select: {
                 videogame: {
-                    select:{
-                        id : true,
+                    select: {
+                        id: true,
                     }
                 }
             }
@@ -133,8 +156,8 @@ export class StudentsService {
             }
         }
         const average: number = sum / studentsGrades.length;
-        return { 
-            grade : average
+        return {
+            grade: average
         };
     }
 
@@ -143,61 +166,61 @@ export class StudentsService {
         limit: number,
         userId: string
     ): Promise<PaginatedResult<StudentsEvaluations>> {
-    const offset = (page - 1) * limit;
+        const offset = (page - 1) * limit;
 
-    if (!userId) {
-        throw new NotFoundException("user not found");
-    }
-    const videogame = await this.prisma.team.findUnique({
+        if (!userId) {
+            throw new NotFoundException("user not found");
+        }
+        const videogame = await this.prisma.team.findUnique({
             where: { userId: userId },
-            select:{
+            select: {
                 videogame: {
-                    select:{
-                        id : true,
+                    select: {
+                        id: true,
                     }
                 }
             }
         });
-    if (!videogame?.videogame) {
-        throw new NotFoundException("videogame not found");
-    }
+        if (!videogame?.videogame) {
+            throw new NotFoundException("videogame not found");
+        }
 
-    const whereClause = {
-        videogameId: videogame.videogame.id,
-        isActive: true
-    };
+        const whereClause = {
+            videogameId: videogame.videogame.id,
+            isActive: true
+        };
 
-    const [evaluations, totalItems] = await this.prisma.$transaction([
-        this.prisma.evaluation.findMany({
-            skip: offset,
-            take: limit,
-            where: whereClause,
-            select: {
-                id: true,
-                date: true,
-                comments: true,
-                totalScore: true,
-                details: {
-                    select: {
-                        score: true,
-                        criterion: {
-                            select: {
-                            id: true,
-                            name: true,
-                            weight: true
+        const [evaluations, totalItems] = await this.prisma.$transaction([
+            this.prisma.evaluation.findMany({
+                skip: offset,
+                take: limit,
+                where: whereClause,
+                select: {
+                    id: true,
+                    date: true,
+                    comments: true,
+                    totalScore: true,
+                    details: {
+                        select: {
+                            score: true,
+                            criterion: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    weight: true
+                                }
                             }
                         }
                     }
                 }
-            }
-        }),
-        this.prisma.evaluation.count({
-            where: whereClause
-        }),
+            }),
+            this.prisma.evaluation.count({
+                where: whereClause
+            }),
         ]);
         if (!evaluations) {
             throw new NotFoundException("No evaluations found");
-        } 
+        }
         const totalPages = Math.ceil(totalItems / limit);
         return {
             data: evaluations.map((evaluations) => ({
