@@ -32,5 +32,19 @@ export class StudentsController {
     findGrades(@GetUser('id') id: string): Promise<StudentsGrade> {
         return this.studentsService.getStudentsGrades(id);
     }
-    
+
+    // @Get('/members')
+    // findAllMembers(@GetUser('id') id: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<Members>> {
+    //     return this.studentsService.getMembers(id, page, limit);
+    // }
+
+    // @Post('/members/:memberId/nrcs')
+    // async editNrc(
+    //     @GetUser('id') id: string,
+    //     @Param('memberId', ParseIntPipe) memberId: number,
+    //     @Body('nrcCodeEdit', ParseIntPipe) nrcCodeEdit: number,
+    //     @Body('nrcCodeNew', ParseIntPipe) nrcCodeNew: number
+    // ): Promise<boolean> {
+    //     return this.studentsService.editNrc(id, memberId, nrcCodeEdit, nrcCodeNew);
+    // }
 }
