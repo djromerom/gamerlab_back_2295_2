@@ -1,0 +1,94 @@
+name: back-test
+on:
+  push:
+    branches:
+      - test
+  pull_request:
+    branches:
+      - test
+      
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: npm install
+      - name: Run tests
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            npm run test:main
+          else
+            echo "run testing"
+          fi
+
+  docker-image:
+    runs-on: ubuntu-latest
+    needs: test  
+    if: github.ref == 'refs/heads/test' && success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Git Pull
+        run: git pull
+
+      - name: Read and bump version
+        id: versioning
+        run: |
+          VERSION_FILE=version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo 0 > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          echo "Current version: v$VERSION"
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          echo $((VERSION + 1)) > $VERSION_FILE
+          
+      - name: Git Auto Commit
+        uses: stefanzweifel/git-auto-commit-action@v5.2.0
+        with:
+            commit_message: Update version.txt
+            branch: test
+            commit_user_name: CamiloDlRM [GITHUB-ACTIONS]
+            commit_user_email: zinbak78@gmail.com
+            commit_author: CamiloDlRM <zinbak78@gmail.com>
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: docker build -t arkadapi-image .
+
+      - name: Tag Docker image
+        run: |
+          docker tag arkadapi-image ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-${{ steps.versioning.outputs.version }}
+
+      - name: Push Docker image
+        run: | 
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-${{ steps.versioning.outputs.version }}
