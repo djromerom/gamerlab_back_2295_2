@@ -10,36 +10,30 @@ export class StudentsService {
     async editNrc(
         userId: string,
         memberId: number,
-        nrcCodeEdit: number,
-        nrcCodeNew: number,
+        nrcCodes: number[],
     ): Promise<boolean> {
         if (!userId) {
             throw new NotFoundException("user not found");
         }
-        
-        const oldNrc = await this.prisma.nRC.findFirst({
-            where: { code: nrcCodeEdit },
+        if (!Array.isArray(nrcCodes) || nrcCodes.length === 0) {
+            throw new NotFoundException("nrcCodes must be a non-empty array");
+        }
+        console.log(nrcCodes)
+        const newNrc = await this.prisma.nRC.findMany({
+            where: { code: {in: nrcCodes } },
             select: { id: true }
         });
-        const newNrc = await this.prisma.nRC.findFirst({
-            where: { code: nrcCodeNew },
-            select: { id: true }
-        });
-        if (!oldNrc) {
-        throw new NotFoundException("NRC to remove not found");
-        }
-        if (!newNrc) {
-            throw new NotFoundException("NRC to add not found");
-        }
         
+        if (newNrc.length !== nrcCodes.length) {
+        throw new NotFoundException("One or more NRCs not found");
+        }
         await this.prisma.member.update({
-        where: { id: memberId },
-        data: {
-            nrcs: {
-                disconnect: { id: oldNrc.id },
-                connect: { id: newNrc.id }
+            where: { id: memberId },
+            data: {
+                nrcs: {
+                    set: newNrc.map(nrc => ({ id: nrc.id }))
+                }
             }
-        }
         });
         return true;
     }

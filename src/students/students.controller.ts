@@ -18,6 +18,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { StudentsEvaluations, StudentsGrade, Members } from './types/students.type';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { EditNrcDto } from './dto/editNrc.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -42,10 +43,10 @@ export class StudentsController {
     async editNrc(
         @GetUser('id') id: string,
         @Param('memberId', ParseIntPipe) memberId: number,
-        @Body('nrcCodeEdit', ParseIntPipe) nrcCodeEdit: number,
-        @Body('nrcCodeNew', ParseIntPipe) nrcCodeNew: number
+        @Body() body: EditNrcDto
     ): Promise<boolean> {
-        return this.studentsService.editNrc(id, memberId, nrcCodeEdit, nrcCodeNew);
+        console.log('BODY:', body);
+        return this.studentsService.editNrc(id, memberId, body.nrcCodes);
     }
     
 }
