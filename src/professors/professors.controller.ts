@@ -83,6 +83,7 @@ export class ProfessorsController {
   async GetReportByNRC(
     @Param('nrcCode') nrcCode: number,
     @Query() query: PaginationQueryDto,
+    @GetUser('id') professorId: string,
   ) {
     const { includeInactive, limit, page } = query;
     return this.professorsService.getNRCreport(
@@ -90,6 +91,7 @@ export class ProfessorsController {
       includeInactive,
       limit,
       page,
+      professorId,
     );
   }
 

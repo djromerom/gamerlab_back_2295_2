@@ -18,28 +18,28 @@ import * as ExcelJS from 'exceljs';
 import { Response } from 'express';
 import { PassThrough } from 'stream';
 import { professorNrc } from './types/select-option.type';
-
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
 
 @Injectable()
 export class ProfessorsService {
   private readonly logger = new Logger(ProfessorsService.name);
-  private readonly PROFESSOR_ROLE_NAME = "Profesor";
+  private readonly PROFESSOR_ROLE_NAME = 'Profesor';
 
   private professorRoleId: number;
 
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   async onModuleInit() {
-
-    this.logger.log('Initializing Professor module: Fetching Professor role id');
+    this.logger.log(
+      'Initializing Professor module: Fetching Professor role id',
+    );
 
     try {
-
       const professorRole: Role | null = await this.prisma.role.findUnique({
-        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true }
+        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true },
       });
 
       if (!professorRole) {
@@ -55,7 +55,6 @@ export class ProfessorsService {
       this.logger.log(
         `Professor role ID initialized: Professor role ID=${this.professorRoleId}`,
       );
-
     } catch (error) {
       if (error instanceof Error)
         this.logger.error(
@@ -65,7 +64,6 @@ export class ProfessorsService {
       throw error;
     }
   }
-
 
   async create(createProfessorDto: CreateProfessorDto): Promise<User> {
     this.logger.log(
@@ -109,7 +107,9 @@ export class ProfessorsService {
       let errorStack: string | undefined;
 
       if (error instanceof ConflictException) {
-        throw new ConflictException(`The email ${createProfessorDto.email} is already registered with the authentication provider.`);
+        throw new ConflictException(
+          `The email ${createProfessorDto.email} is already registered with the authentication provider.`,
+        );
       }
 
       if (error instanceof Error) {
@@ -182,7 +182,6 @@ export class ProfessorsService {
       throw new InternalServerErrorException(
         'Failed to save professor profile locally after successful authentication provider registration.',
       );
-
     }
   }
 
@@ -229,9 +228,10 @@ export class ProfessorsService {
     };
   }
 
-
-  async findNrcs(professorId: string, includeSubjects: boolean): Promise<NRC[]> {
-
+  async findNrcs(
+    professorId: string,
+    includeSubjects: boolean,
+  ): Promise<NRC[]> {
     const selectOptions: Prisma.NRCSelect = {
       id: true,
       code: true,
@@ -254,8 +254,10 @@ export class ProfessorsService {
     return nrcs;
   }
 
-  async findSubjects(professorId: string, includeNrcs: boolean): Promise<Subject[]> {
-
+  async findSubjects(
+    professorId: string,
+    includeNrcs: boolean,
+  ): Promise<Subject[]> {
     const subjectSelectOptions: Prisma.SubjectSelect = {
       id: true,
       name: true,
@@ -269,7 +271,7 @@ export class ProfessorsService {
           id: true,
           code: true,
         },
-      })
+      }),
     };
 
     const subjects = await this.prisma.subject.findMany({
@@ -349,7 +351,6 @@ export class ProfessorsService {
       });
       this.logger.log(`Professor ${id} updated successfully.`);
 
-
       this.authService.invalidateUserProfileCache(id);
 
       return updatedProfessor;
@@ -424,8 +425,13 @@ export class ProfessorsService {
     }
   }
 
-
-  async getNRCreport(nrcCode: number, includeInactive: boolean, limit: number, page: number) {
+  async getNRCreport(
+    nrcCode: number,
+    includeInactive: boolean,
+    limit: number,
+    page: number,
+    professorId: string,
+  ) {
     const offset = (page - 1) * limit;
 
     const nrcSubjectSelect = {
@@ -471,6 +477,7 @@ export class ProfessorsService {
         some: {
           code: nrcCode,
         },
+        professorId: professorId,
       },
     };
 
@@ -488,15 +495,18 @@ export class ProfessorsService {
 
     const totalPages = Math.ceil(totalItems / limit);
 
-
     if (!items || items.length === 0) {
-      throw new NotFoundException(`No students found for NRC with code ${nrcCode}`);
+      throw new NotFoundException(
+        `No students found for NRC with code ${nrcCode}`,
+      );
     }
 
     const matchingNRC = items[0].nrcs.find((nrc) => nrc.code === nrcCode);
 
     if (!matchingNRC) {
-      throw new NotFoundException(`No matching NRC ${nrcCode} found in the student data`);
+      throw new NotFoundException(
+        `No matching NRC ${nrcCode} found in the student data`,
+      );
     }
 
     const subject = matchingNRC.subject.name;
@@ -529,8 +539,12 @@ export class ProfessorsService {
     };
   }
 
-
-  async GetSignatureReport(subjectName: string, includeInactive: boolean, limit: number, page: number) {
+  async GetSignatureReport(
+    subjectName: string,
+    includeInactive: boolean,
+    limit: number,
+    page: number,
+  ) {
     const offset = (page - 1) * limit;
 
     const evaluationSelect = {
@@ -608,7 +622,7 @@ export class ProfessorsService {
             studentCode: member.studentCode,
             team: member.team?.teamName ?? 'No team',
             videogame: videogame?.name ?? 'No videogame',
-            grade
+            grade,
           });
         }
       }
@@ -627,7 +641,6 @@ export class ProfessorsService {
   }
 
   async exportNRCreportToExcel(nrcCode: number, res: Response): Promise<void> {
-
     const nrcSubjectSelect = {
       code: true,
       subject: {
@@ -680,7 +693,7 @@ export class ProfessorsService {
     });
 
     const flattenedData = data.map((member) => {
-      const nrc = member.nrcs.find(n => n.code === nrcCode);
+      const nrc = member.nrcs.find((n) => n.code === nrcCode);
 
       return {
         NRC: nrc?.code ?? '',
@@ -707,16 +720,25 @@ export class ProfessorsService {
       { header: 'Score', key: 'grade', width: 10 },
     ];
 
-    flattenedData.forEach(item => worksheet.addRow(item));
+    flattenedData.forEach((item) => worksheet.addRow(item));
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=nrc-report-${nrcCode}.xlsx`);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=nrc-report-${nrcCode}.xlsx`,
+    );
 
     await workbook.xlsx.write(res);
     res.end();
   }
 
-  async exportSignatureReportToExcel(subjectName: string, res: Response): Promise<void> {
+  async exportSignatureReportToExcel(
+    subjectName: string,
+    res: Response,
+  ): Promise<void> {
     const evaluationSelect = {
       totalScore: true,
     };
@@ -767,9 +789,9 @@ export class ProfessorsService {
       select: subjectSelect,
     });
 
-    const flattenedData = data.flatMap(subject =>
-      subject.nrcs.flatMap(nrc =>
-        nrc.members.map(member => ({
+    const flattenedData = data.flatMap((subject) =>
+      subject.nrcs.flatMap((nrc) =>
+        nrc.members.map((member) => ({
           NRC: nrc.code,
           subject: subject.name,
           student: `${member.firstName} ${member.lastName}`,
@@ -777,8 +799,8 @@ export class ProfessorsService {
           team: member.team?.teamName ?? '',
           videogame: member.team?.videogame?.name ?? '',
           grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
-        }))
-      )
+        })),
+      ),
     );
 
     const workbook = new ExcelJS.Workbook();
@@ -794,10 +816,16 @@ export class ProfessorsService {
       { header: 'Score', key: 'grade', width: 10 },
     ];
 
-    flattenedData.forEach(item => worksheet.addRow(item));
+    flattenedData.forEach((item) => worksheet.addRow(item));
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=subject-report-${subjectName}.xlsx`);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=subject-report-${subjectName}.xlsx`,
+    );
 
     await workbook.xlsx.write(res);
     res.end();
