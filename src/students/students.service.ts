@@ -18,7 +18,6 @@ export class StudentsService {
         if (!Array.isArray(nrcCodes) || nrcCodes.length === 0) {
             throw new NotFoundException("nrcCodes must be a non-empty array");
         }
-        console.log(nrcCodes)
         const newNrc = await this.prisma.nRC.findMany({
             where: { code: {in: nrcCodes } },
             select: { id: true }

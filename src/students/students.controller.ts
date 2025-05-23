@@ -45,7 +45,6 @@ export class StudentsController {
         @Param('memberId', ParseIntPipe) memberId: number,
         @Body() body: EditNrcDto
     ): Promise<boolean> {
-        console.log('BODY:', body);
         return this.studentsService.editNrc(id, memberId, body.nrcCodes);
     }
     
