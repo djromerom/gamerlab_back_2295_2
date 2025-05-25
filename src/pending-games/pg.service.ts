@@ -5,7 +5,7 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 
 @Injectable()
 export class VideogamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getPendingVideogames(
     jurorId: string,
@@ -85,7 +85,7 @@ export class VideogamesService {
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
         isEvaluated: false,
-      };
+      } as PendingGames;
     });
 
     return {

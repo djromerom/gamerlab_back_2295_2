@@ -4,6 +4,7 @@ import {
   Body,
   UseGuards,
   Get,
+  Query,
   Req,
   Res,
   HttpCode,
@@ -18,18 +19,13 @@ import { GetUser } from './decorators/get-user.decorator';
 import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
 import { SetPasswordDto } from './dto/set-password.dto';
+import { VerifyTokenDto } from './dto/verify-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-
-interface RequestWithUser extends Request {
-  user: {
-    sub: string;
-    email: string;
-  };
-}
+import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Public()
   @Post('login')
@@ -51,17 +47,27 @@ export class AuthController {
     return this.authService.refresh(req, res);
   }
 
+  @Post('resend-confirmation')
+  @HttpCode(HttpStatus.OK)
+  async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
+    return await this.authService.resendConfirmationEmail(body.email);
+  }
+
   @Public()
-  @UseGuards(JwtAuthGuard)
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
-  async setPassword(
-    @Req() req: RequestWithUser,
-    @Body() setPasswordDto: SetPasswordDto,
-  ): Promise<{ message: string }> {
-    const userId = req.user.sub; // Obtains 'sub' from the validated payload
-    await this.authService.setUserPassword(userId, setPasswordDto.password);
+  async setPassword(@Body() setPasswordDto: SetPasswordDto): Promise<{ message: string }> {
+    const { token, password } = setPasswordDto;
+    await this.authService.setUserPassword(token, password);
     return { message: 'Password updated successfully' };
+  }
+
+  @Public()
+  @Get('verify-token')
+  @HttpCode(HttpStatus.OK)
+  async verifyTokenGet(@Query() query: VerifyTokenDto) {
+    const { token, type } = query;
+    return this.authService.verifyTokenValidity(token, type);
   }
 
   @Public()
@@ -78,15 +84,5 @@ export class AuthController {
   // by the SupabaseStrategy after successful cookie authentication
   async getMyProfile(@GetUser() user: AppUser) {
     return this.authService.getMyProfile(user.id);
-  }
-
-  @Post('update-user')
-  @HttpCode(HttpStatus.OK)
-  async updateUserProfile(
-    @Req() req: RequestWithUser,
-    @Body() updateData: Partial<User>,
-  ): Promise<Partial<User>> {
-    const userId = req.user.sub;
-    return this.authService.updateUserProfile(userId, updateData);
   }
 }

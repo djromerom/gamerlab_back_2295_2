@@ -14,6 +14,7 @@ import {
   HttpStatus,
   ConflictException,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
@@ -28,7 +29,7 @@ import { SelectOption } from './types/select-option.type';
 
 @Controller('subjects')
 export class SubjectsController {
-  constructor(private readonly subjectsService: SubjectsService) { }
+  constructor(private readonly subjectsService: SubjectsService) {}
 
   @Post()
   @UseGuards(RolePermissionGuard)
@@ -40,7 +41,9 @@ export class SubjectsController {
   @Get()
   @UseGuards(RolePermissionGuard)
   @RequiredService('List Subjects')
-  async findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<Subject>> {
+  async findAll(
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedResult<Subject>> {
     const { includeInactive, limit, page } = query;
     return this.subjectsService.findAll(includeInactive, limit, page);
   }

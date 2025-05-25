@@ -10,7 +10,7 @@ import { VideogameResponseDto } from './dto/videogame-response.dto';
 @Controller('pending-games')
 @UseGuards(PendingGamesGuard)
 export class VideogamesController {
-  constructor(private readonly videogamesService: VideogamesService) {}
+  constructor(private readonly videogamesService: VideogamesService) { }
 
   @Get()
   @RequiredService('PendingGamesService')
