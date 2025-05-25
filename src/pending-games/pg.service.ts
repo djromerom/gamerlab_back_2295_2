@@ -85,7 +85,7 @@ export class VideogamesService {
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
         isEvaluated: false,
-      } as PendingGames;
+      } ;
     });
 
     return {

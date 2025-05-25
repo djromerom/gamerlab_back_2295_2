@@ -83,7 +83,7 @@ export class GradedGamesService {
         totalScore: scoresMap.get(videogame.id) || 0,
         comments: commentsMap.get(videogame.id) || 'Sin comentarios',
         isEvaluated: true,
-      } as GradedVideogame;
+      } ;
     });
 
     return {
