@@ -30,7 +30,7 @@ export class ProfessorsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     this.logger.log(
@@ -472,12 +472,12 @@ export class ProfessorsService {
       },
     };
 
-    const memberWhere = {
+    const memberWhere: Prisma.MemberWhereInput = {
       nrcs: {
         some: {
           code: nrcCode,
+          professorId: professorId,
         },
-        professorId: professorId,
       },
     };
 
@@ -544,6 +544,7 @@ export class ProfessorsService {
     includeInactive: boolean,
     limit: number,
     page: number,
+    //professorId: string,
   ) {
     const offset = (page - 1) * limit;
 
@@ -588,8 +589,13 @@ export class ProfessorsService {
       },
     };
 
-    const subjectWhere = {
+    const subjectWhere: Prisma.SubjectWhereInput = {
       name: subjectName,
+      /*nrcs: {
+        some: {
+          professorId: professorId,
+        },
+      },*/
     };
 
     const [items, totalItems] = await this.prisma.$transaction([
