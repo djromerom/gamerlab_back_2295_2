@@ -21,4 +21,31 @@ export class GradedGamesController {
     const { limit, page } = query;
     return this.GradedGamesService.getGradedVideogames(jurorId, limit, page);
   }
+
+  @Get('search')
+  @RequiredService('PendingGamesService')
+  async searchGradedGames(
+    @GetUser('id') jurorId: string,
+    @Query('q') search: string = '',
+  ) {
+    return this.GradedGamesService.searchGradedGames(jurorId, search);
+  }
+
+  @Get('count')
+  @RequiredService('PendingGamesService')
+  async getGradedVideogamesCount(
+    @GetUser('id') jurorId: string,
+  ): Promise<{ count: number }> {
+    const count = await this.GradedGamesService.getGradedVideogamesCount(jurorId);
+    return { count };
+  }
+
+  @Get('search/quick')
+  @RequiredService('PendingGamesService')
+  async quickSearchGradedGames(
+    @GetUser('id') jurorId: string,
+    @Query('q') search: string = '',
+  ) {
+    return this.GradedGamesService.quickSearchGradedGames(jurorId, search);
+  }
 }

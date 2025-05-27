@@ -5,37 +5,41 @@ import { PrismaService } from '../prisma/prisma.service';
 export class EvaluationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createEvaluation(jurorId: string, evaluationPayload: any) {
-    const { date, comments, videogameId, totalScore } = evaluationPayload;
-    
-    const evaluation = await this.prisma.evaluation.create({
-      data: {
-        jurorId,
-        date: new Date(date),
-        comments: comments,
-        videogameId: videogameId,
-        totalScore: totalScore,
-        editionId: 1,
-      },
-    });
+  /**
+   * Crea una evaluación y sus detalles en una sola consulta.
+   * @param jurorId string
+   * @param evaluationPayload objeto con date, comments, videogameId, totalScore, details (array)
+   */
+  async createEvaluationWithDetails(jurorId: string, evaluationPayload: any) {
+    const { date, comments, videogameId, totalScore, details } = evaluationPayload;
 
-    return { evaluationId: evaluation.id }; // Devuelve el ID de la evaluación creada
-  }
-
-  async createEvaluationDetails(details: any[]) {
-    const dataDetails = details.map((detail) => ({
-      evaluationId: detail.evaluationId,
+    // Mapea los detalles para la relación
+    const detailsData = details.map((detail: any) => ({
       criterionId: detail.criterionId,
       score: detail.score,
       createdAt: new Date(detail.createdAt),
       updatedAt: new Date(detail.updatedAt),
-      isActive: detail.isActive ?? true, // Asegura que isActive sea true si no se envía
+      isActive: detail.isActive ?? true,
     }));
 
-    await this.prisma.evaluationDetail.createMany({
-      data: dataDetails,
+    // Crea la evaluación y los detalles en una sola consulta
+    const evaluation = await this.prisma.evaluation.create({
+      data: {
+        jurorId,
+        date: new Date(date),
+        comments,
+        videogameId,
+        totalScore,
+        editionId: 1,
+        details: {
+          create: detailsData,
+        },
+      },
+      select: {
+        id: true,
+      },
     });
 
-    return { message: 'Detalles de evaluación guardados correctamente' };
+    return { evaluationId: evaluation.id, message: 'Evaluación y detalles guardados correctamente' };
   }
 }
