@@ -1,6 +1,11 @@
-import { IsString, IsNotEmpty, MinLength, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, Matches, IsUUID } from 'class-validator';
 
 export class SetPasswordDto {
+
+  @IsNotEmpty()
+  @IsUUID()
+  token: string;
+
   @IsString()
   @IsNotEmpty({ message: 'Password is required' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })

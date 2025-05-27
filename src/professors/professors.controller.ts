@@ -10,23 +10,22 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
-  Res
+  Res,
 } from '@nestjs/common';
 import { ProfessorsService } from './professors.service';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
-import { User } from "@prisma/client";
+import { NRC, Subject, User } from '@prisma/client';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { SelectOption } from './types/select-option.type';
-import { Response } from 'express';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
-import { professorNrc } from './types/select-option.type';
+import { Response } from 'express';
 
 @Controller('professors')
 export class ProfessorsController {
-  constructor(private readonly professorsService: ProfessorsService) { }
+  constructor(private readonly professorsService: ProfessorsService) {}
 
   @Post()
   create(@Body() createProfessorDto: CreateProfessorDto) {
@@ -37,6 +36,22 @@ export class ProfessorsController {
   findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<User>> {
     const { includeInactive, limit, page } = query;
     return this.professorsService.findAll(includeInactive, limit, page);
+  }
+
+  @Get('my-nrcs')
+  async findProfessorNrcs(
+    @Query('includeSubjects') includeSubjects: boolean,
+    @GetUser('id') professorId: string,
+  ): Promise<NRC[]> {
+    return this.professorsService.findNrcs(professorId, includeSubjects);
+  }
+
+  @Get('my-subjects')
+  async findProfessorSubjects(
+    @Query('includeNrcs') includeNrcs: boolean,
+    @GetUser('id') professorId: string,
+  ): Promise<Subject[]> {
+    return this.professorsService.findSubjects(professorId, includeNrcs);
   }
 
   @Public()
@@ -67,30 +82,47 @@ export class ProfessorsController {
   @Get('nrc-report/:nrcCode')
   async GetReportByNRC(
     @Param('nrcCode') nrcCode: number,
-    @Query() query: PaginationQueryDto
+    @Query() query: PaginationQueryDto,
+    @GetUser('id') professorId: string,
   ) {
     const { includeInactive, limit, page } = query;
-    return this.professorsService.getNRCreport(nrcCode, includeInactive, limit, page);
+    return this.professorsService.getNRCreport(
+      nrcCode,
+      includeInactive,
+      limit,
+      page,
+      professorId,
+    );
   }
 
   @Public()
   @Get('exportNRC/:nrcCode')
-  async exportNRCReportToExcel(@Param('nrcCode') nrcCode: number, @Res({ passthrough: true }) res: Response) {
+  async exportNRCReportToExcel(
+    @Param('nrcCode') nrcCode: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     await this.professorsService.exportNRCreportToExcel(nrcCode, res);
   }
 
   @Get('signature-report/:subjectName')
   async getSignatureReport(
     @Param('subjectName') subjectName: string,
-    @Query() query: PaginationQueryDto
+    @Query() query: PaginationQueryDto,
   ) {
     const { includeInactive, limit, page } = query;
-    return this.professorsService.GetSignatureReport(subjectName, includeInactive, limit, page);
+    return this.professorsService.GetSignatureReport(
+      subjectName,
+      includeInactive,
+      limit,
+      page,
+    );
   }
 
   @Get('exportSubject/:subjectName')
-  async exportSignatureReport(@Param('subjectName') subjectName: string, @Res({ passthrough: true }) res: Response) {
+  async exportSignatureReport(
+    @Param('subjectName') subjectName: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     await this.professorsService.exportSignatureReportToExcel(subjectName, res);
   }
 }
-
