@@ -3,12 +3,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VideogameResponseDto } from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
+
 
 @Injectable()
 export class VideogamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
+  private async checkEvaluationsOpen() {
+    const config = await this.prisma.eventConfiguration.findFirst();
+    if (!config?.evaluationsOpen) {
+      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
+    }
+  }
 
   async searchPendingGames(jurorId: string, search: string) {
+    await this.checkEvaluationsOpen();
     // Normalizar el término de búsqueda
     const normalizedSearch = search.trim();
     const isNumeric = /^\d+$/.test(normalizedSearch);
@@ -18,12 +27,18 @@ export class VideogamesService {
     const searchConditions: Prisma.VideogameWhereInput['OR'] = [
       { name: { contains: normalizedSearch, mode: 'insensitive' } },
       { team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } } },
-      { team: { members: { some: { 
-        OR: [
-          { firstName: { contains: normalizedSearch, mode: 'insensitive' } },
-          { lastName: { contains: normalizedSearch, mode: 'insensitive' } }
-        ]
-      }}}},
+      {
+        team: {
+          members: {
+            some: {
+              OR: [
+                { firstName: { contains: normalizedSearch, mode: 'insensitive' } },
+                { lastName: { contains: normalizedSearch, mode: 'insensitive' } }
+              ]
+            }
+          }
+        }
+      },
     ];
 
     // Solo agregar búsqueda numérica si el término es un número
@@ -78,10 +93,10 @@ export class VideogamesService {
                 nrcs: {
                   select: {
                     code: true,
-                    subject: { 
-                      select: { 
-                        name: true 
-                      } 
+                    subject: {
+                      select: {
+                        name: true
+                      }
                     },
                   },
                   take: 1, // Optimización: solo tomar el primer NRC para subject/materia
@@ -100,7 +115,7 @@ export class VideogamesService {
       // Usar Set para NRCs únicos de manera más eficiente
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
-      
+
       videogame.team?.members?.forEach(member => {
         member.nrcs?.forEach(nrc => {
           nrcCodes.add(nrc.code);
@@ -116,7 +131,7 @@ export class VideogamesService {
         equipo: videogame.team?.teamName || 'Sin equipo',
         materia: firstSubject,
         nrc: Array.from(nrcCodes).join(', ') || 'Sin NRC',
-        participantes: videogame.team?.members?.map(member => 
+        participantes: videogame.team?.members?.map(member =>
           `${member.firstName} ${member.lastName}`
         ) || [],
         imagen: videogame.logoUrl ?? undefined,
@@ -129,10 +144,12 @@ export class VideogamesService {
   }
 
   async getPendingVideogames(
+
     jurorId: string,
     limit: number,
     page: number,
   ): Promise<PaginatedResult<VideogameResponseDto>> {
+    await this.checkEvaluationsOpen();
     const offset = (page - 1) * limit;
 
     // Condición base optimizada usando relaciones directas
@@ -178,10 +195,10 @@ export class VideogamesService {
                   nrcs: {
                     select: {
                       code: true,
-                      subject: { 
-                        select: { 
-                          name: true 
-                        } 
+                      subject: {
+                        select: {
+                          name: true
+                        }
                       },
                     },
                     take: 1, // Optimización: solo el primer NRC para subject
@@ -206,7 +223,7 @@ export class VideogamesService {
       // Optimización: usar Set para NRCs únicos
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
-      
+
       videogame.team?.members?.forEach(member => {
         member.nrcs?.forEach(nrc => {
           nrcCodes.add(nrc.code);
@@ -244,6 +261,7 @@ export class VideogamesService {
 
   // Método adicional optimizado para obtener el conteo
   async getPendingVideogamesCount(jurorId: string): Promise<number> {
+    await this.checkEvaluationsOpen();
     return this.prisma.videogame.count({
       where: {
         AND: [
@@ -268,8 +286,9 @@ export class VideogamesService {
 
   // Método adicional para búsqueda rápida (menos datos)
   async quickSearchPendingGames(jurorId: string, search: string) {
+    await this.checkEvaluationsOpen();
     const normalizedSearch = search.trim();
-    
+
     if (!normalizedSearch) {
       return { data: [] };
     }

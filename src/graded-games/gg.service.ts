@@ -3,13 +3,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VideogameResponseDto } from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
+
 
 @Injectable()
 export class GradedGamesService {
   constructor(private readonly prisma: PrismaService) {}
+  private async checkEvaluationsOpen() {
+    const config = await this.prisma.eventConfiguration.findFirst();
+    if (!config?.evaluationsOpen) {
+      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
+    }
+  }
 
   // Búsqueda flexible de juegos calificados
   async searchGradedGames(jurorId: string, search: string) {
+    await this.checkEvaluationsOpen();
     const normalizedSearch = search.trim();
     const isNumeric = /^\d+$/.test(normalizedSearch);
     const numericSearch = isNumeric ? parseInt(normalizedSearch, 10) : null;
@@ -118,6 +127,7 @@ export class GradedGamesService {
     limit: number,
     page: number,
   ): Promise<PaginatedResult<VideogameResponseDto>> {
+    await this.checkEvaluationsOpen();
     const evaluations = await this.prisma.evaluation.findMany({
       where: { jurorId },
       select: {
@@ -204,6 +214,7 @@ export class GradedGamesService {
 
   // Conteo de juegos calificados
   async getGradedVideogamesCount(jurorId: string): Promise<number> {
+    await this.checkEvaluationsOpen();
     const evaluations = await this.prisma.evaluation.findMany({
       where: { jurorId },
       select: { videogameId: true },
@@ -213,6 +224,7 @@ export class GradedGamesService {
 
   // Búsqueda rápida (solo nombre y equipo)
   async quickSearchGradedGames(jurorId: string, search: string) {
+    await this.checkEvaluationsOpen();
     const normalizedSearch = search.trim();
     if (!normalizedSearch) {
       return { data: [] };
