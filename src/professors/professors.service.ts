@@ -30,7 +30,7 @@ export class ProfessorsService {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     this.logger.log(
@@ -472,12 +472,12 @@ export class ProfessorsService {
       },
     };
 
-    const memberWhere = {
+    const memberWhere: Prisma.MemberWhereInput = {
       nrcs: {
         some: {
           code: nrcCode,
+          professorId: professorId,
         },
-        professorId: professorId,
       },
     };
 
