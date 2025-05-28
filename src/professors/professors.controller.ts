@@ -108,6 +108,7 @@ export class ProfessorsController {
   async getSignatureReport(
     @Param('subjectName') subjectName: string,
     @Query() query: PaginationQueryDto,
+    //@GetUser('id') professorId: string,
   ) {
     const { includeInactive, limit, page } = query;
     return this.professorsService.GetSignatureReport(
@@ -115,6 +116,7 @@ export class ProfessorsController {
       includeInactive,
       limit,
       page,
+      //professorId,
     );
   }
 
