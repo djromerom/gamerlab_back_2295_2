@@ -20,7 +20,7 @@ export class EvaluationController {
     }
 
     @Post('details')
-
+    @UseGuards(RolePermissionGuard)
     @RequiredService('Create Evaluation')
     async createDetailsEvaluation(@Body() detailsPayload: { details: CreateDetailEvaluationDto[] }) {
         return this.evaluationService.createEvaluationDetails(detailsPayload.details);
