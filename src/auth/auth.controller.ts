@@ -22,6 +22,7 @@ import { SetPasswordDto } from './dto/set-password.dto';
 import { VerifyTokenDto } from './dto/verify-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
+import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -75,6 +76,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) res: Response) {
     return this.authService.logout(res);
+  }
+
+  @Post('reset-token-expiration')
+  @HttpCode(HttpStatus.OK)
+  async resetTokenExpiration(@Body() body: ResetTokenExpirationDto): Promise<{ message: string }> {
+    await this.authService.resetTokenExpiration(body.userId);
+    return { message: 'Token expiration date reset successfully' };
   }
 
   @Get('me')
