@@ -23,10 +23,11 @@ import { RequiredService } from 'src/auth/decorators/required-service.decorator'
 
 @Controller('nrcs')
 export class NrcsController {
-  constructor(private readonly nrcService: NrcsService) {}
+  constructor(private readonly nrcService: NrcsService) { }
 
-  @Public()
   @Get()
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListNrcs')
   findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<NRC>> {
     const { includeInactive, limit, page } = query;
     return this.nrcService.findAll(includeInactive, limit, page);
