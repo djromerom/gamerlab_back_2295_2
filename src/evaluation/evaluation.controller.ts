@@ -12,17 +12,13 @@ import { GetUser } from 'src/auth/decorators/get-user.decorator';
 export class EvaluationController {
     constructor(private readonly evaluationService: EvaluationService) { }
 
-    @Post()
+    @Post('with-details')
     @UseGuards(RolePermissionGuard)
     @RequiredService('Create Evaluation')
-    async createEvaluation(@Body() evaluationPayload: CreateEvaluationDto, @GetUser() user: AppUser) {
-        return this.evaluationService.createEvaluation(user.id, evaluationPayload);
-    }
-
-    @Post('details')
-
-    @RequiredService('Create Evaluation')
-    async createDetailsEvaluation(@Body() detailsPayload: { details: CreateDetailEvaluationDto[] }) {
-        return this.evaluationService.createEvaluationDetails(detailsPayload.details);
+    async createEvaluationWithDetails(
+        @Body() evaluationPayload: any,
+        @GetUser() user: AppUser
+    ) {
+        return this.evaluationService.createEvaluationWithDetails(user.id, evaluationPayload);
     }
 }
