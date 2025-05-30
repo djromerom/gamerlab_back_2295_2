@@ -420,7 +420,7 @@ export class ProfessorsService {
       }
       this.logger.error(message, stack);
       throw new InternalServerErrorException(
-        `Failed to deactivate professor ${id}.`, // Mensaje genérico aquí o el message específico
+        `Failed to deactivate professor ${id}.`,
       );
     }
   }
@@ -434,14 +434,31 @@ export class ProfessorsService {
   ) {
     const offset = (page - 1) * limit;
 
-    const nrcSubjectSelect = {
-      code: true,
-      subject: {
-        select: {
-          name: true,
-        },
+    const nrcInfo = await this.prisma.nRC.findFirst({
+      where: {
+        code: nrcCode,
+        professorId: professorId,
+        ...(includeInactive ? {} : { isActive: true }),
       },
-    };
+      select: {
+        code: true,
+        subject: {
+          select: {
+            name: true,
+          },
+        },
+        isActive: true,
+      },
+    });
+
+    if (!nrcInfo) {
+      throw new NotFoundException(
+        `NRC with code ${nrcCode} for the provided professor`,
+      );
+    }
+
+    const subjectName = nrcInfo.subject.name;
+    const actualNrcCode = nrcInfo.code;
 
     const videogameSelect = {
       name: true,
@@ -464,12 +481,10 @@ export class ProfessorsService {
       lastName: true,
       studentCode: true,
       email: true,
-      nrcs: {
-        select: nrcSubjectSelect,
-      },
       team: {
         select: teamSelect,
       },
+      isActive: true,
     };
 
     const memberWhere: Prisma.MemberWhereInput = {
@@ -479,6 +494,7 @@ export class ProfessorsService {
           professorId: professorId,
         },
       },
+      ...(includeInactive ? {} : { isActive: true }),
     };
 
     const [items, totalItems] = await this.prisma.$transaction([
@@ -487,45 +503,36 @@ export class ProfessorsService {
         select: memberSelect,
         skip: offset,
         take: limit,
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       }),
       this.prisma.member.count({
         where: memberWhere,
       }),
     ]);
 
-    const totalPages = Math.ceil(totalItems / limit);
-
-    if (!items || items.length === 0) {
+    if (totalItems === 0) {
       throw new NotFoundException(
-        `No students found for NRC with code ${nrcCode}`,
+        `No students found for NRC ${nrcCode} (Professor: ${professorId}) matching the criteria.`,
       );
     }
 
-    const matchingNRC = items[0].nrcs.find((nrc) => nrc.code === nrcCode);
-
-    if (!matchingNRC) {
-      throw new NotFoundException(
-        `No matching NRC ${nrcCode} found in the student data`,
-      );
-    }
-
-    const subject = matchingNRC.subject.name;
-    const NRC = matchingNRC.code;
-    const report = items.map((i) => {
-      const selectedVideogame = i.team?.videogame;
-      const grade = selectedVideogame?.evaluations?.[0]?.totalScore ?? null;
+    const report = items.map((member) => {
+      const selectedVideogame = member.team?.videogame;
+      const grade = this.calculateAverageGrade(selectedVideogame?.evaluations);
 
       return {
-        NRC,
-        subject,
-        student: `${i.firstName} ${i.lastName}`,
-        email: i.email,
-        studentCode: i.studentCode,
-        team: i.team?.teamName ?? 'No team',
+        NRC: actualNrcCode,
+        subject: subjectName,
+        student: `${member.firstName} ${member.lastName}`,
+        email: member.email,
+        studentCode: member.studentCode,
+        team: member.team?.teamName ?? 'No team',
         videogame: selectedVideogame?.name ?? 'No videogame',
         grade,
       };
     });
+
+    const totalPages = Math.ceil(totalItems / limit);
 
     return {
       data: report,
@@ -544,18 +551,16 @@ export class ProfessorsService {
     includeInactive: boolean,
     limit: number,
     page: number,
-    //professorId: string,
+    professorId: string,
   ) {
     const offset = (page - 1) * limit;
-
-    const evaluationSelect = {
-      totalScore: true,
-    };
 
     const videogameSelect = {
       name: true,
       evaluations: {
-        select: evaluationSelect,
+        select: {
+          totalScore: true,
+        },
       },
     };
 
@@ -567,78 +572,93 @@ export class ProfessorsService {
     };
 
     const memberSelect = {
+      id: true,
       firstName: true,
       lastName: true,
       studentCode: true,
+      email: true,
       team: {
         select: teamSelect,
       },
-    };
-
-    const nrcsSelect = {
-      code: true,
-      members: {
-        select: memberSelect,
-      },
-    };
-
-    const subjectSelect = {
-      name: true,
       nrcs: {
-        select: nrcsSelect,
+        where: {
+          professorId: professorId,
+          subject: {
+            name: subjectName,
+          },
+          ...(includeInactive ? {} : { isActive: true }),
+        },
+        select: {
+          code: true,
+          subject: {
+            select: {
+              name: true,
+            },
+          },
+        },
       },
+      isActive: true,
     };
 
-    const subjectWhere: Prisma.SubjectWhereInput = {
-      name: subjectName,
-      /*nrcs: {
+    const memberWhere: Prisma.MemberWhereInput = {
+      nrcs: {
         some: {
           professorId: professorId,
+          subject: {
+            name: subjectName,
+          },
+          ...(includeInactive ? {} : { isActive: true }),
         },
-      },*/
+      },
+      ...(includeInactive ? {} : { isActive: true }),
     };
 
-    const [items, totalItems] = await this.prisma.$transaction([
-      this.prisma.subject.findMany({
-        where: subjectWhere,
-        select: subjectSelect,
-      }),
-      this.prisma.subject.count({
-        where: subjectWhere,
-      }),
-    ]);
+    const [paginatedMembers, totalUniqueMembers] =
+      await this.prisma.$transaction([
+        this.prisma.member.findMany({
+          where: memberWhere,
+          select: memberSelect,
+          skip: offset,
+          take: limit,
+          orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        }),
+        this.prisma.member.count({
+          where: memberWhere,
+        }),
+      ]);
 
-    const totalPages = Math.ceil(totalItems / limit);
-
-    if (!items) {
-      throw new NotFoundException(`Subject ${subjectName} does not exist`);
+    if (totalUniqueMembers === 0) {
+      throw new NotFoundException(
+        `No students found for subject "${subjectName}" (Professor: ${professorId}) matching activity criteria.`,
+      );
     }
 
-    const reports = [];
-    for (const subject of items) {
-      for (const nrc of subject.nrcs) {
-        for (const member of nrc.members) {
-          const videogame = member.team?.videogame;
-          const grade = videogame?.evaluations?.[0]?.totalScore ?? null;
+    const reportData = [];
+    for (const member of paginatedMembers) {
+      for (const nrc of member.nrcs) {
+        const videogame = member.team?.videogame;
+        const grade = this.calculateAverageGrade(videogame?.evaluations);
 
-          reports.push({
-            NRC: nrc.code,
-            subject: subject.name,
-            student: `${member.firstName} ${member.lastName}`,
-            studentCode: member.studentCode,
-            team: member.team?.teamName ?? 'No team',
-            videogame: videogame?.name ?? 'No videogame',
-            grade,
-          });
-        }
+        reportData.push({
+          NRC: nrc.code,
+          subject: nrc.subject.name,
+          student: `${member.firstName} ${member.lastName}`,
+          email: member.email,
+          studentCode: member.studentCode,
+          team: member.team?.teamName ?? 'No team',
+          videogame: videogame?.name ?? 'No videogame',
+          grade,
+        });
       }
     }
 
+    const totalPages = Math.ceil(totalUniqueMembers / limit);
+
     return {
-      data: reports,
+      data: reportData,
       metadata: {
-        totalItems: totalItems,
-        itemsOnCurrentPage: items.length,
+        totalItems: totalUniqueMembers,
+        itemsOnCurrentPage: paginatedMembers.length,
         currentPage: page,
         itemsPerPage: limit,
         totalPages: totalPages,
@@ -646,7 +666,11 @@ export class ProfessorsService {
     };
   }
 
-  async exportNRCreportToExcel(nrcCode: number, res: Response): Promise<void> {
+  async exportNRCreportToExcel(
+    nrcCode: number,
+    professorId: string,
+    res: Response,
+  ): Promise<void> {
     const nrcSubjectSelect = {
       code: true,
       subject: {
@@ -678,6 +702,7 @@ export class ProfessorsService {
       studentCode: true,
       email: true,
       nrcs: {
+        where: { code: nrcCode, professorId: professorId },
         select: nrcSubjectSelect,
       },
       team: {
@@ -685,35 +710,52 @@ export class ProfessorsService {
       },
     };
 
-    const memberWhere = {
+    const memberWhere: Prisma.MemberWhereInput = {
       nrcs: {
         some: {
           code: nrcCode,
+          professorId: professorId,
         },
       },
     };
 
-    const data = await this.prisma.member.findMany({
+    const members = await this.prisma.member.findMany({
       where: memberWhere,
       select: memberSelect,
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
 
-    const flattenedData = data.map((member) => {
-      const nrc = member.nrcs.find((n) => n.code === nrcCode);
-
-      return {
-        NRC: nrc?.code ?? '',
-        subject: nrc?.subject?.name ?? '',
-        student: `${member.firstName} ${member.lastName}`,
-        email: member.email,
-        studentCode: member.studentCode,
-        team: member.team?.teamName ?? '',
-        videogame: member.team?.videogame?.name ?? '',
-        grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
-      };
+    const nrcDetails = await this.prisma.nRC.findFirst({
+      where: { code: nrcCode, professorId: professorId },
+      select: { subject: { select: { name: true } } },
     });
+
+    if (members.length === 0) {
+      throw new NotFoundException(`No data found for NRC ${nrcCode}`);
+    }
+
+    const flattenedData = members.flatMap((member) => {
+      return member.nrcs.map(nrc => {
+        const videogame = member.team?.videogame;
+        const grade = this.calculateAverageGrade(videogame?.evaluations);
+
+        return {
+          NRC: nrc.code,
+          subject: nrc.subject.name,
+          student: `${member.firstName} ${member.lastName}`,
+          email: member.email,
+          studentCode: member.studentCode,
+          team: member.team?.teamName ?? 'No team',
+          videogame: videogame?.name ?? 'No videogame',
+          grade: grade !== null ? grade.toFixed(2) : 'N/A',
+        };
+      })
+    });
+
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('NRC Report');
+    const worksheet = workbook.addWorksheet(`NRC ${nrcCode} Report`);
+
+    worksheet.addRow([`Report for NRC: ${nrcCode} (Professor ID: ${professorId})`]);
 
     worksheet.columns = [
       { header: 'NRC', key: 'NRC', width: 10 },
@@ -723,10 +765,16 @@ export class ProfessorsService {
       { header: 'Student Code', key: 'studentCode', width: 20 },
       { header: 'Team', key: 'team', width: 20 },
       { header: 'Videogame', key: 'videogame', width: 20 },
-      { header: 'Score', key: 'grade', width: 10 },
+      { header: 'Grade', key: 'grade', width: 10 },
     ];
 
-    flattenedData.forEach((item) => worksheet.addRow(item));
+    if (flattenedData.length > 0) {
+      flattenedData.forEach((item) => worksheet.addRow(item));
+    } else {
+      worksheet.addRow({});
+      worksheet.addRow({ NRC: "No student data found for this report." });
+    }
+
 
     res.setHeader(
       'Content-Type',
@@ -743,16 +791,15 @@ export class ProfessorsService {
 
   async exportSignatureReportToExcel(
     subjectName: string,
+    professorId: string,
     res: Response,
   ): Promise<void> {
-    const evaluationSelect = {
-      totalScore: true,
-    };
-
     const videogameSelect = {
       name: true,
       evaluations: {
-        select: evaluationSelect,
+        select: {
+          totalScore: true,
+        },
       },
     };
 
@@ -763,66 +810,95 @@ export class ProfessorsService {
       },
     };
 
-    const memberSelect = {
+    const memberSelectForExport = {
       firstName: true,
       lastName: true,
       studentCode: true,
+      email: true,
       team: {
         select: teamSelect,
       },
-    };
-
-    const nrcsSelect = {
-      code: true,
-      members: {
-        select: memberSelect,
-      },
-    };
-
-    const subjectSelect = {
-      name: true,
       nrcs: {
-        select: nrcsSelect,
+        where: {
+          professorId: professorId,
+          subject: {
+            name: subjectName,
+          },
+        },
+        select: {
+          code: true,
+          subject: {
+            select: {
+              name: true,
+            },
+          },
+        },
       },
     };
 
-    const subjectWhere = {
-      name: subjectName,
+    const memberWhereForExport: Prisma.MemberWhereInput = {
+      nrcs: {
+        some: {
+          professorId: professorId,
+          subject: {
+            name: subjectName,
+          },
+        },
+      },
     };
 
-    const data = await this.prisma.subject.findMany({
-      where: subjectWhere,
-      select: subjectSelect,
+    const members = await this.prisma.member.findMany({
+      where: memberWhereForExport,
+      select: memberSelectForExport,
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
 
-    const flattenedData = data.flatMap((subject) =>
-      subject.nrcs.flatMap((nrc) =>
-        nrc.members.map((member) => ({
+    if (members.length === 0) {
+      throw new NotFoundException(`No data found for subject ${subjectName} (Professor: ${professorId}) to export.`);
+    }
+
+    const flattenedData = [];
+    for (const member of members) {
+      for (const nrc of member.nrcs) {
+        const videogame = member.team?.videogame;
+        const grade = this.calculateAverageGrade(videogame?.evaluations);
+
+        flattenedData.push({
           NRC: nrc.code,
-          subject: subject.name,
+          subject: nrc.subject.name,
           student: `${member.firstName} ${member.lastName}`,
+          email: member.email,
           studentCode: member.studentCode,
-          team: member.team?.teamName ?? '',
-          videogame: member.team?.videogame?.name ?? '',
-          grade: member.team?.videogame?.evaluations?.[0]?.totalScore ?? '',
-        })),
-      ),
-    );
+          team: member.team?.teamName ?? 'No team',
+          videogame: videogame?.name ?? 'No videogame',
+          grade: grade !== null ? grade.toFixed(2) : 'N/A',
+        });
+      }
+    }
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Subject Report');
+    const worksheet = workbook.addWorksheet(`Subject ${subjectName} Report`);
+
+    worksheet.addRow([`Report for Subject: ${subjectName}`]);
+
 
     worksheet.columns = [
       { header: 'NRC', key: 'NRC', width: 10 },
       { header: 'Subject', key: 'subject', width: 40 },
       { header: 'Student', key: 'student', width: 30 },
+      { header: 'Email', key: 'email', width: 30 },
       { header: 'Student Code', key: 'studentCode', width: 20 },
       { header: 'Team', key: 'team', width: 20 },
       { header: 'Videogame', key: 'videogame', width: 20 },
-      { header: 'Score', key: 'grade', width: 10 },
+      { header: 'Grade', key: 'grade', width: 10 },
     ];
 
-    flattenedData.forEach((item) => worksheet.addRow(item));
+    if (flattenedData.length > 0) {
+      flattenedData.forEach((item) => worksheet.addRow(item));
+    } else {
+      worksheet.addRow({});
+      worksheet.addRow({ NRC: "No student data found for this report." });
+    }
 
     res.setHeader(
       'Content-Type',
@@ -830,10 +906,31 @@ export class ProfessorsService {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=subject-report-${subjectName}.xlsx`,
+      `attachment; filename=subject-report-${subjectName.replace(/\s+/g, '_')}-${professorId}.xlsx`,
     );
 
     await workbook.xlsx.write(res);
     res.end();
+  }
+
+
+  private calculateAverageGrade(
+    evaluations: { totalScore: number | null }[] | undefined | null,
+  ): number | null {
+    if (!evaluations || evaluations.length === 0) {
+      return null;
+    }
+    let sum = 0;
+    // TODO: If we need to count only non-null evaluations then use
+    // this variable for calculating the average
+    let validScoresCount = 0;
+    for (const evaluation of evaluations) {
+      if (evaluation.totalScore !== null) {
+        sum += evaluation.totalScore;
+        validScoresCount++;
+      }
+    }
+    if (evaluations.length === 0) return null;
+    return sum / evaluations.length;
   }
 }
