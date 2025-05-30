@@ -3,7 +3,6 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { Body, Controller, Post } from '@nestjs/common';
 import { EvaluationService } from './evaluation.service';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
-import { CreateDetailEvaluationDto } from './dto/createEvaluationDetails.dto';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { AppUser } from 'src/auth/supabase.strategy';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
@@ -16,7 +15,7 @@ export class EvaluationController {
     @UseGuards(RolePermissionGuard)
     @RequiredService('Create Evaluation')
     async createEvaluationWithDetails(
-        @Body() evaluationPayload: any,
+        @Body() evaluationPayload: CreateEvaluationDto,
         @GetUser() user: AppUser
     ) {
         return this.evaluationService.createEvaluationWithDetails(user.id, evaluationPayload);

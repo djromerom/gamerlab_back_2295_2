@@ -29,7 +29,7 @@ import { RequiredService } from 'src/auth/decorators/required-service.decorator'
 
 @Controller('professors')
 export class ProfessorsController {
-  constructor(private readonly professorsService: ProfessorsService) {}
+  constructor(private readonly professorsService: ProfessorsService) { }
 
   @Post()
   @UseGuards(RolePermissionGuard)
@@ -119,9 +119,10 @@ export class ProfessorsController {
   @Get('exportNRC/:nrcCode')
   async exportNRCReportToExcel(
     @Param('nrcCode', ParseIntPipe) nrcCode: number,
+    @GetUser('id') professorId: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.professorsService.exportNRCreportToExcel(nrcCode, res);
+    await this.professorsService.exportNRCreportToExcel(nrcCode, professorId, res);
   }
 
   @Get('signature-report/:subjectName')
@@ -130,7 +131,7 @@ export class ProfessorsController {
   async getSignatureReport(
     @Param('subjectName') subjectName: string,
     @Query() query: PaginationQueryDto,
-    //@GetUser('id') professorId: string,
+    @GetUser('id') professorId: string,
   ) {
     const { includeInactive, limit, page } = query;
     return this.professorsService.GetSignatureReport(
@@ -138,7 +139,7 @@ export class ProfessorsController {
       includeInactive,
       limit,
       page,
-      //professorId,
+      professorId,
     );
   }
 
@@ -147,8 +148,9 @@ export class ProfessorsController {
   @RequiredService('ExportToExcel')
   async exportSignatureReport(
     @Param('subjectName') subjectName: string,
+    @GetUser('id') professorId: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.professorsService.exportSignatureReportToExcel(subjectName, res);
+    await this.professorsService.exportSignatureReportToExcel(subjectName, professorId, res);
   }
 }
