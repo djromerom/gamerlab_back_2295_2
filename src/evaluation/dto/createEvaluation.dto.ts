@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsString, IsNumber, IsISO8601, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsInt, IsString, IsNumber, IsISO8601, IsNotEmpty, IsOptional, IsArray } from 'class-validator';
+import { CreateDetailEvaluationDto } from './createEvaluationDetails.dto';
 
 export class CreateEvaluationDto {
     @Type(() => IsISO8601)
@@ -16,10 +17,14 @@ export class CreateEvaluationDto {
     @IsNotEmpty()
     videogameId: number;
 
-    @Type(() => Number)   
+    @Type(() => Number)
     @IsNumber()
     @IsNotEmpty()
     totalScore: number;
 
-  
+    @IsArray()
+    @IsNotEmpty()
+    details: CreateDetailEvaluationDto[];
+
+
 }

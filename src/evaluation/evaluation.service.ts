@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForbiddenException } from '@nestjs/common';
+import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 
 
 @Injectable()
 export class EvaluationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
@@ -18,7 +19,7 @@ export class EvaluationService {
    * @param jurorId string
    * @param evaluationPayload objeto con date, comments, videogameId, totalScore, details (array)
    */
-  async createEvaluationWithDetails(jurorId: string, evaluationPayload: any) {
+  async createEvaluationWithDetails(jurorId: string, evaluationPayload: CreateEvaluationDto) {
     await this.checkEvaluationsOpen();
     const { date, comments, videogameId, totalScore, details } = evaluationPayload;
 
