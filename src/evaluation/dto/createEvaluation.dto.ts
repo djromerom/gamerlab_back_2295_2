@@ -22,5 +22,4 @@ export class CreateEvaluationDto {
     @ValidateNested({ each: true })
     details: CreateDetailEvaluationDto[];
 
-
 }
