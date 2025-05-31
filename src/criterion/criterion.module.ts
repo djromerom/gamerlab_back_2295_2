@@ -5,5 +5,6 @@ import { CriterionController } from './criterion.controller';
 @Module({
   controllers: [CriterionController],
   providers: [CriterionService],
+  exports: [CriterionService],
 })
 export class CriterionModule {}
