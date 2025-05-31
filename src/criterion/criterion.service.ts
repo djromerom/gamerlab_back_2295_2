@@ -62,7 +62,7 @@ export class CriterionService {
   async findForSelect(): Promise<SelectOption[]> {
     const criterions = this.prisma.criterion.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, weight: true, description: true },
     });
 
     return criterions;

@@ -1,12 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForbiddenException } from '@nestjs/common';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
+import { CriterionService } from 'src/criterion/criterion.service';
 
 
 @Injectable()
 export class EvaluationService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService,
+     private readonly criterionService: CriterionService
+  ) { }
 
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
@@ -21,26 +24,54 @@ export class EvaluationService {
    */
   async createEvaluationWithDetails(jurorId: string, evaluationPayload: CreateEvaluationDto) {
     await this.checkEvaluationsOpen();
-    const { date, comments, videogameId, totalScore, details } = evaluationPayload;
+    const { date, comments, videogameId, details } = evaluationPayload;
+    
+    const activeCriteria = await this.criterionService.findForSelect();
 
-    // Mapea los detalles para la relación
-    const detailsData = details.map((detail: any) => ({
-      criterionId: detail.criterionId,
-      score: detail.score,
-      createdAt: new Date(detail.createdAt),
-      updatedAt: new Date(detail.updatedAt),
-      isActive: detail.isActive ?? true,
-    }));
+    if (!activeCriteria || activeCriteria.length === 0) {
+      throw new BadRequestException('No active evaluation criteria found.');
+    }
 
-    // Crea la evaluación y los detalles en una sola consulta
+    const criteriaWeightMap = new Map<number, number>();
+    activeCriteria.forEach(criterion => {
+      criteriaWeightMap.set(criterion.id, criterion.weight ?? 0);
+    });
+
+    let calculatedTotalScore = 0;
+
+    const detailsData = details.map(detail => {
+      const weight = criteriaWeightMap.get(detail.criterionId);
+      if (weight === undefined) {
+        throw new BadRequestException(
+          `Criterion with id ${detail.criterionId} is not valid or not active.`,
+        );
+      }
+      if (detail.score < 1 || detail.score > 5) {
+         throw new BadRequestException(
+          `Score for criterion ${detail.criterionId} is out of range (1-5). Score: ${detail.score}`,
+        );
+      }
+      calculatedTotalScore += detail.score * weight;
+      
+      return {
+        criterionId: detail.criterionId,
+        score: detail.score,
+        createdAt: new Date(detail.createdAt),
+        updatedAt: new Date(detail.updatedAt),
+        isActive: detail.isActive ?? true,
+      };
+    });
+    
+    calculatedTotalScore = parseFloat(calculatedTotalScore.toFixed(4));
+
     const evaluation = await this.prisma.evaluation.create({
       data: {
         jurorId,
         date: new Date(date),
         comments,
         videogameId,
-        totalScore,
-        editionId: 1,
+        totalScore: calculatedTotalScore,
+        editionId: 1, // Assuming a fixed editionId for now
         details: {
           create: detailsData,
         },
