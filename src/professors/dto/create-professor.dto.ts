@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class CreateProfessorDto {
   @IsString()
@@ -9,6 +10,7 @@ export class CreateProfessorDto {
   @IsNotEmpty()
   lastName: string;
 
+  @Transform(({ value }) => value && typeof value === 'string' ? value.toLowerCase() : value)
   @IsString()
   @IsNotEmpty()
   email: string;
