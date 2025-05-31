@@ -5,11 +5,6 @@ export class CreateDetailEvaluationDto {
     @Type(() => Number)
     @IsInt()
     @IsNotEmpty()
-    evaluationId: number;
-
-    @Type(() => Number)
-    @IsInt()
-    @IsNotEmpty()
     criterionId: number;
 
     @Type(() => Number)
