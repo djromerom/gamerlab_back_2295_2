@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { StudentsEvaluations, StudentsGrade } from "./types/students.type";
+import { StudentsEvaluations, StudentsGrade, Members } from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Member, Prisma } from "@prisma/client";
 
 @Injectable()
 export class StudentsService {
-    constructor(private readonly prisma: PrismaService) { }
+
+    constructor(private readonly prisma: PrismaService) {}
 
     async editNrc(
         userId: string,
@@ -78,11 +79,13 @@ export class StudentsService {
             console.error('Failed to set NRCs for member:', error);
             throw new InternalServerErrorException('An error occurred while updating member NRCs.');
         }
+
     }
 
 
     async getMembers(
         userId: string,
+
     ): Promise<Member[]> {
 
         const whereClause: Prisma.MemberWhereInput = {
@@ -112,7 +115,6 @@ export class StudentsService {
         if (members.length === 0) {
             throw new NotFoundException("No members found for this team");
         }
-
 
         return members
     }

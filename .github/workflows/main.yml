@@ -1,94 +1,57 @@
-name: back-test
+name: Deploy_back
+
+# Controls when the action will run. 
 on:
+  # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches:
-      - test
-  pull_request:
-    branches:
-      - test
-      
-permissions:
-  contents: write
+    branches: [ main ]
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  test:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: testdb
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - name: Install dependencies
-        run: npm install
-      - name: Run tests
-        run: |
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
-            npm run test:main
-          else
-            echo "run testing"
-          fi
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Install dependencies
+      run: npm install
 
-  docker-image:
-    runs-on: ubuntu-latest
-    needs: test  
-    if: github.ref == 'refs/heads/test' && success()
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Git Pull
-        run: git pull
-
-      - name: Read and bump version
-        id: versioning
-        run: |
-          VERSION_FILE=version.txt
-          if [ ! -f "$VERSION_FILE" ]; then
-            echo 0 > $VERSION_FILE
-          fi
-          VERSION=$(cat $VERSION_FILE)
-          echo "Current version: v$VERSION"
-          echo "version=v$VERSION" >> $GITHUB_OUTPUT
-          echo $((VERSION + 1)) > $VERSION_FILE
-          
-      - name: Git Auto Commit
-        uses: stefanzweifel/git-auto-commit-action@v5.2.0
-        with:
-            commit_message: Update version.txt
-            branch: test
-            commit_user_name: CamiloDlRM [GITHUB-ACTIONS]
-            commit_user_email: zinbak78@gmail.com
-            commit_author: CamiloDlRM <zinbak78@gmail.com>
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Build Docker image
-        run: docker build -t arkadapi-image .
-
-      - name: Tag Docker image
-        run: |
-          docker tag arkadapi-image ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-${{ steps.versioning.outputs.version }}
-
-      - name: Push Docker image
-        run: | 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-${{ steps.versioning.outputs.version }}
+       
+    - name: Deploy using ssh
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          cd /home/proyecto/Arkad-Api
+          git pull origin main
+          git status
+          docker stop arkadn-api
+          docker rm arkadn-api
+          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} --build-arg DIRECT_URL=${{ secrets.DIRECT_URL_PROD }}  -f Dockerfile -t arkadn-api-image . || { echo "Docker build failed"; exit 1; }
+          docker run -d \
+          --restart=unless-stopped \
+          -p 5036:3000 \
+          -e DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} \
+          -e DIRECT_URL=${{ secrets.DIRECT_URL_PROD }} \
+          -e SUPABASE_URL=${{ secrets.SUPABASE_URL_PROD }} \
+          -e SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET_PROD }} \
+          -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY_PROD }} \
+          -e REGISTRATION_REDIRECT_URL=${{ secrets.REGISTRATION_REDIRECT_URL }} \
+          -e RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }} \
+          -e EMAIL_PUBLIC_API_KEY=${{ secrets.EMAIL_PUBLIC_API_KEY }} \
+          -e EMAIL_PRIVATE_API_KEY=${{ secrets.EMAIL_PRIVATE_API_KEY }} \
+          -e EMAIL_SERVICE_ID=${{ secrets.EMAIL_SERVICE_ID }} \
+          -e EMAIL_CONFIRMATION_TEMPLATE=${{ secrets.EMAIL_CONFIRMATION_TEMPLATE }} \
+          -e FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }} \
+          -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
+          --name arkadn-api \
+          arkadn-api-image
+          docker ps || echo "No running containers"
