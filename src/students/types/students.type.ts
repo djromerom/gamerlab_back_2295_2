@@ -24,3 +24,4 @@ export class Members {
   nrc: {
     code: string;
   };
+}
