@@ -14,3 +14,13 @@ export class StudentsEvaluations {
 export class StudentsGrade {
   grade: number;
 }
+
+export class Members {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  studentCode: string;
+  nrc: {
+    code: string;
+  };
