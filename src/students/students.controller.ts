@@ -1,50 +1,60 @@
 import {
   Controller,
   Get,
-  Post,
   Body,
   Query,
   Param,
   Patch,
-  Delete,
   ParseIntPipe,
-  ParseBoolPipe,
-  DefaultValuePipe
+  UseGuards,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
-import { Prisma, Member } from '@prisma/client';
-import { Public } from 'src/auth/decorators/public.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { Member } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { StudentsEvaluations, StudentsGrade } from './types/students.type';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { EditNrcDto } from './dto/editNrc.dto';
+import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 
 @Controller('students')
 export class StudentsController {
-    constructor(private readonly studentsService: StudentsService) {}
-    
-    @Get()
-    findAll(@GetUser('id') id: string, @Query('page') page : number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<StudentsEvaluations>> {
-        return this.studentsService.getStudentsEvaluations(page, limit, id);
-    }
+  constructor(private readonly studentsService: StudentsService) { }
 
-    @Get('/grades')
-    findGrades(@GetUser('id') id: string): Promise<StudentsGrade> {
-        return this.studentsService.getStudentsGrades(id);
-    }
+  @Get()
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MyEvaluations')
+  findAll(
+    @GetUser('id') id: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ): Promise<PaginatedResult<StudentsEvaluations>> {
+    return this.studentsService.getStudentsEvaluations(page, limit, id);
+  }
 
-    // @Get('/members')
-    // findAllMembers(@GetUser('id') id: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10): Promise<PaginatedResult<Members>> {
-    //     return this.studentsService.getMembers(id, page, limit);
-    // }
+  @Get('/grades')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MyGeneralGrade')
+  findGrades(@GetUser('id') id: string): Promise<StudentsGrade> {
+    return this.studentsService.getStudentsGrades(id);
+  }
 
-    // @Post('/members/:memberId/nrcs')
-    // async editNrc(
-    //     @GetUser('id') id: string,
-    //     @Param('memberId', ParseIntPipe) memberId: number,
-    //     @Body('nrcCodeEdit', ParseIntPipe) nrcCodeEdit: number,
-    //     @Body('nrcCodeNew', ParseIntPipe) nrcCodeNew: number
-    // ): Promise<boolean> {
-    //     return this.studentsService.editNrc(id, memberId, nrcCodeEdit, nrcCodeNew);
-    // }
+  @Get('/members')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MyTeamMembers')
+  findAllMembers(@GetUser('id') id: string): Promise<Member[]> {
+    return this.studentsService.getMembers(id);
+  }
+
+  @Patch('/members/:memberId/nrcs')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('EditMemberNrc')
+  async editNrc(
+    @GetUser('id') id: string,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @Body() body: EditNrcDto,
+  ): Promise<Member> {
+    return this.studentsService.editNrc(id, memberId, body.nrcCodes);
+  }
+
 }

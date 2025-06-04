@@ -1,5 +1,3 @@
-/* eslint-disable prettier/prettier */
-// src/teams/controllers/teams.controller.ts
 import {
   Controller,
   Get,
@@ -8,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -15,6 +14,9 @@ import { UpdateTeamDto } from '../dto/update-team.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { CheckTeamName } from '../dto/check-team-name.dto';
+import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+
 
 @Controller('teams')
 export class TeamsController {
@@ -27,6 +29,8 @@ export class TeamsController {
   }
 
   @Get()
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListTeams')
   findAll() {
     return this.teamsService.findAll();
   }
@@ -51,16 +55,22 @@ export class TeamsController {
   }
 
   @Get(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('GetTeam')
   findOne(@Param('id') id: string) {
     return this.teamsService.findOne(+id);
   }
 
   @Patch(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
   update(@Param('id') id: string, @Body() updateTeamDto: UpdateTeamDto) {
     return this.teamsService.update(+id, updateTeamDto);
   }
 
   @Delete(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('DeleteTeam')
   remove(@Param('id') id: string) {
     return this.teamsService.remove(+id);
   }

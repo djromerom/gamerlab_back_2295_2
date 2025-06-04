@@ -1,4 +1,5 @@
-import { IsString, IsEmail, IsNotEmpty, MaxLength, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsString, IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
 
 export class CreateJurorDto {
   @MaxLength(50)
@@ -11,11 +12,9 @@ export class CreateJurorDto {
   @IsNotEmpty()
   lastName: string;
 
+  @Transform(({ value }) => value && typeof value === 'string' ? value.toLowerCase() : value)
   @IsNotEmpty()
   @IsEmail()
   @IsString()
-  @Matches(/^[\w.-]+@uninorte\.edu\.co$/, {
-    message: 'Email must be a valid @uninorte.edu.co address',
-  })
   email: string;
 }
