@@ -56,4 +56,5 @@ export class StudentsController {
   ): Promise<Member> {
     return this.studentsService.editNrc(id, memberId, body.nrcCodes);
   }
+
 }
