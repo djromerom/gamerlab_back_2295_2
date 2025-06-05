@@ -365,7 +365,6 @@ export class JurorService {
         where: {
           isActive: true,
           roleId: this.jurorRoleId, // Rol jurado
-          confirmationStatusId: this.confirmedStatusId, // Confirmado
         },
         select: {
           id: true,
