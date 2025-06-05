@@ -1,8 +1,7 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseInterceptors } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
-import { CreateReportDto } from './dto/create-report.dto';
-import { UpdateReportDto } from './dto/update-report.dto';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Public } from 'src/auth/decorators/public.decorator';
 import * as ExcelJS from 'exceljs';
 
@@ -11,6 +10,8 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) { }
 
   @Public()
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(600000)
   @Get('videojuegoData')
   async getWithMateriaYNRC() {
     return this.reportsService.getVideogamesData();

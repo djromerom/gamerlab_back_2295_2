@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  HttpCode,
 } from '@nestjs/common';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -23,9 +24,10 @@ export class TeamsController {
   constructor(private readonly teamsService: TeamsService) { }
 
   @Public()
+  @HttpCode(400)
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
-    return this.teamsService.create(createTeamDto);
+    return 'Registrations are closed';
   }
 
   @Get()

@@ -59,7 +59,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     this.logger.log(
@@ -169,50 +169,61 @@ export class AuthService {
     }
   }
 
-async resetTokenExpiration(userId: string): Promise<void> {
+  async resetTokenExpiration(userId: string): Promise<void> {
     try {
-        // Buscar el token de verificación para el usuario
-        const token = await this.prisma.verificationToken.findFirst({
-            where: {
-                userId: userId,
-                tokenTypeId: this.verificationTokenId
-            }
-        });
-        if (!token) {
-            this.logger.warn(`No verification token found for this user`);
-            throw new NotFoundException('No verification token found for this user');
-        }
-        // Calcular nueva fecha de expiración (ahora + 1 día) en la zona horaria local
-        const now = new Date();
-        const newExpirationDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        // Formatear la fecha manualmente para evitar problemas con UTC
-        const year = newExpirationDate.getFullYear();
-        const month = String(newExpirationDate.getMonth() + 1).padStart(2, '0');
-        const day = String(newExpirationDate.getDate()).padStart(2, '0');
-        const hours = String(newExpirationDate.getHours()).padStart(2, '0');
-        const minutes = String(newExpirationDate.getMinutes()).padStart(2, '0');
-        const seconds = String(newExpirationDate.getSeconds()).padStart(2, '0');
-        const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.000`;
-        // Actualizar la fecha de expiración
-        await this.prisma.verificationToken.update({
-            where: { id: token.id },
-            data: { 
-                expiresAt: new Date(formattedDate) 
-            }
-        });
-        this.logger.log(`Token expiration reset successfully for user ID: ${userId}. New expiration: ${formattedDate}`);
+      // Buscar el token de verificación para el usuario
+      const token = await this.prisma.verificationToken.findFirst({
+        where: {
+          userId: userId,
+          tokenTypeId: this.verificationTokenId,
+        },
+      });
+      if (!token) {
+        this.logger.warn(`No verification token found for this user`);
+        throw new NotFoundException(
+          'No verification token found for this user',
+        );
+      }
+      // Calcular nueva fecha de expiración (ahora + 1 día) en la zona horaria local
+      const now = new Date();
+      const newExpirationDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      // Formatear la fecha manualmente para evitar problemas con UTC
+      const year = newExpirationDate.getFullYear();
+      const month = String(newExpirationDate.getMonth() + 1).padStart(2, '0');
+      const day = String(newExpirationDate.getDate()).padStart(2, '0');
+      const hours = String(newExpirationDate.getHours()).padStart(2, '0');
+      const minutes = String(newExpirationDate.getMinutes()).padStart(2, '0');
+      const seconds = String(newExpirationDate.getSeconds()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.000`;
+      // Actualizar la fecha de expiración
+      await this.prisma.verificationToken.update({
+        where: { id: token.id },
+        data: {
+          expiresAt: new Date(formattedDate),
+        },
+      });
+      this.logger.log(
+        `Token expiration reset successfully for user ID: ${userId}. New expiration: ${formattedDate}`,
+      );
     } catch (error) {
-        if (error instanceof NotFoundException) {
-            throw error;
-        }
-        if (error instanceof Error) {
-            this.logger.error(`Error resetting token expiration for user ${userId}: ${error.message}`, error.stack);
-        } else {
-            this.logger.error(`Unknown error resetting token expiration for user ${userId}`);
-        }
-        throw new InternalServerErrorException('Error resetting token expiration');
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof Error) {
+        this.logger.error(
+          `Error resetting token expiration for user ${userId}: ${error.message}`,
+          error.stack,
+        );
+      } else {
+        this.logger.error(
+          `Unknown error resetting token expiration for user ${userId}`,
+        );
+      }
+      throw new InternalServerErrorException(
+        'Error resetting token expiration',
+      );
     }
-}
+  }
 
   async setUserPassword(token: string, newPassword: string): Promise<void> {
     this.logger.log(
@@ -557,7 +568,10 @@ async resetTokenExpiration(userId: string): Promise<void> {
   /**
    * Refreshes the session using the refresh token from cookies.
    */
-  async refresh(req: Request, res: Response): Promise<{ message: string }> {
+  async refresh(
+    req: Request,
+    res: Response,
+  ): Promise<{ message: string; accessToken: string }> {
     const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (!refreshToken) {
       this.logger.warn('Refresh attempt without refresh token cookie.');
@@ -565,6 +579,8 @@ async resetTokenExpiration(userId: string): Promise<void> {
     }
 
     this.logger.log('Attempting to refresh session using refresh token.');
+    let tokenFromSupabase: string | undefined;
+
     try {
       const { data, error } = await this.supabase.auth.refreshSession({
         refresh_token: refreshToken,
@@ -572,7 +588,6 @@ async resetTokenExpiration(userId: string): Promise<void> {
 
       if (error) {
         this.logger.warn(`Supabase refreshSession failed: ${error.message}`);
-        // If refresh fails (e.g., token expired/invalid), we clear cookies and require login
         this.clearAuthCookies(res);
         throw new UnauthorizedException('Invalid or expired refresh token.');
       }
@@ -597,8 +612,9 @@ async resetTokenExpiration(userId: string): Promise<void> {
         );
       }
 
-      // We set the new tokens in cookies
-      this.setAuthCookies(res, access_token, new_refresh_token);
+      tokenFromSupabase = access_token;
+
+      this.setAuthCookies(res, tokenFromSupabase, new_refresh_token);
       this.logger.log('Session refreshed successfully.');
     } catch (error) {
       if (
@@ -613,13 +629,27 @@ async resetTokenExpiration(userId: string): Promise<void> {
           `Unexpected error during session refresh: ${error.message}`,
           error.stack,
         );
-        this.clearAuthCookies(res); // When unexpected errors occurs we clear the cookies
+        this.clearAuthCookies(res);
         throw new InternalServerErrorException(
           'An unexpected error occurred during session refresh.',
         );
       }
+      this.clearAuthCookies(res);
+      throw new InternalServerErrorException(
+        'An unknown error occurred during session refresh.',
+      );
     }
-    return { message: 'Session refreshed' };
+
+    if (tokenFromSupabase === undefined) {
+      this.logger.error(
+        'CRITICAL: tokenFromSupabase is undefined before returning from refresh. This indicates a logic flaw.',
+      );
+      throw new InternalServerErrorException(
+        'Failed to define token for frontend response despite no error thrown.',
+      );
+    }
+
+    return { message: 'Session refreshed', accessToken: tokenFromSupabase };
   }
 
   /**
