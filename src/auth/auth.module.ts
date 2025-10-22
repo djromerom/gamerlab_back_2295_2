@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { SUPABASE_CLIENT } from './auth.constants';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CacheModule } from 'src/cache/cache.module';
+import { JwtModule } from '@nestjs/jwt';
 
 const supabaseProvider: Provider = {
   provide: SUPABASE_CLIENT,
@@ -27,7 +28,14 @@ const supabaseProvider: Provider = {
 };
 
 @Module({
-  imports: [PassportModule, CacheModule],
+  imports: [
+    PassportModule, 
+    CacheModule,
+    JwtModule.register({
+      secret: process.env.SUPABASE_JWT_SECRET,
+      signOptions: { expiresIn: '15m' },
+    }),
+  ],
   providers: [AuthService, SupabaseStrategy, supabaseProvider, JwtStrategy],
   exports: [AuthService, SupabaseStrategy, SUPABASE_CLIENT],
   controllers: [AuthController],

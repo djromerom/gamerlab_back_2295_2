@@ -29,6 +29,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CacheService } from 'src/cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -59,6 +60,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
+    private readonly jwtService: JwtService,
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
   ) {}
 
@@ -226,6 +228,7 @@ export class AuthService {
     }
   }
 
+  // done locally
   async setUserPassword(token: string, newPassword: string): Promise<void> {
     this.logger.log(
       `Attempting to set password using token: ${token ? token.substring(0, 8) + '...' : 'UNDEFINED'}`,
@@ -466,82 +469,46 @@ export class AuthService {
 
   async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
-    let supabaseSessionData;
-    try {
-      const { data, error } = await this.supabase.auth.signInWithPassword({
-        email: loginDto.email,
-        password: loginDto.password,
-      });
+    
+    // Find user in local database
+    const user = await this.prisma.user.findUnique({
+      where: { email: loginDto.email },
+      include: {
+        confirmationStatus: true,
+        role: true,
+      },
+    });
 
-      if (error) {
-        this.handleSupabaseError(error, 'signInWithPassword');
-      }
-      if (!data?.session || !data?.user) {
-        this.logger.error(
-          'Supabase signInWithPassword returned no session or user data.',
-        );
-        throw new InternalServerErrorException(
-          'Login failed: Incomplete data from auth provider.',
-        );
-      }
-
-      supabaseSessionData = data;
-      this.logger.log(`Supabase login successful for: ${loginDto.email}`);
-    } catch (error) {
-      if (
-        error instanceof UnauthorizedException ||
-        error instanceof InternalServerErrorException
-      ) {
-        throw error;
-      }
-
-      if (error instanceof Error) {
-        this.logger.error(
-          `Unexpected error during Supabase login: ${error.message}`,
-          error.stack,
-        );
-        throw new InternalServerErrorException(
-          'An unexpected error occurred during login.',
-        );
-      }
+    if (!user) {
+      this.logger.warn(`Login attempt failed: User not found for email: ${loginDto.email}`);
+      throw new UnauthorizedException('Invalid credentials.');
     }
 
-    const supabaseUserForSync = {
-      sub: supabaseSessionData!.user.id,
-      email: supabaseSessionData!.user.email,
-    };
-
-    let localUser: User;
-    try {
-      localUser = await this.syncSupabaseUser(supabaseUserForSync);
-      this.logger.log(`Local user sync successful for: ${localUser.email}`);
-    } catch (error) {
-      // If sync fails (e.g., user not found locally, DB error, or became inactive), we don't proceed.
-      await this.supabase.auth.signOut(); // Sign out the potentially just signed-in Supabase session
-      if (
-        error instanceof InternalServerErrorException ||
-        error instanceof UnauthorizedException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        'Login failed due to user profile inconsistency.',
-      );
+    if (!user.password) {
+      this.logger.warn(`Login attempt failed: User ${loginDto.email} has no password set`);
+      throw new UnauthorizedException('Invalid credentials.');
     }
 
-    const { access_token, refresh_token } = supabaseSessionData!.session;
-    if (!access_token || !refresh_token) {
-      this.logger.error(
-        'Supabase session data missing access or refresh token.',
-      );
-      await this.supabase.auth.signOut();
-      throw new InternalServerErrorException(
-        'Login failed: Incomplete token data from auth provider.',
-      );
+    // Verify password using bcrypt
+    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    if (!isPasswordValid) {
+      this.logger.warn(`Login attempt failed: Invalid password for user: ${loginDto.email}`);
+      throw new UnauthorizedException('Invalid credentials.');
     }
 
-    this.setAuthCookies(res, access_token, refresh_token);
-    this.logger.log(`Auth cookies set for user: ${localUser.email}`);
+    // Check if user is active
+    if (!user.isActive) {
+      this.logger.warn(`Login attempt failed: User ${loginDto.email} is inactive`);
+      throw new UnauthorizedException('User account is currently inactive.');
+    }
+
+    // Generate JWT tokens
+    const payload = { sub: user.id, email: user.email };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    this.setAuthCookies(res, accessToken, refreshToken);
+    this.logger.log(`Local authentication successful for user: ${loginDto.email}`);
 
     this.updateLastSignIn(loginDto.email);
 
