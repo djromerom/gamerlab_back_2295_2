@@ -28,6 +28,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CacheService } from 'src/cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
+import * as bcrypt from 'bcrypt';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -260,26 +261,25 @@ export class AuthService {
     );
 
     try {
-      const { data, error: adminUpdateError } =
-        await this.supabase.auth.admin.updateUserById(userId, {
-          password: newPassword,
-          email_confirm: true,
-        });
+      // Hash the password locally instead of using Supabase
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      
+      // Update the user's password in our local database
+      const updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: { 
+          password: hashedPassword,
+          confirmationStatusId: this.confirmedStatusId,
+          isActive: true,
+        },
+      });
 
-      if (adminUpdateError) {
-        this.logger.error(
-          `Supabase admin updateUserById error for user ${userId}: ${adminUpdateError.message}`,
-          adminUpdateError,
-        );
-        throw new InternalServerErrorException(
-          `There was an error updating the password: ${adminUpdateError.message}`,
-        );
-      }
-
-      if (!data?.user) {
+      if (!updatedUser) {
         this.logger.warn(
-          `Supabase admin updateUserById for user ${userId} completed but returned no user data.`,
+          `Local user update for user ${userId} failed - user not found.`,
         );
+        throw new NotFoundException('User not found.');
       }
 
       this.logger.log(
