@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: arkad_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: arkad_db
+      POSTGRES_USER: arkad_user
+      POSTGRES_PASSWORD: arkad_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arkad_user -d arkad_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: arkad_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://arkad_user:arkad_password@postgres:5432/arkad_db
+      - DIRECT_URL=postgresql://arkad_user:arkad_password@postgres:5432/arkad_db
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        npx prisma migrate deploy &&
+        echo 'Database migrations completed' &&
+        node dist/main.js
+      "
+
+volumes:
+  postgres_data:

@@ -30,25 +30,27 @@ model EventConfiguration {
 }
 
 model TokenType {
-  id                 Int      @id @default(autoincrement())
-  type               String   @unique @map("tipo")
-  isActive           Boolean  @default(true) @map("activo")
-  createdAt          DateTime @default(now()) @map("creado_en")
-  updatedAt          DateTime @updatedAt @map("actualizado_en")
+  id                 Int                 @id @default(autoincrement())
+  type               String              @unique @map("tipo")
+  isActive           Boolean             @default(true) @map("activo")
+  createdAt          DateTime            @default(now()) @map("creado_en")
+  updatedAt          DateTime            @updatedAt @map("actualizado_en")
   verificationTokens VerificationToken[]
+
   @@map("tipo_token")
 }
 
 model VerificationToken {
-  id          String   @id @default(uuid())
-  token       String   @unique
+  id          String    @id @default(uuid())
+  token       String    @unique
   email       String
-  userId      String   @map("user_id")
-  tokenTypeId Int      @map("tipo_id")
+  userId      String    @map("user_id")
+  tokenTypeId Int       @map("tipo_id")
+  expiresAt   DateTime  @map("expira_en")
+  createdAt   DateTime  @default(now()) @map("creado_en")
+  updatedAt   DateTime  @updatedAt @map("actualizado_en")
   type        TokenType @relation(fields: [tokenTypeId], references: [id])
-  expiresAt   DateTime @map("expira_en")
-  createdAt   DateTime @default(now()) @map("creado_en")
-  updatedAt   DateTime @updatedAt @map("actualizado_en")
+
   @@index([email, tokenTypeId])
   @@map("token_verificacion")
 }
@@ -134,13 +136,14 @@ model User {
   id                   String             @id @default(uuid()) @map("id_usuario")
   email                String             @unique @map("correo") @db.VarChar(50)
   confirmationStatusId Int                @default(2) @map("id_estado_confirmacion")
+  password             String?            @map("contrasena")
   isActive             Boolean            @default(true) @map("activo")
   roleId               Int                @map("id_rol")
   createdAt            DateTime           @default(now()) @map("creado_en")
   updatedAt            DateTime           @updatedAt @map("actualizado_en")
   lastSignInAt         DateTime           @default(now()) @map("ultimoInicioSesion")
-  lastName             String             @db.VarChar(50)
   firstName            String             @db.VarChar(50)
+  lastName             String             @db.VarChar(50)
   createdTeam          Team?              @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
   managedNrcs          NRC[]              @relation("ProfessorNRC")

@@ -202,17 +202,7 @@ export class JurorService {
         skip: offset,
         take: limit,
         orderBy: { lastName: 'asc' },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          confirmationStatusId: true,
-          isActive: true,
-          roleId: true,
-          createdAt: true,
-          updatedAt: true,
-          lastSignInAt: true,
+        include: {
           evaluationsSubmitted: {
             select: { videogame: { select: { id: true, name: true } } },
           },
