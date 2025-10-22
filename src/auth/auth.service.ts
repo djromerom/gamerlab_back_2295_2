@@ -467,6 +467,7 @@ export class AuthService {
     return user!;
   }
 
+  // done locally
   async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
     
