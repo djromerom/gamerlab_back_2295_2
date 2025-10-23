@@ -509,7 +509,6 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     this.setAuthCookies(res, accessToken, refreshToken);
-    console.log(`accessToken: ${accessToken}, refreshToken: ${refreshToken}`);
     this.logger.log(`Local authentication successful for user: ${loginDto.email}`);
 
     this.updateLastSignIn(loginDto.email);
