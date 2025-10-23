@@ -509,6 +509,7 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     this.setAuthCookies(res, accessToken, refreshToken);
+    console.log(`accessToken: ${accessToken}, refreshToken: ${refreshToken}`);
     this.logger.log(`Local authentication successful for user: ${loginDto.email}`);
 
     this.updateLastSignIn(loginDto.email);
@@ -536,6 +537,7 @@ export class AuthService {
   /**
    * Refreshes the session using the refresh token from cookies.
    */
+  // done locally
   async refresh(
     req: Request,
     res: Response,
@@ -543,47 +545,42 @@ export class AuthService {
     const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (!refreshToken) {
       this.logger.warn('Refresh attempt without refresh token cookie.');
+      this.logger.warn(`Available cookies: ${JSON.stringify(req.cookies)}`);
       throw new UnauthorizedException('Missing refresh token.');
     }
 
-    this.logger.log('Attempting to refresh session using refresh token.');
-    let tokenFromSupabase: string | undefined;
+    this.logger.log('Attempting to refresh session using local JWT.');
 
     try {
-      const { data, error } = await this.supabase.auth.refreshSession({
-        refresh_token: refreshToken,
+      // Verify the refresh token using our local JWT service
+      const payload = this.jwtService.verify(refreshToken);
+      
+      if (!payload || !payload.sub || !payload.email) {
+        this.logger.warn('Invalid refresh token payload');
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid refresh token.');
+      }
+
+      // Check if user still exists and is active
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
       });
 
-      if (error) {
-        this.logger.warn(`Supabase refreshSession failed: ${error.message}`);
+      if (!user || !user.isActive) {
+        this.logger.warn(`Refresh token user ${payload.email} not found or inactive`);
         this.clearAuthCookies(res);
-        throw new UnauthorizedException('Invalid or expired refresh token.');
+        throw new UnauthorizedException('User account is no longer active.');
       }
 
-      if (!data?.session) {
-        this.logger.error('Supabase refreshSession returned no session data.');
-        this.clearAuthCookies(res);
-        throw new InternalServerErrorException(
-          'Session refresh failed: Incomplete data from auth provider.',
-        );
-      }
+      // Generate new tokens
+      const newPayload = { sub: user.id, email: user.email };
+      const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
+      const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
 
-      const { access_token, refresh_token: new_refresh_token } = data.session;
+      this.setAuthCookies(res, newAccessToken, newRefreshToken);
+      this.logger.log(`Session refreshed successfully for user: ${user.email}`);
 
-      if (!access_token || !new_refresh_token) {
-        this.logger.error(
-          'Refreshed session data missing access or refresh token.',
-        );
-        this.clearAuthCookies(res);
-        throw new InternalServerErrorException(
-          'Session refresh failed: Incomplete token data from auth provider.',
-        );
-      }
-
-      tokenFromSupabase = access_token;
-
-      this.setAuthCookies(res, tokenFromSupabase, new_refresh_token);
-      this.logger.log('Session refreshed successfully.');
+      return { message: 'Session refreshed', accessToken: newAccessToken };
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -592,32 +589,12 @@ export class AuthService {
         throw error;
       }
 
-      if (error instanceof Error) {
-        this.logger.error(
-          `Unexpected error during session refresh: ${error.message}`,
-          error.stack,
-        );
-        this.clearAuthCookies(res);
-        throw new InternalServerErrorException(
-          'An unexpected error occurred during session refresh.',
-        );
-      }
-      this.clearAuthCookies(res);
-      throw new InternalServerErrorException(
-        'An unknown error occurred during session refresh.',
-      );
-    }
-
-    if (tokenFromSupabase === undefined) {
       this.logger.error(
-        'CRITICAL: tokenFromSupabase is undefined before returning from refresh. This indicates a logic flaw.',
+        `Error during session refresh: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
-      throw new InternalServerErrorException(
-        'Failed to define token for frontend response despite no error thrown.',
-      );
+      this.clearAuthCookies(res);
+      throw new UnauthorizedException('Invalid or expired refresh token.');
     }
-
-    return { message: 'Session refreshed', accessToken: tokenFromSupabase };
   }
 
   /**
