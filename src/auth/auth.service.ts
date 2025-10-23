@@ -599,22 +599,13 @@ export class AuthService {
   /**
    * Logs the user out by clearing auth cookies.
    */
+  // done locally
   async logout(res: Response): Promise<{ message: string }> {
     this.logger.log('Attempting to logout user.');
-    try {
-      const { error } = await this.supabase.auth.signOut();
-      if (error) {
-        this.logger.warn(
-          `Supabase signOut failed during logout: ${error.message}`,
-        );
-      }
-    } catch (e) {
-      if (e instanceof Error)
-        this.logger.warn(`Error calling Supabase signOut: ${e.message}`);
-    }
-
+    
     this.clearAuthCookies(res);
-    this.logger.log('Auth cookies cleared.');
+    this.logger.log('Local logout successful - auth cookies cleared.');
+    
     return { message: 'Logout successful' };
   }
 
