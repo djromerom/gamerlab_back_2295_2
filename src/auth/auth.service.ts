@@ -790,34 +790,64 @@ export class AuthService {
     }
 
     try {
-      const result = await this.supabase.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
+      // Delete any existing verification token for this user
+      await this.prisma.verificationToken.deleteMany({
+        where: {
+          userId: user.id,
+          tokenTypeId: this.verificationTokenId,
         },
       });
-      const { error } = result;
-      if (error) {
-        this.logger.log(error);
-        if (error.message.includes('User not found')) {
-          throw new NotFoundException(
-            'El correo electrónico no está registrado.',
-          );
-        }
-        if (error.message.includes('User already confirmed')) {
-          throw new BadRequestException(
-            'El correo electrónico ya está confirmado.',
-          );
-        }
-        throw new InternalServerErrorException(
-          'Error al reenviar el correo de confirmación.',
-        );
-      }
+
+      // Generate new verification token
+      const REDIRECT_TO = this.configService.get<string>(
+        'FRONTEND_URL',
+        `http://localhost:5173`,
+      );
+
+      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+        'REGISTRATION_TOKEN_EXPIRATION',
+        24,
+      );
+
+      const verificationToken = randomUUID();
+      const expiresAt = new Date(
+        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+      ); // 24 hours
+
+      // Create new verification token
+      await this.prisma.verificationToken.create({
+        data: {
+          token: verificationToken,
+          email: user.email,
+          userId: user.id,
+          tokenTypeId: this.verificationTokenId,
+          expiresAt: expiresAt,
+        },
+      });
+
+      // Send new verification email
+      this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
+        email: email,
+        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
+      });
+
       this.logger.log(`Confirmation email resent successfully to: ${email}`);
       return { message: 'Correo reenviado con éxito' };
-    } catch (err) {
-      this.logger.error(`Unhandled error: ${err}`);
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(
+          `Error resending confirmation email to ${email}: ${error.message}`,
+          error.stack,
+        );
+      }
+
       throw new InternalServerErrorException(
         'Error al reenviar el correo de confirmación.',
       );
