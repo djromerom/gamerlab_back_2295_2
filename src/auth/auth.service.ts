@@ -386,33 +386,38 @@ export class AuthService {
     };
   }
 
-  async registerUser(registerDto: RegisterDto): Promise<UserSupabase> {
+  // done locally
+  async registerUser(registerDto: RegisterDto): Promise<User> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
-    let user: UserSupabase;
+    let user: User;
     try {
-      const { data, error } = await this.supabase.auth.signUp({
-        email: registerDto.email,
-        password: randomUUID(),
+      // Check if user already exists
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: registerDto.email },
       });
-
-      if (error) {
-        this.handleSupabaseError(error, 'signUp');
+      if (existingUser) {
+        this.logger.warn(`Registration attempt for existing email: ${registerDto.email}`);
+        throw new ConflictException('A user with that email already exists');
       }
 
-      if (!data?.user) {
-        this.logger.error('Supabase signUp returned no user data.');
-        throw new InternalServerErrorException(
-          'Registration failed: Incomplete data from auth provider.',
-        );
-      }
+      // Create user in local database
+      const userId = randomUUID();
+      user = await this.prisma.user.create({
+        data: {
+          id: userId,
+          email: registerDto.email,
+          firstName: "",
+          lastName: "",
+          roleId: 2, // Default role ID (student)
+          confirmationStatusId: this.pendingStatusId,
+          isActive: false, // User starts inactive until email is confirmed
+          createdAt: new Date(),
+        },
+      });
+      this.logger.log(`Local user created successfully for: ${registerDto.email}`);
 
-      this.logger.log(
-        `Supabase registration successful for: ${registerDto.email}`,
-      );
-
-      user = data.user;
-
+      // Send verification email (same flow as before)
       this.logger.log(`Sending verification email for '${registerDto.email}'`);
 
       const REDIRECT_TO = this.configService.get<string>(
@@ -433,7 +438,7 @@ export class AuthService {
       await this.prisma.verificationToken.create({
         data: {
           token: verificationToken,
-          email: user.email!,
+          email: user.email,
           userId: user.id,
           tokenTypeId: this.verificationTokenId,
           expiresAt: expiresAt,
@@ -463,7 +468,6 @@ export class AuthService {
         );
       }
     }
-
     return user!;
   }
 

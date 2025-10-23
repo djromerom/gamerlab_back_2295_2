@@ -7,7 +7,7 @@ export interface ITeamRepository {
   findByTeamName(teamName: string): Promise<boolean>;
   findByVideogameName(videogameName: string): Promise<boolean>;
   checkEmailsExist(emails: string[]): Promise<{ [email: string]: boolean }>;
-  createTeam(createTeamDto: CreateTeamDto, supabaseUserId: string): Promise<{
+  createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
     createdUser: User;
     team: Team;
     members: Member[];
