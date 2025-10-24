@@ -31,7 +31,6 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://arkad_user:arkad_password@postgres:5432/arkad_db
-      - DIRECT_URL=postgresql://arkad_user:arkad_password@postgres:5432/arkad_db
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
