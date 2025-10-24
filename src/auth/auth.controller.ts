@@ -14,7 +14,7 @@ import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
-import { AppUser } from './supabase.strategy';
+import { AppUser } from './jwt.strategy';
 import { GetUser } from './decorators/get-user.decorator';
 import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
@@ -88,7 +88,7 @@ export class AuthController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetMyProfile')
   // The @GetUser decorator gets the user populated
-  // by the SupabaseStrategy after successful cookie authentication
+  // by the JwtStrategy after successful cookie authentication
   async getMyProfile(@GetUser() user: AppUser) {
     return this.authService.getMyProfile(user.id);
   }

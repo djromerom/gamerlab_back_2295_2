@@ -6,7 +6,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy as JwtStrategy } from 'passport-jwt';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 import { JwtPayload } from './types/jwt-payload.type';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
@@ -19,11 +19,11 @@ const ACCESS_TOKEN_COOKIE = 'access-token';
 export type AppUser = User & { user?: JwtPayload };
 
 @Injectable()
-export class SupabaseStrategy extends PassportStrategy(
-  JwtStrategy,
-  'supabase',
+export class JwtStrategy extends PassportStrategy(
+  Strategy,
+  'jwt',
 ) {
-  private readonly logger = new Logger(SupabaseStrategy.name);
+  private readonly logger = new Logger(JwtStrategy.name);
 
   public constructor(
     private readonly configService: ConfigService,
@@ -38,7 +38,7 @@ export class SupabaseStrategy extends PassportStrategy(
     super({
       secretOrKey: jwtSecret,
       jwtFromRequest: ExtractJwt.fromExtractors([
-        SupabaseStrategy.extractJWTFromCookie,
+        JwtStrategy.extractJWTFromCookie,
       ]),
       ignoreExpiration: false,
     } as StrategyOptionsWithRequest);

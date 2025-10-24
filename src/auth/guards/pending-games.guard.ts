@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { REQUIRED_SERVICE_KEY } from '../decorators/required-service.decorator';
-import { AppUser } from '../supabase.strategy';
+import { AppUser } from '../jwt.strategy';
   
 @Injectable()
 export class PendingGamesGuard implements CanActivate {

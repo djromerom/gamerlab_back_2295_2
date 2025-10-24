@@ -5,11 +5,11 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { Observable } from 'rxjs';
 
 /*
- This is a custom JwtAuthGuard (formerly SupabaseAuthGuard). The idea is that we can use both @Public and @UseGuards(RolePermissionGuard)
+ This is a custom JwtAuthGuard. The idea is that we can use both @Public and @UseGuards(RolePermissionGuard)
  @RequiredService('GetSecretData') so we can define public routes and routes that require authentication.
 */
 @Injectable()
-export class SupabaseAuthGuard extends AuthGuard('supabase') {
+export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(private reflector: Reflector) {
     super();
   }
@@ -27,7 +27,7 @@ export class SupabaseAuthGuard extends AuthGuard('supabase') {
     }
 
     // Otherwise, proceed with the local JWT authentication flow
-    // This calls the canActivate method of the parent AuthGuard('supabase')
+    // This calls the canActivate method of the parent AuthGuard('jwt')
     return super.canActivate(context);
   }
 }
