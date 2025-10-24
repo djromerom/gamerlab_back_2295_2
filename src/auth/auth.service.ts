@@ -10,15 +10,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { User, ConfirmationStatus } from '@prisma/client';
-import { SUPABASE_CLIENT } from './auth.constants';
-import path from 'node:path';
-import { readFileSync } from 'node:fs';
-import {
-  SupabaseClient,
-  AuthError,
-  User as UserSupabase,
-} from '@supabase/supabase-js';
+import { User } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
@@ -61,7 +53,6 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     private readonly jwtService: JwtService,
-    @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
   ) {}
 
   async onModuleInit() {
@@ -264,7 +255,7 @@ export class AuthService {
     );
 
     try {
-      // Hash the password locally instead of using Supabase
+      // Hash the password locally
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
       
@@ -460,7 +451,7 @@ export class AuthService {
 
       if (error instanceof Error) {
         this.logger.error(
-          `Unexpected error during Supabase registration: ${error.message}`,
+          `Unexpected error during local registration: ${error.message}`,
           error.stack,
         );
         throw new InternalServerErrorException(
@@ -688,11 +679,11 @@ export class AuthService {
     return profileData;
   }
 
-  async invalidateUserProfileCache(supabaseId: string): Promise<void> {
-    const cacheKey = this.getUserProfileCacheKey(supabaseId);
+  async invalidateUserProfileCache(userId: string): Promise<void> {
+    const cacheKey = this.getUserProfileCacheKey(userId);
     await this.cacheService.delete(cacheKey);
     this.logger.log(
-      `User profile cache invalidated for Supabase ID: ${supabaseId}`,
+      `User profile cache invalidated for user ID: ${userId}`,
     );
   }
 
@@ -872,32 +863,7 @@ export class AuthService {
     });
   }
 
-  private handleSupabaseError(error: AuthError, context: string): never {
-    this.logger.error(
-      `Supabase Error Object in ${context}: ${JSON.stringify(error, null, 2)}`,
-    );
-
-    if (error.code === 'user_already_exists')
-      throw new ConflictException('A user with that email already exists');
-
-    if (
-      error.status === 400 ||
-      (error.message && error.message.includes('Invalid login credentials'))
-    ) {
-      throw new UnauthorizedException('Invalid credentials.');
-    }
-    if (error.message && error.message.includes('JSON at position')) {
-      throw new InternalServerErrorException(
-        `Authentication service failed: Invalid response received from Supabase (${context}). Check Supabase Auth logs for details.`,
-      );
-    }
-
-    throw new InternalServerErrorException(
-      `Authentication service failed: ${context}`,
-    );
-  }
-
-  private getUserProfileCacheKey(supabaseId: string): string {
-    return `${this.USER_PROFILE_CACHE_PREFIX}${supabaseId}`;
+  private getUserProfileCacheKey(userId: string): string {
+    return `${this.USER_PROFILE_CACHE_PREFIX}${userId}`;
   }
 }

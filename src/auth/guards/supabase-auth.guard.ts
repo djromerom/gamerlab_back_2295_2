@@ -5,7 +5,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { Observable } from 'rxjs';
 
 /*
- This is a custom SupabaseAuthGuard. The idea is that we can use both @Public and @UseGuards(RolePermissionGuard)
+ This is a custom JwtAuthGuard (formerly SupabaseAuthGuard). The idea is that we can use both @Public and @UseGuards(RolePermissionGuard)
  @RequiredService('GetSecretData') so we can define public routes and routes that require authentication.
 */
 @Injectable()
@@ -18,16 +18,15 @@ export class SupabaseAuthGuard extends AuthGuard('supabase') {
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(), // Check the route handler first
-      context.getClass(), // Then check the controller class
+      context.getHandler(),
+      context.getClass(),
     ]);
 
-    // If the route is marked as public, allow access immediately
     if (isPublic) {
       return true;
     }
 
-    // Otherwise, proceed with the standard Supabase authentication flow
+    // Otherwise, proceed with the local JWT authentication flow
     // This calls the canActivate method of the parent AuthGuard('supabase')
     return super.canActivate(context);
   }

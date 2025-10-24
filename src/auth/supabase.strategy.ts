@@ -13,11 +13,10 @@ import { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { Request } from 'express';
 import { StrategyOptionsWithRequest } from 'passport-jwt';
-import { SupabaseAuthUser as SupabaseUser } from 'nestjs-supabase-auth';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 
-export type AppUser = User & { supabaseUser?: JwtPayload };
+export type AppUser = User & { user?: JwtPayload };
 
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(
@@ -58,7 +57,7 @@ export class SupabaseStrategy extends PassportStrategy(
    * It receives the decoded payload.
    * Then, syncs/validates against the local database using AuthService.
    *
-   * @param payload The decoded JWT payload. Type hint with JwtPayload or SupabaseUser.
+   * @param payload The decoded JWT payload. Type hint with JwtPayload or user.
    * @returns The User object (from Prisma) to be attached to request.user.
    */
   async validate(payload: JwtPayload): Promise<AppUser> {
@@ -101,7 +100,7 @@ export class SupabaseStrategy extends PassportStrategy(
 
     const appUser: AppUser = {
       ...user,
-      supabaseUser: payload,
+      user: payload,
     };
     return appUser;
   }

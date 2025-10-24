@@ -20,7 +20,6 @@ import { RolePermissionGuard } from './guards/role-permission.guard';
 import { RequiredService } from './decorators/required-service.decorator';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { VerifyTokenDto } from './dto/verify-token.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 
