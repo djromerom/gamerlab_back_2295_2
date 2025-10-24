@@ -614,123 +614,55 @@ export class AuthService {
   }
 
   /**
-   * Finds an existing user by Supabase ID. If the user was previously invited
-   * (inactive/pending), it activates them upon this first successful login post-confirmation.
-   * @param supabaseUser The user object derived from validated Supabase data (needs at least sub, email)
-   * @returns The corresponding user from the local database (potentially activated)
-   * @throws {InternalServerErrorException} If required statuses are missing in DB or if local user record is unexpectedly missing.
-   * @throws {UnauthorizedException} If the found user is marked as inactive AFTER potential activation.
+   * Validates and syncs a local JWT user with the database.
+   * @param jwtPayload The decoded JWT payload from our local tokens
+   * @returns The corresponding user from the local database with role permissions
+   * @throws {NotFoundException} If user is not found in local database
+   * @throws {UnauthorizedException} If user is inactive
    */
-  async syncSupabaseUser(supabaseUser: JwtPayload): Promise<User> {
-    const supabaseId = supabaseUser?.sub;
-    const userEmail = supabaseUser?.email;
+  async syncLocalUser(jwtPayload: JwtPayload): Promise<User> {    
+    this.logger.debug(`Syncing local user with ID: ${jwtPayload.sub}`);
 
-    if (!supabaseId || !userEmail) {
-      this.logger.error(
-        'syncSupabaseUser called with incomplete Supabase user data.',
-        { sub: supabaseId, email: userEmail },
-      );
-      throw new BadRequestException(
-        'Invalid user data received for synchronization.',
-      );
-    }
-
-    const cacheKey = this.getUserProfileCacheKey(supabaseId);
-
-    const cachedUser: User = await this.cacheService.get(cacheKey);
+    const cacheKey = this.getUserProfileCacheKey(jwtPayload.sub);
+    
+    // Try cache first
+    const cachedUser = await this.cacheService.get(cacheKey);
     if (cachedUser) {
       if (!cachedUser.isActive) {
         this.logger.warn(
-          `Cached user ${cachedUser.email} (ID: ${cachedUser.id}) is inactive. Access denied. Re-validating with DB.`,
+          `Cached user ${cachedUser.email} (ID: ${cachedUser.id}) is inactive. Access denied.`,
         );
         await this.cacheService.delete(cacheKey);
-        throw new UnauthorizedException(
-          'User account is currently inactive (checked from cache).',
-        );
-      }
-      this.logger.log(
-        `Cache hit for user: ${userEmail} (Supabase ID: ${supabaseId})`,
-      );
-      return cachedUser;
-    }
-
-    this.logger.log(
-      `Cache miss. Syncing local user from DB: ${userEmail} (Supabase ID: ${supabaseId})`,
-    );
-
-    let user: User | null;
-    try {
-      user = await this.prisma.user.findUnique({
-        where: { id: supabaseId },
-      });
-
-      // Here we handle the case when the user is not found in our internal `Usuarios` table
-      if (!user) {
-        // This is critical because Supabase authenticated the user, but they don't exist locally.
-        // This indicates a failure in the preceding registration or invitation process.
-        this.logger.error(
-          `CRITICAL: No local user record found for validated Supabase user ${userEmail} (ID: ${supabaseId}). Check registration/invite process flow.`,
-        );
-        throw new NotFoundException(`User profile for ${userEmail} not found.`);
-      }
-
-      // If for some reason the user needs activation
-      if (
-        !user.isActive && // User is currently inactive
-        user.confirmationStatusId === this.pendingStatusId // And has the 'PENDIENTE' status
-      ) {
-        this.logger.log(
-          `Activating previously pending user: ${user.email} (ID: ${user.id})`,
-        );
-        user = await this.prisma.user.update({
-          where: { id: supabaseId },
-          data: {
-            isActive: true,
-            confirmationStatusId: this.confirmedStatusId,
-          },
-        });
-        this.logger.log(`User ${user.email} successfully activated.`);
-      } else {
-        this.logger.log(
-          `User ${user.email} found in local DB. Active: ${user.isActive}, Status ID: ${user.confirmationStatusId}. Does not require activation.`,
-        );
-      }
-
-      if (!user.isActive) {
-        this.logger.warn(
-          `User ${user.email} (ID: ${user.id}) is inactive in the local database AFTER synchronization/activation check. Access denied.`,
-        );
         throw new UnauthorizedException('User account is currently inactive.');
       }
+      this.logger.debug(`Local user ${jwtPayload.sub} found in cache`);
+      return cachedUser;
+    }
+    
+    // Find user in local database with full role/permissions data
+    const user = await this.prisma.user.findUnique({
+      where: { id: jwtPayload.sub },
+      include: {
+        role: true,
+        confirmationStatus: true,
+      },
+    });
 
-      this.logger.log(
-        `Local user sync successful: ${user.email} (Active: ${user.isActive})`,
-      );
-
-      await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
-      this.logger.log(`User ${user.email} synced and cached successfully.`);
-    } catch (error) {
-      if (
-        error instanceof InternalServerErrorException ||
-        error instanceof UnauthorizedException ||
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      ) {
-        throw error;
-      }
-
-      if (error instanceof Error) {
-        this.logger.error(
-          `Unexpected error during user synchronization for ${userEmail} (ID: ${supabaseId}): ${error.message}`,
-          error.stack,
-        );
-        throw new InternalServerErrorException(
-          'An error occurred while synchronizing user profile.',
-        );
-      }
+    if (!user) {
+      this.logger.warn(`Local user ${jwtPayload.sub} not found in database`);
+      throw new NotFoundException('User not found in local database');
     }
 
-    return user!;
+    if (!user.isActive) {
+      this.logger.warn(`Local user ${jwtPayload.sub} (${user.email}) is inactive`);
+      throw new UnauthorizedException('User account is inactive');
+    }
+
+    // Cache the user profile
+    await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
+    this.logger.debug(`Local user ${user.email} synced and cached successfully`);
+
+    return user;
   }
 
   /**
@@ -771,6 +703,7 @@ export class AuthService {
    * @throws {ConflictException} If the user is already confirmed.
    * @throws {InternalServerErrorException} If there is an error sending the email.
    */
+  // done locally
   async resendConfirmationEmail(email: string) {
     this.logger.log(`Attempting to resend confirmation email to: ${email}`);
 

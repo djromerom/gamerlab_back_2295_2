@@ -139,7 +139,6 @@ export class JurorService {
       user = await this.auth.registerUser({
         email: dto.email,
       });
-      console.log('Registered user:', user);
 
       if (!user?.id) {
         throw new InternalServerErrorException(
@@ -296,7 +295,6 @@ export class JurorService {
     const teams = await this.getTeams();
 
     if (jurors.size === 0 || teams.length === 0) {
-      console.log(jurors.size, teams.length);
       return {
         message: "No hay jurados o equipos disponibles para asignar evaluaciones",
       };

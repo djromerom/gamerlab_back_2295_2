@@ -87,7 +87,6 @@ export class ProfessorsService {
         email: createProfessorDto.email,
       });
 
-      console.log('Registered user:', user);
       if (!user || !user.id) {
         this.logger.error(
           `User registration failed or did not return a user ID for email: ${createProfessorDto.email}`,

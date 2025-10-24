@@ -30,14 +30,14 @@ export class SupabaseStrategy extends PassportStrategy(
     private readonly configService: ConfigService,
     private readonly authService: AuthService,
   ) {
-    const supabaseJwtSecret = configService.get<string>('SUPABASE_JWT_SECRET');
+    const jwtSecret = configService.get<string>('JWT_SECRET');
 
-    if (!supabaseJwtSecret) {
-      throw new Error('SUPABASE_JWT_SECRET is not defined. JWT strategy cannot be initialized.');
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET is not defined. JWT strategy cannot be initialized.');
     }
 
     super({
-      secretOrKey: supabaseJwtSecret,
+      secretOrKey: jwtSecret,
       jwtFromRequest: ExtractJwt.fromExtractors([
         SupabaseStrategy.extractJWTFromCookie,
       ]),
@@ -69,19 +69,17 @@ export class SupabaseStrategy extends PassportStrategy(
 
     let user: User | null = null;
     try {
-      const supabaseUserPayload = payload;
-      this.logger.debug(`VALIDATE - Calling syncSupabaseUser`);
-      user = await this.authService.syncSupabaseUser(supabaseUserPayload);
-      this.logger.debug(`VALIDATE - syncSupabaseUser returned successfully`);
+      this.logger.debug(`VALIDATE - Calling syncLocalUser for user: ${payload.sub}`);
+      user = await this.authService.syncLocalUser(payload);
+      this.logger.debug(`VALIDATE - syncLocalUser returned successfully`);
     } catch (error: unknown) {
-
       if (error instanceof NotFoundException) {
         this.logger.warn(`VALIDATE - User ${payload.sub} not found locally.`);
         throw new UnauthorizedException(`User profile not found.`);
       }
       if (error instanceof UnauthorizedException) {
         this.logger.warn(
-          `VALIDATE - User ${payload.sub} is inactive or unauthorized by syncSupabaseUser.`,
+          `VALIDATE - User ${payload.sub} is inactive or unauthorized.`,
         );
         throw error;
       }
@@ -90,10 +88,9 @@ export class SupabaseStrategy extends PassportStrategy(
       );
     }
 
-    // This part should only be reached if syncSupabaseUser succeeded
     if (!user) {
       this.logger.error(
-        `VALIDATE - syncSupabaseUser returned null/undefined unexpectedly for sub: ${payload.sub}`,
+        `VALIDATE - syncLocalUser returned null/undefined unexpectedly for sub: ${payload.sub}`,
       );
       throw new InternalServerErrorException(
         'User synchronization failed unexpectedly.',

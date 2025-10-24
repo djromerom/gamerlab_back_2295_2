@@ -32,7 +32,7 @@ const supabaseProvider: Provider = {
     PassportModule, 
     CacheModule,
     JwtModule.register({
-      secret: process.env.SUPABASE_JWT_SECRET,
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '15m' },
     }),
   ],

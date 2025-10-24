@@ -136,7 +136,6 @@ export class StudentsService {
         if (!videogame?.videogame) {
             throw new NotFoundException("team not found");
         }
-        console.log(videogame.videogame.id)
         const studentsGrades = await this.prisma.evaluation.findMany({
             where: { videogameId: videogame.videogame.id },
             select: {
