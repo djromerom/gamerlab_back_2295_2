@@ -286,3 +286,15 @@ model EvaluationDetail {
   @@unique([evaluationId, criterionId], name: "evaluacion_criterio_unique")
   @@map("detalle_evaluacion")
 }
+
+model Upload {
+  id        String   @id @default(uuid())
+  blobName  String   
+  filename  String   
+  mimetype  String   
+  size      Int      
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("archivos_subidos")
+}

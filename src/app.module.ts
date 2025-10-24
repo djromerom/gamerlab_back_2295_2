@@ -19,6 +19,7 @@ import { EvaluationModule } from './evaluation/evaluation.module';
 import { ReportsModule } from './reports/reports.module';
 import { CacheModule } from './cache/cache.module';
 import { StudentsModule } from './students/students.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { StudentsModule } from './students/students.module';
     EvaluationModule,
     CacheModule,
     StudentsModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
