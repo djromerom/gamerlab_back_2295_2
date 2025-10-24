@@ -1,6 +1,9 @@
 # Etapa de build
 FROM node:18-alpine AS builder
 
+# Install PostgreSQL client for database operations
+RUN apk add --no-cache postgresql-client
+
 WORKDIR /usr/src/app
 
 COPY package.json package-lock.json ./
@@ -14,6 +17,9 @@ RUN npx prisma generate && \
 
 # Etapa de producción
 FROM node:18-alpine
+
+# Install PostgreSQL client in production stage
+RUN apk add --no-cache postgresql-client
 
 WORKDIR /usr/src/app
 

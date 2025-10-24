@@ -1,4 +1,4 @@
-# Docker Compose para desarollo (corre solo la DB)
+# Docker Compose para desarrollo (corre solo la DB)
 
 services:
   postgres:
