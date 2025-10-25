@@ -38,7 +38,17 @@ services:
       sh -c "
         echo 'Waiting for database to be ready...' &&
         npx prisma migrate deploy &&
-        echo 'Database migrations completed' &&
+        echo 'Checking if database needs seeding...' &&
+        DATA_COUNT=$$(PGPASSWORD=arkad_password psql -h postgres -U arkad_user -d arkad_db -t -c \"SELECT COUNT(*) FROM estados_confirmacion;\") &&
+        echo \"Found $$DATA_COUNT records in estados_confirmacion\" &&
+        if [ \"$$DATA_COUNT\" -eq 0 ] || [ \"$$DATA_COUNT\" = \" 0\" ]; then
+          echo 'Database tables exist but are empty, seeding...' &&
+          PGPASSWORD=arkad_password psql -h postgres -U arkad_user -d arkad_db < /usr/src/app/init-db.sql &&
+          echo 'Database seeded successfully'
+        else
+          echo 'Database already contains data, skipping seed'
+        fi &&
+        echo 'Database setup completed' &&
         node dist/main.js
       "
 
