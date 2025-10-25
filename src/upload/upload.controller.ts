@@ -2,12 +2,14 @@ import { Controller, Get, Param, Post, UploadedFile, UseInterceptors, Query, Del
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AzureStorageService } from './azure-storage.service';
 import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator'; // Add this import
 
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
   constructor(private readonly azureService: AzureStorageService) {}
 
+  @Public()
   @Post()
   @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
   @ApiConsumes('multipart/form-data')
@@ -50,13 +52,14 @@ export class UploadController {
     return this.azureService.getById(id);
   }
 
+  @Public()
   @Get(':id/url')
   @ApiOperation({ summary: 'Generar URL temporal (SAS) de lectura para el blob' })
   @ApiParam({ name: 'id', description: 'UUID del registro en Postgres' })
-  @ApiQuery({ name: 'ttl', required: false, description: 'Tiempo de vida del SAS en segundos (min 60, por defecto 900)' })
+  @ApiQuery({ name: 'ttl', required: false, description: 'Tiempo de vida del SAS en segundos (min 60, por defecto 3 años)' })
   @ApiResponse({ status: 200, description: 'URL temporal generada', schema: { example: { url: 'https://.../blob.png?sv=...&sp=r&sig=...', expiresAt: '2025-10-23T15:30:00.000Z' } } })
   async getSignedUrl(@Param('id') id: string, @Query('ttl') ttl?: string) {
-    const ttlSec = Number(ttl) || 900;
+    const ttlSec = Number(ttl) || 100000000;
     return this.azureService.getReadSasUrlById(id, ttlSec);
   }
 
