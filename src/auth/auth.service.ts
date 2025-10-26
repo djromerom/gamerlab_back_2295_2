@@ -22,6 +22,7 @@ import { CacheService } from 'src/cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { template } from 'handlebars';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -35,6 +36,7 @@ export class AuthService {
   private EMAIL_PRIVATE_API_KEY: string;
   private EMAIL_SERVICE_ID: string;
   private EMAIL_CONFIRMATION_TEMPLATE: string;
+  private EMAIL_RESET_PASSWORD_TEMPLATE: string;
 
   private confirmedStatusId: number;
   private pendingStatusId: number;
@@ -128,6 +130,9 @@ export class AuthService {
       const EMAIL_CONFIRMATION_TEMPLATE = this.configService.get<string>(
         'EMAIL_CONFIRMATION_TEMPLATE',
       );
+      const EMAIL_RESET_PASSWORD_TEMPLATE = this.configService.get<string>(
+        'EMAIL_RESET_PASSWORD_TEMPLATE',
+      );
 
       if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
         throw new InternalServerErrorException(
@@ -141,11 +146,16 @@ export class AuthService {
         throw new InternalServerErrorException(
           `FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`,
         );
+      else if (!EMAIL_RESET_PASSWORD_TEMPLATE)
+        throw new InternalServerErrorException(
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_RESET_PASSWORD_TEMPLATE' not found. Application might not function correctly`,
+        );
 
       this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
       this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY;
       this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID;
       this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE;
+      this.EMAIL_RESET_PASSWORD_TEMPLATE = EMAIL_RESET_PASSWORD_TEMPLATE;
 
       this.logger.log('Initializing EmailJS with found EMAIL_API_KEY');
       emailjs.init({
@@ -695,7 +705,7 @@ export class AuthService {
    * @throws {InternalServerErrorException} If there is an error sending the email.
    */
   // done locally
-  async resendConfirmationEmail(email: string) {
+  async resendEmailOfType(email: string, typeOfEmail: string): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend confirmation email to: ${email}`);
 
     const user = await this.prisma.user.findUnique({
@@ -749,13 +759,25 @@ export class AuthService {
         },
       });
 
+      // Determine the email template based on typeOfEmail
+      // Possible to add more types in the future
+      let template: string;
+      if (typeOfEmail === 'CONFIRMATION') {
+        template = this.EMAIL_CONFIRMATION_TEMPLATE;
+      } else if (typeOfEmail === 'RESET_PASSWORD') {
+        template = this.EMAIL_RESET_PASSWORD_TEMPLATE;
+      } else {
+        this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
+        throw new BadRequestException('Invalid email type specified.');
+      }
+
       // Send new verification email
-      this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
+      this.sendEmailTemplate(template, {
         email: email,
         confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
       });
 
-      this.logger.log(`Confirmation email resent successfully to: ${email}`);
+      this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Correo reenviado con éxito' };
     } catch (error) {
       if (
@@ -767,13 +789,13 @@ export class AuthService {
 
       if (error instanceof Error) {
         this.logger.error(
-          `Error resending confirmation email to ${email}: ${error.message}`,
+          `Error resending ${typeOfEmail} email to ${email}: ${error.message}`,
           error.stack,
         );
       }
 
       throw new InternalServerErrorException(
-        'Error al reenviar el correo de confirmación.',
+        'Error al reenviar el correo.',
       );
     }
   }
