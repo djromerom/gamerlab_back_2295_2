@@ -718,7 +718,7 @@ export class AuthService {
       throw new NotFoundException('The email address is not registered.');
     }
 
-    if (user.confirmationStatus?.status === 'CONFIRMADO') {
+    if (typeOfEmail === "CONFIRMATION" && user.confirmationStatus?.status === 'CONFIRMADO') {
       this.logger.warn(`User with email ${email} is already confirmed.`);
       throw new ConflictException('The email has already been confirmed.');
     }

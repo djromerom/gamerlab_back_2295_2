@@ -53,7 +53,8 @@ export class AuthController {
     return await this.authService.resendEmailOfType(body.email, "CONFIRMATION");
   }
 
-  @Post('resend-reset-password')
+  @Public()
+  @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async sendResetPasswordEmail(@Body() body: ResendConfirmationDto) {
     return await this.authService.resendEmailOfType(body.email, "RESET_PASSWORD");
