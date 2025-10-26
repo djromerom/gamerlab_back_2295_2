@@ -759,23 +759,36 @@ export class AuthService {
         },
       });
 
+      // Get user's display name (firstName or lastName/email as fallback)
+      const userName = user.firstName
+        ? user.firstName.trim()
+        : user.lastName || user.email.split('@')[0];
+
       // Determine the email template based on typeOfEmail
       // Possible to add more types in the future
       let template: string;
+      let templateParams: Record<string, unknown>;
+
       if (typeOfEmail === 'CONFIRMATION') {
         template = this.EMAIL_CONFIRMATION_TEMPLATE;
+        templateParams = {
+          email: email,
+          confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
+        }
       } else if (typeOfEmail === 'RESET_PASSWORD') {
         template = this.EMAIL_RESET_PASSWORD_TEMPLATE;
+        templateParams = {
+          email: email,
+          user_name: userName,
+          resetPasswordURL: `${REDIRECT_TO}/establecer-contrasena?token=${verificationToken}`,
+        }
       } else {
         this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
         throw new BadRequestException('Invalid email type specified.');
       }
 
       // Send new verification email
-      this.sendEmailTemplate(template, {
-        email: email,
-        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-      });
+      this.sendEmailTemplate(template, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Correo reenviado con éxito' };
