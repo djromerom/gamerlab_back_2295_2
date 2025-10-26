@@ -4,7 +4,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { EvaluationService } from './evaluation.service';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
-import { AppUser } from 'src/auth/supabase.strategy';
+import { AppUser } from 'src/auth/jwt.strategy';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 
 @Controller('evaluation')

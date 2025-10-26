@@ -11,14 +11,10 @@ import { AuthService } from 'src/auth/auth.service';
 import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 import * as ExcelJS from 'exceljs';
 import { Response } from 'express';
-import { PassThrough } from 'stream';
-import { professorNrc } from './types/select-option.type';
-import { GetUser } from 'src/auth/decorators/get-user.decorator';
 
 @Injectable()
 export class ProfessorsService {
@@ -85,25 +81,25 @@ export class ProfessorsService {
       );
     }
 
-    let supabaseUser: SupabaseUser;
+    let user: User;
     try {
-      supabaseUser = await this.authService.registerUser({
+      user = await this.authService.registerUser({
         email: createProfessorDto.email,
       });
 
-      if (!supabaseUser || !supabaseUser.id) {
+      if (!user || !user.id) {
         this.logger.error(
-          `Supabase user registration failed or did not return a user ID for email: ${createProfessorDto.email}`,
+          `User registration failed or did not return a user ID for email: ${createProfessorDto.email}`,
         );
         throw new InternalServerErrorException(
           'User registration failed at authentication provider.',
         );
       }
       this.logger.log(
-        `Supabase user registered successfully: ${supabaseUser.id} for email ${createProfessorDto.email}`,
+        `User registered successfully: ${user.id} for email ${createProfessorDto.email}`,
       );
     } catch (error) {
-      let errorMessage = 'Unknown error during Supabase registration.';
+      let errorMessage = 'Unknown error during registration.';
       let errorStack: string | undefined;
 
       if (error instanceof ConflictException) {
@@ -116,12 +112,12 @@ export class ProfessorsService {
         errorMessage = error.message;
         errorStack = error.stack;
         this.logger.error(
-          `Error during Supabase registration for ${createProfessorDto.email}: ${errorMessage}`,
+          `Error during registration for ${createProfessorDto.email}: ${errorMessage}`,
           errorStack,
         );
       } else {
         this.logger.error(
-          `Non-Error thrown during Supabase registration for ${createProfessorDto.email}: ${String(error)}`,
+          `Non-Error thrown during registration for ${createProfessorDto.email}: ${String(error)}`,
         );
       }
       // Fallback or re-throw specific error
@@ -130,35 +126,22 @@ export class ProfessorsService {
       );
     }
 
-    const existingLocalUserBySupabaseId = await this.prisma.user.findUnique({
-      where: { id: supabaseUser.id },
-    });
-
-    if (existingLocalUserBySupabaseId) {
-      this.logger.error(
-        `Data inconsistency: Supabase user ID ${supabaseUser.id} (for new email: ${createProfessorDto.email}) already exists in local DB (associated with email: ${existingLocalUserBySupabaseId.email}).`,
-      );
-      throw new ConflictException(
-        `A user profile for the generated authentication ID already exists locally. Please check data consistency.`,
-      );
-    }
-
     try {
-      const newProfessor = await this.prisma.user.create({
+      const newProfessor = await this.prisma.user.update({
+        where: { id: user.id },
         data: {
-          id: supabaseUser.id,
           firstName: createProfessorDto.firstName,
           lastName: createProfessorDto.lastName,
-          email: createProfessorDto.email,
           roleId: this.professorRoleId,
+          isActive: true,
         },
       });
       this.logger.log(
-        `Professor created successfully in local DB: ${newProfessor.id} (Supabase ID: ${supabaseUser.id})`,
+        `Professor created successfully in local DB: ${newProfessor.id} (ID: ${user.id})`,
       );
       return newProfessor;
     } catch (error) {
-      let message = `Error creating professor profile in local DB for ${createProfessorDto.email} (Supabase ID: ${supabaseUser.id})`;
+      let message = `Error creating professor profile in local DB for ${createProfessorDto.email} (ID: ${user.id})`;
       let stack: string | undefined;
 
       if (error instanceof Error) {
@@ -174,7 +157,7 @@ export class ProfessorsService {
             `Prisma unique constraint violation on creating professor: ${target?.join(', ')}`,
           );
           throw new ConflictException(
-            `Failed to create professor due to a data conflict on: ${target?.join(', ')}. The Supabase user was created but local profile failed. Manual cleanup might be needed.`,
+            `Failed to create professor due to a data conflict on: ${target?.join(', ')}. The user was created but local profile failed. Manual cleanup might be needed.`,
           );
         }
       }
@@ -338,7 +321,7 @@ export class ProfessorsService {
       updateProfessorDto.email !== existingProfessor.email
     ) {
       this.logger.warn(
-        `Attempting to update email for professor ${id}. This might require an update in Supabase as well.`,
+        `Attempting to update email for professor ${id}.`,
       );
     }
 

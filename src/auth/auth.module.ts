@@ -1,35 +1,22 @@
 import { Module, Provider } from '@nestjs/common';
 import { AuthController } from './auth.controller';
-import { SupabaseStrategy } from './supabase.strategy';
 import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import { ConfigService } from '@nestjs/config';
-import { SUPABASE_CLIENT } from './auth.constants';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CacheModule } from 'src/cache/cache.module';
-
-const supabaseProvider: Provider = {
-  provide: SUPABASE_CLIENT,
-  useFactory: (configService: ConfigService): SupabaseClient => {
-    const supabaseUrl = configService.get<string>('SUPABASE_URL');
-    const supabaseKey = configService.get<string>('SUPABASE_KEY');
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error(
-        'Missing SUPABASE_URL or SUPABASE_KEY environment variables',
-      );
-    }
-
-    return createClient(supabaseUrl, supabaseKey);
-  },
-  inject: [ConfigService],
-};
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-  imports: [PassportModule, CacheModule],
-  providers: [AuthService, SupabaseStrategy, supabaseProvider, JwtStrategy],
-  exports: [AuthService, SupabaseStrategy, SUPABASE_CLIENT],
+  imports: [
+    PassportModule, 
+    CacheModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: '15m' },
+    }),
+  ],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtStrategy],
   controllers: [AuthController],
 })
 export class AuthModule { }

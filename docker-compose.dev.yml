@@ -1,0 +1,24 @@
+# Docker Compose para desarrollo (corre solo la DB)
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: arkad_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: arkad_db
+      POSTGRES_USER: arkad_user
+      POSTGRES_PASSWORD: arkad_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arkad_user -d arkad_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_dev_data:

@@ -1,9 +1,9 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { AppUser } from '../supabase.strategy';
+import { AppUser } from '../jwt.strategy';
 
 /**
  * Custom parameter decorator to extract the user object from the request.
- * The user object is attached to the request by the SupabaseStrategy
+ * The user object is attached to the request by the JwtStrategy
  * after successful authentication.
  *
  * @example

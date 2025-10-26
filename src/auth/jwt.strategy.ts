@@ -1,28 +1,107 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Logger,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { JwtPayload } from './types/jwt-payload.type';
 import { ConfigService } from '@nestjs/config';
+import { User } from '@prisma/client';
+import { AuthService } from './auth.service';
+import { Request } from 'express';
+import { StrategyOptionsWithRequest } from 'passport-jwt';
 
-interface JwtPayload {
-  sub: string;
-  email?: string;
-}
+const ACCESS_TOKEN_COOKIE = 'access-token';
+
+export type AppUser = User & { user?: JwtPayload };
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private configService: ConfigService) {
-    const SECRET_KEY = configService.get<string>('SUPABASE_JWT_SECRET');
+export class JwtStrategy extends PassportStrategy(
+  Strategy,
+  'jwt',
+) {
+  private readonly logger = new Logger(JwtStrategy.name);
 
-    if (!SECRET_KEY) throw new Error('SUPABASE_JWT_SECRET is not defined');
+  public constructor(
+    private readonly configService: ConfigService,
+    private readonly authService: AuthService,
+  ) {
+    const jwtSecret = configService.get<string>('JWT_SECRET');
+
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET is not defined. JWT strategy cannot be initialized.');
+    }
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      secretOrKey: jwtSecret,
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        JwtStrategy.extractJWTFromCookie,
+      ]),
       ignoreExpiration: false,
-      secretOrKey: SECRET_KEY,
-    });
+    } as StrategyOptionsWithRequest);
   }
 
-  async validate(payload: JwtPayload): Promise<any> {
-    return { sub: payload.sub, email: payload.email };
+  private static extractJWTFromCookie(req: Request): string | null {
+    let token = null;
+    if (req && req.cookies) {
+      token = req.cookies[ACCESS_TOKEN_COOKIE];
+    }
+    return token;
+  }
+
+  /**
+   * Validates the JWT payload AFTER passport-jwt verifies the signature and expiration.
+   * It receives the decoded payload.
+   * Then, syncs/validates against the local database using AuthService.
+   *
+   * @param payload The decoded JWT payload. Type hint with JwtPayload or user.
+   * @returns The User object (from Prisma) to be attached to request.user.
+   */
+  async validate(payload: JwtPayload): Promise<AppUser> {
+    if (!payload.sub) {
+      this.logger.warn('VALIDATE - JWT payload missing "sub" (user ID)');
+      throw new UnauthorizedException('Invalid token payload (missing sub)');
+    }
+
+    let user: User | null = null;
+    try {
+      this.logger.debug(`VALIDATE - Calling syncLocalUser for user: ${payload.sub}`);
+      user = await this.authService.syncLocalUser(payload);
+      this.logger.debug(`VALIDATE - syncLocalUser returned successfully`);
+    } catch (error: unknown) {
+      if (error instanceof NotFoundException) {
+        this.logger.warn(`VALIDATE - User ${payload.sub} not found locally.`);
+        throw new UnauthorizedException(`User profile not found.`);
+      }
+      if (error instanceof UnauthorizedException) {
+        this.logger.warn(
+          `VALIDATE - User ${payload.sub} is inactive or unauthorized.`,
+        );
+        throw error;
+      }
+      throw new UnauthorizedException(
+        'Failed to process user profile during validation.',
+      );
+    }
+
+    if (!user) {
+      this.logger.error(
+        `VALIDATE - syncLocalUser returned null/undefined unexpectedly for sub: ${payload.sub}`,
+      );
+      throw new InternalServerErrorException(
+        'User synchronization failed unexpectedly.',
+      );
+    }
+
+    this.logger.log(`VALIDATE - User ${user.email} validated successfully.`);
+
+    const appUser: AppUser = {
+      ...user,
+      user: payload,
+    };
+    return appUser;
   }
 }

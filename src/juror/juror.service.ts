@@ -10,7 +10,6 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 import { Prisma, User, Role } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
@@ -135,7 +134,7 @@ export class JurorService {
 
   async create(dto: CreateJurorDto): Promise<JurorListItem> {
 
-    let user: SupabaseUser;
+    let user: User;
     try {
       user = await this.auth.registerUser({
         email: dto.email,
@@ -143,7 +142,7 @@ export class JurorService {
 
       if (!user?.id) {
         throw new InternalServerErrorException(
-          `Supabase did not return a user ID for ${dto.email}`,
+          `Registration did not return a user ID for ${dto.email}`,
         );
       }
     } catch (error) {
@@ -156,19 +155,19 @@ export class JurorService {
         );
       }
       throw new InternalServerErrorException(
-        `Error during registration in Supabase for ${dto.email}: ${error instanceof Error ? error.message : error}`,
+        `Error during registration for ${dto.email}: ${error instanceof Error ? error.message : error}`,
       );
     }
 
     try {
-      const created = await this.prisma.user.create({
-        data: {
-          id: user.id,
+      // Update the user with juror-specific details and make them active
+      const created = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { 
           firstName: dto.firstName,
           lastName: dto.lastName,
-          email: dto.email,
           roleId: this.jurorRoleId,
-          isActive: true,
+          isActive: true 
         },
       });
       const stats = await this.getEvaluationStats(created.id);
@@ -202,17 +201,7 @@ export class JurorService {
         skip: offset,
         take: limit,
         orderBy: { lastName: 'asc' },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          confirmationStatusId: true,
-          isActive: true,
-          roleId: true,
-          createdAt: true,
-          updatedAt: true,
-          lastSignInAt: true,
+        include: {
           evaluationsSubmitted: {
             select: { videogame: { select: { id: true, name: true } } },
           },
@@ -306,7 +295,6 @@ export class JurorService {
     const teams = await this.getTeams();
 
     if (jurors.size === 0 || teams.length === 0) {
-      console.log(jurors.size, teams.length);
       return {
         message: "No hay jurados o equipos disponibles para asignar evaluaciones",
       };

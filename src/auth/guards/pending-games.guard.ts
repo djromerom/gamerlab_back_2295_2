@@ -5,14 +5,12 @@ import {
     ForbiddenException,
     UnauthorizedException,
   } from '@nestjs/common';
-  import { Reflector } from '@nestjs/core';
-  import { PrismaService } from '../../prisma/prisma.service';
-  import { Request } from 'express';
-  import { REQUIRED_SERVICE_KEY } from '../decorators/required-service.decorator';
- import { AppUser } from '../supabase.strategy';
- 
+import { Reflector } from '@nestjs/core';
+import { PrismaService } from '../../prisma/prisma.service';
+import { REQUIRED_SERVICE_KEY } from '../decorators/required-service.decorator';
+import { AppUser } from '../jwt.strategy';
   
-  @Injectable()
+@Injectable()
 export class PendingGamesGuard implements CanActivate {
   constructor(
     private readonly prisma: PrismaService,

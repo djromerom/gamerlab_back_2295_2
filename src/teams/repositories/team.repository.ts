@@ -77,7 +77,7 @@ export class TeamRepository implements ITeamRepository {
     return result;
   }
 
-  async createTeam(createTeamDto: CreateTeamDto, supabaseUserId: string): Promise<{
+  async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
     createdUser: User;
     team: Team;
     members: Member[];
@@ -99,9 +99,9 @@ export class TeamRepository implements ITeamRepository {
         const firstMember = members[0];
 
         // 2. Crear el usuario principal
-        const createdUser = await tx.user.create({
+        const createdUser = await tx.user.update({
+          where: {id: userId },
           data: {
-            id: supabaseUserId,
             firstName: firstMember.memberFirstName,
             lastName: firstMember.memberLastName,
             email: firstMember.memberEmail,

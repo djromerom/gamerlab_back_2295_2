@@ -12,7 +12,7 @@ import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { REQUIRED_SERVICE_KEY } from '../decorators/required-service.decorator';
-import { AppUser } from '../supabase.strategy';
+import { AppUser } from '../jwt.strategy';
 import { CacheService } from 'src/cache/cache.service';
 
 interface CachedServiceConfig {

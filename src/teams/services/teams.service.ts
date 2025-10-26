@@ -5,11 +5,11 @@ import { AuthService } from '../../auth/auth.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
 import { RegisterUserDto } from '../dto/register-user.dto';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
 
 @Injectable()
 export class TeamsService {
@@ -75,26 +75,26 @@ export class TeamsService {
       }
     }
     
-    // Attempt to register the user in Supabase
-    let supabaseUser: SupabaseUser;
+    // Attempt to register the user in the DB
+    let user: User;
     try {
-      supabaseUser = await this.authService.registerUser({
+      user = await this.authService.registerUser({
         email: firstMember.memberEmail,
       });
       
-      if (!supabaseUser || !supabaseUser.id) {
+      if (!user || !user.id) {
         throw new InternalServerErrorException('User registration failed.');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown Supabase registration error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown registration error';
       if (errorMessage.toLowerCase().includes('user already registered')) {
         throw new ConflictException(`Email ${firstMember.memberEmail} is already registered.`);
       }
-      throw new InternalServerErrorException(`Supabase error: ${errorMessage}`);
+      throw new InternalServerErrorException(`Error: ${errorMessage}`);
     }
     
     // Create the team using repository
-    const result = await this.teamRepository.createTeam(createTeamDto, supabaseUser.id);
+    const result = await this.teamRepository.createTeam(createTeamDto, user.id);
     
     // Send confirmation email (moved out to email service)
     // Removed dependency from this service
