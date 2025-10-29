@@ -1,0 +1,122 @@
+[
+  {
+    "table": "tipo_token",
+    "data": [
+      {
+        "id": 1,
+        "tipo": "VERIFICACION_EMAIL",
+        "activo": true,
+        "creado_en": "2025-05-19T13:27:32.877Z",
+        "actualizado_en": "2025-05-19T13:27:40.522Z"
+      },
+      {
+        "id": 2,
+        "tipo": "RESETEAR_CONTRASENA",
+        "activo": true,
+        "creado_en": "2025-05-21T21:30:39.598Z",
+        "actualizado_en": "2025-05-21T21:30:39.598Z"
+      }
+    ]
+  },
+  {
+    "table": "estado_videojuego",
+    "data": [
+      {
+        "id_estado": 1,
+        "estado": "CONFIRMADO",
+        "activo": true,
+        "actualizado_en": "2025-05-06T21:42:17.758Z",
+        "creado_en": "2025-05-06T16:42:15.000Z"
+      },
+      {
+        "id_estado": 2,
+        "estado": "PENDIENTE",
+        "activo": true,
+        "actualizado_en": "2025-05-06T21:42:26.252Z",
+        "creado_en": "2025-05-03T22:05:33.910Z"
+      },
+      {
+        "id_estado": 3,
+        "estado": "RECHAZADO",
+        "activo": true,
+        "actualizado_en": "2025-05-06T21:42:43.181Z",
+        "creado_en": "2025-05-06T16:42:41.000Z"
+      }
+    ]
+  },
+  {
+    "table": "estados_confirmacion",
+    "data": [
+      {
+        "id_estado": 1,
+        "estado": "CONFIRMADO",
+        "creado_en": "2025-05-03T02:33:16.377Z",
+        "actualizado_en": "2025-05-03T02:33:16.377Z",
+        "activo": true
+      },
+      {
+        "id_estado": 2,
+        "estado": "PENDIENTE",
+        "creado_en": "2025-05-03T02:33:31.158Z",
+        "actualizado_en": "2025-05-03T02:33:31.158Z",
+        "activo": true
+      },
+      {
+        "id_estado": 3,
+        "estado": "EXPIRADO",
+        "creado_en": "2025-05-03T02:33:51.578Z",
+        "actualizado_en": "2025-05-03T02:33:51.578Z",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "table": "roles",
+    "data": [
+      {
+        "id_rol": 1,
+        "rol": "Administrador",
+        "descripcion": "Administrador del sistema con todos los privilegios",
+        "creado_en": "2025-05-03T02:25:20.092Z",
+        "actualizado_en": "2025-05-03T02:25:20.092Z",
+        "activo": true
+      },
+      {
+        "id_rol": 2,
+        "rol": "Estudiante",
+        "descripcion": "Miembro de equipo participante registrado",
+        "creado_en": "2025-05-03T02:25:20.092Z",
+        "actualizado_en": "2025-05-06T17:18:45.607Z",
+        "activo": true
+      },
+      {
+        "id_rol": 3,
+        "rol": "Profesor",
+        "descripcion": "Profesor asignado a materias",
+        "creado_en": "2025-05-03T02:25:20.092Z",
+        "actualizado_en": "2025-05-03T02:25:20.092Z",
+        "activo": true
+      },
+      {
+        "id_rol": 4,
+        "rol": "Jurado",
+        "descripcion": "Jurado asignado para evaluar",
+        "creado_en": "2025-05-03T02:25:20.092Z",
+        "actualizado_en": "2025-05-03T02:25:20.092Z",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "table": "ediciones",
+    "data": [
+      {
+        "id_edicion": 1,
+        "semestre": "2025-30",
+        "activo": true,
+        "creado_en": "2025-01-01T00:00:00.000Z",
+        "actualizado_en": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+]
