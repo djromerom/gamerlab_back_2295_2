@@ -1,7 +1,11 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // src/teams/repositories/team.repository.ts
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -11,7 +15,7 @@ import { Team, Member, Videogame, User } from '@prisma/client';
 export class TeamRepository implements ITeamRepository {
   private readonly logger = new Logger(TeamRepository.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async findByTeamName(teamName: string): Promise<boolean> {
     const team = await this.prisma.team.findFirst({
@@ -37,11 +41,13 @@ export class TeamRepository implements ITeamRepository {
     return !!videogame;
   }
 
-  async checkEmailsExist(emails: string[]): Promise<{ [email: string]: boolean }> {
+  async checkEmailsExist(
+    emails: string[],
+  ): Promise<{ [email: string]: boolean }> {
     const result: { [email: string]: boolean } = {};
 
     // Initialize all emails as not existing
-    emails.forEach(email => {
+    emails.forEach((email) => {
       result[email] = false;
     });
 
@@ -70,14 +76,17 @@ export class TeamRepository implements ITeamRepository {
     });
 
     // Mark existing emails as true
-    [...existingUsers, ...existingMembers].forEach(user => {
+    [...existingUsers, ...existingMembers].forEach((user) => {
       result[user.email] = true;
     });
 
     return result;
   }
 
-  async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
+  async createTeam(
+    createTeamDto: CreateTeamDto,
+    userId: string,
+  ): Promise<{
     createdUser: User;
     team: Team;
     members: Member[];
@@ -100,7 +109,7 @@ export class TeamRepository implements ITeamRepository {
 
         // 2. Crear el usuario principal
         const createdUser = await tx.user.update({
-          where: {id: userId },
+          where: { id: userId },
           data: {
             firstName: firstMember.memberFirstName,
             lastName: firstMember.memberLastName,
@@ -123,14 +132,16 @@ export class TeamRepository implements ITeamRepository {
         for (const member of members) {
           // Verificar que los NRCs existen antes de intentar conectarlos
           if (member.nrc && member.nrc.length > 0) {
-            const nrcCodesFromDto = member.nrc.map(nrcCodeStr => parseInt(nrcCodeStr));
+            const nrcCodesFromDto = member.nrc.map((nrcCodeStr) =>
+              parseInt(nrcCodeStr),
+            );
 
             const nrcsFoundInDb = await tx.nRC.findMany({
               where: {
                 code: {
                   in: nrcCodesFromDto,
                 },
-                isActive: true
+                isActive: true,
               },
               select: {
                 id: true,
@@ -138,15 +149,19 @@ export class TeamRepository implements ITeamRepository {
               },
             });
 
-            const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(nrc => nrc.id);
-            const codesOfNrcsFoundInDb = nrcsFoundInDb.map(nrc => nrc.code);
+            const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(
+              (nrc) => nrc.id,
+            );
+            const codesOfNrcsFoundInDb = nrcsFoundInDb.map((nrc) => nrc.code);
 
             if (nrcsFoundInDb.length !== nrcCodesFromDto.length) {
               const missingNrcCodes = nrcCodesFromDto.filter(
-                dtoCode => !codesOfNrcsFoundInDb.includes(dtoCode)
+                (dtoCode) => !codesOfNrcsFoundInDb.includes(dtoCode),
               );
               if (missingNrcCodes.length > 0) {
-                this.logger.warn(`Some NRC codes provided for member ${member.memberEmail} were not found or are inactive: Missing ${missingNrcCodes.join(', ')}`);
+                this.logger.warn(
+                  `Some NRC codes provided for member ${member.memberEmail} were not found or are inactive: Missing ${missingNrcCodes.join(', ')}`,
+                );
               }
             }
 
@@ -159,7 +174,7 @@ export class TeamRepository implements ITeamRepository {
                   studentCode: member.studentCode,
                   teamId: team.id,
                   nrcs: {
-                    connect: dbIdsOfValidNrcsToConnect.map(id => ({ id })),
+                    connect: dbIdsOfValidNrcsToConnect.map((id) => ({ id })),
                   },
                 },
               });
@@ -209,7 +224,7 @@ export class TeamRepository implements ITeamRepository {
           createdUser,
           team,
           members: createdMembers,
-          createdVideogame
+          createdVideogame,
         };
       });
     } catch (error) {
@@ -222,7 +237,7 @@ export class TeamRepository implements ITeamRepository {
     return this.prisma.team.findMany();
   }
 
-  async findOne(id: number): Promise<any> {
+  async findOne(id: number): Promise<Team | null> {
     return this.prisma.team.findUnique({
       where: { id },
     });

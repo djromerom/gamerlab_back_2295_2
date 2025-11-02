@@ -7,7 +7,9 @@ import {
   Param,
   Delete,
   UseGuards,
-  HttpCode,
+  ParseIntPipe,
+  Query,
+  Optional,
 } from '@nestjs/common';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -20,7 +22,7 @@ import { RequiredService } from 'src/auth/decorators/required-service.decorator'
 
 @Controller('teams')
 export class TeamsController {
-  constructor(private readonly teamsService: TeamsService) { }
+  constructor(private readonly teamsService: TeamsService) {}
 
   @Public()
   @Post()
@@ -28,10 +30,20 @@ export class TeamsController {
     return this.teamsService.create(createTeamDto);
   }
 
-  @Get()
+  @Get('')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListTeams')
-  findAll() {
+  getTeams(
+    @Query('page') @Optional() page?: string,
+    @Query('limit') @Optional() limit?: string,
+  ) {
+    if (page && limit) {
+      const pageNum = parseInt(page, 10);
+      const limitNum = parseInt(limit, 10);
+      if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
+        return this.teamsService.findPaged(pageNum, limitNum);
+      }
+    }
     return this.teamsService.findAll();
   }
 
@@ -54,11 +66,22 @@ export class TeamsController {
     return this.teamsService.validateEmails(validateEmailsDto);
   }
 
+  // @Get('page/:page/limit/:limit')
+  // @UseGuards(RolePermissionGuard)
+  // @RequiredService('ListTeams')
+  // async getPagedQuery(
+  //   @Param('page', ParseIntPipe) page: number,
+  //   @Param('limit', ParseIntPipe) limit: number,
+  // ): Promise<PaginatedTeams> {
+  //   const result = await this.teamsService.findPaged(page, limit);
+  //   return result;
+  // }
+
   @Get(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetTeam')
-  findOne(@Param('id') id: string) {
-    return this.teamsService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.teamsService.findOne(id);
   }
 
   @Patch(':id')
@@ -71,7 +94,7 @@ export class TeamsController {
   @Delete(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('DeleteTeam')
-  remove(@Param('id') id: string) {
-    return this.teamsService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.teamsService.remove(id);
   }
 }
