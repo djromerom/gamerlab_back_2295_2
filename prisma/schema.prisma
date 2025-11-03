@@ -202,6 +202,8 @@ model Videogame {
   name              String          @map("nombre") @db.VarChar(30)
   description       String?         @map("descripcion")
   logoUrl           String?         @map("logo_url")
+  videoUrl          String?         @map("video_url")
+  repoUrl           String?         @map("repo_url")
   registrationDate  DateTime        @default(now()) @map("fecha_registro")
   videogameStatusId Int             @default(2) @map("id_estado_videojuego")
   teamId            Int             @unique @map("id_equipo")

@@ -17,6 +17,12 @@ export class VideogamesService {
         team: {
           select: {
             teamName: true,
+            members: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
         videogameStatus: {
@@ -28,10 +34,15 @@ export class VideogamesService {
     });
 
     return videogames.map((vg) => ({
+      id: vg.id,
       name: vg.name,
+      descripcion: vg.description,
       logoUrl: vg.logoUrl,
+      videoUrl: vg.videoUrl,
+      repoUrl: vg.repoUrl,
       teamName: vg.team.teamName,
       status: vg.videogameStatus.status,
+      members: vg.team.members.map((m) => `${m.firstName} ${m.lastName}`),
     }));
   }
 

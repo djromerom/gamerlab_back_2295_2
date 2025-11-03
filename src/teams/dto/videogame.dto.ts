@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/teams/dto/videogame.dto.ts
-import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsOptional, IsUrl } from 'class-validator';
 
 export class VideogameDto {
   @IsString()
@@ -13,4 +13,14 @@ export class VideogameDto {
 
   @IsString()
   logoURL: string;
+
+  @IsOptional()
+  @IsString()
+  @IsUrl({}, { message: 'La URL de YouTube debe ser válida' })
+  videoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsUrl({}, { message: 'La URL del repositorio debe ser válida' })
+  repoUrl?: string;
 }

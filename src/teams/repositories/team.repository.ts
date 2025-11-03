@@ -200,6 +200,8 @@ export class TeamRepository implements ITeamRepository {
             name: videogame.vgName,
             description: videogame.description,
             logoUrl: videogame.logoURL,
+            videoUrl: videogame.videoUrl,
+            repoUrl: videogame.repoUrl,
             teamId: team.id,
             videogameStatusId: 1,
           },
