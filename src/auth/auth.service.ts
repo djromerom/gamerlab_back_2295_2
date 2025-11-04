@@ -774,14 +774,14 @@ export class AuthService {
         templateParams = {
           email: email,
           confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-        }
+        };
       } else if (typeOfEmail === 'RESET_PASSWORD') {
         template = this.EMAIL_RESET_PASSWORD_TEMPLATE;
         templateParams = {
           email: email,
           user_name: userName,
           resetPasswordURL: `${REDIRECT_TO}/establecer-contrasena?token=${verificationToken}`,
-        }
+        };
       } else {
         this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
         throw new BadRequestException('Invalid email type specified.');
