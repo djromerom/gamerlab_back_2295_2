@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 // src/teams/dto/create-team.dto.ts
 import {
   IsString,
@@ -6,6 +5,7 @@ import {
   IsArray,
   ValidateNested,
   MaxLength,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MemberDto } from './member.dto';
@@ -27,6 +27,9 @@ export class CreateTeamDto {
   @ValidateNested()
   @Type(() => VideogameDto)
   videogame: VideogameDto;
+
+  @IsBoolean()
+  isExternal: boolean;
 
   @IsString()
   @IsNotEmpty({ message: 'El token de reCAPTCHA es obligatorio' })

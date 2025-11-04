@@ -66,17 +66,6 @@ export class TeamsController {
     return this.teamsService.validateEmails(validateEmailsDto);
   }
 
-  // @Get('page/:page/limit/:limit')
-  // @UseGuards(RolePermissionGuard)
-  // @RequiredService('ListTeams')
-  // async getPagedQuery(
-  //   @Param('page', ParseIntPipe) page: number,
-  //   @Param('limit', ParseIntPipe) limit: number,
-  // ): Promise<PaginatedTeams> {
-  //   const result = await this.teamsService.findPaged(page, limit);
-  //   return result;
-  // }
-
   @Get(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetTeam')

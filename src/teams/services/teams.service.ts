@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 // src/teams/services/teams.service.ts
 import {
   Injectable,
@@ -18,12 +17,13 @@ import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Team, Member, NRC, Subject, Videogame, User } from '@prisma/client';
-import { PaginatedTeams } from '../types/paginated-teams.type';
+import { PaginatedTeams, TeamRowData } from '../types/paginated-teams.type';
 
 type MemberWithNrcs = Member & { nrcs: (NRC & { subject: Subject })[] };
 type TeamWithRelations = Team & {
   members: MemberWithNrcs[];
   videogame: Videogame | null;
+  externo?: boolean | null;
 };
 
 @Injectable()
@@ -168,6 +168,28 @@ export class TeamsService {
       },
     })) as TeamWithRelations[];
 
+    const teamIds = teams.map((t) => t.id);
+    const teamIdToFiles = new Map<number, string[]>();
+
+    if (teamIds.length > 0) {
+      // Usar $queryRawUnsafe para consultar directamente la tabla archivos_equipo
+      // Los IDs son números controlados internamente, así que es seguro usarlos directamente
+      const idsString = teamIds.join(',');
+      const teamFiles = (await this.prisma.$queryRawUnsafe<
+        Array<{ id_equipo: number; id_archivo: string }>
+      >(
+        `SELECT id_equipo, id_archivo
+         FROM archivos_equipo
+         WHERE id_equipo IN (${idsString})`,
+      )) as Array<{ id_equipo: number; id_archivo: string }>;
+
+      for (const row of teamFiles) {
+        const arr = teamIdToFiles.get(row.id_equipo) ?? [];
+        arr.push(row.id_archivo);
+        teamIdToFiles.set(row.id_equipo, arr);
+      }
+    }
+
     const confirmIds = Array.from(
       new Set(teams.map((t) => t.confirmId)),
     ).filter(Boolean);
@@ -196,12 +218,17 @@ export class TeamsService {
       }));
 
       const vg = team.videogame;
+      const archivos: string[] = teamIdToFiles.get(team.id) ?? [];
+
       const videojuego = vg
         ? {
             id_videojuego: vg.id,
             nombre: vg.name,
             descripcion: vg.description ?? '',
             logo_url: vg.logoUrl ?? '',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+            video_url: (vg as any).video_url ?? null,
+            archivos,
             fecha_registro: vg.registrationDate.toISOString(),
             id_estado_videojuego: vg.videogameStatusId,
             id_equipo: vg.teamId,
@@ -240,12 +267,13 @@ export class TeamsService {
         activo: team.isActive,
         id_estado_confirmacion: team.confirmId,
         estado_nombre: statusById[team.confirmId] ?? '',
+        externo: Boolean(team.externo ?? false),
         integrantes,
         videojuego: videojuego ?? null,
         nrc_info,
         materia_info,
       };
-    });
+    }) as unknown as TeamRowData[];
 
     const totalPages = Math.max(1, Math.ceil(totalItems / limit));
     const itemsOnCurrentPage = data.length;

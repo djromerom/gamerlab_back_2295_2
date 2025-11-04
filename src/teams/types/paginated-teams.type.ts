@@ -18,6 +18,7 @@ export interface TeamRowData {
   activo: boolean;
   id_estado_confirmacion: number;
   estado_nombre: string;
+  externo: boolean;
   integrantes: IntegranteData[];
   videojuego: VideojuegoData | null;
   nrc_info?: NrcInfo;
@@ -41,6 +42,8 @@ export interface VideojuegoData {
   nombre: string;
   descripcion: string;
   logo_url: string;
+  video_url: string | null;
+  archivos: string[];
   fecha_registro: string;
   id_estado_videojuego: number;
   id_equipo: number;
