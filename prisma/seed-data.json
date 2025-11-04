@@ -1,0 +1,122 @@
+[
+  {
+    "table": "tipo_token",
+    "data": [
+      {
+        "id": 1,
+        "type": "VERIFICACION_EMAIL",
+        "isActive": true,
+        "createdAt": "2025-05-19T13:27:32.877Z",
+        "updatedAt": "2025-05-19T13:27:40.522Z"
+      },
+      {
+        "id": 2,
+        "type": "RESETEAR_CONTRASENA",
+        "isActive": true,
+        "createdAt": "2025-05-21T21:30:39.598Z",
+        "updatedAt": "2025-05-21T21:30:39.598Z"
+      }
+    ]
+  },
+  {
+    "table": "estado_videojuego",
+    "data": [
+      {
+        "id": 1,
+        "status": "CONFIRMADO",
+        "isActive": true,
+        "updatedAt": "2025-05-06T21:42:17.758Z",
+        "createdAt": "2025-05-06T16:42:15.000Z"
+      },
+      {
+        "id": 2,
+        "status": "PENDIENTE",
+        "isActive": true,
+        "updatedAt": "2025-05-06T21:42:26.252Z",
+        "createdAt": "2025-05-03T22:05:33.910Z"
+      },
+      {
+        "id": 3,
+        "status": "RECHAZADO",
+        "isActive": true,
+        "updatedAt": "2025-05-06T21:42:43.181Z",
+        "createdAt": "2025-05-06T16:42:41.000Z"
+      }
+    ]
+  },
+  {
+    "table": "estados_confirmacion",
+    "data": [
+      {
+        "id": 1,
+        "status": "CONFIRMADO",
+        "createdAt": "2025-05-03T02:33:16.377Z",
+        "updatedAt": "2025-05-03T02:33:16.377Z",
+        "isActive": true
+      },
+      {
+        "id": 2,
+        "status": "PENDIENTE",
+        "createdAt": "2025-05-03T02:33:31.158Z",
+        "updatedAt": "2025-05-03T02:33:31.158Z",
+        "isActive": true
+      },
+      {
+        "id": 3,
+        "status": "EXPIRADO",
+        "createdAt": "2025-05-03T02:33:51.578Z",
+        "updatedAt": "2025-05-03T02:33:51.578Z",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "table": "roles",
+    "data": [
+      {
+        "id": 1,
+        "name": "Administrador",
+        "description": "Administrador del sistema con todos los privilegios",
+        "createdAt": "2025-05-03T02:25:20.092Z",
+        "updatedAt": "2025-05-03T02:25:20.092Z",
+        "isActive": true
+      },
+      {
+        "id": 2,
+        "name": "Estudiante",
+        "description": "Miembro de equipo participante registrado",
+        "createdAt": "2025-05-03T02:25:20.092Z",
+        "updatedAt": "2025-05-06T17:18:45.607Z",
+        "isActive": true
+      },
+      {
+        "id": 3,
+        "name": "Profesor",
+        "description": "Profesor asignado a materias",
+        "createdAt": "2025-05-03T02:25:20.092Z",
+        "updatedAt": "2025-05-03T02:25:20.092Z",
+        "isActive": true
+      },
+      {
+        "id": 4,
+        "name": "Jurado",
+        "description": "Jurado asignado para evaluar",
+        "createdAt": "2025-05-03T02:25:20.092Z",
+        "updatedAt": "2025-05-03T02:25:20.092Z",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "table": "ediciones",
+    "data": [
+      {
+        "id": 1,
+        "semester": "2025-30",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+]

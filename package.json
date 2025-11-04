@@ -17,7 +17,15 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:reset": "prisma migrate reset",
+    "prisma:seed": "ts-node seed.ts",
+    "db:seed": "npm run prisma:seed",
+    "db:setup": "npm run prisma:migrate && npm run prisma:seed",
+    "db:reset": "npm run prisma:migrate:reset && npm run prisma:seed"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.29.1",
@@ -96,5 +104,8 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "prisma": {
+    "seed": "ts-node seed.ts"
   }
 }
