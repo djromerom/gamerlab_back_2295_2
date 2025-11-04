@@ -112,7 +112,256 @@
     "data": [
       {
         "id": 1,
-        "semester": "2025-30",
+        "semester": "2025-10",
+        "title": "Titulo",
+        "year": 2025,
+        "semesterName": "Primer semestre",
+        "name": "Feria Gamer 2024 - S1",
+        "date": "Marzo 2024",
+        "description": "Edición destacada por la integración de estudios indie y universidades locales.",
+        "description2": null,
+        "highlightedGames": "Destacado 1;Destacado 2;Destacado 3;Destacado 4",
+        "alt": "Feria Gamer 2025-10",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "semester": "2024-30",
+        "title": "Titulo",
+        "year": 2024,
+        "semesterName": "Segundo semestre",
+        "name": "Feria Gamer 2024 - S2",
+        "date": "Abril 2024",
+        "description": "Innovacion y aprendizaje se fusionaron en la II Feria Gamer del Programa de Ingeniería de Software y Computacion de la Universidad Del Norte, evento donde los videojuegos se transformaron en Herramientas para educar sobre los peligros del mundo digital",
+        "description2": "Estudiantes de primero a tercer semestre presentaron el jueves, 24 de abril de 2025, sus proyectos finales, una serie de videojuegos diseñados para generar conciencia sobre riesgos como el grooming, phishing y ciberacoso, mientras demostraban su creatividad y dominio técnico en programación.",
+        "highlightedGames": "Dulce y Burbujas;Leyendas de Papel, Páginas de Aventura;Carrot Mania;Musical Bubble Coffee",
+        "alt": "Feria Gamer 2024-30",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "podio",
+    "data": [
+      {
+        "editionId": 1,
+        "position": 1,
+        "teamName": "Equipo Alpha",
+        "gameName": "Aventura Espacial",
+        "score": 4.8,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 1,
+        "position": 2,
+        "teamName": "Equipo Beta",
+        "gameName": "Mundo Submarino",
+        "score": 4.5,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 1,
+        "position": 3,
+        "teamName": "Equipo Gamma",
+        "gameName": "Ciudad Futurista",
+        "score": 4.2,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "position": 1,
+        "teamName": "Equipo Delta",
+        "gameName": "Dulce y Burbujas",
+        "score": 4.9,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "position": 2,
+        "teamName": "Equipo Epsilon",
+        "gameName": "Leyendas de Papel, Páginas de Aventura",
+        "score": 4.6,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "position": 3,
+        "teamName": "Equipo Zeta",
+        "gameName": "Carrot Mania",
+        "score": 4.3,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "enfoque_educativo",
+    "data": [
+      {
+        "editionId": 1,
+        "title": "Medio Ambiental",
+        "description": "Descripcion",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "title": "Anti-Ciberacoso",
+        "description": "Juegos que concientizan sobre el impacto del acoso en línea y cómo combatirlo efectivamente.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "title": "Anti-Grooming",
+        "description": "Videojuegos que enseñan a identificar y prevenir el acoso en línea por parte de adultos hacia menores.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "title": "Anti-Phishing",
+        "description": "Experiencias interactivas para reconocer intentos de suplantación de identidad y estafas en línea.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "testimonio",
+    "data": [
+      {
+        "editionId": 2,
+        "name": "Fabian de Jesús Miranda Varelo",
+        "role": "Participante - Carrot Mania",
+        "quote": "El año pasado fui expositor en la feria gamer con Carrot Mania, un juego diseñado para comparar la eficiencia de la iteratividad con la recursividad. La dinámica consistía en ayudar a un conejo a recuperar sus zanahorias atrapadas en burbujas. Fue una experiencia enriquecedora, donde pude interactuar con estudiantes de bachillerato, asistentes y jurados, recibiendo valiosa retroalimentación que me ayudó a mejorar mi propuesta y reforzar mis habilidades en el desarrollo de videojuegos.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Laura González Valdeblanquez",
+        "role": "Participante - Musical Bubble Coffe",
+        "quote": "La participación en la FeriaGamer fue una experiencia muy enriquecedora y gratificante, ya que brindó el espacio para poder mostrar el proyecto, que se logró con tanto fuerzo y trabajo en equipo, a personas interesadas, lo cual , en particular, me hacía mucha ilusión. Además, la dinámica de presentar el proyecto para diferentes jurados y demás público, nos ayuda a prepararnos para saber como actuar de acuerdo a la persona.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Marian Andrea Pacheco Charris ",
+        "role": "Participante",
+        "quote": "Puedo describir mi experiencia participando en la feria gamer como muy enriquecedora, fue un excelente espacio para profundizar mis habilidades de comunicación, y exponer acerca del proceso que fue realizar un proyecto que relacionaba dos materias de programación. Además, me brindó la oportunidad de escuchar diferentes opiniones y críticas constructivas para tener en cuenta en mis próximos proyectos.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Arturo José González Barros",
+        "role": "Participante",
+        "quote": "Participar en la feria gamer fue para mí un verdadero reto. Pensar en haber hecho un programa completamente funcional con los conocimientos aprendidos en clase me hizo darme cuenta de las grandes capacidades que uno puede llegar a tener y el excelente trabajo de los profesores al enseñarnos las bases necesarias para afrontar esos grandes retos. Me gustó mucho tener un equipo de trabajo del cuál podía apoyarme y entenderme bastante bien, lo que facilitó las fechas de entrega y la presentación de un excelente trabajo. Y por último, me motivó a hacer trabajos similares para adquirir experiencias y probar mis conocimientos.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "María Alejandra Lobo León",
+        "role": "Participante - Hidden Deck",
+        "quote": "Me pareció una experiencia muy enriquecedora, ya que tuve la oportunidad de recibir feedback acerca de mi proyecto, y conocer las opiniones de los asistentes y jurados fue algo emocionante. Además, el hecho de poder compartir mi trabajo con otros estudiantes y profesionales del área me permitió aprender y crecer en mi desarrollo como programadora.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Jefferson Jose Torres Lora",
+        "role": "Monitor Programación Orientada a Objetos",
+        "quote": "La dinámica de los jóvenes en la feria gamer es excelente, ya que no solo aprenden sobre programación y desarrollo, sino que también adquieren conciencia sobre la temática central del evento. Esto permite que los estudiantes se diviertan y se entretengan mientras aprenden de forma progresiva y significativa.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Elvira Elena Florez Carbonell",
+        "role": "Monitora Estructura de Datos I y Algoritmia y Programación I",
+        "quote": "Desde mi experiencia como monitora y jurado en la feria gamer, considero que este espacio, si bien aún presenta muchas oportunidades para mejorar y crecer, también representa una gran oportunidad para mostrar a las demás carreras los proyectos desarrollados por los alumnos. Además, permite que tanto participantes como visitantes observen, reflexionen y aprecien de primera mano cómo se evidencian los avances en resultados a medida que se progresa de semestre.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Margarita Gamarra Acosta",
+        "role": "Profesora Departamento de Ingeniería de Sistemas y Computación",
+        "quote": "Para mi la feria gamer es una muestra del trabajo, esfuerzo y pasión de todos los estudiantes participantes. El trabajo en equipo se ve reflejado en los excelentes resultados que muestran en cada uno de sus videojuegos, esta es ya la tercera versión de la feria y cada vez quedo mas sorprendida con las presentaciones y la creatividad de los trabajos que presentan, cada semestre agregan nuevas y mejores herramientas a los videojuegos y este semestre se unen mas estudiantes interesados en participar, este semestre queremos brindarle un espacio habierto para toda la comunidad uninorteña, para que los proyectos sean visibles ante toda la comunidad académica.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 1,
+        "name": "Laura Vanessa Acuña Ordóñez",
+        "role": "Participante",
+        "quote": "Realmente fue una experiencia muy gratificante y retadora, porque nos permitió desarrollar habilidades que tal vez antes no habíamos experimentado, podría mejorar la organización del evento, porque como expositor es un poco difícil estar al frente del proyecto y pendiente a las necesidades de los invitados que a veces no saben a quien recurrir. Y por lo general ellos están en busca de personas que los puedan orientar y ayudar.",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 1,
+        "name": "María Del Mar Yusti Prins",
+        "role": "Participante",
+        "quote": "La feria gamer fue una gran experiencia como estudiante de primer semestre de Ingeniería de Sistemas. Nunca imaginé que, desde mis primeros meses en la universidad, tendría la oportunidad de presentar mi proyecto final frente a estudiantes y jurados. Sentí mucha  emoción al ver cómo el proyecto  que había creado junto a mis compañeros podía interesar e inspirar a estudiantes.Esa experiencia me ayudó a fortalecer mi confianza, fortalecer el trabajo en equipo y mis habilidades comunicativas.",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 1,
+        "name": "Marianna Contreras Zapata",
+        "role": "Participante",
+        "quote": "Fue una buena experiencia y oportunidad de presentar con mi grupo el proyecto que veníamos preparando, todo el proceso de ir avanzando y hacer el juego fue muy enriquecedora, luego explicarlo y exponerlo ante los demás y así mostrar nuestra capacidad de aprendizaje de las clases y aplicarlo fue única",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 1,
+        "name": "Nombre",
+        "role": "Asistente 1",
+        "quote": "texto de prueba",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 1,
+        "name": "Nombre",
+        "role": "Asistente 2",
+        "quote": "texto de prueba",
         "isActive": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"

@@ -11,14 +11,14 @@ interface SeedData {
 
 async function main() {
   try {
-    console.log('🌱 Iniciando proceso de seeding desde seed-data.json...');
+    console.log('🌱 Starting seeding process from seed-data.json...');
     
     // Ruta al archivo JSON con los datos de seeding
     const seedDataPath = join(__dirname, 'prisma', 'seed-data.json');
     
     // Verificar si el archivo existe
     if (!existsSync(seedDataPath)) {
-      console.log('⚠️  Archivo seed-data.json no encontrado. Saltando seeding...');
+      console.log('⚠️  seed-data.json file not found. Skipping seeding...');
       return;
     }
     
@@ -26,11 +26,11 @@ async function main() {
     const seedDataContent = readFileSync(seedDataPath, 'utf-8');
     const seedData: SeedData[] = JSON.parse(seedDataContent);
     
-    console.log(`📄 Archivo de seeding encontrado con ${seedData.length} tablas`);
+    console.log(`📄 Seeding file found with ${seedData.length} tables`);
     
     // Procesar cada tabla en el orden especificado
     for (const tableData of seedData) {
-      console.log(`🔄 Procesando tabla: ${tableData.table}`);
+      console.log(`🔄 Processing table: ${tableData.table}`);
       
       // Ejecutar cada registro usando Prisma ORM
       for (const record of tableData.data) {
@@ -67,24 +67,42 @@ async function main() {
                 skipDuplicates: true
               });
               break;
+            case 'podio':
+              await prisma.podium.createMany({
+                data: [record],
+                skipDuplicates: true
+              });
+              break;
+            case 'enfoque_educativo':
+              await prisma.educationalFocus.createMany({
+                data: [record],
+                skipDuplicates: true
+              });
+              break;
+            case 'testimonio':
+              await prisma.testimonial.createMany({
+                data: [record],
+                skipDuplicates: true
+              });
+              break;
             default:
-              console.log(`⚠️  Tabla ${tableData.table} no reconocida, saltando...`);
+              console.log(`⚠️  Table ${tableData.table} not recognized, skipping...`);
               continue;
           }
           
-          console.log(`✅ Registro creado exitosamente en ${tableData.table}`);
+          console.log(`✅ Record created successfully in ${tableData.table}`);
         } catch (error) {
-          console.error(`❌ Error creando registro en ${tableData.table}:`, error);
-          console.log(`Registro problemático:`, JSON.stringify(record, null, 2));
+          console.error(`❌ Error creating record in ${tableData.table}:`, error);
+          console.log(`Problematic record:`, JSON.stringify(record, null, 2));
           // Continuar con el siguiente registro aunque uno falle
         }
       }
     }
     
-    console.log('🎉 Proceso de seeding completado exitosamente');
+    console.log('🎉 Seeding process completed successfully');
     
   } catch (error) {
-    console.error('💥 Error durante el proceso de seeding:', error);
+    console.error('💥 Error during seeding process:', error);
     throw error;
   } finally {
     await prisma.$disconnect();
@@ -94,6 +112,6 @@ async function main() {
 // Ejecutar el seeding
 main()
   .catch((e) => {
-    console.error('Error fatal en seeding:', e);
+    console.error('Fatal error in seeding:', e);
     process.exit(1);
   });
