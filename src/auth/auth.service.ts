@@ -22,7 +22,6 @@ import { CacheService } from 'src/cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { template } from 'handlebars';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
