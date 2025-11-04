@@ -705,7 +705,7 @@ export class AuthService {
    */
   // done locally
   async resendEmailOfType(email: string, typeOfEmail: string): Promise<{ message: string }> {
-    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+    this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
     const user = await this.prisma.user.findUnique({
       where: { email },
