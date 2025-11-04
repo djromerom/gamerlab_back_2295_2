@@ -25,7 +25,7 @@ import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post('login')
@@ -50,20 +50,25 @@ export class AuthController {
   @Post('resend-confirmation')
   @HttpCode(HttpStatus.OK)
   async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendEmailOfType(body.email, "CONFIRMATION");
+    return await this.authService.resendEmailOfType(body.email, 'CONFIRMATION');
   }
 
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async sendResetPasswordEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendEmailOfType(body.email, "RESET_PASSWORD");
+    return await this.authService.resendEmailOfType(
+      body.email,
+      'RESET_PASSWORD',
+    );
   }
 
   @Public()
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
-  async setPassword(@Body() setPasswordDto: SetPasswordDto): Promise<{ message: string }> {
+  async setPassword(
+    @Body() setPasswordDto: SetPasswordDto,
+  ): Promise<{ message: string }> {
     const { token, password } = setPasswordDto;
     await this.authService.setUserPassword(token, password);
     return { message: 'Password updated successfully' };
@@ -86,7 +91,9 @@ export class AuthController {
 
   @Post('reset-token-expiration')
   @HttpCode(HttpStatus.OK)
-  async resetTokenExpiration(@Body() body: ResetTokenExpirationDto): Promise<{ message: string }> {
+  async resetTokenExpiration(
+    @Body() body: ResetTokenExpirationDto,
+  ): Promise<{ message: string }> {
     await this.authService.resetTokenExpiration(body.userId);
     return { message: 'Token expiration date reset successfully' };
   }
