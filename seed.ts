@@ -85,6 +85,30 @@ async function main() {
                 skipDuplicates: true
               });
               break;
+            case 'permisos':
+              await prisma.permission.createMany({
+                data: [record],
+                skipDuplicates: true
+              });
+              break;
+            case 'servicio':
+              await prisma.service.createMany({
+                data: [record],
+                skipDuplicates: true
+              });
+              break;
+            case 'servicio_permiso':
+              await prisma.servicePermission.createMany({
+                data: [record],
+                skipDuplicates: true
+              });
+              break;
+            case 'rol_permiso':
+              await prisma.rolePermission.createMany({
+                data: [record],
+                skipDuplicates: true
+              });
+              break;
             default:
               console.log(`⚠️  Table ${tableData.table} not recognized, skipping...`);
               continue;
