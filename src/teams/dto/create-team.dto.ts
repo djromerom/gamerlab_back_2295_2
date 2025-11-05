@@ -6,6 +6,7 @@ import {
   ValidateNested,
   MaxLength,
   IsBoolean,
+  IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MemberDto } from './member.dto';
@@ -29,7 +30,8 @@ export class CreateTeamDto {
   videogame: VideogameDto;
 
   @IsBoolean()
-  isExternal: boolean;
+  @IsOptional()
+  isExternal?: boolean;
 
   @IsString()
   @IsNotEmpty({ message: 'El token de reCAPTCHA es obligatorio' })

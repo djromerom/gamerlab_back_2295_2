@@ -87,6 +87,10 @@ export class TeamsService {
     return await this.teamRepository.findPaged(page, limit);
   }
 
+  async getLeaderStatus(email: string) {
+    return await this.teamRepository.getLeaderStatus(email);
+  }
+
   async remove(id: number) {
     if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestException('Invalid team id');

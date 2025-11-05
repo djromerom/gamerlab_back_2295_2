@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // src/teams/repositories/team.repository.ts
 import {
   Injectable,
@@ -12,6 +11,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { Team, Member, Videogame, Prisma } from '@prisma/client';
+import { UpdateTeamDto } from '../dto/update-team.dto';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -83,6 +83,15 @@ export class TeamRepository implements ITeamRepository {
     });
 
     return result;
+  }
+
+  async getLeaderStatus(email: string) {
+    return await this.prisma.user.findUnique({
+      where: { email: email },
+      select: {
+        confirmationStatus: true,
+      },
+    });
   }
 
   async createTeam(createTeamDto: CreateTeamDto): Promise<{
@@ -239,12 +248,12 @@ export class TeamRepository implements ITeamRepository {
 
   async findPaged(page = 1, limit = 10) {
     const currentPage = Math.max(page, 1);
-    const pageSize = Math.max(limit, 1);
+    const itemsPerPage = Math.max(limit, 1);
 
-    const [teams, total] = await this.prisma.$transaction([
+    const [teams, totalItems] = await this.prisma.$transaction([
       this.prisma.team.findMany({
-        skip: (currentPage - 1) * pageSize,
-        take: pageSize,
+        skip: (currentPage - 1) * itemsPerPage,
+        take: itemsPerPage,
         orderBy: { id: 'asc' },
         include: {
           members: {
@@ -260,25 +269,36 @@ export class TeamRepository implements ITeamRepository {
       this.prisma.team.count(),
     ]);
 
-    const totalPages = Math.ceil(total / pageSize);
+    const itemsOnCurrentPage = teams.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
 
     return {
       data: teams,
       metaData: {
-        total,
+        totalItems,
         totalPages,
+        itemsPerPage,
         currentPage,
-        pageSize,
+        itemsOnCurrentPage,
         hasNextPage: currentPage < totalPages,
         hasPrevPage: currentPage > 1,
       },
     };
   }
 
-  async update(id: number, data: any): Promise<Team> {
-    return this.prisma.team.update({
-      where: { id },
-      data,
+  async update(id: number, data: UpdateTeamDto): Promise<Team> {
+    const nrcRecordsMap = new Map<string, number>();
+
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedTeam = await tx.team.update({
+        where: { id: id },
+        data: {
+          teamName: data?.teamName,
+          isExternal: data?.isExternal,
+        },
+      });
+
+      return updatedTeam;
     });
   }
 

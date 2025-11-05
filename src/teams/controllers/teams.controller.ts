@@ -66,6 +66,11 @@ export class TeamsController {
     return this.teamsService.validateEmails(validateEmailsDto);
   }
 
+  @Get('leader/:email/status')
+  getStatus(@Param('email') email: string) {
+    return this.teamsService.getLeaderStatus(email);
+  }
+
   @Get(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetTeam')
