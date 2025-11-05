@@ -1,9 +1,9 @@
 # Docker Compose para desarrollo (corre solo la DB)
 
 services:
-  postgres:
+  db:
     image: postgres:15-alpine
-    container_name: arkad_postgres_dev
+    container_name: arkad_db_dev
     restart: unless-stopped
     environment:
       POSTGRES_DB: arkad_db
@@ -11,7 +11,6 @@ services:
       POSTGRES_PASSWORD: arkad_password
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -19,6 +18,63 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  migrate-and-seed-dev:
+    image: node:20-alpine
+    container_name: arkad_migrator_dev
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /usr/src/app
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    command: >
+      sh -c "
+        echo 'Installing dependencies...' &&
+        npm install &&
+        echo 'Generating Prisma client...' &&
+        npx prisma generate &&
+        echo 'Running database migrations...' &&
+        npx prisma migrate dev &&
+        echo 'Database migrations completed' &&
+        echo 'Running database seeding...' &&
+        npx ts-node seed.ts &&
+        echo 'Database seeding completed'
+      "
+    restart: "no"
+
+  app-dev:
+    image: node:20-alpine
+    container_name: arkad_app_dev
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate-and-seed-dev:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    working_dir: /usr/src/app
+    env_file: .env
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    command: >
+      sh -c "
+        echo 'Installing dependencies...' &&
+        npm install &&
+        echo 'Generating Prisma client...' &&
+        npx prisma generate &&
+        echo 'Starting development server with watch mode...' &&
+        npm run start:dev
+      "
+    restart: unless-stopped
 
 volumes:
   postgres_dev_data:

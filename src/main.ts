@@ -27,7 +27,14 @@ async function bootstrap() {
     .setTitle('Arkad API')
     .setDescription('API for the Arkad backend system')
     .setVersion('1.0')
-    .addCookieAuth('access-token')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'access',
+    )
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'refresh',
+    )
     .build();
     
   const document = SwaggerModule.createDocument(app, config);
