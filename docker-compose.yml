@@ -26,9 +26,6 @@ services:
     env_file: .env
     environment:
       - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
-    volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
     command: >
       sh -c "
         echo 'Generating Prisma client...' &&
@@ -37,7 +34,7 @@ services:
         npx prisma migrate deploy &&
         echo 'Database migrations completed' &&
         echo 'Running database seeding...' &&
-        npx ts-node seed.ts &&
+        node dist/seed.js &&
         echo 'Database seeding completed'
       "
     restart: "no"
@@ -57,10 +54,6 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
-    volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
-    command: ["node", "dist/main.js"]
 
 volumes:
   postgres_data:

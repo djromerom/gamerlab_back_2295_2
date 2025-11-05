@@ -37,4 +37,4 @@ COPY --from=builder /usr/src/app/seed.ts ./seed.ts
 
 EXPOSE 3000
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

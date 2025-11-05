@@ -1,4 +1,4 @@
-# Docker Compose para desarrollo (corre solo la DB)
+# Docker Compose para desarrollo
 
 services:
   db:
@@ -34,12 +34,13 @@ services:
       - /usr/src/app/node_modules
     command: >
       sh -c "
+        set -e &&
         echo 'Installing dependencies...' &&
         npm install &&
         echo 'Generating Prisma client...' &&
         npx prisma generate &&
         echo 'Running database migrations...' &&
-        npx prisma migrate dev &&
+        npx prisma migrate deploy &&
         echo 'Database migrations completed' &&
         echo 'Running database seeding...' &&
         npx ts-node seed.ts &&
@@ -67,6 +68,7 @@ services:
       - /usr/src/app/node_modules
     command: >
       sh -c "
+        set -e &&
         echo 'Installing dependencies...' &&
         npm install &&
         echo 'Generating Prisma client...' &&
