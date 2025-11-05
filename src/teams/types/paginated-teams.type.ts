@@ -41,9 +41,10 @@ export interface VideojuegoData {
   id_videojuego: number;
   nombre: string;
   descripcion: string;
-  logo_url: string;
+  repo_url: string | null;
+  logo_url: string | null;
   video_url: string | null;
-  archivos: string[];
+  images: string[] | null;
   fecha_registro: string;
   id_estado_videojuego: number;
   id_equipo: number;

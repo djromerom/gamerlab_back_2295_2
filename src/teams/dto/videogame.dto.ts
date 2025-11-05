@@ -1,16 +1,42 @@
-/* eslint-disable prettier/prettier */
 // src/teams/dto/videogame.dto.ts
-import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { UploadDto } from 'src/upload/create-upload.dto';
 
 export class VideogameDto {
   @IsString()
-  @MaxLength(30, { message: 'El nombre del videojuego debe ser de máximo 30 caracteres' })
+  @MaxLength(30, {
+    message: 'El nombre del videojuego debe ser de máximo 30 caracteres',
+  })
   @IsNotEmpty({ message: 'El nombre del videojuego es obligatorio' })
   vgName: string;
 
   @IsString()
-  description: string;
+  @IsOptional()
+  description?: string;
 
   @IsString()
-  logoURL: string;
+  @IsOptional()
+  repoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  logoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  videoUrl?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UploadDto)
+  @IsOptional()
+  uploads?: UploadDto[];
 }

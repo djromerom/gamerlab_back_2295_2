@@ -4,11 +4,14 @@ import {
   Injectable,
   Logger,
   InternalServerErrorException,
+  ConflictException,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
-import { Team, Member, Videogame, User } from '@prisma/client';
+import { Team, Member, Videogame, Prisma } from '@prisma/client';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -82,153 +85,145 @@ export class TeamRepository implements ITeamRepository {
     return result;
   }
 
-  async createTeam(
-    createTeamDto: CreateTeamDto,
-    userId: string,
-  ): Promise<{
-    createdUser: User;
+  async createTeam(createTeamDto: CreateTeamDto): Promise<{
     team: Team;
     members: Member[];
     createdVideogame: Videogame;
   }> {
-    const { teamName, videogame, members } = createTeamDto;
-
+    const { teamName, videogame, members, isExternal } = createTeamDto;
     try {
       return await this.prisma.$transaction(async (tx) => {
-        // 1. Verificar que el rol de Estudiante existe
         const studentRole = await tx.role.findUnique({
           where: { name: 'Estudiante' },
         });
-
-        if (!studentRole) {
-          throw new Error('Role "Estudiante" not found.');
-        }
-
+        if (!studentRole) throw new Error('Role "Estudiante" not found');
         const firstMember = members[0];
 
-        // 2. Crear el usuario principal
-        const createdUser = await tx.user.update({
-          where: { id: userId },
-          data: {
-            firstName: firstMember.memberFirstName,
-            lastName: firstMember.memberLastName,
-            email: firstMember.memberEmail,
-            roleId: studentRole.id,
-          },
+        // Verificar si el usuario ya existe
+        // Si no existe se crea
+        // Si ya existe y no tiene equipo se actualiza
+        const existingUser = await tx.user.findUnique({
+          where: { email: firstMember.memberEmail },
         });
 
-        // 3. Crear el equipo
+        let userId;
+        if (existingUser) {
+          const hasTeam = await tx.team.findUnique({
+            where: { userId: existingUser.id },
+          });
+
+          if (hasTeam)
+            throw new ConflictException({
+              statusCode: 409,
+              message: `El usuario ${existingUser.email} ya pertenece a un equipo`,
+              field: 'memberEmail',
+            });
+
+          userId = existingUser.id;
+        } else {
+          const createdUser = await tx.user.create({
+            data: {
+              email: firstMember.memberEmail,
+              firstName: firstMember.memberFirstName,
+              lastName: firstMember.memberLastName,
+              roleId: studentRole.id,
+            },
+          });
+          userId = createdUser.id;
+        }
+
         const team = await tx.team.create({
           data: {
             teamName,
-            userId: createdUser.id,
+            isExternal,
+            userId,
           },
         });
 
-        // 4. Crear los miembros del equipo - verificando primero si los NRCs existen
         const createdMembers: Member[] = [];
-
-        for (const member of members) {
-          // Verificar que los NRCs existen antes de intentar conectarlos
-          if (member.nrc && member.nrc.length > 0) {
-            const nrcCodesFromDto = member.nrc.map((nrcCodeStr) =>
-              parseInt(nrcCodeStr),
+        for (const member of members.slice()) {
+          // Como los miembros se eliminan en cascada al eliminar el equipo
+          // no es necesario hacer upsert por lo que si un miembro con el
+          // mismo correo ya existe manda error directamente.
+          const checkIfExist = await tx.member.findUnique({
+            where: { email: member.memberEmail },
+          });
+          if (checkIfExist)
+            throw new ConflictException(
+              `El miembro ${member.memberEmail} ya está registrado en otro equipo`,
             );
 
-            const nrcsFoundInDb = await tx.nRC.findMany({
-              where: {
-                code: {
-                  in: nrcCodesFromDto,
-                },
-                isActive: true,
-              },
-              select: {
-                id: true,
-                code: true,
-              },
+          const nrcRecords = await tx.nRC.findMany({
+            where: {
+              code: { in: member.nrc.map(Number) },
+            },
+            select: { id: true },
+          });
+          if (nrcRecords.length === 0) {
+            throw new NotFoundException({
+              statusCode: 400,
+              message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
+              field: `nrc`,
             });
-
-            const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(
-              (nrc) => nrc.id,
-            );
-            const codesOfNrcsFoundInDb = nrcsFoundInDb.map((nrc) => nrc.code);
-
-            if (nrcsFoundInDb.length !== nrcCodesFromDto.length) {
-              const missingNrcCodes = nrcCodesFromDto.filter(
-                (dtoCode) => !codesOfNrcsFoundInDb.includes(dtoCode),
-              );
-              if (missingNrcCodes.length > 0) {
-                this.logger.warn(
-                  `Some NRC codes provided for member ${member.memberEmail} were not found or are inactive: Missing ${missingNrcCodes.join(', ')}`,
-                );
-              }
-            }
-
-            if (dbIdsOfValidNrcsToConnect.length > 0) {
-              const createdMember = await tx.member.create({
-                data: {
-                  firstName: member.memberFirstName,
-                  lastName: member.memberLastName,
-                  email: member.memberEmail,
-                  studentCode: member.studentCode,
-                  teamId: team.id,
-                  nrcs: {
-                    connect: dbIdsOfValidNrcsToConnect.map((id) => ({ id })),
-                  },
-                },
-              });
-
-              createdMembers.push(createdMember);
-            } else {
-              const createdMember = await tx.member.create({
-                data: {
-                  firstName: member.memberFirstName,
-                  lastName: member.memberLastName,
-                  email: member.memberEmail,
-                  studentCode: member.studentCode,
-                  teamId: team.id,
-                },
-              });
-
-              createdMembers.push(createdMember);
-            }
-          } else {
-            // Crear miembro sin NRCs
-            const createdMember = await tx.member.create({
-              data: {
-                firstName: member.memberFirstName,
-                lastName: member.memberLastName,
-                email: member.memberEmail,
-                studentCode: member.studentCode,
-                teamId: team.id,
-              },
-            });
-
-            createdMembers.push(createdMember);
           }
+
+          const createdMember = await tx.member.create({
+            data: {
+              email: member.memberEmail,
+              firstName: member.memberFirstName,
+              lastName: member.memberLastName,
+              studentCode: member.studentCode,
+              teamId: team.id,
+              nrcs: {
+                connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+              },
+            },
+            include: { nrcs: true },
+          });
+          createdMembers.push(createdMember);
         }
 
-        // 5. Crear el videojuego
         const createdVideogame = await tx.videogame.create({
           data: {
             name: videogame.vgName,
-            description: videogame.description,
-            logoUrl: videogame.logoURL,
             teamId: team.id,
-            videogameStatusId: 1,
+            description: videogame.description,
+            repoUrl: videogame.repoUrl,
+            videoUrl: videogame.videoUrl,
+            logoUrl: videogame.logoUrl,
           },
         });
 
         return {
-          createdUser,
           team,
           members: createdMembers,
           createdVideogame,
         };
       });
-    } catch (error) {
-      this.logger.error('Transaction failed:', error);
-      throw new InternalServerErrorException('Failed to create team.');
+    } catch (error: any) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        switch (error.code) {
+          case 'P2002': {
+            const target = Array.isArray(error.meta?.target)
+              ? error.meta.target.join(', ')
+              : 'campo desconocido';
+
+            throw new ConflictException(
+              `El valor en el campo '${target}' está repetido o ya había sido registrado.`,
+            );
+          }
+
+          case 'P2025':
+            throw new BadRequestException('Registro no encontrado.');
+
+          default:
+            throw new InternalServerErrorException(
+              `Error de base de datos: ${error.code}`,
+            );
+        }
+      }
+
+      throw new InternalServerErrorException(error.message);
     }
   }
 
@@ -240,6 +235,44 @@ export class TeamRepository implements ITeamRepository {
     return this.prisma.team.findUnique({
       where: { id },
     });
+  }
+
+  async findPaged(page = 1, limit = 10) {
+    const currentPage = Math.max(page, 1);
+    const pageSize = Math.max(limit, 1);
+
+    const [teams, total] = await this.prisma.$transaction([
+      this.prisma.team.findMany({
+        skip: (currentPage - 1) * pageSize,
+        take: pageSize,
+        orderBy: { id: 'asc' },
+        include: {
+          members: {
+            include: {
+              nrcs: {
+                include: { subject: true },
+              },
+            },
+          },
+          videogame: true,
+        },
+      }),
+      this.prisma.team.count(),
+    ]);
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: teams,
+      metaData: {
+        total,
+        totalPages,
+        currentPage,
+        pageSize,
+        hasNextPage: currentPage < totalPages,
+        hasPrevPage: currentPage > 1,
+      },
+    };
   }
 
   async update(id: number, data: any): Promise<Team> {
