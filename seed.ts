@@ -14,11 +14,11 @@ async function main() {
     console.log('🌱 Starting seeding process from seed-data.json...');
     
     // Ruta al archivo JSON con los datos de seeding
-    const seedDataPath = join(__dirname, 'prisma', 'seed-data.json');
+    const seedDataPath = join(process.cwd(), 'prisma', 'seed-data.json');
     
     // Verificar si el archivo existe
     if (!existsSync(seedDataPath)) {
-      console.log('⚠️  seed-data.json file not found. Skipping seeding...');
+      console.log(`⚠️  ${seedDataPath} file not found. Skipping seeding...`);
       return;
     }
     
