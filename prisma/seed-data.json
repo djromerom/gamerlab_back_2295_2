@@ -148,6 +148,7 @@
     "table": "podio",
     "data": [
       {
+        "id": 1,
         "editionId": 1,
         "position": 1,
         "teamName": "Equipo Alpha",
@@ -158,6 +159,7 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
+        "id": 2, 
         "editionId": 1,
         "position": 2,
         "teamName": "Equipo Beta",
@@ -168,6 +170,7 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
+        "id": 3,
         "editionId": 1,
         "position": 3,
         "teamName": "Equipo Gamma",
@@ -178,6 +181,7 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
+        "id": 4,
         "editionId": 2,
         "position": 1,
         "teamName": "Equipo Delta",
@@ -188,6 +192,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 5,
         "editionId": 2,
         "position": 2,
         "teamName": "Equipo Epsilon",
@@ -198,6 +203,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 6,
         "editionId": 2,
         "position": 3,
         "teamName": "Equipo Zeta",
@@ -213,6 +219,7 @@
     "table": "enfoque_educativo",
     "data": [
       {
+        "id": 1,
         "editionId": 1,
         "title": "Medio Ambiental",
         "description": "Descripcion",
@@ -221,6 +228,7 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
+        "id": 2,
         "editionId": 2,
         "title": "Anti-Ciberacoso",
         "description": "Juegos que concientizan sobre el impacto del acoso en línea y cómo combatirlo efectivamente.",
@@ -229,6 +237,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 3,
         "editionId": 2,
         "title": "Anti-Grooming",
         "description": "Videojuegos que enseñan a identificar y prevenir el acoso en línea por parte de adultos hacia menores.",
@@ -237,6 +246,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 4,
         "editionId": 2,
         "title": "Anti-Phishing",
         "description": "Experiencias interactivas para reconocer intentos de suplantación de identidad y estafas en línea.",
@@ -250,6 +260,7 @@
     "table": "testimonio",
     "data": [
       {
+        "id": 1,
         "editionId": 2,
         "name": "Fabian de Jesús Miranda Varelo",
         "role": "Participante - Carrot Mania",
@@ -259,6 +270,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 2,
         "editionId": 2,
         "name": "Laura González Valdeblanquez",
         "role": "Participante - Musical Bubble Coffe",
@@ -286,6 +298,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 3,
         "editionId": 2,
         "name": "María Alejandra Lobo León",
         "role": "Participante - Hidden Deck",
@@ -295,6 +308,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 4,
         "editionId": 2,
         "name": "Jefferson Jose Torres Lora",
         "role": "Monitor Programación Orientada a Objetos",
@@ -304,6 +318,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 5,
         "editionId": 2,
         "name": "Elvira Elena Florez Carbonell",
         "role": "Monitora Estructura de Datos I y Algoritmia y Programación I",
@@ -313,6 +328,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 6,
         "editionId": 2,
         "name": "Margarita Gamarra Acosta",
         "role": "Profesora Departamento de Ingeniería de Sistemas y Computación",
@@ -322,6 +338,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 1,
         "editionId": 1,
         "name": "Laura Vanessa Acuña Ordóñez",
         "role": "Participante",
@@ -331,6 +348,7 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
+        "id": 2,
         "editionId": 1,
         "name": "María Del Mar Yusti Prins",
         "role": "Participante",
@@ -340,28 +358,11 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
+        "id": 3,
         "editionId": 1,
         "name": "Marianna Contreras Zapata",
         "role": "Participante",
         "quote": "Fue una buena experiencia y oportunidad de presentar con mi grupo el proyecto que veníamos preparando, todo el proceso de ir avanzando y hacer el juego fue muy enriquecedora, luego explicarlo y exponerlo ante los demás y así mostrar nuestra capacidad de aprendizaje de las clases y aplicarlo fue única",
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "editionId": 1,
-        "name": "Nombre",
-        "role": "Asistente 1",
-        "quote": "texto de prueba",
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "editionId": 1,
-        "name": "Nombre",
-        "role": "Asistente 2",
-        "quote": "texto de prueba",
         "isActive": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"

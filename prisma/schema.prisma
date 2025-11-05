@@ -323,6 +323,7 @@ model Podium {
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   edition     Edition  @relation(fields: [editionId], references: [id])
 
+  @@unique([editionId, position], name: "podio_criterio_unique")
   @@map("podio")
 }
 
@@ -336,6 +337,7 @@ model EducationalFocus {
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   edition     Edition  @relation(fields: [editionId], references: [id])
 
+  @@unique([editionId, title], name: "enfoque_educativo_criterio_unique")
   @@map("enfoque_educativo")
 }
 
@@ -350,5 +352,6 @@ model Testimonial {
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   edition     Edition  @relation(fields: [editionId], references: [id])
 
+  @@unique([editionId, name], name: "testimonio_criterio_unique")
   @@map("testimonio")
 }
