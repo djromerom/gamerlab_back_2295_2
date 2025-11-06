@@ -20,6 +20,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CacheService } from 'src/cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
+import { EmailType } from './types/email-type.type';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
@@ -35,6 +36,7 @@ export class AuthService {
   private EMAIL_PRIVATE_API_KEY: string;
   private EMAIL_SERVICE_ID: string;
   private EMAIL_CONFIRMATION_TEMPLATE: string;
+  private EMAIL_RESET_PASSWORD_TEMPLATE: string;
 
   private confirmedStatusId: number;
   private pendingStatusId: number;
@@ -128,6 +130,9 @@ export class AuthService {
       const EMAIL_CONFIRMATION_TEMPLATE = this.configService.get<string>(
         'EMAIL_CONFIRMATION_TEMPLATE',
       );
+      const EMAIL_RESET_PASSWORD_TEMPLATE = this.configService.get<string>(
+        'EMAIL_RESET_PASSWORD_TEMPLATE',
+      );
 
       if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
         throw new InternalServerErrorException(
@@ -141,11 +146,16 @@ export class AuthService {
         throw new InternalServerErrorException(
           `FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`,
         );
+      else if (!EMAIL_RESET_PASSWORD_TEMPLATE)
+        throw new InternalServerErrorException(
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_RESET_PASSWORD_TEMPLATE' not found. Application might not function correctly`,
+        );
 
       this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
       this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY;
       this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID;
       this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE;
+      this.EMAIL_RESET_PASSWORD_TEMPLATE = EMAIL_RESET_PASSWORD_TEMPLATE;
 
       this.logger.log('Initializing EmailJS with found EMAIL_API_KEY');
       emailjs.init({
@@ -258,11 +268,11 @@ export class AuthService {
       // Hash the password locally
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-      
+
       // Update the user's password in our local database
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
-        data: { 
+        data: {
           password: hashedPassword,
           confirmationStatusId: this.confirmedStatusId,
           isActive: true,
@@ -388,7 +398,9 @@ export class AuthService {
         where: { email: registerDto.email },
       });
       if (existingUser) {
-        this.logger.warn(`Registration attempt for existing email: ${registerDto.email}`);
+        this.logger.warn(
+          `Registration attempt for existing email: ${registerDto.email}`,
+        );
         throw new ConflictException('A user with that email already exists');
       }
 
@@ -398,15 +410,17 @@ export class AuthService {
         data: {
           id: userId,
           email: registerDto.email,
-          firstName: "",
-          lastName: "",
+          firstName: '',
+          lastName: '',
           roleId: 2, // Default role ID (student)
           confirmationStatusId: this.pendingStatusId,
           isActive: false, // User starts inactive until email is confirmed
           createdAt: new Date(),
         },
       });
-      this.logger.log(`Local user created successfully for: ${registerDto.email}`);
+      this.logger.log(
+        `Local user created successfully for: ${registerDto.email}`,
+      );
 
       // Send verification email (same flow as before)
       this.logger.log(`Sending verification email for '${registerDto.email}'`);
@@ -465,7 +479,7 @@ export class AuthService {
   // done locally
   async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
-    
+
     // Find user in local database
     const user = await this.prisma.user.findUnique({
       where: { email: loginDto.email },
@@ -476,25 +490,36 @@ export class AuthService {
     });
 
     if (!user) {
-      this.logger.warn(`Login attempt failed: User not found for email: ${loginDto.email}`);
+      this.logger.warn(
+        `Login attempt failed: User not found for email: ${loginDto.email}`,
+      );
       throw new UnauthorizedException('Invalid credentials.');
     }
 
     if (!user.password) {
-      this.logger.warn(`Login attempt failed: User ${loginDto.email} has no password set`);
+      this.logger.warn(
+        `Login attempt failed: User ${loginDto.email} has no password set`,
+      );
       throw new UnauthorizedException('Invalid credentials.');
     }
 
     // Verify password using bcrypt
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
-      this.logger.warn(`Login attempt failed: Invalid password for user: ${loginDto.email}`);
+      this.logger.warn(
+        `Login attempt failed: Invalid password for user: ${loginDto.email}`,
+      );
       throw new UnauthorizedException('Invalid credentials.');
     }
 
     // Check if user is active
     if (!user.isActive) {
-      this.logger.warn(`Login attempt failed: User ${loginDto.email} is inactive`);
+      this.logger.warn(
+        `Login attempt failed: User ${loginDto.email} is inactive`,
+      );
       throw new UnauthorizedException('User account is currently inactive.');
     }
 
@@ -504,7 +529,9 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     this.setAuthCookies(res, accessToken, refreshToken);
-    this.logger.log(`Local authentication successful for user: ${loginDto.email}`);
+    this.logger.log(
+      `Local authentication successful for user: ${loginDto.email}`,
+    );
 
     this.updateLastSignIn(loginDto.email);
 
@@ -548,7 +575,7 @@ export class AuthService {
     try {
       // Verify the refresh token using our local JWT service
       const payload = this.jwtService.verify(refreshToken);
-      
+
       if (!payload || !payload.sub || !payload.email) {
         this.logger.warn('Invalid refresh token payload');
         this.clearAuthCookies(res);
@@ -561,15 +588,21 @@ export class AuthService {
       });
 
       if (!user || !user.isActive) {
-        this.logger.warn(`Refresh token user ${payload.email} not found or inactive`);
+        this.logger.warn(
+          `Refresh token user ${payload.email} not found or inactive`,
+        );
         this.clearAuthCookies(res);
         throw new UnauthorizedException('User account is no longer active.');
       }
 
       // Generate new tokens
       const newPayload = { sub: user.id, email: user.email };
-      const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
-      const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
+      const newAccessToken = this.jwtService.sign(newPayload, {
+        expiresIn: '15m',
+      });
+      const newRefreshToken = this.jwtService.sign(newPayload, {
+        expiresIn: '7d',
+      });
 
       this.setAuthCookies(res, newAccessToken, newRefreshToken);
       this.logger.log(`Session refreshed successfully for user: ${user.email}`);
@@ -597,10 +630,10 @@ export class AuthService {
   // done locally
   async logout(res: Response): Promise<{ message: string }> {
     this.logger.log('Attempting to logout user.');
-    
+
     this.clearAuthCookies(res);
     this.logger.log('Local logout successful - auth cookies cleared.');
-    
+
     return { message: 'Logout successful' };
   }
 
@@ -611,11 +644,11 @@ export class AuthService {
    * @throws {NotFoundException} If user is not found in local database
    * @throws {UnauthorizedException} If user is inactive
    */
-  async syncLocalUser(jwtPayload: JwtPayload): Promise<User> {    
+  async syncLocalUser(jwtPayload: JwtPayload): Promise<User> {
     this.logger.debug(`Syncing local user with ID: ${jwtPayload.sub}`);
 
     const cacheKey = this.getUserProfileCacheKey(jwtPayload.sub);
-    
+
     // Try cache first
     const cachedUser = await this.cacheService.get(cacheKey);
     if (cachedUser) {
@@ -629,7 +662,7 @@ export class AuthService {
       this.logger.debug(`Local user ${jwtPayload.sub} found in cache`);
       return cachedUser;
     }
-    
+
     // Find user in local database with full role/permissions data
     const user = await this.prisma.user.findUnique({
       where: { id: jwtPayload.sub },
@@ -645,13 +678,17 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      this.logger.warn(`Local user ${jwtPayload.sub} (${user.email}) is inactive`);
+      this.logger.warn(
+        `Local user ${jwtPayload.sub} (${user.email}) is inactive`,
+      );
       throw new UnauthorizedException('User account is inactive');
     }
 
     // Cache the user profile
     await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
-    this.logger.debug(`Local user ${user.email} synced and cached successfully`);
+    this.logger.debug(
+      `Local user ${user.email} synced and cached successfully`,
+    );
 
     return user;
   }
@@ -682,9 +719,7 @@ export class AuthService {
   async invalidateUserProfileCache(userId: string): Promise<void> {
     const cacheKey = this.getUserProfileCacheKey(userId);
     await this.cacheService.delete(cacheKey);
-    this.logger.log(
-      `User profile cache invalidated for user ID: ${userId}`,
-    );
+    this.logger.log(`User profile cache invalidated for user ID: ${userId}`);
   }
 
   /**
@@ -695,8 +730,11 @@ export class AuthService {
    * @throws {InternalServerErrorException} If there is an error sending the email.
    */
   // done locally
-  async resendConfirmationEmail(email: string) {
-    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
+  async resendEmailOfType(
+    email: string,
+    typeOfEmail: EmailType,
+  ): Promise<{ message: string }> {
+    this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -708,7 +746,10 @@ export class AuthService {
       throw new NotFoundException('The email address is not registered.');
     }
 
-    if (user.confirmationStatus?.status === 'CONFIRMADO') {
+    if (
+      typeOfEmail === 'CONFIRMATION' &&
+      user.confirmationStatus?.status === 'CONFIRMADO'
+    ) {
       this.logger.warn(`User with email ${email} is already confirmed.`);
       throw new ConflictException('The email has already been confirmed.');
     }
@@ -749,13 +790,38 @@ export class AuthService {
         },
       });
 
-      // Send new verification email
-      this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
-        email: email,
-        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-      });
+      // Determine the email template based on typeOfEmail
+      // Possible to add more types in the future
+      let template: string;
+      let templateParams: Record<string, unknown>;
 
-      this.logger.log(`Confirmation email resent successfully to: ${email}`);
+      if (typeOfEmail === 'CONFIRMATION') {
+        template = this.EMAIL_CONFIRMATION_TEMPLATE;
+        templateParams = {
+          email: email,
+          confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
+        };
+      } else if (typeOfEmail === 'RESET_PASSWORD') {
+        // Get user's display name (firstName or lastName/email as fallback)
+        const userName = user.firstName
+          ? user.firstName.trim()
+          : user.lastName || user.email.split('@')[0];
+
+        template = this.EMAIL_RESET_PASSWORD_TEMPLATE;
+        templateParams = {
+          email: email,
+          user_name: userName,
+          resetPasswordURL: `${REDIRECT_TO}/establecer-contrasena?token=${verificationToken}`,
+        };
+      } else {
+        this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
+        throw new BadRequestException('Invalid email type specified.');
+      }
+
+      // Send new verification email
+      this.sendEmailTemplate(template, templateParams);
+
+      this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Correo reenviado con éxito' };
     } catch (error) {
       if (
@@ -767,14 +833,12 @@ export class AuthService {
 
       if (error instanceof Error) {
         this.logger.error(
-          `Error resending confirmation email to ${email}: ${error.message}`,
+          `Error resending ${typeOfEmail} email to ${email}: ${error.message}`,
           error.stack,
         );
       }
 
-      throw new InternalServerErrorException(
-        'Error al reenviar el correo de confirmación.',
-      );
+      throw new InternalServerErrorException('Error al reenviar el correo.');
     }
   }
 
