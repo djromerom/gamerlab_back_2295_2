@@ -1,6 +1,7 @@
 // src/teams/interfaces/team-repository.interface.ts
 import { Team, Member, Videogame } from '@prisma/client';
 import { CreateTeamDto } from '../dto/create-team.dto';
+import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
 
 export interface ITeamRepository {
   findByTeamName(teamName: string): Promise<boolean>;
@@ -11,8 +12,15 @@ export interface ITeamRepository {
     members: Member[];
     createdVideogame: Videogame;
   }>;
+  update(
+    id: number,
+    data: any,
+  ): Promise<{
+    updatedTeam: Team;
+    updatedMembers: UpdateMemberDto[] | null;
+    updatedVideogame: Videogame | null;
+  }>;
   findAll(): Promise<Team[]>;
   findOne(id: number): Promise<Team | null>;
-  update(id: number, data: any): Promise<Team>;
   remove(id: number): Promise<Team>;
 }

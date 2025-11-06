@@ -12,6 +12,8 @@ import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { Team, Member, Videogame, Prisma } from '@prisma/client';
 import { UpdateTeamDto } from '../dto/update-team.dto';
+import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
+import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -213,12 +215,10 @@ export class TeamRepository implements ITeamRepository {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         switch (error.code) {
           case 'P2002': {
-            const target = Array.isArray(error.meta?.target)
-              ? error.meta.target.join(', ')
-              : 'campo desconocido';
-
+            const target =
+              (error.meta?.target as string[])?.join(', ') ?? 'campo único';
             throw new ConflictException(
-              `El valor en el campo '${target}' está repetido o ya había sido registrado.`,
+              `Ya existe un registro con el mismo ${target}.`,
             );
           }
 
@@ -286,9 +286,7 @@ export class TeamRepository implements ITeamRepository {
     };
   }
 
-  async update(id: number, data: UpdateTeamDto): Promise<Team> {
-    const nrcRecordsMap = new Map<string, number>();
-
+  async update(id: number, data: UpdateTeamDto) {
     return await this.prisma.$transaction(async (tx) => {
       const updatedTeam = await tx.team.update({
         where: { id: id },
@@ -298,8 +296,122 @@ export class TeamRepository implements ITeamRepository {
         },
       });
 
-      return updatedTeam;
+      const updatedMembers = data.members
+        ? await this.updateMembers(tx, id, data.members)
+        : null;
+
+      const updatedVideogame = data.videogame
+        ? await this.updateVideogame(tx, id, data.videogame)
+        : null;
+      return {
+        updatedTeam,
+        updatedMembers,
+        updatedVideogame,
+      };
     });
+  }
+
+  private async updateVideogame(
+    tx: Prisma.TransactionClient,
+    id: number,
+    data: UpdateVideogameDto,
+  ): Promise<Videogame> {
+    return await tx.videogame.update({
+      where: { teamId: id },
+      data: {
+        name: data.vgName,
+        description: data.description,
+        logoUrl: data.logoUrl,
+        repoUrl: data.repoUrl,
+        uploads: data.uploads
+          ? {
+              deleteMany: {}, // Elimina todos los anteriores
+              create: data.uploads.map((upload) => ({
+                blobName: upload.blobName,
+                filename: upload.filename,
+                mimetype: upload.mimetype,
+                size: upload.size,
+              })),
+            }
+          : undefined,
+      },
+    });
+  }
+
+  private async updateMembers(
+    tx: Prisma.TransactionClient,
+    id: number,
+    members: UpdateMemberDto[],
+  ) {
+    const updatedMembers: UpdateMemberDto[] = [];
+    for (const member of members) {
+      try {
+        // Se verifica si el usuario a actualizar es el lider para posteriormente
+        // bloquear si se intenta actualizar su correo
+        // El lider es el único miembro que no puede actualizar su correo una vez registrado
+        const dbMember = await tx.member.findUnique({
+          where: { id: member.id },
+        });
+
+        const isLeader = await tx.user.findUnique({
+          where: { email: dbMember?.email },
+        });
+
+        const existingEmail = member.memberEmail
+          ? await tx.member.findUnique({
+              where: { email: member.memberEmail },
+            })
+          : null;
+
+        if (existingEmail)
+          throw new ConflictException(
+            `Ya existe un registro con el correo ${existingEmail.email}`,
+          );
+
+        const nrcRecords = await tx.nRC.findMany({
+          where: {
+            code: {
+              in: (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
+            },
+          },
+          select: { id: true },
+        });
+
+        const updatedMember = await tx.member.update({
+          where: { id: member.id, teamId: id },
+          data: {
+            // Solo se actualiza el email si NO es lider
+            email: isLeader ? isLeader.email : member.memberEmail,
+            firstName: member.memberFirstName,
+            lastName: member.memberLastName,
+            studentCode: member.studentCode,
+            nrcs: member.nrc
+              ? {
+                  set: [], // Elimina los anteriores
+                  connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+                }
+              : undefined,
+          },
+        });
+        updatedMembers.push(updatedMember);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          switch (error.code) {
+            case 'P2002': {
+              const target =
+                (error.meta?.target as string[])?.join(', ') ?? 'campo único';
+              throw new ConflictException(
+                `Ya existe un registro con el mismo ${target}.`,
+              );
+            }
+          }
+        }
+
+        // Si no es un error de Prisma, relanzarlo o convertirlo
+        throw new InternalServerErrorException(error.message);
+      }
+    }
+    return updatedMembers;
   }
 
   async remove(id: number): Promise<Team> {
