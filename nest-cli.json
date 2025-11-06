@@ -6,5 +6,9 @@
     "deleteOutDir": true,
     "assets": ["templates/**/*"],
     "watchAssets": true
+  },
+  "watchOptions": {
+    "usePolling": true,
+    "interval": 1000
   }
 }

@@ -108,11 +108,2028 @@
     ]
   },
   {
+    "table": "permisos",
+    "data": [
+      {
+        "id": 1,
+        "name": "READ_USER_LIST",
+        "description": "Permiso para ver la lista completa de usuarios",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 2,
+        "name": "READ_USER_DETAIL",
+        "description": "Permiso para ver los detalles de cualquier usuario",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 3,
+        "name": "READ_OWN_PROFILE",
+        "description": "Permiso para ver el propio perfil de usuario",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 4,
+        "name": "UPDATE_OWN_PROFILE",
+        "description": "Permiso para actualizar el propio perfil de usuario",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 5,
+        "name": "UPDATE_ANY_PROFILE",
+        "description": "Permiso para actualizar el perfil de cualquier usuario (Admin)",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 6,
+        "name": "DELETE_USER",
+        "description": "Permiso para eliminar cualquier usuario (Admin)",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 7,
+        "name": "CREATE_INVITE_USER",
+        "description": "Permiso para crear/invitar nuevos usuarios (Admin)",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 8,
+        "name": "REGISTER_TEAM",
+        "description": "Permiso para registrar un nuevo equipo",
+        "createdAt": "2025-05-03T02:38:21.603Z",
+        "updatedAt": "2025-05-03T02:38:21.603Z",
+        "isActive": true
+      },
+      {
+        "id": 9,
+        "name": "READ_SUBJECTS",
+        "description": "Permite ver materias",
+        "createdAt": "2025-05-03T15:24:41.583Z",
+        "updatedAt": "2025-05-03T15:24:41.583Z",
+        "isActive": true
+      },
+      {
+        "id": 10,
+        "name": "CREATE_SUBJECT",
+        "description": "Permite crear nuevas materias",
+        "createdAt": "2025-05-03T15:24:41.583Z",
+        "updatedAt": "2025-05-03T15:24:41.583Z",
+        "isActive": true
+      },
+      {
+        "id": 11,
+        "name": "UPDATE_SUBJECT",
+        "description": "Permite actualizar materias existentes",
+        "createdAt": "2025-05-03T15:24:41.583Z",
+        "updatedAt": "2025-05-03T15:24:41.583Z",
+        "isActive": true
+      },
+      {
+        "id": 12,
+        "name": "DELETE_SUBJECT",
+        "description": "Permite eliminar o desactivar materias",
+        "createdAt": "2025-05-03T15:24:41.583Z",
+        "updatedAt": "2025-05-03T15:24:41.583Z",
+        "isActive": true
+      },
+      {
+        "id": 13,
+        "name": "READ_GAMES",
+        "description": "Permite obtener los juegos",
+        "createdAt": "2025-05-05T16:55:25.939Z",
+        "updatedAt": "2025-05-05T16:57:46.548Z",
+        "isActive": true
+      },
+      {
+        "id": 14,
+        "name": "ADD_EVALUATION",
+        "description": "Permite añadir una evaluación",
+        "createdAt": "2025-05-09T17:35:40.340Z",
+        "updatedAt": "2025-05-09T17:35:40.340Z",
+        "isActive": true
+      },
+      {
+        "id": 15,
+        "name": "CREATE_NRC",
+        "description": "Permite crear nuevos NRCs para materias",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 16,
+        "name": "READ_ALL_NRCS",
+        "description": "Permite ver todos los NRCs del sistema (Admin)",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 17,
+        "name": "READ_OWN_NRCS",
+        "description": "Permite ver los NRCs asignados al profesor",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 18,
+        "name": "UPDATE_NRC",
+        "description": "Permite actualizar información de NRCs",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 19,
+        "name": "DELETE_NRC",
+        "description": "Permite eliminar NRCs del sistema",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 20,
+        "name": "READ_ALL_TEAMS",
+        "description": "Permite ver todos los equipos del sistema",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 21,
+        "name": "READ_TEAM_DETAIL",
+        "description": "Permite ver detalles de un equipo específico",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 22,
+        "name": "UPDATE_TEAM",
+        "description": "Permite actualizar información de equipos",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 23,
+        "name": "DELETE_TEAM",
+        "description": "Permite eliminar equipos del sistema",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 24,
+        "name": "CREATE_TEAM_MEMBER",
+        "description": "Permite agregar miembros a equipos",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 25,
+        "name": "READ_OWN_EVALUATIONS",
+        "description": "Permite ver las evaluaciones del propio equipo",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 26,
+        "name": "READ_OWN_GRADE",
+        "description": "Permite ver la nota general del propio equipo",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 27,
+        "name": "READ_TEAM_MEMBERS",
+        "description": "Permite ver los miembros del propio equipo",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 28,
+        "name": "UPDATE_MEMBER_NRC",
+        "description": "Permite editar NRCs de miembros del equipo",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 29,
+        "name": "CREATE_PROFESSOR",
+        "description": "Permite crear nuevos profesores",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 30,
+        "name": "READ_ALL_PROFESSORS",
+        "description": "Permite ver todos los profesores del sistema",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 31,
+        "name": "READ_PROFESSOR_DETAIL",
+        "description": "Permite ver detalles de un profesor específico",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 32,
+        "name": "READ_OWN_SUBJECTS",
+        "description": "Permite ver las materias asignadas al profesor",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 33,
+        "name": "UPDATE_PROFESSOR",
+        "description": "Permite actualizar información de profesores",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 34,
+        "name": "DELETE_PROFESSOR",
+        "description": "Permite eliminar profesores del sistema",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 35,
+        "name": "GENERATE_NRC_REPORT",
+        "description": "Permite generar reportes por NRC",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 36,
+        "name": "GENERATE_SUBJECT_REPORT",
+        "description": "Permite generar reportes por materia",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 37,
+        "name": "EXPORT_EXCEL",
+        "description": "Permite exportar reportes a Excel",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 38,
+        "name": "CREATE_JUROR",
+        "description": "Permite crear nuevos jurados",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 39,
+        "name": "READ_ALL_JURORS",
+        "description": "Permite ver todos los jurados del sistema",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 40,
+        "name": "READ_JUROR_DETAIL",
+        "description": "Permite ver detalles de un jurado específico",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 41,
+        "name": "UPDATE_JUROR",
+        "description": "Permite actualizar información de jurados",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 42,
+        "name": "DELETE_JUROR",
+        "description": "Permite eliminar jurados del sistema",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 43,
+        "name": "ASSIGN_JURORS",
+        "description": "Permite asignar jurados a videojuegos automáticamente",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 44,
+        "name": "CREATE_CRITERION",
+        "description": "Permite crear nuevos criterios de evaluación",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 45,
+        "name": "READ_CRITERIA",
+        "description": "Permite ver todos los criterios de evaluación",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 46,
+        "name": "READ_CRITERION_DETAIL",
+        "description": "Permite ver detalles de un criterio específico",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 47,
+        "name": "UPDATE_CRITERION",
+        "description": "Permite actualizar criterios de evaluación",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 48,
+        "name": "DELETE_CRITERION",
+        "description": "Permite eliminar criterios de evaluación",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 49,
+        "name": "RESTORE_CRITERION",
+        "description": "Permite restaurar criterios eliminados",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      },
+      {
+        "id": 50,
+        "name": "SEND_EMAIL",
+        "description": "Permite enviar correos electrónicos",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "table": "servicio",
+    "data": [
+      {
+        "id": 1,
+        "name": "ListUsers",
+        "description": "Obtener lista de todos los usuarios (UsuariosController.findAll)",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-05-03T02:44:16.611Z",
+        "updatedAt": "2025-05-03T02:44:38.022Z",
+        "isActive": true
+      },
+      {
+        "id": 2,
+        "name": "GetUser",
+        "description": "Obtener detalles de un usuario específico por ID (UsuariosController.findOne)",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-05-03T02:44:16.611Z",
+        "updatedAt": "2025-05-03T02:44:44.108Z",
+        "isActive": true
+      },
+      {
+        "id": 3,
+        "name": "UpdateUser",
+        "description": "Actualizar información de un usuario (UsuariosController.update)",
+        "url": null,
+        "method": "PUT",
+        "createdAt": "2025-05-03T02:44:16.611Z",
+        "updatedAt": "2025-05-03T02:44:49.357Z",
+        "isActive": true
+      },
+      {
+        "id": 4,
+        "name": "DeleteUser",
+        "description": "Eliminar un usuario (UsuariosController.remove)",
+        "url": null,
+        "method": "PUT",
+        "createdAt": "2025-05-03T02:44:16.611Z",
+        "updatedAt": "2025-05-03T02:44:54.302Z",
+        "isActive": true
+      },
+      {
+        "id": 5,
+        "name": "AdminCreateUser",
+        "description": "Invitar/Crear un usuario por un administrador (UsuariosController.createByAdmin)",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-05-03T02:44:16.611Z",
+        "updatedAt": "2025-05-03T02:45:02.846Z",
+        "isActive": true
+      },
+      {
+        "id": 6,
+        "name": "GetMyProfile",
+        "description": "Obtener el perfil del usuario autenticado (AuthController.getMyProfile)",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-05-03T02:44:16.611Z",
+        "updatedAt": "2025-05-03T02:45:07.616Z",
+        "isActive": true
+      },
+      {
+        "id": 7,
+        "name": "RegisterTeam",
+        "description": "Registrar un nuevo equipo y usuario principal (RegistrationController.registerTeam - hypothetical",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-05-03T02:44:16.611Z",
+        "updatedAt": "2025-05-03T02:46:05.050Z",
+        "isActive": true
+      },
+      {
+        "id": 8,
+        "name": "Create Subject",
+        "description": "Crear una nueva materia",
+        "url": "",
+        "method": "POST",
+        "createdAt": "2025-05-03T15:35:43.525Z",
+        "updatedAt": "2025-05-03T16:09:48.512Z",
+        "isActive": true
+      },
+      {
+        "id": 9,
+        "name": "List Subjects",
+        "description": "Obtener la lista de materias existentes",
+        "url": "",
+        "method": "GET",
+        "createdAt": "2025-05-03T15:35:43.525Z",
+        "updatedAt": "2025-05-03T16:10:00.312Z",
+        "isActive": true
+      },
+      {
+        "id": 10,
+        "name": "Get Subject By ID",
+        "description": null,
+        "url": "",
+        "method": "GET",
+        "createdAt": "2025-05-03T15:35:43.525Z",
+        "updatedAt": "2025-05-03T16:09:35.656Z",
+        "isActive": true
+      },
+      {
+        "id": 11,
+        "name": "Update Subject (PATCH)",
+        "description": null,
+        "url": "",
+        "method": "PATCH",
+        "createdAt": "2025-05-03T15:35:43.525Z",
+        "updatedAt": "2025-05-03T16:09:37.851Z",
+        "isActive": true
+      },
+      {
+        "id": 12,
+        "name": "Delete Subject",
+        "description": null,
+        "url": "",
+        "method": "DELETE",
+        "createdAt": "2025-05-03T15:35:43.525Z",
+        "updatedAt": "2025-05-03T16:09:40.218Z",
+        "isActive": true
+      },
+      {
+        "id": 13,
+        "name": "PendingGamesService",
+        "description": "Obtiene los juegos",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-05-05T16:54:50.593Z",
+        "updatedAt": "2025-05-05T16:57:20.290Z",
+        "isActive": true
+      },
+      {
+        "id": 14,
+        "name": "Create Evaluation",
+        "description": "Añade una nueva evaluación de un videojuego",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-05-09T17:34:00.669Z",
+        "updatedAt": "2025-05-09T17:34:00.669Z",
+        "isActive": true
+      },
+      {
+        "id": 15,
+        "name": "CreateNrc",
+        "description": "Permite crear un NRC de una materia dada",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 16,
+        "name": "ListNrcs",
+        "description": "Permite listar todos los nrcs del sistema. Está pensado para administradores únicamente",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 17,
+        "name": "GetMyNrcs",
+        "description": "Permite listar los nrcs asignados que tiene un profesor",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 18,
+        "name": "UpdateNrc",
+        "description": "Permite actualizar la información de un nrc",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 19,
+        "name": "DeleteNrc",
+        "description": "Permite eliminar un nrc",
+        "url": null,
+        "method": "DELETE",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 20,
+        "name": "ListTeams",
+        "description": "Permite listar todos los equipos en el sistema",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 21,
+        "name": "GetTeam",
+        "description": "Permite ver la información de un equipo dado",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 22,
+        "name": "UpdateTeam",
+        "description": "Permite actualizar la información de cualquier equipo",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 23,
+        "name": "DeleteTeam",
+        "description": "Permite eliminar a cualquier equipo del sistema",
+        "url": null,
+        "method": "DELETE",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 24,
+        "name": "MyEvaluations",
+        "description": "Permite las evaluaciones que le han hecho al videojuego del equipo del usuario actual",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 25,
+        "name": "MyGeneralGrade",
+        "description": "Permite obtener la nota general del videojuego del equipo del usuario actual",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 26,
+        "name": "MyTeamMembers",
+        "description": "Permite listar los miembros del equipo del usuario actual",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 27,
+        "name": "EditMemberNrc",
+        "description": "Permite editar los nrcs a los que pertenece un integrante del equipo del usuario actual",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 28,
+        "name": "CreateProfessor",
+        "description": "Permite crear un profesor",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 29,
+        "name": "ListProfessors",
+        "description": "Permite listar a todos los profesores del sistema",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 30,
+        "name": "MySubjects",
+        "description": "Permite listar las  materias que tiene asignado un profesor a través de los nrcs",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 31,
+        "name": "GetProfessor",
+        "description": "Lista la información de un profesor",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 32,
+        "name": "UpdateProfessor",
+        "description": "Permite actualizar la información de un profesor",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 33,
+        "name": "DeleteProfessor",
+        "description": "Permite eliminar a un profesor",
+        "url": null,
+        "method": "DELETE",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 34,
+        "name": "NrcReport",
+        "description": "Genera un reporte de los nrcs asignados a un profesor, mostrando la nota que tiene el videojuego de cada estudiante",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 35,
+        "name": "SubjectReport",
+        "description": "Genera un reporte donde la agrupación es la materia a la que pertenecen los estudiantes",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 36,
+        "name": "ExportToExcel",
+        "description": "Permite exportar a excel un reporte",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 37,
+        "name": "CreateMember",
+        "description": "Permite crear un miembro a un equipo ",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 38,
+        "name": "AssignJurors",
+        "description": "Permite la asignación de videojuegos a jurados de forma automática",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 39,
+        "name": "SendEmail",
+        "description": "Permite enviar un correo",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 40,
+        "name": "CreateJuror",
+        "description": "Permite crear un nuevo jurado",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 41,
+        "name": "GetJuror",
+        "description": "Permite obtener la información de un jurado",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 42,
+        "name": "ListJurors",
+        "description": "Lista a todos los jurados del sistema",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 43,
+        "name": "UpdateJuror",
+        "description": "Actualiza la información de un jurado",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 44,
+        "name": "DeleteJurror",
+        "description": "Permite eliminar a un jurado",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 45,
+        "name": "CreateCriterion",
+        "description": "Crea un criterio",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 46,
+        "name": "ListCriterion",
+        "description": "Lista todos los criterios de evaluaciones  del sistema",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 47,
+        "name": "GetCriterion",
+        "description": "Obtiene la información de un criterio",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 48,
+        "name": "UpdateCriterion",
+        "description": "Actualiza la información de un criterio",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 49,
+        "name": "DeleteCriterion",
+        "description": " Elimina un criterio del sistema",
+        "url": null,
+        "method": "DELETE",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      },
+      {
+        "id": 50,
+        "name": "RestoreCriterion",
+        "description": "Restaura un criterio del sistema",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-06-04T15:24:25.240Z",
+        "updatedAt": "2025-06-04T15:24:25.240Z",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "table": "servicio_permiso",
+    "data": [
+      {
+        "serviceId": 1,
+        "permissionId": 1,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 2,
+        "permissionId": 2,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 3,
+        "permissionId": 4,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 3,
+        "permissionId": 5,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 4,
+        "permissionId": 6,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 5,
+        "permissionId": 7,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 6,
+        "permissionId": 3,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 7,
+        "permissionId": 8,
+        "createdAt": "2025-05-03T03:03:20.789Z",
+        "updatedAt": "2025-05-03T03:03:20.789Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 8,
+        "permissionId": 10,
+        "createdAt": "2025-05-03T10:37:41.000Z",
+        "updatedAt": "2025-05-03T15:37:44.397Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 9,
+        "permissionId": 9,
+        "createdAt": "2025-05-03T15:37:58.992Z",
+        "updatedAt": "2025-05-03T15:37:58.992Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 10,
+        "permissionId": 9,
+        "createdAt": "2025-05-03T15:38:13.823Z",
+        "updatedAt": "2025-05-03T15:38:13.823Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 11,
+        "permissionId": 11,
+        "createdAt": "2025-05-03T15:38:31.955Z",
+        "updatedAt": "2025-05-03T15:38:31.955Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 12,
+        "permissionId": 12,
+        "createdAt": "2025-05-03T15:38:44.992Z",
+        "updatedAt": "2025-05-03T15:38:44.992Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 13,
+        "permissionId": 13,
+        "createdAt": "2025-05-05T16:55:59.723Z",
+        "updatedAt": "2025-05-05T16:55:59.723Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 14,
+        "permissionId": 14,
+        "createdAt": "2025-05-09T12:36:35.000Z",
+        "updatedAt": "2025-05-09T17:36:40.923Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 15,
+        "permissionId": 15,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 16,
+        "permissionId": 16,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 17,
+        "permissionId": 17,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 18,
+        "permissionId": 18,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 19,
+        "permissionId": 19,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 20,
+        "permissionId": 20,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 21,
+        "permissionId": 21,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 22,
+        "permissionId": 22,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 23,
+        "permissionId": 23,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 24,
+        "permissionId": 25,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 25,
+        "permissionId": 26,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 26,
+        "permissionId": 27,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 27,
+        "permissionId": 28,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 28,
+        "permissionId": 29,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 29,
+        "permissionId": 30,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 30,
+        "permissionId": 32,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 31,
+        "permissionId": 31,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 32,
+        "permissionId": 33,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 33,
+        "permissionId": 34,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 34,
+        "permissionId": 35,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 35,
+        "permissionId": 36,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 36,
+        "permissionId": 37,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 37,
+        "permissionId": 24,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 38,
+        "permissionId": 43,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 39,
+        "permissionId": 50,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 40,
+        "permissionId": 38,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 41,
+        "permissionId": 40,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 42,
+        "permissionId": 39,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 43,
+        "permissionId": 41,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 44,
+        "permissionId": 42,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 45,
+        "permissionId": 44,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 46,
+        "permissionId": 45,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 47,
+        "permissionId": 46,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 48,
+        "permissionId": 47,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 49,
+        "permissionId": 48,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 50,
+        "permissionId": 49,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:34:25.447Z",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "table": "rol_permiso",
+    "data": [
+      {
+        "roleId": 1,
+        "permissionId": 1,
+        "createdAt": "2025-05-03T02:38:45.690Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 2,
+        "createdAt": "2025-05-03T02:38:45.690Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 3,
+        "createdAt": "2025-05-02T22:41:36.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 5,
+        "createdAt": "2025-05-03T02:38:45.690Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 6,
+        "createdAt": "2025-05-03T02:38:45.690Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 7,
+        "createdAt": "2025-05-03T02:38:45.690Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 8,
+        "createdAt": "2025-05-03T02:38:45.690Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 9,
+        "createdAt": "2025-05-03T15:39:26.281Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 10,
+        "createdAt": "2025-05-03T15:39:46.494Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 11,
+        "createdAt": "2025-05-03T15:39:57.159Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 12,
+        "createdAt": "2025-05-03T15:40:05.868Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 15,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 16,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 17,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 18,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 19,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 20,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 21,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 22,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 23,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 24,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 25,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 26,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 27,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 28,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 29,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 30,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 31,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 32,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 33,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 34,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 35,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 36,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 37,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 38,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 39,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 40,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 41,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 42,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 43,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 44,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 45,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 46,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 47,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 48,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 49,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 1,
+        "permissionId": 50,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 3,
+        "createdAt": "2025-05-03T17:01:04.282Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 4,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 25,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 26,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 27,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 28,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 3,
+        "createdAt": "2025-05-07T22:39:52.462Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 4,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 9,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 17,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 32,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 35,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 36,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 37,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 45,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 46,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 3,
+        "createdAt": "2025-05-02T21:39:35.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 4,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 9,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 13,
+        "createdAt": "2025-05-05T16:55:43.603Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 14,
+        "createdAt": "2025-05-09T12:36:04.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 45,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 46,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      }
+    ]
+  },
+  {
     "table": "ediciones",
     "data": [
       {
         "id": 1,
-        "semester": "2025-30",
+        "semester": "2025-10",
+        "title": "Titulo",
+        "year": 2025,
+        "semesterName": "Primer semestre",
+        "name": "Feria Gamer 2024 - S1",
+        "date": "Marzo 2024",
+        "description": "Edición destacada por la integración de estudios indie y universidades locales.",
+        "description2": null,
+        "highlightedGames": "Destacado 1;Destacado 2;Destacado 3;Destacado 4",
+        "alt": "Feria Gamer 2025-10",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "semester": "2024-30",
+        "title": "Titulo",
+        "year": 2024,
+        "semesterName": "Segundo semestre",
+        "name": "Feria Gamer 2024 - S2",
+        "date": "Abril 2024",
+        "description": "Innovacion y aprendizaje se fusionaron en la II Feria Gamer del Programa de Ingeniería de Software y Computacion de la Universidad Del Norte, evento donde los videojuegos se transformaron en Herramientas para educar sobre los peligros del mundo digital",
+        "description2": "Estudiantes de primero a tercer semestre presentaron el jueves, 24 de abril de 2025, sus proyectos finales, una serie de videojuegos diseñados para generar conciencia sobre riesgos como el grooming, phishing y ciberacoso, mientras demostraban su creatividad y dominio técnico en programación.",
+        "highlightedGames": "Dulce y Burbujas;Leyendas de Papel, Páginas de Aventura;Carrot Mania;Musical Bubble Coffee",
+        "alt": "Feria Gamer 2024-30",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "podio",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 1,
+        "position": 1,
+        "teamName": "Equipo Alpha",
+        "gameName": "Aventura Espacial",
+        "score": 4.8,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2, 
+        "editionId": 1,
+        "position": 2,
+        "teamName": "Equipo Beta",
+        "gameName": "Mundo Submarino",
+        "score": 4.5,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "editionId": 1,
+        "position": 3,
+        "teamName": "Equipo Gamma",
+        "gameName": "Ciudad Futurista",
+        "score": 4.2,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 4,
+        "editionId": 2,
+        "position": 1,
+        "teamName": "Equipo Delta",
+        "gameName": "Dulce y Burbujas",
+        "score": 4.9,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 5,
+        "editionId": 2,
+        "position": 2,
+        "teamName": "Equipo Epsilon",
+        "gameName": "Leyendas de Papel, Páginas de Aventura",
+        "score": 4.6,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 6,
+        "editionId": 2,
+        "position": 3,
+        "teamName": "Equipo Zeta",
+        "gameName": "Carrot Mania",
+        "score": 4.3,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "enfoque_educativo",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 1,
+        "title": "Medio Ambiental",
+        "description": "Descripcion",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "editionId": 2,
+        "title": "Anti-Ciberacoso",
+        "description": "Juegos que concientizan sobre el impacto del acoso en línea y cómo combatirlo efectivamente.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "editionId": 2,
+        "title": "Anti-Grooming",
+        "description": "Videojuegos que enseñan a identificar y prevenir el acoso en línea por parte de adultos hacia menores.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 4,
+        "editionId": 2,
+        "title": "Anti-Phishing",
+        "description": "Experiencias interactivas para reconocer intentos de suplantación de identidad y estafas en línea.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "testimonio",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 2,
+        "name": "Fabian de Jesús Miranda Varelo",
+        "role": "Participante - Carrot Mania",
+        "quote": "El año pasado fui expositor en la feria gamer con Carrot Mania, un juego diseñado para comparar la eficiencia de la iteratividad con la recursividad. La dinámica consistía en ayudar a un conejo a recuperar sus zanahorias atrapadas en burbujas. Fue una experiencia enriquecedora, donde pude interactuar con estudiantes de bachillerato, asistentes y jurados, recibiendo valiosa retroalimentación que me ayudó a mejorar mi propuesta y reforzar mis habilidades en el desarrollo de videojuegos.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "editionId": 2,
+        "name": "Laura González Valdeblanquez",
+        "role": "Participante - Musical Bubble Coffe",
+        "quote": "La participación en la FeriaGamer fue una experiencia muy enriquecedora y gratificante, ya que brindó el espacio para poder mostrar el proyecto, que se logró con tanto fuerzo y trabajo en equipo, a personas interesadas, lo cual , en particular, me hacía mucha ilusión. Además, la dinámica de presentar el proyecto para diferentes jurados y demás público, nos ayuda a prepararnos para saber como actuar de acuerdo a la persona.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Marian Andrea Pacheco Charris ",
+        "role": "Participante",
+        "quote": "Puedo describir mi experiencia participando en la feria gamer como muy enriquecedora, fue un excelente espacio para profundizar mis habilidades de comunicación, y exponer acerca del proceso que fue realizar un proyecto que relacionaba dos materias de programación. Además, me brindó la oportunidad de escuchar diferentes opiniones y críticas constructivas para tener en cuenta en mis próximos proyectos.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "editionId": 2,
+        "name": "Arturo José González Barros",
+        "role": "Participante",
+        "quote": "Participar en la feria gamer fue para mí un verdadero reto. Pensar en haber hecho un programa completamente funcional con los conocimientos aprendidos en clase me hizo darme cuenta de las grandes capacidades que uno puede llegar a tener y el excelente trabajo de los profesores al enseñarnos las bases necesarias para afrontar esos grandes retos. Me gustó mucho tener un equipo de trabajo del cuál podía apoyarme y entenderme bastante bien, lo que facilitó las fechas de entrega y la presentación de un excelente trabajo. Y por último, me motivó a hacer trabajos similares para adquirir experiencias y probar mis conocimientos.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "editionId": 2,
+        "name": "María Alejandra Lobo León",
+        "role": "Participante - Hidden Deck",
+        "quote": "Me pareció una experiencia muy enriquecedora, ya que tuve la oportunidad de recibir feedback acerca de mi proyecto, y conocer las opiniones de los asistentes y jurados fue algo emocionante. Además, el hecho de poder compartir mi trabajo con otros estudiantes y profesionales del área me permitió aprender y crecer en mi desarrollo como programadora.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 4,
+        "editionId": 2,
+        "name": "Jefferson Jose Torres Lora",
+        "role": "Monitor Programación Orientada a Objetos",
+        "quote": "La dinámica de los jóvenes en la feria gamer es excelente, ya que no solo aprenden sobre programación y desarrollo, sino que también adquieren conciencia sobre la temática central del evento. Esto permite que los estudiantes se diviertan y se entretengan mientras aprenden de forma progresiva y significativa.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 5,
+        "editionId": 2,
+        "name": "Elvira Elena Florez Carbonell",
+        "role": "Monitora Estructura de Datos I y Algoritmia y Programación I",
+        "quote": "Desde mi experiencia como monitora y jurado en la feria gamer, considero que este espacio, si bien aún presenta muchas oportunidades para mejorar y crecer, también representa una gran oportunidad para mostrar a las demás carreras los proyectos desarrollados por los alumnos. Además, permite que tanto participantes como visitantes observen, reflexionen y aprecien de primera mano cómo se evidencian los avances en resultados a medida que se progresa de semestre.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 6,
+        "editionId": 2,
+        "name": "Margarita Gamarra Acosta",
+        "role": "Profesora Departamento de Ingeniería de Sistemas y Computación",
+        "quote": "Para mi la feria gamer es una muestra del trabajo, esfuerzo y pasión de todos los estudiantes participantes. El trabajo en equipo se ve reflejado en los excelentes resultados que muestran en cada uno de sus videojuegos, esta es ya la tercera versión de la feria y cada vez quedo mas sorprendida con las presentaciones y la creatividad de los trabajos que presentan, cada semestre agregan nuevas y mejores herramientas a los videojuegos y este semestre se unen mas estudiantes interesados en participar, este semestre queremos brindarle un espacio habierto para toda la comunidad uninorteña, para que los proyectos sean visibles ante toda la comunidad académica.",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 1,
+        "editionId": 1,
+        "name": "Laura Vanessa Acuña Ordóñez",
+        "role": "Participante",
+        "quote": "Realmente fue una experiencia muy gratificante y retadora, porque nos permitió desarrollar habilidades que tal vez antes no habíamos experimentado, podría mejorar la organización del evento, porque como expositor es un poco difícil estar al frente del proyecto y pendiente a las necesidades de los invitados que a veces no saben a quien recurrir. Y por lo general ellos están en busca de personas que los puedan orientar y ayudar.",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "editionId": 1,
+        "name": "María Del Mar Yusti Prins",
+        "role": "Participante",
+        "quote": "La feria gamer fue una gran experiencia como estudiante de primer semestre de Ingeniería de Sistemas. Nunca imaginé que, desde mis primeros meses en la universidad, tendría la oportunidad de presentar mi proyecto final frente a estudiantes y jurados. Sentí mucha  emoción al ver cómo el proyecto  que había creado junto a mis compañeros podía interesar e inspirar a estudiantes.Esa experiencia me ayudó a fortalecer mi confianza, fortalecer el trabajo en equipo y mis habilidades comunicativas.",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "editionId": 1,
+        "name": "Marianna Contreras Zapata",
+        "role": "Participante",
+        "quote": "Fue una buena experiencia y oportunidad de presentar con mi grupo el proyecto que veníamos preparando, todo el proceso de ir avanzando y hacer el juego fue muy enriquecedora, luego explicarlo y exponerlo ante los demás y así mostrar nuestra capacidad de aprendizaje de las clases y aplicarlo fue única",
         "isActive": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
