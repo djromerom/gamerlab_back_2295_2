@@ -63,9 +63,12 @@ services:
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=1000
+      - WATCHPACK_POLLING=true
     volumes:
       - .:/usr/src/app
-      - /usr/src/app/node_modules
+      - node_modules_dev:/usr/src/app/node_modules
     command: >
       sh -c "
         set -e &&
@@ -80,3 +83,4 @@ services:
 
 volumes:
   postgres_dev_data:
+  node_modules_dev:

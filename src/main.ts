@@ -24,8 +24,8 @@ async function bootstrap() {
 
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('Arkad API')
-    .setDescription('API for the Arkad backend system')
+    .setTitle('Arkad APIkklASJKLADKL')
+    .setDescription('API for the Arkad backend system!!!!! SKZ')
     .setVersion('1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
