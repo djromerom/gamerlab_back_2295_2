@@ -18,7 +18,7 @@ async function main() {
     
     // Verificar si el archivo existe
     if (!existsSync(seedDataPath)) {
-      console.log(`⚠️  ${seedDataPath} file not found. Skipping seeding...`);
+      console.log(`⚠️ ${seedDataPath} file not found. Skipping seeding...`);
       return;
     }
     

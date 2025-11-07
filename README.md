@@ -1,196 +1,217 @@
 # Arkad API Documentation
 
-Welcome to the Arkad API documentation. Here you'll find information about how to setup the development environment and the set of Endpoints
-that at this moment the API provides
+Welcome to the Arkad API documentation. Here you'll find information about how to setup the development environment and the set of endpoints that the API provides.
 
 ## Table of Contents
 
 - [`Setup`](#setup)
+  - [`Prerequisites`](#prerequisites)
+  - [`Development Setup`](#development-setup)
+  - [`Production Setup`](#production-setup)
 - [`Modules`](#modules)
 - [`Contributing`](#contributing)
 
 ## Setup
 <a name="setup"></a>
-In order to run the project, you need to have `NodeJS` and `Git` installed on your machine. Once you have them installed, is as easy as follow these steps
 
-### Clone the repository
-When cloning the repository, you must do it via `SSH` in order to be able to push changes to the repository. If you don't know how to
-create a `SSH` key follow this [guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent). Once you have your `SSH` key just clone the repo with:
+### Prerequisites
+<a name="prerequisites"></a>
 
-```
-git clone git@github.com:djromerom/gamerlab_back_2295_2.git
-```
+You can run this project in two ways:
 
-### Install dependencies
-Now install dependencies with your preferred package manager. We are using `npm` but if you prefer `yarn` or `pnpm` use them. Anyways, run:
-```
-cd gamerlab_back_2295_2
-npm install
-```
+**Option 1: Docker (Recommended)**
+- Docker
+- Git
 
-This command will install all the required dependencies for the project
+**Option 2: Local Development**
+- Node.js (v18+ recommended)
+- PostgreSQL
+- Git
 
-### Environment variables
-In order to run the application you must create a `.env` file at the root of the project. This means that your project folder should look like this:
-```
-gamerlab_back_2295_2/
-├── .env
-├── package.json
-├── ...
-```
+### Development Setup
+<a name="development-setup"></a>
 
-Inside `.env` you must have the following variables:
-```
-### General ###
-FRONTEND_URL="http://localhost:5173" # An example
-NODE_ENV="development"
-PORT=3000
+#### Using Docker (Recommended)
 
-### SUPABASE KEYS ###
-  SUPABASE_URL=
-  SUPABASE_KEY=
+1. **Clone the repository**
+   
+    When cloning the repository, you must do it via `SSH` in order to be able to push changes to the repository. If you don't know how to create a `SSH` key follow this [guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
+    
+    ```bash
+    git clone git@github.com:djromerom/gamerlab_back_2295_2.git
+    cd gamerlab_back_2295_2
+    ```
 
-  ### Database ###
-  DATABASE_URL=""
-  DIRECT_URL=""
+2. **Create environment file**
+   
+    Create a `.env` file at the root of the project:
+    ```
+    gamerlab_back_2295_2/
+    ├── .env
+    ├── package.json
+    ├── docker-compose.yml
+    ├── docker-compose.dev.yml
+    └── ...
+    ```
+    Then copy the `.env.example` file template, and update the variables. You can find the environment variable explanation in [Environment Variables](#environment-variables).
+    
+ 
+3. **Start development environment**
+    Make sure the Docker service is running before running these commands.
+    ```bash
+    # Start everything (database + migrations + seeding + app with hot reload)
+    docker compose -f docker-compose.dev.yml up
 
-  ### JWT KEYS ###
-  SUPABASE_JWT_SECRET=
+    # Or start in detached mode
+    docker compose -f docker-compose.dev.yml up -d
 
-```
+    # View logs
+    docker compose -f docker-compose.dev.yml logs -f app-dev
+    ```
+
+4. **Development workflow**-
+    The development setup includes hot reload. Code changes restart the server automatically.
+
+    **Useful commands:**
+    ```bash
+    # Stop everything
+    docker compose -f docker-compose.dev.yml down
+
+    # Reset database (warning: deletes all data)
+    docker compose -f docker-compose.dev.yml down -v
+    docker compose -f docker-compose.dev.yml up
+
+    # Start only database (if you want to run the app locally)
+    docker compose -f docker-compose.dev.yml up db
+    ```
+
+#### Local Development (Alternative)
+
+If you prefer to run without Docker:
+
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+2. **Setup PostgreSQL database locally**
+    Update your `.env` with your local database:
+    ```env
+    DATABASE_URL="postgresql://<username>:<password>@localhost:5432/<database>"
+    ```
+
+3. **Generate Prisma client and run migrations**
+    ```bash
+    npx prisma generate
+    npx prisma migrate dev
+    npm run db:seed
+    ```
+
+4. **Start development server**
+    ```bash
+    npm run start:dev
+    ```
+
+### Production Setup
+<a name="production-setup"></a>
+
+For production deployment:
+
+1. **Clone and setup environment**
+    ```bash
+    git clone git@github.com:djromerom/gamerlab_back_2295_2.git
+    cd gamerlab_back_2295_2
+    # Create .env with production values
+    ```
+
+2. **Deploy with Docker**
+    ```bash
+    # Build and start production environment
+    docker compose up --build -d
+
+    # View logs
+    docker compose logs -f app
+
+    # Stop
+    docker compose down
+    ```
+
+### Environment Variables
+
 Let's break down the environment variables:
-- `FRONTEND_URL`: This is the base `URL` of your frontend. We use this variable to accept `cors` requests from the frontend.
-- `NODE_ENV`: The environment in which the application is running. This can be either `development` or `production`.
-- `PORT`: The port on which the application will listen for incoming requests.
-- `DATABASE_URL`: The URL of the database. This is used by Prisma to connect to the database. You can find this in your supabase dashboard
-- `DIRECT_URL`: The direct URL of the database. This is used by Prisma to connect to the database and perform migrations
-- `SUPABASE_URL`: The URL of the Supabase instance. You can find it under `Project Settings` in the `Project URL` section
-- `SUPABASE_JWT_SECRET`: The JWT secret used by Supabase to sign JWTs. You can find it under `Project Settings` in the `JWT Secret` section
-- `SUPABASE_KEY`: The Supabase key used by the Supabase client. You can find it under `Project Settings` in the `Project API Keys` section and then copy `anon public`
 
-If you're part of the development team, you can ask for these keys to the team lead.
+- **`FRONTEND_URL`**: Base URL of your frontend for CORS configuration
+- **`NODE_ENV`**: Environment (`development` or `production`)
+- **`PORT`**: Port for the API server (default: 3000)
+- **`DATABASE_URL`**: PostgreSQL connection string
+- **`JWT_SECRET`**: Secret key for JWT token signing
+- **`ACCESS_TOKEN_EXPIRATION_MINUTES`**: Expiration time in minutes for access tokens (default: 15)
+- **`REFRESH_TOKEN_EXPIRATION_DAYS`**: Expiration time in days for refresh tokens (default: 7)
+- **`REGISTRATION_TOKEN_EXPIRATION`**: Token expiration time in hours for email verification (default: 24)
+- **`USER_PROFILE_CACHE_TTL`**: Cache time-to-live for user profiles in minutes (default: 15)
+- **`RECAPTCHA_*`** Google ReCAPTCHA configuration for signup form
+- **`EMAIL_*`**: EmailJS configuration for sending confirmation and password reset emails
+- **`AZURE_STORAGE_*`**: Azure Blob Storage configuration for file uploads
 
-### Prisma Generate
-Before you can use `Prisma`, you need to generate the `Prisma client` by running the following command:
-
-```
-npx prisma generate
-```
-This will generate the query builder based on the models defined in `prisma/schema.prisma`. Then you can import these models into the codebase to take advantage of completion and type safety as well as the facility to perform database operations.
-
-### Start the server
-You can run the server in two ways. Since you're following this guide we assume you'll run the project locally so it would be beneficial to restart the server every time you make changes in the codebase. For this purpose, you can use the following command:
-
-```
-npm run start:dev
-```
-
-If you just want the regular server, you can use the following command:
-
-```
-npm run start
-```
-
-For more scripts check `package.json`
+**Note:** If you're part of the development team, you can ask for these keys from the team lead.
 
 ## Modules
 <a name="modules"></a>
 
-- [`Auth`](#auth)
+This API uses **Swagger/OpenAPI** for comprehensive endpoint documentation. 
 
-### Auth
+### API Documentation
 
-<a name="auth"></a>
+**Access the complete API documentation at:** `http://localhost:3000/api`
 
-This module is responsible for user authentication and handling sessions for the Arkad API. It integrates with an external identity provider (Supabase) for credential verification and utilizes JWTs (JSON Web Tokens) for session management.
+### Available Modules
 
-To enhance security, this API **does not** rely on storing JWTs in browser `localStorage`. Instead, upon successful authentication or token refresh, it sets the necessary tokens (`access-token`, `refresh-token`) as **secure, `HttpOnly` cookies**. This approach mitigates risks associated with Cross-Site Scripting (XSS) attacks trying to steal tokens. Browsers (and tools like Postman) will automatically handle sending these cookies on subsequent requests to the API.
+- **Auth** - User authentication, login, logout, token refresh
+- **Upload** - File upload to Azure Blob Storage with metadata management
+- **Users** - User profile management and administration
+- **Teams** - Team creation and member management
+- **Videogames** - Game submission and evaluation system
+- **Evaluations** - Jury evaluation and scoring system
 
-### Endpoints
+Among others. Feel free to checkout Swagger for detailed information on each one.
 
-This module provides the following endpoints:
+### Quick Start with Swagger
 
--   [`POST /auth/login`](#login)
--   [`POST /auth/refresh`](#refresh)
--   [`POST /auth/logout`](#logout)
--   [`GET /auth/me`](#get-user-profile-authme)
+1. **Start the development server:**
+   ```bash
+   docker compose -f docker-compose.dev.yml up
+   ```
 
----
+2. **Open Swagger documentation:**
+   ```
+   http://localhost:3000/api
+   ```
 
-### Login
+3. **Authenticate (for protected endpoints):**
+   - Use the `/auth/login` endpoint to get your session tokens
+   - Save these tokens on the Authorize menu on the top right to use them as cookies
 
-<a name="login"></a>
-`POST /auth/login`
+4. **Test endpoints:**
+   - Click "Try it out" on any endpoint
+   - Fill in the required parameters
+   - Click "Execute" to see the response
 
-**Description:** Authenticates a user using their registered email and password. On successful authentication with the identity provider and validation against the local user database (including activating pending accounts), it establishes a session by setting secure `HttpOnly` cookies containing the access and refresh tokens.
-
-**Request Body:**
-
-Requires `Content-Type: application/json`.
-
-```json
-{
-  "email": "user@example.com",
-  "password": "yourSecurePassword"
-}
-```
-
-### Refresh
-
-<a name="refresh"></a>
-`POST /auth/refresh`
-
-**Description:** Refreshes the user's session by generating a new access token using the refresh token stored in a secure `HttpOnly` cookie. This endpoint is typically called when the access token expires.
-
-**Request Headers:**
-
-Requires `Cookie: refresh-token=<refresh_token>`.
-
-### Logout
-
-<a name="logout"></a>
-`POST /auth/logout`
-
-**Description:** Logs out the user by clearing the secure `HttpOnly` cookies containing the access and refresh tokens.
-
-**Request Headers:**
-
-Requires `Cookie: access-token=<access_token>, refresh-token=<refresh_token>`.
-
-### Get User Profile (Auth/me)
-
-<a name="get-user-profile-authme"></a>
-`GET /auth/me`
-
-**Description:** Retrieves the user's profile information.
-
-**Request Headers:**
-
-Requires `Cookie: access-token=<access_token>`.
-
-**Response Body:**
-
-Returns a JSON object containing the user's profile information.
-
-```json
-{
-  "id": "user-uuid-string",
-  "name": "User Name",
-  "username": "username",
-  "email": "user@example.com",
-  "isActive": true,
-  "createdAt": "2023-10-27T10:00:00.000Z",
-  "updatedAt": "2023-10-27T10:00:00.000Z",
-  "role": {
-    "name": "Student",
-    "description": "Student role"
-  },
-  "confirmationStatus": {
-    "status": "CONFIRMADO"
-  }
-}
-```
-
-### Contributing
+## Contributing
 <a name="contributing"></a>
 To contribute code to the project, please follow the [CONTRIBUTING.md](CONTRIBUTING.md) guidelines
+
+### Development Workflow
+
+1. Create a feature branch from `main`
+2. Make your changes
+3. Test with the development Docker setup
+4. Submit a pull request
+
+### Database Changes
+
+When making database schema changes:
+
+1. Update `prisma/schema.prisma`
+2. Run `npx prisma migrate dev --name your-migration-name`
+3. Update `prisma/seed-data.json` if needed
+4. Test the migration with `docker-compose -f docker-compose.dev.yml up --build`

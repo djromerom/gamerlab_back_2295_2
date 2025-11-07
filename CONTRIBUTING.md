@@ -12,17 +12,18 @@ First off, thank you for considering contributing to the Arkad API! We welcome c
 -   [`Development Workflow`](#development-workflow)
 -   [`Authentication & Authorization`](#authentication--authorization)
     -   [`Default Protection`](#default-protection)
-    -   [`Public Endpoints (`@Public`)](#public-endpoints-public)
+    -   [`Public Endpoints (@Public)`](#public-endpoints-public)
     -   [`Permission-Based Authorization (@UseGuards, @RequiredService)`](#permission-based-authorization-useguards-requiredservice)
 -   [`Database Conventions: Soft Deletes`](#database-conventions-soft-deletes)
 -   [`Data Transfer Objects (DTOs) & Validation`](#data-transfer-objects-dtos--validation)
 -   [`Common commands`](#commands)
-- [`Pushing Changes`](#pushing-changes)
+-   [`Docker Development`](#docker-development)
+-   [`Pushing Changes`](#pushing-changes)
 
 ## Getting Started
 <a name="getting-started"></a>
 
-Before contributing, please ensure you have reviewed the main `README.md` file for instructions on setting up the project environment, installing dependencies, and running the application locally.
+Before contributing, please ensure you have reviewed the main `README.md` file for instructions on setting up the project environment using Docker, installing dependencies, and running the application locally.
 
 ## Core Concepts: NestJS Structure
 <a name="core-concepts-nestjs-structure"></a>
@@ -71,13 +72,14 @@ This project follows the standard modular architecture promoted by NestJS. Under
 When adding a new feature or fixing a bug:
 
 1.  **Create a Branch:** Branch off the main development branch (`dev` in our case). Use a descriptive name (e.g., `feat/add-game-evaluation`, `fix/login-error`).
-2.  **Identify/Create Module:** Determine if the changes belong to an existing module or if a new module is needed (use `npx nest g module <module-name>`).
-3.  **Update Prisma Schema (if needed):** Define or modify models in `prisma/schema.prisma`. It's likely that you DO NOT need to make changes here
-5.  **Implement Service Logic:** Create or update the relevant service (`*.service.ts`). Inject `PrismaService` and other dependencies as needed. Implement the business logic HERE, there's no reason to have database operations
-in controllers.
+2.  **Setup Development Environment:** Use the Docker development setup: `docker-compose -f docker-compose.dev.yml up`
+3.  **Identify/Create Module:** Determine if the changes belong to an existing module or if a new module is needed (use `npx nest g module <module-name>`).
+4.  **Update Prisma Schema (if needed):** Define or modify models in `prisma/schema.prisma`. It's likely that you DO NOT need to make changes here.
+5.  **Implement Service Logic:** Create or update the relevant service (`*.service.ts`). Inject `PrismaService` and other dependencies as needed. Implement the business logic HERE, there's no reason to have database operations in controllers.
 6.  **Implement Controller Endpoints:** Create or update the controller (`*.controller.ts`). Define routes, inject the service you just created, define DTOs for request bodies/params, and call service methods.
-7.  **Add DTOs & Validation:** Create Data Transfer Objects (`*.dto.ts`) using `class-validator` decorators for request data validation
+7.  **Add DTOs & Validation:** Create Data Transfer Objects (`*.dto.ts`) using `class-validator` decorators for request data validation.
 8.  **Apply Authentication/Authorization:** Use the decorators described below (`@Public`, `@UseGuards`, `@RequiredService`) to secure your endpoints appropriately.
+9.  **Test via Swagger:** Use the interactive API documentation at `http://localhost:3000/api` to test your endpoints.
 
 ## Authentication & Authorization
 <a name="authentication-and-authorization"></a>
@@ -86,21 +88,21 @@ This API uses a specific pattern for handling authentication and authorization:
 ### Default Protection
 <a name="default-protection"></a>
 -   By default, **all API endpoints are protected**.
--   A global authentication guard (`SupabaseAuthGuard` configured to use the `SupabaseStrategy` with `passport-jwt`) runs on every request.
+-   A global authentication guard (`JwtAuthGuard` configured to use the `JwtStrategy` with `passport-jwt`) runs on every request.
 -   This guard expects a valid JWT `access-token` in an `HttpOnly` cookie.
--   The strategy verifies the JWT's signature and expiration.
--   If the token is valid, the strategy's `validate` method runs, which calls `AuthService.syncSupabaseUser` to ensure a corresponding, **active** user exists in our local `usuarios` table.
+-   The strategy verifies the JWT's signature and expiration using the `JWT_SECRET` from environment variables.
+-   If the token is valid, the strategy's `validate` method runs, which extracts the user information from the JWT payload and ensures a corresponding, **active** user exists in our local `users` table.
 -   If all checks pass, the Prisma `User` object is attached to `request.user`, and the request proceeds.
 -   If any check fails, a `401 Unauthorized` response is sent.
 
 ### Public Endpoints (`@Public`)
 <a name="public-endpoints-public"></a>
--   Endpoints that **do not require authentication** (e.g., login, refresh, public data retrieval) must be explicitly marked with the `@Public()` decorator.
+-   Endpoints that **do not require authentication** (e.g., login, refresh, registration, public data retrieval) must be explicitly marked with the `@Public()` decorator.
 -   **File:** `src/auth/decorators/public.decorator.ts`
 -   **Usage:** Place `@Public()` above the controller method handler.
--   **Effect:** Tells the global `SupabaseAuthGuard` to bypass the authentication checks for this specific route, allowing access to anyone.
+-   **Effect:** Tells the global `JwtAuthGuard` to bypass the authentication checks for this specific route, allowing access to anyone.
 
-Here's an example
+Here's an example:
 ```typescript
 // src/auth/auth.controller.ts
 import { Public } from './decorators/public.decorator';
@@ -116,9 +118,9 @@ export class AuthController {
     // ... login logic ...
   }
 
-  @Get('status') // This endpoint IS protected by default
-  async getStatus() {
-    return { status: 'API is running and requires auth for this endpoint' };
+  @Get('me') // This endpoint IS protected by default
+  async getProfile(@GetUser() user: User) {
+    return user;
   }
 }
 ```
@@ -130,9 +132,9 @@ export class AuthController {
 -   To use it, you need **two** decorators on the controller method:
 
     1.  **`@UseGuards(RolePermissionGuard)`**: Applies the guard to the specific endpoint.
-    2.  **`@RequiredService('YourServiceName')`**: Specifies the unique name of the logical "service" or action this endpoint represents. This name **must match** the `name` field of an active entry in the `servicio` table in the database. If you have doubts about this, feel free to ask me for clarification
+    2.  **`@RequiredService('YourServiceName')`**: Specifies the unique name of the logical "service" or action this endpoint represents. This name **must match** the `name` field of an active entry in the `servicio` table in the database. If you have doubts about this, feel free to ask for clarification.
 
-Here's an example of how to use it. As you can see, to use the `RolePermissionGuard` you need to set the `@RequiredService` decorator as well. Otherwise, you'll get an error
+Here's an example of how to use it:
 ```typescript
 // src/teams/teams.controller.ts
 import { UseGuards } from '@nestjs/common';
@@ -147,7 +149,7 @@ export class TeamsController {
   // Example: Only users with appropriate role/permissions can list all teams
   @Get()
   @UseGuards(RolePermissionGuard)      // Apply the permission guard
-  @RequiredService('ListAllTeams') // Link to the "ListAllTeams" service defined in DB
+  @RequiredService('ListAllTeams')     // Link to the "ListAllTeams" service defined in DB
   async findAllTeams() {
     // ... logic to find all teams ...
   }
@@ -155,7 +157,7 @@ export class TeamsController {
   // Example: Any authenticated user can view their own team (no specific permission needed beyond auth)
   @Get('my-team')
   // No @UseGuards(RolePermissionGuard) or @RequiredService needed here
-  async findMyTeam(@GetUser() user: AppUser) {
+  async findMyTeam(@GetUser() user: User) {
     // ... logic to find team based on user.id ...
   }
 }
@@ -168,7 +170,7 @@ The required service is linked to a set of permissions. Since roles are also lin
 To preserve data integrity and history, we employ a **soft delete** strategy for most records.
 
 -   **Rule:** **Do NOT permanently delete records** from the database using `prisma.*.delete()` or `prisma.*.deleteMany()`.
--   **Mechanism:** Most tables have a boolean status field indicating if the record is active (`isActive` if i'm not wrong). Check the specific Prisma model (`schema.prisma`) for the exact field name used.
+-   **Mechanism:** Most tables have a boolean `isActive` field indicating if the record is active. Check the specific Prisma model (`schema.prisma`) for the exact field name used.
 -   **"Deleting" a Record:** Instead of deleting, you **update** the record's status field to `false`.
 
     ```typescript
@@ -211,22 +213,87 @@ To preserve data integrity and history, we employ a **soft delete** strategy for
 
 You can create these `DTOs` manually, but using `nest g resource` is recommended as it generates boilerplate code for you that includes `DTOs`, `controllers` and `services`.
 
-## Common commands
+## Common Commands
 <a name="commands"></a>
 Here's a list of common commands that will help you during the development:
 
-- `nest g module`: Generate a new module.
-- `nest g controller`: Generate a new controller.
-- `nest g service`: Generate a new service.
-- `nest g resource`: Generate a new resource (controller, service, DTOs). It usually asks for the type of API (always check `REST API`) and if you want to create `CRUD endpoints`. It's likely that you are always doing `CRUDs` so mark `y` when prompted
+### NestJS Commands
+- `nest g module <name>`: Generate a new module.
+- `nest g controller <name>`: Generate a new controller.
+- `nest g service <name>`: Generate a new service.
+- `nest g resource <name>`: Generate a new resource (controller, service, DTOs). It usually asks for the type of API (always check `REST API`) and if you want to create `CRUD endpoints`. It's likely that you are always doing `CRUDs` so mark `y` when prompted.
 
-Thank you for contributing! Feel free to ask me any question in the `back` channel on Discord.
+### Prisma Commands
+- `npx prisma generate`: Generate Prisma client after schema changes
+- `npx prisma migrate dev --name <migration-name>`: Create and apply a new migration
+- `npx prisma migrate deploy`: Apply pending migrations (production)
+- `npx prisma db seed`: Run database seeding
+- `npx prisma studio`: Open Prisma Studio to view/edit database
+
+### Docker Commands
+- `docker-compose -f docker-compose.dev.yml up`: Start development environment
+- `docker-compose -f docker-compose.dev.yml down`: Stop development environment
+- `docker-compose -f docker-compose.dev.yml down -v`: Stop and remove volumes (fresh database)
+- `docker-compose logs -f app-dev`: View development server logs
+
+## Docker Development
+<a name="docker-development"></a>
+
+This project is designed to be developed primarily using Docker. Here are some important points:
+
+### Development Setup
+- **Always use** `docker-compose -f docker-compose.dev.yml up` for development
+- The development setup includes hot reloading - your changes will automatically restart the server
+- Database migrations and seeding happen automatically when you start the environment
+- Swagger documentation is available at `http://localhost:3000/api`
+
+### Making Database Changes
+1. Update `prisma/schema.prisma`
+2. The development environment will automatically detect schema changes and prompt for migration creation
+3. Update `prisma/seed-data.json` if you need to add initial data
+4. Restart the development environment to apply changes
+
+### File Structure for New Features
+```
+src/
+├── <module-name>/
+│   ├── <module-name>.module.ts
+│   ├── <module-name>.controller.ts
+│   ├── <module-name>.service.ts
+│   ├── dto/
+│   │   ├── create-<module-name>.dto.ts
+│   │   └── update-<module-name>.dto.ts
+│   └── entities/
+│       └── <module-name>.entity.ts
+```
+
+### Environment Variables
+Make sure your `.env` file is properly configured. Key variables include:
+- `DATABASE_URL`: Database connection (automatically set for Docker)
+- `JWT_SECRET`: Secret for JWT token signing
+- `EMAIL_*`: EmailJS configuration for sending emails
+- `AZURE_*`: Azure Blob Storage configuration for file uploads
 
 ## Pushing Changes
 <a name="pushing-changes"></a>
 To push your changes to the remote repository, follow these steps:
 
-1. Commit your changes locally using `git commit -m "Your commit message"`.
-2. Push your changes to the remote repository using `git push origin your-branch-name`.
+1. **Test your changes locally** using the Docker development environment
+2. **Commit your changes** locally using `git commit -m "Your descriptive commit message"`
+3. **Push your changes** to the remote repository using `git push origin your-branch-name`
+4. **Create a Pull Request** to `dev` or `main` through GitHub
 
-Please **do not merge** your branch into `dev` or `main`. make sure to create a pull request to `dev` or `main` and wait for the review process to complete before merging.
+**Important:** 
+- Please **do not merge** your branch into `dev` or `main` directly
+- Make sure to create a pull request and wait for the review process to complete before merging
+- Include a clear description of what your changes do and any testing you've performed
+- Reference any related issues in your PR description
+
+### Commit Message Guidelines
+Use clear, descriptive commit messages:
+- `feat: add user profile endpoint`
+- `fix: resolve email validation issue`
+- `docs: update API documentation`
+- `refactor: optimize database queries in teams service`
+
+Thank you for contributing! Feel free to ask any questions in the `back` channel on Discord.
