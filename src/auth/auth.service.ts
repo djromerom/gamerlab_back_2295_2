@@ -477,7 +477,7 @@ export class AuthService {
   }
 
   // done locally
-  async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
+  async login(loginDto: LoginDto, res: Response): Promise<{ message: string, access: string; refresh: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
 
     // Find user in local database
@@ -535,7 +535,7 @@ export class AuthService {
 
     this.updateLastSignIn(loginDto.email);
 
-    return { message: 'Login successful' };
+    return { message: 'Login successful', access: accessToken, refresh: refreshToken };
   }
 
   async updateLastSignIn(emailUser: string) {
