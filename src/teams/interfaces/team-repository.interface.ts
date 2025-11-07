@@ -10,13 +10,13 @@ export interface ITeamRepository {
   createTeam(createTeamDto: CreateTeamDto): Promise<{
     team: Team;
     members: Member[];
-    createdVideogame: Videogame;
+    videogame: Videogame;
   }>;
   update(
     id: number,
     data: any,
   ): Promise<{
-    updatedTeam: Team;
+    updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;

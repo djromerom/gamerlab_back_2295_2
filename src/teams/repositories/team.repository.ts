@@ -2,9 +2,7 @@
 import {
   Injectable,
   Logger,
-  InternalServerErrorException,
   ConflictException,
-  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,6 +12,9 @@ import { Team, Member, Videogame, Prisma } from '@prisma/client';
 import { UpdateTeamDto } from '../dto/update-team.dto';
 import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
 import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
+import { MemberDto } from '../dto/member.dto';
+import { VideogameDto } from '../dto/videogame.dto';
+import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -96,143 +97,26 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  async createTeam(createTeamDto: CreateTeamDto): Promise<{
-    team: Team;
-    members: Member[];
-    createdVideogame: Videogame;
-  }> {
-    const { teamName, videogame, members, isExternal } = createTeamDto;
+  async createTeam(dto: CreateTeamDto) {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const studentRole = await tx.role.findUnique({
-          where: { name: 'Estudiante' },
-        });
-        if (!studentRole) throw new Error('Role "Estudiante" not found');
-        const firstMember = members[0];
-
-        // Verificar si el usuario ya existe
-        // Si no existe se crea
-        // Si ya existe y no tiene equipo se actualiza
-        const existingUser = await tx.user.findUnique({
-          where: { email: firstMember.memberEmail },
-        });
-
-        let userId;
-        if (existingUser) {
-          const hasTeam = await tx.team.findUnique({
-            where: { userId: existingUser.id },
-          });
-
-          if (hasTeam)
-            throw new ConflictException({
-              statusCode: 409,
-              message: `El usuario ${existingUser.email} ya pertenece a un equipo`,
-              field: 'memberEmail',
-            });
-
-          userId = existingUser.id;
-        } else {
-          const createdUser = await tx.user.create({
-            data: {
-              email: firstMember.memberEmail,
-              firstName: firstMember.memberFirstName,
-              lastName: firstMember.memberLastName,
-              roleId: studentRole.id,
-            },
-          });
-          userId = createdUser.id;
-        }
-
-        const team = await tx.team.create({
-          data: {
-            teamName,
-            isExternal,
-            userId,
-          },
-        });
-
-        const createdMembers: Member[] = [];
-        for (const member of members.slice()) {
-          // Como los miembros se eliminan en cascada al eliminar el equipo
-          // no es necesario hacer upsert por lo que si un miembro con el
-          // mismo correo ya existe manda error directamente.
-          const checkIfExist = await tx.member.findUnique({
-            where: { email: member.memberEmail },
-          });
-          if (checkIfExist)
-            throw new ConflictException(
-              `El miembro ${member.memberEmail} ya está registrado en otro equipo`,
-            );
-
-          const nrcRecords = await tx.nRC.findMany({
-            where: {
-              code: { in: member.nrc.map(Number) },
-            },
-            select: { id: true },
-          });
-          if (nrcRecords.length === 0) {
-            throw new NotFoundException({
-              statusCode: 400,
-              message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
-              field: `nrc`,
-            });
-          }
-
-          const createdMember = await tx.member.create({
-            data: {
-              email: member.memberEmail,
-              firstName: member.memberFirstName,
-              lastName: member.memberLastName,
-              studentCode: member.studentCode,
-              teamId: team.id,
-              nrcs: {
-                connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
-              },
-            },
-            include: { nrcs: true },
-          });
-          createdMembers.push(createdMember);
-        }
-
-        const createdVideogame = await tx.videogame.create({
-          data: {
-            name: videogame.vgName,
-            teamId: team.id,
-            description: videogame.description,
-            repoUrl: videogame.repoUrl,
-            videoUrl: videogame.videoUrl,
-            logoUrl: videogame.logoUrl,
-          },
-        });
+        const userId = await this.handleUser(tx, dto.members[0]);
+        const team = await this.createTeamRecord(tx, dto, userId);
+        const members = await this.createMembers(tx, team.id, dto.members);
+        const videogame = await this.createVideogame(
+          tx,
+          team.id,
+          dto.videogame,
+        );
 
         return {
           team,
-          members: createdMembers,
-          createdVideogame,
+          members,
+          videogame,
         };
       });
     } catch (error: any) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        switch (error.code) {
-          case 'P2002': {
-            const target =
-              (error.meta?.target as string[])?.join(', ') ?? 'campo único';
-            throw new ConflictException(
-              `Ya existe un registro con el mismo ${target}.`,
-            );
-          }
-
-          case 'P2025':
-            throw new BadRequestException('Registro no encontrado.');
-
-          default:
-            throw new InternalServerErrorException(
-              `Error de base de datos: ${error.code}`,
-            );
-        }
-      }
-
-      throw new InternalServerErrorException(error.message);
+      handlePrismaError(error);
     }
   }
 
@@ -288,13 +172,13 @@ export class TeamRepository implements ITeamRepository {
 
   async update(id: number, data: UpdateTeamDto) {
     return await this.prisma.$transaction(async (tx) => {
-      const updatedTeam = await tx.team.update({
-        where: { id: id },
-        data: {
-          teamName: data?.teamName,
-          isExternal: data?.isExternal,
-        },
-      });
+      const teamData: UpdateTeamDto = {
+        teamName: data.teamName,
+        isExternal: data.isExternal,
+      };
+      const updatedTeam = teamData
+        ? await this.updateTeam(tx, id, teamData)
+        : null;
 
       const updatedMembers = data.members
         ? await this.updateMembers(tx, id, data.members)
@@ -308,6 +192,150 @@ export class TeamRepository implements ITeamRepository {
         updatedMembers,
         updatedVideogame,
       };
+    });
+  }
+
+  async remove(id: number): Promise<Team> {
+    return this.prisma.team.delete({
+      where: { id },
+    });
+  }
+
+  private async handleUser(
+    tx: Prisma.TransactionClient,
+    firstMember: MemberDto,
+  ) {
+    const studentRole = await tx.role.findUnique({
+      where: { name: 'Estudiante' }, // ⚠️ Hardcodeado
+    });
+    if (!studentRole) throw new Error('Role "Estudiante" not found');
+
+    // Verificar si el usuario ya existe
+    // Si no existe se crea
+    const existingUser = await tx.user.findUnique({
+      where: { email: firstMember.memberEmail },
+    });
+
+    let userId;
+    if (existingUser) {
+      const hasTeam = await tx.team.findUnique({
+        where: { userId: existingUser.id },
+      });
+
+      if (hasTeam)
+        throw new ConflictException({
+          statusCode: 409,
+          message: `El usuario ${existingUser.email} ya pertenece a un equipo`,
+          field: 'memberEmail',
+        });
+
+      userId = existingUser.id;
+    } else {
+      const createdUser = await tx.user.create({
+        data: {
+          email: firstMember.memberEmail,
+          firstName: firstMember.memberFirstName,
+          lastName: firstMember.memberLastName,
+          roleId: studentRole.id,
+        },
+      });
+      userId = createdUser.id;
+    }
+    return userId;
+  }
+
+  private async createTeamRecord(
+    tx: Prisma.TransactionClient,
+    dto: CreateTeamDto,
+    userId: string,
+  ) {
+    return await tx.team.create({
+      data: {
+        teamName: dto.teamName,
+        isExternal: dto.isExternal,
+        userId,
+      },
+    });
+  }
+
+  private async createMembers(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    members: MemberDto[],
+  ) {
+    const createdMembers: Member[] = [];
+    for (const member of members) {
+      // Como los miembros se eliminan en cascada al eliminar el equipo
+      // no es necesario hacer upsert por lo que si un miembro con el
+      // mismo correo ya existe manda error directamente.
+      const checkIfExist = await tx.member.findUnique({
+        where: { email: member.memberEmail },
+      });
+      if (checkIfExist)
+        throw new ConflictException(
+          `El correo ${member.memberEmail} ya está registrado en otro registro`,
+        );
+
+      const nrcRecords = await tx.nRC.findMany({
+        where: {
+          code: { in: member.nrc.map(Number) },
+        },
+        select: { id: true },
+      });
+      if (nrcRecords.length === 0) {
+        throw new NotFoundException({
+          statusCode: 400,
+          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
+          field: `nrc`,
+        });
+      }
+
+      const createdMember = await tx.member.create({
+        data: {
+          email: member.memberEmail,
+          firstName: member.memberFirstName,
+          lastName: member.memberLastName,
+          studentCode: member.studentCode,
+          teamId,
+          nrcs: {
+            connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+          },
+        },
+        include: { nrcs: true },
+      });
+      createdMembers.push(createdMember);
+    }
+    return createdMembers;
+  }
+
+  private async createVideogame(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    videogame: VideogameDto,
+  ) {
+    return await tx.videogame.create({
+      data: {
+        name: videogame.vgName,
+        teamId,
+        description: videogame.description,
+        repoUrl: videogame.repoUrl,
+        videoUrl: videogame.videoUrl,
+        logoUrl: videogame.logoUrl,
+      },
+    });
+  }
+
+  private async updateTeam(
+    tx: Prisma.TransactionClient,
+    id: number,
+    data: UpdateTeamDto,
+  ) {
+    return await tx.team.update({
+      where: { id: id },
+      data: {
+        teamName: data?.teamName,
+        isExternal: data?.isExternal,
+      },
     });
   }
 
@@ -395,28 +423,9 @@ export class TeamRepository implements ITeamRepository {
         });
         updatedMembers.push(updatedMember);
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-          switch (error.code) {
-            case 'P2002': {
-              const target =
-                (error.meta?.target as string[])?.join(', ') ?? 'campo único';
-              throw new ConflictException(
-                `Ya existe un registro con el mismo ${target}.`,
-              );
-            }
-          }
-        }
-
-        // Si no es un error de Prisma, relanzarlo o convertirlo
-        throw new InternalServerErrorException(error.message);
+        handlePrismaError(error);
       }
     }
     return updatedMembers;
-  }
-
-  async remove(id: number): Promise<Team> {
-    return this.prisma.team.delete({
-      where: { id },
-    });
   }
 }
