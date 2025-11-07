@@ -11,6 +11,7 @@ import {
 import { JurorService } from './juror.service';
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
+import { AssignJurorToTeamDto } from './dto/assign-juror-to-team.dto';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -46,6 +47,20 @@ export class JurorController {
     return await this.authService.resendEmailOfType(email, 'CONFIRMATION');
   }
 
+  @Get('evaluators')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListJurors')
+  getEvaluatorsWithTeams() {
+    return this.jurorService.getEvaluatorsWithTeams();
+  }
+
+  @Post('assignments')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('AssignJurors')
+  assignJurorToTeam(@Body() assignDto: AssignJurorToTeamDto) {
+    return this.jurorService.assignJurorToTeam(assignDto.jurorId, assignDto.teamId);
+  }
+
   @Get()
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')
@@ -54,6 +69,13 @@ export class JurorController {
   ): Promise<PaginatedResult<JurorListItem>> {
     const { includeInactive, limit, page } = query;
     return this.jurorService.findAll(includeInactive, limit, page);
+  }
+
+  @Get(':id/teams')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListJurors')
+  getTeamsAssignedToJuror(@Param('id') id: string) {
+    return this.jurorService.getTeamsAssignedToJuror(id);
   }
 
   @Get(':id')

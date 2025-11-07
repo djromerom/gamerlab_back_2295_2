@@ -5,6 +5,7 @@ import {
   Logger,
   Inject,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
@@ -367,6 +368,295 @@ export class JurorService {
       return jurorLoadMap;
     } catch (error) {
       throw new InternalServerErrorException("Error al obtener los jurados");
+    }
+  }
+
+  async getEvaluatorsWithTeams(): Promise<any[]> {
+    try {
+      const evaluators = await this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          roleId: this.jurorRoleId,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: {
+            select: {
+              name: true,
+            },
+          },
+          teamsToEvaluate: {
+            where: {
+              isActive: true,
+            },
+            select: {
+              id: true,
+              teamName: true,
+              videogame: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          lastName: 'asc',
+        },
+      });
+
+      return evaluators.map(evaluator => ({
+        id: evaluator.id,
+        nombre: `${evaluator.firstName} ${evaluator.lastName}`,
+        tipo: evaluator.role.name,
+        equiposAsignados: evaluator.teamsToEvaluate.map(team => ({
+          id: team.id,
+          nombre: team.teamName,
+          videojuego: team.videogame?.name || null,
+        })),
+        cantidadEquipos: evaluator.teamsToEvaluate.length,
+      }));
+    } catch (error) {
+      this.logger.error('Error al obtener evaluadores con equipos:', error);
+      throw new InternalServerErrorException('Error al obtener la lista de evaluadores');
+    }
+  }
+
+  async assignJurorToTeam(jurorId: string, teamId: number): Promise<any> {
+    try {
+      // Verificar que el jurado existe y está activo
+      const juror = await this.prisma.user.findUnique({
+        where: { id: jurorId },
+        include: { role: true },
+      });
+
+      if (!juror || !juror.isActive) {
+        throw new NotFoundException('Jurado no encontrado o inactivo');
+      }
+
+      if (juror.roleId !== this.jurorRoleId) {
+        throw new BadRequestException('El usuario no es un jurado');
+      }
+
+      // Verificar que el equipo existe y está activo
+      const team = await this.prisma.team.findUnique({
+        where: { id: teamId },
+        include: {
+          assignedJurors: true,
+          videogame: true,
+        },
+      });
+
+      if (!team || !team.isActive) {
+        throw new NotFoundException('Equipo no encontrado o inactivo');
+      }
+
+      // Verificar que el jurado no esté ya asignado
+      const isAlreadyAssigned = team.assignedJurors.some(j => j.id === jurorId);
+      if (isAlreadyAssigned) {
+        throw new ConflictException('El jurado ya está asignado a este equipo');
+      }
+
+      // Verificar que el equipo no tenga más de 3 jurados (opcional, según requerimientos)
+      if (team.assignedJurors.length >= 3) {
+        throw new BadRequestException('El equipo ya tiene 3 jurados asignados');
+      }
+
+      // Asignar el jurado al equipo
+      const updatedTeam = await this.prisma.team.update({
+        where: { id: teamId },
+        data: {
+          assignedJurors: {
+            connect: { id: jurorId },
+          },
+        },
+        include: {
+          assignedJurors: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      return {
+        message: 'Jurado asignado correctamente al equipo',
+        equipo: {
+          id: updatedTeam.id,
+          nombre: updatedTeam.teamName,
+          videojuego: updatedTeam.videogame?.name || null,
+          juradosAsignados: updatedTeam.assignedJurors.map(j => ({
+            id: j.id,
+            nombre: `${j.firstName} ${j.lastName}`,
+            email: j.email,
+          })),
+          cantidadJurados: updatedTeam.assignedJurors.length,
+        },
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ConflictException || error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Error al asignar jurado a equipo:', error);
+      throw new InternalServerErrorException('Error al asignar jurado al equipo');
+    }
+  }
+
+  async getTeamsWithLessThanThreeJurors(): Promise<any[]> {
+    try {
+      const teams = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          confirmId: this.confirmedStatusId,
+        },
+        include: {
+          assignedJurors: {
+            where: {
+              isActive: true,
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Filtrar equipos con menos de 3 jurados
+      const teamsWithLessThanThree = teams
+        .filter(team => team.assignedJurors.length < 3)
+        .map(team => ({
+          id: team.id,
+          nombre: team.teamName,
+          videojuego: team.videogame?.name || null,
+          lider: {
+            id: team.user.id,
+            nombre: `${team.user.firstName} ${team.user.lastName}`,
+            email: team.user.email,
+          },
+          juradosAsignados: team.assignedJurors.map(j => ({
+            id: j.id,
+            nombre: `${j.firstName} ${j.lastName}`,
+            email: j.email,
+          })),
+          cantidadJurados: team.assignedJurors.length,
+        }));
+
+      return teamsWithLessThanThree;
+    } catch (error) {
+      this.logger.error('Error al obtener equipos con menos de 3 jurados:', error);
+      throw new InternalServerErrorException('Error al obtener equipos con menos de 3 jurados');
+    }
+  }
+
+  async getTeamsAssignedToJuror(jurorId: string): Promise<any[]> {
+    try {
+      // Verificar que el jurado existe
+      const juror = await this.prisma.user.findUnique({
+        where: { id: jurorId },
+        include: { role: true },
+      });
+
+      if (!juror || !juror.isActive) {
+        throw new NotFoundException('Jurado no encontrado o inactivo');
+      }
+
+      if (juror.roleId !== this.jurorRoleId) {
+        throw new BadRequestException('El usuario no es un jurado');
+      }
+
+      const teams = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          assignedJurors: {
+            some: {
+              id: jurorId,
+            },
+          },
+        },
+        include: {
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          assignedJurors: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return teams.map(team => ({
+        id: team.id,
+        nombre: team.teamName,
+        videojuego: team.videogame ? {
+          id: team.videogame.id,
+          nombre: team.videogame.name,
+          descripcion: team.videogame.description,
+        } : null,
+        lider: {
+          id: team.user.id,
+          nombre: `${team.user.firstName} ${team.user.lastName}`,
+          email: team.user.email,
+        },
+        juradosAsignados: team.assignedJurors.map(j => ({
+          id: j.id,
+          nombre: `${j.firstName} ${j.lastName}`,
+          email: j.email,
+        })),
+        cantidadJurados: team.assignedJurors.length,
+      }));
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Error al obtener equipos asignados al jurado:', error);
+      throw new InternalServerErrorException('Error al obtener equipos asignados al jurado');
     }
   }
 

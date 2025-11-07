@@ -228,10 +228,145 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  async findOneWithDetails(id: number): Promise<any> {
+    return this.prisma.team.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        videogame: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            logoUrl: true,
+            youtubeUrl: true,
+            githubUrl: true,
+          },
+        },
+        members: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            studentCode: true,
+          },
+        },
+        assignedJurors: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        edition: {
+          select: {
+            id: true,
+            semester: true,
+            title: true,
+          },
+        },
+      },
+    });
+  }
+
   async update(id: number, data: any): Promise<Team> {
     return this.prisma.team.update({
       where: { id },
       data,
+    });
+  }
+
+  async updateTeamInfo(teamId: number, updateData: {
+    teamName?: string;
+    description?: string;
+    youtubeUrl?: string | null;
+    logoUrl?: string | null;
+    githubUrl?: string | null;
+  }): Promise<any> {
+    const { teamName, ...videogameData } = updateData;
+    
+    await this.prisma.$transaction(async (tx) => {
+      // Actualizar nombre del equipo si se proporciona
+      if (teamName !== undefined) {
+        await tx.team.update({
+          where: { id: teamId },
+          data: { teamName },
+        });
+      }
+
+      // Actualizar información del videojuego
+      // Incluimos los campos incluso si son null para permitir eliminarlos
+      const videogameUpdateData: any = {};
+      if ('description' in videogameData) {
+        videogameUpdateData.description = videogameData.description;
+      }
+      if ('youtubeUrl' in videogameData) {
+        videogameUpdateData.youtubeUrl = videogameData.youtubeUrl === '' ? null : videogameData.youtubeUrl;
+      }
+      if ('logoUrl' in videogameData) {
+        videogameUpdateData.logoUrl = videogameData.logoUrl === '' ? null : videogameData.logoUrl;
+      }
+      if ('githubUrl' in videogameData) {
+        videogameUpdateData.githubUrl = videogameData.githubUrl === '' ? null : videogameData.githubUrl;
+      }
+
+      if (Object.keys(videogameUpdateData).length > 0) {
+        await tx.videogame.update({
+          where: { teamId },
+          data: videogameUpdateData,
+        });
+      }
+    });
+
+    // Retornar los datos actualizados después de la transacción
+    return this.findOneWithDetails(teamId);
+  }
+
+  async updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member> {
+    // Verificar que el miembro pertenece al equipo y no es el líder
+    const team = await this.prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        members: {
+          where: { id: memberId },
+        },
+      },
+    });
+
+    if (!team) {
+      throw new Error('Team not found');
+    }
+
+    if (team.members.length === 0) {
+      throw new Error('Member not found in team');
+    }
+
+    // Verificar que el email no esté en uso
+    const existingEmail = await this.prisma.member.findFirst({
+      where: {
+        email: newEmail,
+        id: { not: memberId },
+      },
+    });
+
+    if (existingEmail) {
+      throw new Error('Email already in use');
+    }
+
+    return this.prisma.member.update({
+      where: { id: memberId },
+      data: { email: newEmail },
     });
   }
 
