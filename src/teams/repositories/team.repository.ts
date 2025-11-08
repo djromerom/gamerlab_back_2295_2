@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // src/teams/repositories/team.repository.ts
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -75,6 +75,37 @@ export class TeamRepository implements ITeamRepository {
     });
 
     return result;
+  }
+
+  async findExistingStudentCodes(studentCodes: string[]): Promise<Set<string>> {
+    if (studentCodes.length === 0) {
+      return new Set();
+    }
+
+    const existingMembers = await this.prisma.member.findMany({
+      where: {
+        studentCode: {
+          in: studentCodes,
+        },
+      },
+      select: {
+        studentCode: true,
+      },
+    });
+
+    return new Set(existingMembers.map(member => member.studentCode));
+  }
+
+  async findMemberById(memberId: number): Promise<Member | null> {
+    return this.prisma.member.findUnique({
+      where: { id: memberId },
+    });
+  }
+
+  async findUserById(userId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+    });
   }
 
   async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
@@ -299,6 +330,22 @@ export class TeamRepository implements ITeamRepository {
     await this.prisma.$transaction(async (tx) => {
       // Actualizar nombre del equipo si se proporciona
       if (teamName !== undefined) {
+        const existingTeam = await tx.team.findFirst({
+          where: {
+            teamName: {
+              equals: teamName,
+              mode: 'insensitive',
+            },
+            id: {
+              not: teamId,
+            },
+          },
+        });
+
+        if (existingTeam) {
+          throw new ConflictException('El nombre del equipo ya está en uso');
+        }
+
         await tx.team.update({
           where: { id: teamId },
           data: { teamName },
@@ -374,5 +421,88 @@ export class TeamRepository implements ITeamRepository {
     return this.prisma.team.delete({
       where: { id },
     });
+  }
+
+  async getTeamsWithLessThanThreeJurors(): Promise<Array<{
+    id: number;
+    nombre: string;
+    videojuego: string | null;
+    lider: {
+      id: string;
+      nombre: string;
+      email: string;
+    };
+    juradosAsignados: Array<{
+      id: string;
+      nombre: string;
+      email: string;
+    }>;
+    cantidadJurados: number;
+  }>> {
+    try {
+      const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
+        where: { status: 'CONFIRMADO', isActive: true },
+      });
+
+      if (!confirmedStatus) {
+        throw new InternalServerErrorException('Estado de confirmación no encontrado');
+      }
+
+      const teams = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          confirmId: confirmedStatus.id,
+        },
+        include: {
+          assignedJurors: {
+            where: {
+              isActive: true,
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return teams
+        .filter(team => team.assignedJurors.length < 3)
+        .map(team => ({
+          id: team.id,
+          nombre: team.teamName,
+          videojuego: team.videogame?.name || null,
+          lider: {
+            id: team.user.id,
+            nombre: `${team.user.firstName} ${team.user.lastName}`,
+            email: team.user.email,
+          },
+          juradosAsignados: team.assignedJurors.map(juror => ({
+            id: juror.id,
+            nombre: `${juror.firstName} ${juror.lastName}`,
+            email: juror.email,
+          })),
+          cantidadJurados: team.assignedJurors.length,
+        }));
+    } catch (error) {
+      this.logger.error('Error al obtener equipos con menos de 3 jurados:', error);
+      throw new InternalServerErrorException('Error al obtener equipos con menos de 3 jurados');
+    }
   }
 }

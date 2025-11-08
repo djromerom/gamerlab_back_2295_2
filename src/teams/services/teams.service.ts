@@ -10,8 +10,7 @@ import { RegisterUserDto } from '../dto/register-user.dto';
 import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class TeamsService {
@@ -21,7 +20,6 @@ export class TeamsService {
     private readonly authService: AuthService,
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
-    private readonly prisma: PrismaService,
   ) {}
 
   async findByTeamName(teamName: string): Promise<any> {
@@ -62,17 +60,20 @@ export class TeamsService {
     
     // Check for duplicate student codes
     const studentCodeMap = new Map<string, boolean>();
+    const studentCodes: string[] = [];
+
     for (const member of createTeamDto.members) {
       if (studentCodeMap.has(member.studentCode)) {
         throw new ConflictException(`Duplicate student code: ${member.studentCode} within request`);
       }
       studentCodeMap.set(member.studentCode, true);
       
-      // Check if student code exists in database
-      const existingMember = await this.prisma.member.findUnique({
-        where: { studentCode: member.studentCode },
-      });
-      if (existingMember) {
+      studentCodes.push(member.studentCode);
+    }
+
+    const existingStudentCodes = await this.teamRepository.findExistingStudentCodes(studentCodes);
+    for (const member of createTeamDto.members) {
+      if (existingStudentCodes.has(member.studentCode)) {
         throw new ConflictException(`Student code ${member.studentCode} is already in use.`);
       }
     }
@@ -144,14 +145,6 @@ export class TeamsService {
       throw new UnauthorizedException('Solo el líder del equipo puede actualizar la información');
     }
 
-    // Verificar que el nombre del equipo no esté en uso si se está actualizando
-    if (updateTeamInfoDto.teamName && updateTeamInfoDto.teamName !== team.teamName) {
-      const nameExists = await this.teamRepository.findByTeamName(updateTeamInfoDto.teamName);
-      if (nameExists) {
-        throw new ConflictException('El nombre del equipo ya está en uso');
-      }
-    }
-
     return this.teamRepository.updateTeamInfo(id, updateTeamInfoDto);
   }
 
@@ -167,10 +160,7 @@ export class TeamsService {
     }
 
     // Verificar que el miembro existe y pertenece al equipo
-    const member = await this.prisma.member.findUnique({
-      where: { id: memberId },
-      include: { team: true },
-    });
+    const member = await this.teamRepository.findMemberById(memberId);
 
     if (!member) {
       throw new NotFoundException(`Integrante con ID ${memberId} no encontrado`);
@@ -185,9 +175,7 @@ export class TeamsService {
     }
 
     // Verificar que el email del líder no se está cambiando
-    const leaderUser = await this.prisma.user.findUnique({
-      where: { id: team.userId },
-    });
+    const leaderUser = await this.teamRepository.findUserById(team.userId);
 
     // Verificar que el miembro no es el líder (comparando emails)
     if (leaderUser && member.email === leaderUser.email) {
@@ -214,75 +202,7 @@ export class TeamsService {
   }
 
   async getTeamsWithLessThanThreeJurors(): Promise<any[]> {
-    try {
-      // Obtener el ID del estado "CONFIRMADO"
-      const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
-        where: { status: 'CONFIRMADO', isActive: true },
-      });
-
-      if (!confirmedStatus) {
-        throw new InternalServerErrorException('Estado de confirmación no encontrado');
-      }
-
-      const teams = await this.prisma.team.findMany({
-        where: {
-          isActive: true,
-          confirmId: confirmedStatus.id,
-        },
-        include: {
-          assignedJurors: {
-            where: {
-              isActive: true,
-            },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          videogame: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      // Filtrar equipos con menos de 3 jurados
-      const teamsWithLessThanThree = teams
-        .filter(team => team.assignedJurors.length < 3)
-        .map(team => ({
-          id: team.id,
-          nombre: team.teamName,
-          videojuego: team.videogame?.name || null,
-          lider: {
-            id: team.user.id,
-            nombre: `${team.user.firstName} ${team.user.lastName}`,
-            email: team.user.email,
-          },
-          juradosAsignados: team.assignedJurors.map(j => ({
-            id: j.id,
-            nombre: `${j.firstName} ${j.lastName}`,
-            email: j.email,
-          })),
-          cantidadJurados: team.assignedJurors.length,
-        }));
-
-      return teamsWithLessThanThree;
-    } catch (error) {
-      this.logger.error('Error al obtener equipos con menos de 3 jurados:', error);
-      throw new InternalServerErrorException('Error al obtener equipos con menos de 3 jurados');
-    }
+    return this.teamRepository.getTeamsWithLessThanThreeJurors();
   }
 
   async remove(id: number) {
