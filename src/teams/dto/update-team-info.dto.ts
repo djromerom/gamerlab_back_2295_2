@@ -9,8 +9,14 @@ export class UpdateTeamInfoDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(30, { message: 'El nombre del videojuego debe ser de máximo 30 caracteres' })
+  videogameName?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
 
+  @IsOptional()
   @ValidateIf((o) => o.youtubeUrl !== undefined && o.youtubeUrl !== null && o.youtubeUrl !== '')
   @IsString()
   @IsUrl({}, { message: 'La URL de YouTube debe ser válida' })
@@ -20,6 +26,7 @@ export class UpdateTeamInfoDto {
   @IsOptional()
   logoUrl?: string;
 
+  @IsOptional()
   @ValidateIf((o) => o.githubUrl !== undefined && o.githubUrl !== null && o.githubUrl !== '')
   @IsString()
   @IsUrl({}, { message: 'La URL de GitHub debe ser válida' })

@@ -9,7 +9,9 @@ import {
   UseGuards,
   HttpCode,
   ParseIntPipe,
+  BadRequestException,
 } from '@nestjs/common';
+import { ApiBody, ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
@@ -21,7 +23,9 @@ import { CheckTeamName } from '../dto/check-team-name.dto';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { AppUser } from 'src/auth/jwt.strategy';
 
+@ApiExtraModels(UpdateTeamDto, UpdateTeamInfoDto)
 @Controller('teams')
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) { }
@@ -82,18 +86,34 @@ export class TeamsController {
   @Patch(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateTeam')
+  @ApiBody({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(UpdateTeamDto) },
+        { $ref: getSchemaPath(UpdateTeamInfoDto) },
+      ],
+    },
+  })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDto: UpdateTeamDto | UpdateTeamInfoDto,
-    @GetUser('id') userId: string,
+    @GetUser() currentUser: AppUser,
   ) {
+    if (!updateDto || Object.keys(updateDto).length === 0) {
+      throw new BadRequestException('El cuerpo de la solicitud no puede estar vacío');
+    }
+
     // Si el body contiene campos de UpdateTeamInfoDto, usar updateTeamInfo
-    const hasTeamInfoFields = 'teamName' in updateDto || 'description' in updateDto || 
-                              'youtubeUrl' in updateDto || 'logoUrl' in updateDto || 
-                              'githubUrl' in updateDto;
-    
+    const hasTeamInfoFields =
+      Object.prototype.hasOwnProperty.call(updateDto, 'teamName') ||
+      Object.prototype.hasOwnProperty.call(updateDto, 'videogameName') ||
+      Object.prototype.hasOwnProperty.call(updateDto, 'description') ||
+      Object.prototype.hasOwnProperty.call(updateDto, 'youtubeUrl') ||
+      Object.prototype.hasOwnProperty.call(updateDto, 'logoUrl') ||
+      Object.prototype.hasOwnProperty.call(updateDto, 'githubUrl');
+
     if (hasTeamInfoFields) {
-      return this.teamsService.updateTeamInfo(id, updateDto as UpdateTeamInfoDto, userId);
+      return this.teamsService.updateTeamInfo(id, updateDto as UpdateTeamInfoDto, currentUser);
     }
     return this.teamsService.update(id, updateDto as UpdateTeamDto);
   }

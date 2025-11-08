@@ -108,6 +108,26 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  async isRole(roleId: number | null | undefined, roleName: string): Promise<boolean> {
+    if (roleId === null || roleId === undefined) {
+      return false;
+    }
+
+    const role = await this.prisma.role.findFirst({
+      where: {
+        id: roleId,
+        name: {
+          equals: roleName,
+          mode: 'insensitive',
+        },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    return !!role;
+  }
+
   async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
     createdUser: User;
     team: Team;
@@ -320,12 +340,13 @@ export class TeamRepository implements ITeamRepository {
 
   async updateTeamInfo(teamId: number, updateData: {
     teamName?: string;
+    videogameName?: string;
     description?: string;
     youtubeUrl?: string | null;
     logoUrl?: string | null;
     githubUrl?: string | null;
   }): Promise<any> {
-    const { teamName, ...videogameData } = updateData;
+    const { teamName, videogameName, ...videogameData } = updateData;
     
     await this.prisma.$transaction(async (tx) => {
       // Actualizar nombre del equipo si se proporciona
@@ -355,6 +376,9 @@ export class TeamRepository implements ITeamRepository {
       // Actualizar información del videojuego
       // Incluimos los campos incluso si son null para permitir eliminarlos
       const videogameUpdateData: any = {};
+      if (videogameName !== undefined) {
+        videogameUpdateData.name = videogameName;
+      }
       if ('description' in videogameData) {
         videogameUpdateData.description = videogameData.description;
       }

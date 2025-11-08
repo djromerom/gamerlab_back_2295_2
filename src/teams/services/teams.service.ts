@@ -11,6 +11,7 @@ import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { User } from '@prisma/client';
+import { AppUser } from '../../auth/jwt.strategy';
 
 @Injectable()
 export class TeamsService {
@@ -134,15 +135,17 @@ export class TeamsService {
     return this.teamRepository.update(id, updateTeamDto);
   }
 
-  async updateTeamInfo(id: number, updateTeamInfoDto: UpdateTeamInfoDto, userId: string) {
+  async updateTeamInfo(id: number, updateTeamInfoDto: UpdateTeamInfoDto, currentUser: AppUser) {
     // Verificar que el equipo existe y que el usuario es el líder
     const team = await this.teamRepository.findOne(id);
     if (!team) {
       throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     }
 
-    if (team.userId !== userId) {
-      throw new UnauthorizedException('Solo el líder del equipo puede actualizar la información');
+    const isAdmin = await this.teamRepository.isRole(currentUser?.roleId, 'Administrador');
+
+    if (team.userId !== currentUser.id && !isAdmin) {
+      throw new UnauthorizedException('Solo el líder del equipo o un administrador puede actualizar la información');
     }
 
     return this.teamRepository.updateTeamInfo(id, updateTeamInfoDto);
