@@ -149,10 +149,8 @@ export class TeamsService {
       throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     }
 
-    const isAdmin = await this.teamRepository.isRole(currentUser?.roleId, 'Administrador');
-
-    if (team.userId !== currentUser.id && !isAdmin) {
-      throw new UnauthorizedException('Solo el líder del equipo o un administrador puede actualizar la información');
+    if (team.userId !== currentUser.id) {
+      throw new UnauthorizedException('Solo el líder del equipo puede actualizar la información');
     }
 
     return this.teamRepository.updateTeamInfo(id, updateTeamInfoDto);
