@@ -110,7 +110,7 @@ export class TeamsController {
       Object.prototype.hasOwnProperty.call(updateDto, 'description') ||
       Object.prototype.hasOwnProperty.call(updateDto, 'videoUrl') ||
       Object.prototype.hasOwnProperty.call(updateDto, 'logoUrl') ||
-      Object.prototype.hasOwnProperty.call(updateDto, 'githubUrl');
+      Object.prototype.hasOwnProperty.call(updateDto, 'repoUrl');
 
     if (hasTeamInfoFields) {
       return this.teamsService.updateTeamInfo(id, updateDto as UpdateTeamInfoDto, currentUser);

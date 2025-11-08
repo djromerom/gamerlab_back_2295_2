@@ -215,7 +215,7 @@ model Videogame {
   description       String?         @map("descripcion")
   logoUrl           String?         @map("logo_url")
   videoUrl          String?         @map("video_url")
-  githubUrl         String?         @map("github_url")
+  repoUrl           String?         @map("repo_url")
   registrationDate  DateTime        @default(now()) @map("fecha_registro")
   videogameStatusId Int             @default(2) @map("id_estado_videojuego")
   teamId            Int             @unique @map("id_equipo")

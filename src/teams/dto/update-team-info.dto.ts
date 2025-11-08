@@ -27,9 +27,9 @@ export class UpdateTeamInfoDto {
   logoUrl?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.githubUrl !== undefined && o.githubUrl !== null && o.githubUrl !== '')
+  @ValidateIf((o) => o.repoUrl !== undefined && o.repoUrl !== null && o.repoUrl !== '')
   @IsString()
-  @IsUrl({}, { message: 'La URL de GitHub debe ser válida' })
-  githubUrl?: string;
+  @IsUrl({}, { message: 'La URL del repositorio debe ser válida' })
+  repoUrl?: string;
 }
 
