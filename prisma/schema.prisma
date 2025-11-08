@@ -236,6 +236,7 @@ model Evaluation {
   jurorId     String             @map("id_jurado")
   videogameId Int                @map("id_videojuego")
   editionId   Int                @map("id_edicion")
+  isSenior    Boolean            @default(false) @map("es_jurado_senior")
   isActive    Boolean            @default(true) @map("activo")
   details     EvaluationDetail[]
   Edition     Edition            @relation(fields: [editionId], references: [id])
