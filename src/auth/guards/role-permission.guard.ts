@@ -34,6 +34,7 @@ export class RolePermissionGuard implements CanActivate {
   private readonly SERVICE_CONFIG_CACHE_TTL: number;
   private readonly USER_PERMISSIONS_CACHE_TTL: number;
   private readonly PERMISSION_CHECK_CACHE_TTL: number;
+  private readonly ADMIN_ROLE_NAME: string;
 
   constructor(
     private reflector: Reflector,
@@ -53,6 +54,7 @@ export class RolePermissionGuard implements CanActivate {
       'CACHE_PERMISSION_CHECK_TTL_MINUTES',
       30, // 30 minutes default
     ) * 60 * 1000;
+    this.ADMIN_ROLE_NAME = this.configService.get<string>('ADMIN_ROLE_NAME', 'Administrador');
 
     this.logger.log(
       `Permission cache TTLs initialized - Service Config: ${this.SERVICE_CONFIG_CACHE_TTL}s, User Permissions: ${this.USER_PERMISSIONS_CACHE_TTL}s, Permission Check: ${this.PERMISSION_CHECK_CACHE_TTL}s`,
@@ -184,7 +186,7 @@ export class RolePermissionGuard implements CanActivate {
     });
 
     // Check if role name is "Administrador" (case insensitive)
-    isAdmin = role?.name?.toLowerCase() === 'administrador';
+    isAdmin = role?.name?.toLowerCase() === this.ADMIN_ROLE_NAME.toLowerCase();
 
     await this.cacheService.set(cacheKey, isAdmin, this.USER_PERMISSIONS_CACHE_TTL);
     this.logger.debug(`Admin role cached for role: ${roleId} - isAdmin: ${isAdmin}`);
@@ -308,20 +310,51 @@ export class RolePermissionGuard implements CanActivate {
     this.logger.log(`Invalidated role permissions cache for role: ${roleId}`);
   }
 
+  /**
+   * Invalidates the cached admin role status for a specific role.
+   * Should be called when a role's name or active status changes.
+   * @param roleId - The ID of the role to invalidate
+   */
   async invalidateAdminRoleCache(roleId: number): Promise<void> {
     const adminKey = this.getAdminRoleCacheKey(roleId);
     await this.cacheService.delete(adminKey);
     this.logger.log(`Invalidated admin role cache for role: ${roleId}`);
   }
 
+  /**
+   * Invalidate all caches associated with a given role.
+   *
+   * This method concurrently triggers invalidation for:
+   * - the role permissions cache,
+   * - the admin role cache,
+   * - the permission check cache.
+   *
+   * After all invalidation operations complete, an informational log entry is written.
+   *
+   * @param roleId - The unique numeric identifier of the role whose caches should be invalidated.
+   */
   async invalidateAllRoleCaches(roleId: number): Promise<void> {
     await Promise.all([
       this.invalidateRolePermissionsCache(roleId),
       this.invalidateAdminRoleCache(roleId),
+      this.invalidatePermissionCheckCache(roleId),
     ]);
     this.logger.log(`Invalidated all role caches for role: ${roleId}`);
   }
 
+  /**
+   * Invalidates the cached permission check for a given role and, optionally, a specific service.
+   *
+   * If a service name is provided, the method computes the cache key for the role-service pair,
+   * deletes that entry from the cache via `cacheService.delete(...)`, and logs the invalidation.
+   * If no service name is provided, the method logs that all permission checks for the given role
+   * should be invalidated (bulk invalidation is not performed by this method).
+   *
+   * @param roleId - The identifier of the role whose permission check cache should be invalidated.
+   * @param serviceName - Optional name of the service to target a single permission-check cache entry.
+   *                      When omitted, the function indicates that all permission checks for the role
+   *                      need invalidation.
+   */
   async invalidatePermissionCheckCache(roleId: number, serviceName?: string): Promise<void> {
     if (serviceName) {
       const permissionKey = this.getPermissionCheckCacheKey(roleId, serviceName);
