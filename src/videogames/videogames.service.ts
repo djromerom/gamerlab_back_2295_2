@@ -40,6 +40,7 @@ export class VideogamesService {
       logoUrl: vg.logoUrl,
       videoUrl: vg.videoUrl,
       repoUrl: vg.repoUrl,
+      additionalImages: vg.additionalImages,
       teamName: vg.team.teamName,
       status: vg.videogameStatus.status,
       members: vg.team.members.map((m) => `${m.firstName} ${m.lastName}`),
