@@ -19,15 +19,16 @@ import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { CheckTeamName } from '../dto/check-team-name.dto';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { AppUser } from 'src/auth/jwt.strategy';
 
 @Controller('teams')
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
-  @Public()
   @Post()
-  create(@Body() createTeamDto: CreateTeamDto) {
-    return this.teamsService.create(createTeamDto);
+  create(@Body() createTeamDto: CreateTeamDto, @GetUser() user?: AppUser) {
+    return this.teamsService.create(createTeamDto, user);
   }
 
   @Get('')

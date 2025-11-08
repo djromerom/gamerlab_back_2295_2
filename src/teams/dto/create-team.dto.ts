@@ -34,6 +34,6 @@ export class CreateTeamDto {
   isExternal?: boolean;
 
   @IsString()
-  @IsNotEmpty({ message: 'El token de reCAPTCHA es obligatorio' })
+  @IsOptional()
   recaptchaToken: string;
 }

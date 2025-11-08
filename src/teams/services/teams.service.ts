@@ -16,6 +16,7 @@ import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Team } from '@prisma/client';
+import { AppUser } from 'src/auth/jwt.strategy';
 
 @Injectable()
 export class TeamsService {
@@ -40,7 +41,11 @@ export class TeamsService {
     return await this.teamRepository.checkEmailsExist(validateEmailsDto.emails);
   }
 
-  async create(createTeamDto: CreateTeamDto) {
+  async create(createTeamDto: CreateTeamDto, user?: AppUser) {
+    const isAdmin = user?.roleId === 1;
+
+    if (isAdmin) return await this.teamRepository.createTeam(createTeamDto);
+
     try {
       const isRecaptchaValid = await this.recaptchaService.verify(
         createTeamDto.recaptchaToken,
