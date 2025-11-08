@@ -240,33 +240,58 @@ export class ProfessorsService {
   async findSubjects(
     professorId: string,
     includeNrcs: boolean,
-  ): Promise<Subject[]> {
-    const subjectSelectOptions: Prisma.SubjectSelect = {
-      id: true,
-      name: true,
-      code: true,
-      semester: true,
-      ...(includeNrcs && {
+  ): Promise<any[]> {
+    // Prisma doesn't accept a top-level `where` inside `select` for nested relations
+    // in some versions. Use `include` when we need to filter the nested relation
+    // (nrcs) and still return subject fields.
+    let subjects;
+    if (includeNrcs) {
+      subjects = await this.prisma.subject.findMany({
         where: {
-          professorId: professorId,
+          nrcs: {
+            some: {
+              professorId: professorId,
+            },
+          },
+        },
+        include: {
+          // include the professor's NRCs (may be empty for some subjects)
+          nrcs: {
+            where: { professorId: professorId },
+            select: {
+              id: true,
+              code: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+      // Map to include only subject fields we want, plus the included nrcs
+      subjects = subjects.map((s) => ({
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        semester: s.semester,
+        nrcs: s.nrcs,
+      }));
+    } else {
+      subjects = await this.prisma.subject.findMany({
+        where: {
+          nrcs: {
+            some: {
+              professorId: professorId,
+            },
+          },
         },
         select: {
           id: true,
+          name: true,
           code: true,
+          semester: true,
         },
-      }),
-    };
+      });
+    }
 
-    const subjects = await this.prisma.subject.findMany({
-      where: {
-        nrcs: {
-          some: {
-            professorId: professorId,
-          },
-        },
-      },
-      select: subjectSelectOptions,
-    });
 
     return subjects;
   }

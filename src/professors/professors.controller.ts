@@ -46,24 +46,20 @@ export class ProfessorsController {
     return this.professorsService.findAll(includeInactive, limit, page);
   }
 
-  @Get('my-nrcs')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('GetMyNrcs')
-  async findProfessorNrcs(
-    @Query('includeSubjects') includeSubjects: boolean,
-    @GetUser('id') professorId: string,
-  ): Promise<NRC[]> {
-    return this.professorsService.findNrcs(professorId, includeSubjects);
-  }
+  // NOTE: endpoint `my-nrcs` removed — use `GET /professors/my-subjects` which
+  // now returns subjects with their NRCs. The service method `findNrcs` is
+  // still available if needed elsewhere.
 
   @Get('my-subjects')
   @UseGuards(RolePermissionGuard)
   @RequiredService('MySubjects')
   async findProfessorSubjects(
-    @Query('includeNrcs') includeNrcs: boolean,
     @GetUser('id') professorId: string,
-  ): Promise<Subject[]> {
-    return this.professorsService.findSubjects(professorId, includeNrcs);
+  ): Promise<(Subject & { nrcs: NRC[] })[]> {
+    // Single endpoint: always include the professor's NRCs
+    return this.professorsService.findSubjects(professorId, true) as Promise<(
+      Subject & { nrcs: NRC[] }
+    )[]>;
   }
 
   @Public()
