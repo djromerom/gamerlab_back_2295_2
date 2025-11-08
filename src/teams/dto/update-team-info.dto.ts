@@ -17,10 +17,10 @@ export class UpdateTeamInfoDto {
   description?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.youtubeUrl !== undefined && o.youtubeUrl !== null && o.youtubeUrl !== '')
+  @ValidateIf((o) => o.videoUrl !== undefined && o.videoUrl !== null && o.videoUrl !== '')
   @IsString()
-  @IsUrl({}, { message: 'La URL de YouTube debe ser válida' })
-  youtubeUrl?: string;
+  @IsUrl({}, { message: 'La URL del video debe ser válida' })
+  videoUrl?: string;
 
   @IsString()
   @IsOptional()

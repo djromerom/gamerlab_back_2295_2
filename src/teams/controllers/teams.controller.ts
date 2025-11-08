@@ -108,7 +108,7 @@ export class TeamsController {
       Object.prototype.hasOwnProperty.call(updateDto, 'teamName') ||
       Object.prototype.hasOwnProperty.call(updateDto, 'videogameName') ||
       Object.prototype.hasOwnProperty.call(updateDto, 'description') ||
-      Object.prototype.hasOwnProperty.call(updateDto, 'youtubeUrl') ||
+      Object.prototype.hasOwnProperty.call(updateDto, 'videoUrl') ||
       Object.prototype.hasOwnProperty.call(updateDto, 'logoUrl') ||
       Object.prototype.hasOwnProperty.call(updateDto, 'githubUrl');
 

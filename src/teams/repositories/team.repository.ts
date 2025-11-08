@@ -294,7 +294,7 @@ export class TeamRepository implements ITeamRepository {
         name: true,
         description: true,
         logoUrl: true,
-        youtubeUrl: true,
+        videoUrl: true,
         githubUrl: true,
       },
     },
@@ -351,7 +351,7 @@ export class TeamRepository implements ITeamRepository {
     teamName?: string;
     videogameName?: string;
     description?: string;
-    youtubeUrl?: string | null;
+    videoUrl?: string | null;
     logoUrl?: string | null;
     githubUrl?: string | null;
   }): Promise<any> {
@@ -391,8 +391,8 @@ export class TeamRepository implements ITeamRepository {
       if ('description' in videogameData) {
         videogameUpdateData.description = videogameData.description;
       }
-      if ('youtubeUrl' in videogameData) {
-        videogameUpdateData.youtubeUrl = videogameData.youtubeUrl === '' ? null : videogameData.youtubeUrl;
+      if ('videoUrl' in videogameData) {
+        videogameUpdateData.videoUrl = videogameData.videoUrl === '' ? null : videogameData.videoUrl;
       }
       if ('logoUrl' in videogameData) {
         videogameUpdateData.logoUrl = videogameData.logoUrl === '' ? null : videogameData.logoUrl;

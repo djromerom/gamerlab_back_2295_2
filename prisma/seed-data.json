@@ -2255,7 +2255,7 @@
         "name": "Aventura Espacial",
         "description": "Un emocionante juego de aventuras en el espacio",
         "logoUrl": null,
-        "youtubeUrl": "https://www.youtube.com/watch?v=example",
+        "videoUrl": "https://www.youtube.com/watch?v=example",
         "githubUrl": "https://github.com/example/aventura-espacial",
         "teamId": 1,
         "videogameStatusId": 1,
