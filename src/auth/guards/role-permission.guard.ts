@@ -85,6 +85,15 @@ export class RolePermissionGuard implements CanActivate {
     const userId = user.id;
 
     try {
+      // Check if user is admin - admins bypass all permission checks
+      const isAdmin = await this.isAdminRole(userRoleId);
+      if (isAdmin) {
+        this.logger.log(
+          `Admin access granted for User ${userId} (Role ID: ${userRoleId}) accessing service '${requiredServiceName}'. Admin bypasses all permission checks.`,
+        );
+        return true;
+      }
+
       const permissionCacheKey = this.getPermissionCheckCacheKey(userRoleId, requiredServiceName);
       const cachedResult = await this.cacheService.get(permissionCacheKey);
 
@@ -148,6 +157,39 @@ export class RolePermissionGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  /**
+   * Check if the role is an admin role with caching
+   */
+  private async isAdminRole(roleId: number): Promise<boolean> {
+    const cacheKey = this.getAdminRoleCacheKey(roleId);
+
+    let isAdmin = await this.cacheService.get(cacheKey);
+    if (isAdmin !== null && isAdmin !== undefined) {
+      this.logger.debug(`Admin role cache hit for role: ${roleId}`);
+      return isAdmin;
+    }
+
+    this.logger.debug(`Admin role cache miss for role: ${roleId}`);
+
+    const role = await this.prisma.role.findUnique({
+      where: {
+        id: roleId,
+        isActive: true,
+      },
+      select: { 
+        name: true 
+      },
+    });
+
+    // Check if role name is "Administrador" (case insensitive)
+    isAdmin = role?.name?.toLowerCase() === 'administrador';
+
+    await this.cacheService.set(cacheKey, isAdmin, this.USER_PERMISSIONS_CACHE_TTL);
+    this.logger.debug(`Admin role cached for role: ${roleId} - isAdmin: ${isAdmin}`);
+
+    return isAdmin;
   }
 
   /**
@@ -246,6 +288,10 @@ export class RolePermissionGuard implements CanActivate {
     return `user_permissions:role_${roleId}`;
   }
 
+  private getAdminRoleCacheKey(roleId: number): string {
+    return `admin_role:role_${roleId}`;
+  }
+
   private getPermissionCheckCacheKey(roleId: number, serviceName: string): string {
     return `permission_check:role_${roleId}:service_${serviceName}`;
   }
@@ -260,6 +306,20 @@ export class RolePermissionGuard implements CanActivate {
     const roleKey = this.getUserPermissionsCacheKey(roleId);
     await this.cacheService.delete(roleKey);
     this.logger.log(`Invalidated role permissions cache for role: ${roleId}`);
+  }
+
+  async invalidateAdminRoleCache(roleId: number): Promise<void> {
+    const adminKey = this.getAdminRoleCacheKey(roleId);
+    await this.cacheService.delete(adminKey);
+    this.logger.log(`Invalidated admin role cache for role: ${roleId}`);
+  }
+
+  async invalidateAllRoleCaches(roleId: number): Promise<void> {
+    await Promise.all([
+      this.invalidateRolePermissionsCache(roleId),
+      this.invalidateAdminRoleCache(roleId),
+    ]);
+    this.logger.log(`Invalidated all role caches for role: ${roleId}`);
   }
 
   async invalidatePermissionCheckCache(roleId: number, serviceName?: string): Promise<void> {
