@@ -222,7 +222,20 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async findAll(): Promise<Team[]> {
-    return this.prisma.team.findMany();
+    return this.prisma.team.findMany({
+      include: {
+        videogame: true,
+        members: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
   }
 
   async findOne(id: number): Promise<any> {

@@ -28,9 +28,8 @@ export class TeamsController {
     return this.teamsService.create(createTeamDto);
   }
 
+  @Public()
   @Get()
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ListTeams')
   findAll() {
     return this.teamsService.findAll();
   }
