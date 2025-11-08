@@ -233,6 +233,9 @@ export class TeamRepository implements ITeamRepository {
             name: videogame.vgName,
             description: videogame.description,
             logoUrl: videogame.logoURL,
+            videoUrl: videogame.videoUrl,
+            repoUrl: videogame.repoUrl,
+            additionalImages: videogame.additionalImages || [],
             teamId: team.id,
             videogameStatusId: 1,
           },
@@ -252,7 +255,20 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async findAll(): Promise<Team[]> {
-    return this.prisma.team.findMany();
+    return this.prisma.team.findMany({
+      include: {
+        videogame: true,
+        members: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
   }
 
   async findOne(id: number): Promise<any> {
