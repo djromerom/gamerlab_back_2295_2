@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // src/teams/repositories/team.repository.ts
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -76,6 +76,39 @@ export class TeamRepository implements ITeamRepository {
 
     return result;
   }
+
+  async findExistingStudentCodes(studentCodes: string[]): Promise<Set<string>> {
+    if (studentCodes.length === 0) {
+      return new Set();
+    }
+
+    const existingMembers = await this.prisma.member.findMany({
+      where: {
+        studentCode: {
+          in: studentCodes,
+        },
+      },
+      select: {
+        studentCode: true,
+      },
+    });
+
+    return new Set(existingMembers.map(member => member.studentCode));
+  }
+
+  async findMemberById(memberId: number): Promise<Member | null> {
+    return this.prisma.member.findUnique({
+      where: { id: memberId },
+    });
+  }
+
+  async findUserById(userId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+  }
+
+  
 
   async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
     createdUser: User;
@@ -244,6 +277,67 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  private readonly teamDetailsInclude = {
+    user: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    },
+    videogame: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        logoUrl: true,
+        videoUrl: true,
+        githubUrl: true,
+      },
+    },
+    members: {
+      where: { isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        studentCode: true,
+      },
+    },
+    assignedJurors: {
+      where: { isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    },
+    edition: {
+      select: {
+        id: true,
+        semester: true,
+        title: true,
+      },
+    },
+  };
+
+  async findOneWithDetails(id: number): Promise<any> {
+    return this.prisma.team.findUnique({
+      where: { id },
+      include: this.teamDetailsInclude,
+    });
+  }
+
+  async findOneWithDetailsByLeaderId(leaderId: string): Promise<any> {
+    return this.prisma.team.findFirst({
+      where: { userId: leaderId },
+      include: this.teamDetailsInclude,
+    });
+  }
+
   async update(id: number, data: any): Promise<Team> {
     return this.prisma.team.update({
       where: { id },
@@ -251,9 +345,195 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  async updateTeamInfo(teamId: number, updateData: {
+    teamName?: string;
+    videogameName?: string;
+    description?: string;
+    videoUrl?: string | null;
+    logoUrl?: string | null;
+    githubUrl?: string | null;
+  }): Promise<any> {
+    const { teamName, videogameName, ...videogameData } = updateData;
+    
+    await this.prisma.$transaction(async (tx) => {
+      // Actualizar nombre del equipo si se proporciona
+      if (teamName !== undefined) {
+        const existingTeam = await tx.team.findFirst({
+          where: {
+            teamName: {
+              equals: teamName,
+              mode: 'insensitive',
+            },
+            id: {
+              not: teamId,
+            },
+          },
+        });
+
+        if (existingTeam) {
+          throw new ConflictException('El nombre del equipo ya está en uso');
+        }
+
+        await tx.team.update({
+          where: { id: teamId },
+          data: { teamName },
+        });
+      }
+
+      // Actualizar información del videojuego
+      // Incluimos los campos incluso si son null para permitir eliminarlos
+      const videogameUpdateData: any = {};
+      if (videogameName !== undefined) {
+        videogameUpdateData.name = videogameName;
+      }
+      if ('description' in videogameData) {
+        videogameUpdateData.description = videogameData.description;
+      }
+      if ('videoUrl' in videogameData) {
+        videogameUpdateData.videoUrl = videogameData.videoUrl === '' ? null : videogameData.videoUrl;
+      }
+      if ('logoUrl' in videogameData) {
+        videogameUpdateData.logoUrl = videogameData.logoUrl === '' ? null : videogameData.logoUrl;
+      }
+      if ('githubUrl' in videogameData) {
+        videogameUpdateData.githubUrl = videogameData.githubUrl === '' ? null : videogameData.githubUrl;
+      }
+
+      if (Object.keys(videogameUpdateData).length > 0) {
+        await tx.videogame.update({
+          where: { teamId },
+          data: videogameUpdateData,
+        });
+      }
+    });
+
+    // Retornar los datos actualizados después de la transacción
+    return this.findOneWithDetails(teamId);
+  }
+
+  async updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member> {
+    // Verificar que el miembro pertenece al equipo y no es el líder
+    const team = await this.prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        members: {
+          where: { id: memberId },
+        },
+      },
+    });
+
+    if (!team) {
+      throw new Error('Team not found');
+    }
+
+    if (team.members.length === 0) {
+      throw new Error('Member not found in team');
+    }
+
+    // Verificar que el email no esté en uso
+    const existingEmail = await this.prisma.member.findFirst({
+      where: {
+        email: newEmail,
+        id: { not: memberId },
+      },
+    });
+
+    if (existingEmail) {
+      throw new Error('Email already in use');
+    }
+
+    return this.prisma.member.update({
+      where: { id: memberId },
+      data: { email: newEmail },
+    });
+  }
+
   async remove(id: number): Promise<Team> {
     return this.prisma.team.delete({
       where: { id },
     });
+  }
+
+  async getTeamsWithLessThanThreeJurors(): Promise<Array<{
+    id: number;
+    nombre: string;
+    videojuego: string | null;
+    lider: {
+      id: string;
+      nombre: string;
+      email: string;
+    };
+    juradosAsignados: Array<{
+      id: string;
+      nombre: string;
+      email: string;
+    }>;
+    cantidadJurados: number;
+  }>> {
+    try {
+      const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
+        where: { status: 'CONFIRMADO', isActive: true },
+      });
+
+      if (!confirmedStatus) {
+        throw new InternalServerErrorException('Estado de confirmación no encontrado');
+      }
+
+      const teams = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          confirmId: confirmedStatus.id,
+        },
+        include: {
+          assignedJurors: {
+            where: {
+              isActive: true,
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return teams
+        .filter(team => team.assignedJurors.length < 3)
+        .map(team => ({
+          id: team.id,
+          nombre: team.teamName,
+          videojuego: team.videogame?.name || null,
+          lider: {
+            id: team.user.id,
+            nombre: `${team.user.firstName} ${team.user.lastName}`,
+            email: team.user.email,
+          },
+          juradosAsignados: team.assignedJurors.map(juror => ({
+            id: juror.id,
+            nombre: `${juror.firstName} ${juror.lastName}`,
+            email: juror.email,
+          })),
+          cantidadJurados: team.assignedJurors.length,
+        }));
+    } catch (error) {
+      this.logger.error('Error al obtener equipos con menos de 3 jurados:', error);
+      throw new InternalServerErrorException('Error al obtener equipos con menos de 3 jurados');
+    }
   }
 }

@@ -2047,8 +2047,9 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 3,
         "editionId": 2,
-        "name": "Marian Andrea Pacheco Charris ",
+        "name": "Marian Andrea Pacheco Charris",
         "role": "Participante",
         "quote": "Puedo describir mi experiencia participando en la feria gamer como muy enriquecedora, fue un excelente espacio para profundizar mis habilidades de comunicación, y exponer acerca del proceso que fue realizar un proyecto que relacionaba dos materias de programación. Además, me brindó la oportunidad de escuchar diferentes opiniones y críticas constructivas para tener en cuenta en mis próximos proyectos.",
         "isActive": true,
@@ -2056,6 +2057,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 4,
         "editionId": 2,
         "name": "Arturo José González Barros",
         "role": "Participante",
@@ -2065,7 +2067,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 3,
+        "id": 5,
         "editionId": 2,
         "name": "María Alejandra Lobo León",
         "role": "Participante - Hidden Deck",
@@ -2075,7 +2077,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 4,
+        "id": 6,
         "editionId": 2,
         "name": "Jefferson Jose Torres Lora",
         "role": "Monitor Programación Orientada a Objetos",
@@ -2085,7 +2087,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 5,
+        "id": 7,
         "editionId": 2,
         "name": "Elvira Elena Florez Carbonell",
         "role": "Monitora Estructura de Datos I y Algoritmia y Programación I",
@@ -2095,7 +2097,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 6,
+        "id": 8,
         "editionId": 2,
         "name": "Margarita Gamarra Acosta",
         "role": "Profesora Departamento de Ingeniería de Sistemas y Computación",
@@ -2105,7 +2107,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 1,
+        "id": 9,
         "editionId": 1,
         "name": "Laura Vanessa Acuña Ordóñez",
         "role": "Participante",
@@ -2115,7 +2117,7 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
-        "id": 2,
+        "id": 10,
         "editionId": 1,
         "name": "María Del Mar Yusti Prins",
         "role": "Participante",
@@ -2125,11 +2127,289 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
-        "id": 3,
+        "id": 11,
         "editionId": 1,
         "name": "Marianna Contreras Zapata",
         "role": "Participante",
         "quote": "Fue una buena experiencia y oportunidad de presentar con mi grupo el proyecto que veníamos preparando, todo el proceso de ir avanzando y hacer el juego fue muy enriquecedora, luego explicarlo y exponerlo ante los demás y así mostrar nuestra capacidad de aprendizaje de las clases y aplicarlo fue única",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "configuracion_evento",
+    "data": [
+      {
+        "id": 1,
+        "evaluationsOpen": false,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "usuarios",
+    "data": [
+      {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "email": "admin@uninorte.edu.co",
+        "firstName": "Administrador",
+        "lastName": "Sistema",
+        "password": "$2b$10$example_hashed_password_here",
+        "roleId": 1,
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z",
+        "lastSignInAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "00000000-0000-0000-0000-000000000002",
+        "email": "estudiante1@uninorte.edu.co",
+        "firstName": "Juan",
+        "lastName": "Pérez",
+        "password": null,
+        "roleId": 2,
+        "confirmationStatusId": 2,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z",
+        "lastSignInAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "00000000-0000-0000-0000-000000000003",
+        "email": "profesor1@uninorte.edu.co",
+        "firstName": "María",
+        "lastName": "González",
+        "password": null,
+        "roleId": 3,
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z",
+        "lastSignInAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "00000000-0000-0000-0000-000000000004",
+        "email": "jurado1@uninorte.edu.co",
+        "firstName": "Carlos",
+        "lastName": "Rodríguez",
+        "password": null,
+        "roleId": 4,
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z",
+        "lastSignInAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "equipos",
+    "data": [
+      {
+        "id": 1,
+        "teamName": "Equipo Alpha",
+        "userId": "00000000-0000-0000-0000-000000000002",
+        "editionId": 1,
+        "confirmId": 1,
+        "isActive": true,
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "integrante",
+    "data": [
+      {
+        "id": 1,
+        "firstName": "Juan",
+        "lastName": "Pérez",
+        "email": "juan.perez@uninorte.edu.co",
+        "studentCode": "202410001",
+        "teamId": 1,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "firstName": "Ana",
+        "lastName": "Martínez",
+        "email": "ana.martinez@uninorte.edu.co",
+        "studentCode": "202410002",
+        "teamId": 1,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "videojuegos",
+    "data": [
+      {
+        "id": 1,
+        "name": "Aventura Espacial",
+        "description": "Un emocionante juego de aventuras en el espacio",
+        "logoUrl": null,
+        "videoUrl": "https://www.youtube.com/watch?v=example",
+        "githubUrl": "https://github.com/example/aventura-espacial",
+        "teamId": 1,
+        "videogameStatusId": 1,
+        "isActive": true,
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "materia",
+    "data": [
+      {
+        "id": 1,
+        "name": "Algoritmia y Programación I",
+        "code": "ISIS-1001",
+        "semester": 1,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "name": "Programación Orientada a Objetos",
+        "code": "ISIS-2002",
+        "semester": 2,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "nrc",
+    "data": [
+      {
+        "id": 1,
+        "code": 12345,
+        "subjectId": 1,
+        "professorId": "00000000-0000-0000-0000-000000000003",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "criterios",
+    "data": [
+      {
+        "id": 1,
+        "name": "Funcionalidad",
+        "description": "Evaluación de la funcionalidad del videojuego",
+        "weight": 0.3,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "name": "Diseño",
+        "description": "Evaluación del diseño y experiencia de usuario",
+        "weight": 0.25,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "name": "Innovación",
+        "description": "Evaluación de la innovación y creatividad",
+        "weight": 0.2,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 4,
+        "name": "Calidad del Código",
+        "description": "Evaluación de la calidad y organización del código",
+        "weight": 0.15,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 5,
+        "name": "Presentación",
+        "description": "Evaluación de la presentación y comunicación",
+        "weight": 0.1,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "evaluacion",
+    "data": [
+      {
+        "id": 1,
+        "jurorId": "00000000-0000-0000-0000-000000000004",
+        "videogameId": 1,
+        "editionId": 1,
+        "totalScore": 4.5,
+        "comments": "Excelente trabajo, muy innovador",
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "detalle_evaluacion",
+    "data": [
+      {
+        "id": 1,
+        "evaluationId": 1,
+        "criterionId": 1,
+        "score": 4.5,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "evaluationId": 1,
+        "criterionId": 2,
+        "score": 4.5,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "evaluationId": 1,
+        "criterionId": 3,
+        "score": 4.5,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 4,
+        "evaluationId": 1,
+        "criterionId": 4,
+        "score": 4.5,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 5,
+        "evaluationId": 1,
+        "criterionId": 5,
+        "score": 4.5,
         "isActive": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"

@@ -15,6 +15,8 @@ export interface ITeamRepository {
   }>;
   findAll(): Promise<Team[]>;
   findOne(id: number): Promise<Team>;
+  findOneWithDetails(id: number): Promise<any>;
+  findOneWithDetailsByLeaderId(leaderId: string): Promise<any>;
   update(id: number, data: any): Promise<Team>;
   remove(id: number): Promise<Team>;
 }
