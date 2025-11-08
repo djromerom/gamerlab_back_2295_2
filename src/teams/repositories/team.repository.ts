@@ -279,55 +279,64 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  private readonly teamDetailsInclude = {
+    user: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    },
+    videogame: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        logoUrl: true,
+        youtubeUrl: true,
+        githubUrl: true,
+      },
+    },
+    members: {
+      where: { isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        studentCode: true,
+      },
+    },
+    assignedJurors: {
+      where: { isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    },
+    edition: {
+      select: {
+        id: true,
+        semester: true,
+        title: true,
+      },
+    },
+  };
+
   async findOneWithDetails(id: number): Promise<any> {
     return this.prisma.team.findUnique({
       where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        videogame: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            logoUrl: true,
-            youtubeUrl: true,
-            githubUrl: true,
-          },
-        },
-        members: {
-          where: { isActive: true },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            studentCode: true,
-          },
-        },
-        assignedJurors: {
-          where: { isActive: true },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        edition: {
-          select: {
-            id: true,
-            semester: true,
-            title: true,
-          },
-        },
-      },
+      include: this.teamDetailsInclude,
+    });
+  }
+
+  async findOneWithDetailsByLeaderId(leaderId: string): Promise<any> {
+    return this.prisma.team.findFirst({
+      where: { userId: leaderId },
+      include: this.teamDetailsInclude,
     });
   }
 

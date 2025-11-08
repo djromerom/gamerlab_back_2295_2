@@ -123,11 +123,18 @@ export class TeamsService {
     return await this.teamRepository.findOne(id);
   }
 
-  async findOneWithDetails(id: number): Promise<unknown> {
-    const team = await this.teamRepository.findOneWithDetails(id);
-    if (!team) {
-      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+  async findOneWithDetails(identifier: string): Promise<unknown> {
+    let team = await this.teamRepository.findOneWithDetailsByLeaderId(identifier);
+
+    if (!team && /^\d+$/.test(identifier)) {
+      const numericId = Number(identifier);
+      team = await this.teamRepository.findOneWithDetails(numericId);
     }
+
+    if (!team) {
+      throw new NotFoundException(`Equipo con líder o ID ${identifier} no encontrado`);
+    }
+
     return team;
   }
 

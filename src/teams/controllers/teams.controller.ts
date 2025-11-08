@@ -72,7 +72,7 @@ export class TeamsController {
   @Get(':id/full')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetTeam')
-  findOneFull(@Param('id', ParseIntPipe) id: number) {
+  findOneFull(@Param('id') id: string) {
     return this.teamsService.findOneWithDetails(id);
   }
 
