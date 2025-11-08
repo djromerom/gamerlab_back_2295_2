@@ -108,25 +108,7 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  async isRole(roleId: number | null | undefined, roleName: string): Promise<boolean> {
-    if (roleId === null || roleId === undefined) {
-      return false;
-    }
-
-    const role = await this.prisma.role.findFirst({
-      where: {
-        id: roleId,
-        name: {
-          equals: roleName,
-          mode: 'insensitive',
-        },
-        isActive: true,
-      },
-      select: { id: true },
-    });
-
-    return !!role;
-  }
+  
 
   async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
     createdUser: User;
