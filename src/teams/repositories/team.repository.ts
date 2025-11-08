@@ -108,25 +108,7 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  async isRole(roleId: number | null | undefined, roleName: string): Promise<boolean> {
-    if (roleId === null || roleId === undefined) {
-      return false;
-    }
-
-    const role = await this.prisma.role.findFirst({
-      where: {
-        id: roleId,
-        name: {
-          equals: roleName,
-          mode: 'insensitive',
-        },
-        isActive: true,
-      },
-      select: { id: true },
-    });
-
-    return !!role;
-  }
+  
 
   async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
     createdUser: User;
@@ -251,6 +233,9 @@ export class TeamRepository implements ITeamRepository {
             name: videogame.vgName,
             description: videogame.description,
             logoUrl: videogame.logoURL,
+            videoUrl: videogame.videoUrl,
+            repoUrl: videogame.repoUrl,
+            additionalImages: videogame.additionalImages || [],
             teamId: team.id,
             videogameStatusId: 1,
           },
@@ -270,7 +255,20 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async findAll(): Promise<Team[]> {
-    return this.prisma.team.findMany();
+    return this.prisma.team.findMany({
+      include: {
+        videogame: true,
+        members: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
   }
 
   async findOne(id: number): Promise<any> {
@@ -295,7 +293,7 @@ export class TeamRepository implements ITeamRepository {
         description: true,
         logoUrl: true,
         videoUrl: true,
-        githubUrl: true,
+        repoUrl: true,
       },
     },
     members: {
@@ -353,7 +351,7 @@ export class TeamRepository implements ITeamRepository {
     description?: string;
     videoUrl?: string | null;
     logoUrl?: string | null;
-    githubUrl?: string | null;
+    repoUrl?: string | null;
   }): Promise<any> {
     const { teamName, videogameName, ...videogameData } = updateData;
     
@@ -397,8 +395,8 @@ export class TeamRepository implements ITeamRepository {
       if ('logoUrl' in videogameData) {
         videogameUpdateData.logoUrl = videogameData.logoUrl === '' ? null : videogameData.logoUrl;
       }
-      if ('githubUrl' in videogameData) {
-        videogameUpdateData.githubUrl = videogameData.githubUrl === '' ? null : videogameData.githubUrl;
+      if ('repoUrl' in videogameData) {
+        videogameUpdateData.repoUrl = videogameData.repoUrl === '' ? null : videogameData.repoUrl;
       }
 
       if (Object.keys(videogameUpdateData).length > 0) {

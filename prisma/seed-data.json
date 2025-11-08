@@ -1927,7 +1927,7 @@
         "description": "Un emocionante juego de aventuras en el espacio",
         "logoUrl": null,
         "videoUrl": "https://www.youtube.com/watch?v=example",
-        "githubUrl": "https://github.com/example/aventura-espacial",
+        "repoUrl": "https://github.com/example/aventura-espacial",
         "teamId": 1,
         "videogameStatusId": 1,
         "isActive": true,
