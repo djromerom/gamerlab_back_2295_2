@@ -43,9 +43,8 @@ export class TeamsController {
     return this.teamsService.getTeamsWithLessThanThreeJurors();
   }
 
+  @Public()
   @Get()
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ListTeams')
   findAll() {
     return this.teamsService.findAll();
   }
