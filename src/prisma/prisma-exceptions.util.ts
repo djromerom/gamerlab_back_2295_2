@@ -17,6 +17,13 @@ export function handlePrismaError(error: unknown): never {
         );
       }
 
+      case 'P2003': {
+        const field = (error.meta?.field_name as string) ?? 'relación';
+        throw new BadRequestException(
+          `Violación de clave foránea en ${field}. Verifica que la relación exista o que no esté en uso.`,
+        );
+      }
+
       case 'P2025':
         throw new BadRequestException('Registro no encontrado.');
 

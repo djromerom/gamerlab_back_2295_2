@@ -15,6 +15,7 @@ import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
 import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
+import { getSubjectCode } from 'src/subjects/subjects-codes.util';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -171,28 +172,32 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async update(id: number, data: UpdateTeamDto) {
-    return await this.prisma.$transaction(async (tx) => {
-      const teamData: UpdateTeamDto = {
-        teamName: data.teamName,
-        isExternal: data.isExternal,
-      };
-      const updatedTeam = teamData
-        ? await this.updateTeam(tx, id, teamData)
-        : null;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const teamData: UpdateTeamDto = {
+          teamName: data.teamName,
+          isExternal: data.isExternal,
+        };
+        const updatedTeam = teamData
+          ? await this.updateTeam(tx, id, teamData)
+          : null;
 
-      const updatedMembers = data.members
-        ? await this.updateMembers(tx, id, data.members)
-        : null;
+        const updatedMembers = data.members
+          ? await this.updateMembers(tx, id, data.members)
+          : null;
 
-      const updatedVideogame = data.videogame
-        ? await this.updateVideogame(tx, id, data.videogame)
-        : null;
-      return {
-        updatedTeam,
-        updatedMembers,
-        updatedVideogame,
-      };
-    });
+        const updatedVideogame = data.videogame
+          ? await this.updateVideogame(tx, id, data.videogame)
+          : null;
+        return {
+          updatedTeam,
+          updatedMembers,
+          updatedVideogame,
+        };
+      });
+    } catch (err) {
+      handlePrismaError(err);
+    }
   }
 
   async remove(id: number): Promise<Team> {
@@ -352,6 +357,7 @@ export class TeamRepository implements ITeamRepository {
         description: data.description,
         logoUrl: data.logoUrl,
         repoUrl: data.repoUrl,
+        videogameStatusId: data.videogameStatusId,
         uploads: data.uploads
           ? {
               deleteMany: {}, // Elimina todos los anteriores
@@ -444,10 +450,13 @@ export class TeamRepository implements ITeamRepository {
       handlePrismaError(err);
     }
     const firstSubject = teamSubjects?.[0];
+    // se le asigna semestre 0 a los equipos externos
     const teamSemester = firstSubject?.semester ?? 0;
-    const subjectCode =
-      firstSubject?.code?.substring(0, 3).toUpperCase() ??
-      this.genRandomChars();
+    // todos los equipos internos deben estar asociados a una materia.
+    // si getSubjectCode() no recibe el nombre de una materia,
+    // significa que el equipo es externo.
+    // entonces devuelve un string de 3 letras aleatorio.
+    const subjectCode = getSubjectCode(firstSubject?.name);
     const number = teamId.toString().padStart(2, '0');
 
     return `N${teamSemester}-${subjectCode}-${number}`;
@@ -475,14 +484,5 @@ export class TeamRepository implements ITeamRepository {
 
     if (!subjects) return null;
     return subjects;
-  }
-
-  private genRandomChars() {
-    let res = '';
-    for (let i = 0; i < 3; i++) {
-      const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-      res += char;
-    }
-    return res;
   }
 }
