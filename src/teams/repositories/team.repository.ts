@@ -201,6 +201,7 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  // NOTA: Este usuario es el líder del equipo
   private async handleUser(
     tx: Prisma.TransactionClient,
     firstMember: MemberDto,
@@ -427,5 +428,61 @@ export class TeamRepository implements ITeamRepository {
       }
     }
     return updatedMembers;
+  }
+
+  private async createTeamCode(teamId: number) {
+    // * El código dice qué nivel es el proyecto (si primer semestre o segundo)
+    // * Luego dice la materia. En caso de los grupos donde sea, por ejemplo,
+    // un proyecto para datos 1 y poo se coloca en el código cualquier materia -we don’t care-
+    // * Por último, un número
+    // Ex: N2-POO-09
+
+    let teamSubjects;
+    try {
+      teamSubjects = await this.getTeamSubjects(teamId);
+    } catch (err) {
+      handlePrismaError(err);
+    }
+    const firstSubject = teamSubjects?.[0];
+    const teamSemester = firstSubject?.semester ?? 0;
+    const subjectCode =
+      firstSubject?.code?.substring(0, 3).toUpperCase() ??
+      this.genRandomChars();
+    const number = teamId.toString().padStart(2, '0');
+
+    return `N${teamSemester}-${subjectCode}-${number}`;
+  }
+
+  private async getTeamSubjects(teamId: number) {
+    const teamInfo = await this.prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        members: {
+          select: {
+            nrcs: {
+              select: {
+                subject: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const subjects = teamInfo?.members.flatMap((m) =>
+      m.nrcs.map((nrc) => nrc.subject),
+    );
+
+    if (!subjects) return null;
+    return subjects;
+  }
+
+  private genRandomChars() {
+    let res = '';
+    for (let i = 0; i < 3; i++) {
+      const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      res += char;
+    }
+    return res;
   }
 }

@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from '../../auth/auth.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -40,21 +41,21 @@ export class TeamsService {
   }
 
   async create(createTeamDto: CreateTeamDto) {
-    // try {
-    //   const isRecaptchaValid = await this.recaptchaService.verify(
-    //     createTeamDto.recaptchaToken,
-    //   );
-    //   if (!isRecaptchaValid) {
-    //     throw new UnauthorizedException('reCAPTCHA verification failed');
-    //   }
-    // } catch (error) {
-    //   this.logger.error(
-    //     `reCAPTCHA verification error: ${
-    //       error instanceof Error ? error.message : String(error)
-    //     }`,
-    //   );
-    //   throw new UnauthorizedException('Error en la verificación de reCAPTCHA');
-    // }
+    try {
+      const isRecaptchaValid = await this.recaptchaService.verify(
+        createTeamDto.recaptchaToken,
+      );
+      if (!isRecaptchaValid) {
+        throw new UnauthorizedException('reCAPTCHA verification failed');
+      }
+    } catch (error) {
+      this.logger.error(
+        `reCAPTCHA verification error: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new UnauthorizedException('Error en la verificación de reCAPTCHA');
+    }
 
     return await this.teamRepository.createTeam(createTeamDto);
   }
