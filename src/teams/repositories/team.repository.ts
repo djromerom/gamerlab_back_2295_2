@@ -4,6 +4,7 @@ import {
   Logger,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
@@ -380,58 +381,59 @@ export class TeamRepository implements ITeamRepository {
   ) {
     const updatedMembers: UpdateMemberDto[] = [];
     for (const member of members) {
-      try {
-        // Se verifica si el usuario a actualizar es el lider para posteriormente
-        // bloquear si se intenta actualizar su correo
-        // El lider es el único miembro que no puede actualizar su correo una vez registrado
-        const dbMember = await tx.member.findUnique({
-          where: { id: member.id },
-        });
+      // Se verifica si el usuario a actualizar es el lider para posteriormente
+      // bloquear si se intenta actualizar su correo
+      // El lider es el único miembro que no puede actualizar su correo una vez registrado
+      const dbMember = await tx.member.findUnique({
+        where: { id: member.id },
+      });
 
-        const isLeader = await tx.user.findUnique({
-          where: { email: dbMember?.email },
-        });
+      if (!dbMember)
+        throw new BadRequestException(
+          `No se encontró a un usuario con id ${member.id}`,
+        );
 
-        const existingEmail = member.memberEmail
-          ? await tx.member.findUnique({
-              where: { email: member.memberEmail },
-            })
-          : null;
+      const isLeader = await tx.user.findUnique({
+        where: { email: dbMember?.email },
+      });
 
-        if (existingEmail)
-          throw new ConflictException(
-            `Ya existe un registro con el correo ${existingEmail.email}`,
-          );
+      const existingEmail = member.memberEmail
+        ? await tx.member.findUnique({
+            where: { email: member.memberEmail },
+          })
+        : null;
 
-        const nrcRecords = await tx.nRC.findMany({
-          where: {
-            code: {
-              in: (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
-            },
+      if (existingEmail)
+        throw new ConflictException(
+          `Ya existe un registro con el correo ${existingEmail.email}`,
+        );
+
+      const nrcRecords = await tx.nRC.findMany({
+        where: {
+          code: {
+            in: (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
           },
-          select: { id: true },
-        });
+        },
+        select: { id: true },
+      });
 
-        const updatedMember = await tx.member.update({
-          where: { id: member.id, teamId: id },
-          data: {
-            // Solo se actualiza el email si NO es lider
-            email: isLeader ? isLeader.email : member.memberEmail,
-            firstName: member.memberFirstName,
-            lastName: member.memberLastName,
-            studentCode: member.studentCode,
-            nrcs: member.nrc
-              ? {
-                  set: [], // Elimina los anteriores
-                  connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
-                }
-              : undefined,
-          },
-        });
-        updatedMembers.push(updatedMember);
-      } catch (error) {
-        handlePrismaError(error);
-      }
+      const updatedMember = await tx.member.update({
+        where: { id: member.id, teamId: id },
+        data: {
+          // Solo se actualiza el email si NO es lider
+          email: isLeader ? isLeader.email : member.memberEmail,
+          firstName: member.memberFirstName,
+          lastName: member.memberLastName,
+          studentCode: member.studentCode,
+          nrcs: member.nrc
+            ? {
+                set: [], // Elimina los anteriores
+                connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+              }
+            : undefined,
+        },
+      });
+      updatedMembers.push(updatedMember);
     }
     return updatedMembers;
   }

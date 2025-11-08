@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -32,6 +33,16 @@ export function handlePrismaError(error: unknown): never {
           `Error de base de datos: ${error.code}`,
         );
     }
+  }
+
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    throw new BadRequestException(
+      'Error de validación en la consulta a la base de datos. Verifica los parámetros enviados.',
+    );
+  }
+
+  if (error instanceof HttpException) {
+    throw error;
   }
 
   if (error instanceof Error) {
