@@ -1,1 +1,1 @@
-export type EmailType = 'CONFIRMATION' | 'RESET_PASSWORD';
+export type EmailType = 'VERIFICACION_EMAIL' | 'RESETEAR_CONTRASENA';
