@@ -6,9 +6,6 @@ export class UpdateMemberEmailDto {
   @Transform(({ value }) => value && typeof value === 'string' ? value.toLowerCase() : value)
   @IsEmail({}, { message: 'El correo debe ser válido' })
   @IsNotEmpty({ message: 'El correo es obligatorio' })
-  @Matches(/^[\w.+-]+@uninorte\.edu\.co$/, {
-    message: 'El correo debe ser institucional (@uninorte.edu.co)',
-  })
   email: string;
 }
 
