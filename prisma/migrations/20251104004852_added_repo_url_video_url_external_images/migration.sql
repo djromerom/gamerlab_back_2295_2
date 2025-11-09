@@ -37,6 +37,3 @@ ALTER TABLE "evaluacion" ADD CONSTRAINT "evaluacion_id_videojuego_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "detalle_evaluacion" ADD CONSTRAINT "detalle_evaluacion_id_evaluacion_fkey" FOREIGN KEY ("id_evaluacion") REFERENCES "evaluacion"("id_evaluacion") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- AddForeignKey
-ALTER TABLE "archivos_subidos" ADD CONSTRAINT "archivos_subidos_id_videojuego_fkey" FOREIGN KEY ("id_videojuego") REFERENCES "videojuegos"("id_videojuego") ON DELETE CASCADE ON UPDATE CASCADE;
