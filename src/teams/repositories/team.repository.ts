@@ -116,7 +116,7 @@ export class TeamRepository implements ITeamRepository {
       },
     });
 
-    return new Set(existingMembers.map(member => member.studentCode));
+    return new Set(existingMembers.map((member) => member.studentCode));
   }
 
   async findMemberById(memberId: number): Promise<Member | null> {
@@ -137,7 +137,10 @@ export class TeamRepository implements ITeamRepository {
     members: Member[];
     videogame: Videogame;
   }>;
-  async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
+  async createTeam(
+    createTeamDto: CreateTeamDto,
+    userId: string,
+  ): Promise<{
     createdUser: User;
     team: Team;
     members: Member[];
@@ -152,7 +155,7 @@ export class TeamRepository implements ITeamRepository {
         if (userId) {
           // Dev branch approach - user is provided
           const { teamName, videogame, members } = dto;
-          
+
           // 1. Verificar que el rol de Estudiante existe
           const studentRole = await tx.role.findUnique({
             where: { name: 'Estudiante' },
@@ -190,14 +193,16 @@ export class TeamRepository implements ITeamRepository {
 
           for (const member of members) {
             if (member.nrc && member.nrc.length > 0) {
-              const nrcCodesFromDto = member.nrc.map(nrcCodeStr => parseInt(nrcCodeStr));
+              const nrcCodesFromDto = member.nrc.map((nrcCodeStr) =>
+                parseInt(nrcCodeStr),
+              );
 
               const nrcsFoundInDb = await tx.nRC.findMany({
                 where: {
                   code: {
                     in: nrcCodesFromDto,
                   },
-                  isActive: true
+                  isActive: true,
                 },
                 select: {
                   id: true,
@@ -205,7 +210,9 @@ export class TeamRepository implements ITeamRepository {
                 },
               });
 
-              const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(nrc => nrc.id);
+              const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(
+                (nrc) => nrc.id,
+              );
 
               if (dbIdsOfValidNrcsToConnect.length > 0) {
                 const createdMember = await tx.member.create({
@@ -216,7 +223,7 @@ export class TeamRepository implements ITeamRepository {
                     studentCode: member.studentCode,
                     teamId: team.id,
                     nrcs: {
-                      connect: dbIdsOfValidNrcsToConnect.map(id => ({ id })),
+                      connect: dbIdsOfValidNrcsToConnect.map((id) => ({ id })),
                     },
                   },
                 });
@@ -415,14 +422,22 @@ export class TeamRepository implements ITeamRepository {
   }
 
   // Overloaded update methods to match interface
-  async update(id: number, data: UpdateTeamDto): Promise<{
+  async update(
+    id: number,
+    data: UpdateTeamDto,
+  ): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;
   async update(id: number, data: any): Promise<Team>;
   async update(id: number, data: any): Promise<any> {
-    if (data.teamName !== undefined || data.isExternal !== undefined || data.members || data.videogame) {
+    if (
+      data.teamName !== undefined ||
+      data.isExternal !== undefined ||
+      data.members ||
+      data.videogame
+    ) {
       // Complex update with members and videogame
       try {
         return await this.prisma.$transaction(async (tx) => {
@@ -459,16 +474,19 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  async updateTeamInfo(teamId: number, updateData: {
-    teamName?: string;
-    videogameName?: string;
-    description?: string;
-    videoUrl?: string | null;
-    logoUrl?: string | null;
-    repoUrl?: string | null;
-  }): Promise<any> {
+  async updateTeamInfo(
+    teamId: number,
+    updateData: {
+      teamName?: string;
+      videogameName?: string;
+      description?: string;
+      videoUrl?: string | null;
+      logoUrl?: string | null;
+      repoUrl?: string | null;
+    },
+  ): Promise<any> {
     const { teamName, videogameName, ...videogameData } = updateData;
-    
+
     await this.prisma.$transaction(async (tx) => {
       // Actualizar nombre del equipo si se proporciona
       if (teamName !== undefined) {
@@ -503,13 +521,16 @@ export class TeamRepository implements ITeamRepository {
         videogameUpdateData.description = videogameData.description;
       }
       if ('videoUrl' in videogameData) {
-        videogameUpdateData.videoUrl = videogameData.videoUrl === '' ? null : videogameData.videoUrl;
+        videogameUpdateData.videoUrl =
+          videogameData.videoUrl === '' ? null : videogameData.videoUrl;
       }
       if ('logoUrl' in videogameData) {
-        videogameUpdateData.logoUrl = videogameData.logoUrl === '' ? null : videogameData.logoUrl;
+        videogameUpdateData.logoUrl =
+          videogameData.logoUrl === '' ? null : videogameData.logoUrl;
       }
       if ('repoUrl' in videogameData) {
-        videogameUpdateData.repoUrl = videogameData.repoUrl === '' ? null : videogameData.repoUrl;
+        videogameUpdateData.repoUrl =
+          videogameData.repoUrl === '' ? null : videogameData.repoUrl;
       }
 
       if (Object.keys(videogameUpdateData).length > 0) {
@@ -523,7 +544,11 @@ export class TeamRepository implements ITeamRepository {
     return this.findOneWithDetails(teamId);
   }
 
-  async updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member> {
+  async updateMemberEmail(
+    memberId: number,
+    newEmail: string,
+    teamId: number,
+  ): Promise<Member> {
     // Verificar que el miembro pertenece al equipo
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
@@ -566,29 +591,33 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  async getTeamsWithLessThanThreeJurors(): Promise<Array<{
-    id: number;
-    nombre: string;
-    videojuego: string | null;
-    lider: {
-      id: string;
+  async getTeamsWithLessThanThreeJurors(): Promise<
+    Array<{
+      id: number;
       nombre: string;
-      email: string;
-    };
-    juradosAsignados: Array<{
-      id: string;
-      nombre: string;
-      email: string;
-    }>;
-    cantidadJurados: number;
-  }>> {
+      videojuego: string | null;
+      lider: {
+        id: string;
+        nombre: string;
+        email: string;
+      };
+      juradosAsignados: Array<{
+        id: string;
+        nombre: string;
+        email: string;
+      }>;
+      cantidadJurados: number;
+    }>
+  > {
     try {
       const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
         where: { status: 'CONFIRMADO', isActive: true },
       });
 
       if (!confirmedStatus) {
-        throw new InternalServerErrorException('Estado de confirmación no encontrado');
+        throw new InternalServerErrorException(
+          'Estado de confirmación no encontrado',
+        );
       }
 
       const teams = await this.prisma.team.findMany({
@@ -626,8 +655,8 @@ export class TeamRepository implements ITeamRepository {
       });
 
       return teams
-        .filter(team => team.assignedJurors.length < 3)
-        .map(team => ({
+        .filter((team) => team.assignedJurors.length < 3)
+        .map((team) => ({
           id: team.id,
           nombre: team.teamName,
           videojuego: team.videogame?.name || null,
@@ -636,7 +665,7 @@ export class TeamRepository implements ITeamRepository {
             nombre: `${team.user.firstName} ${team.user.lastName}`,
             email: team.user.email,
           },
-          juradosAsignados: team.assignedJurors.map(juror => ({
+          juradosAsignados: team.assignedJurors.map((juror) => ({
             id: juror.id,
             nombre: `${juror.firstName} ${juror.lastName}`,
             email: juror.email,
@@ -644,8 +673,13 @@ export class TeamRepository implements ITeamRepository {
           cantidadJurados: team.assignedJurors.length,
         }));
     } catch (error) {
-      this.logger.error('Error al obtener equipos con menos de 3 jurados:', error);
-      throw new InternalServerErrorException('Error al obtener equipos con menos de 3 jurados');
+      this.logger.error(
+        'Error al obtener equipos con menos de 3 jurados:',
+        error,
+      );
+      throw new InternalServerErrorException(
+        'Error al obtener equipos con menos de 3 jurados',
+      );
     }
   }
 

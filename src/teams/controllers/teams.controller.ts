@@ -35,8 +35,16 @@ export class TeamsController {
 
   @Public()
   @Post()
-  create(@Body() createTeamDto: CreateTeamDto, @GetUser() user?: AppUser) {
-    return this.teamsService.create(createTeamDto, user);
+  create(@Body() createTeamDto: CreateTeamDto) {
+    return this.teamsService.create(createTeamDto);
+  }
+
+  @Post('admin')
+  createAsAdmin(
+    @Body() CreateTeamDto: CreateTeamDto,
+    @GetUser() user?: AppUser,
+  ) {
+    return this.teamsService.createAsAdmin(CreateTeamDto, user);
   }
 
   @Get('')
@@ -118,7 +126,9 @@ export class TeamsController {
     @GetUser() currentUser: AppUser,
   ) {
     if (!updateDto || Object.keys(updateDto).length === 0) {
-      throw new BadRequestException('El cuerpo de la solicitud no puede estar vacío');
+      throw new BadRequestException(
+        'El cuerpo de la solicitud no puede estar vacío',
+      );
     }
 
     // Si el body contiene campos de UpdateTeamInfoDto, usar updateTeamInfo
@@ -131,7 +141,11 @@ export class TeamsController {
       Object.prototype.hasOwnProperty.call(updateDto, 'repoUrl');
 
     if (hasTeamInfoFields) {
-      return this.teamsService.updateTeamInfo(id, updateDto as UpdateTeamInfoDto, currentUser);
+      return this.teamsService.updateTeamInfo(
+        id,
+        updateDto as UpdateTeamInfoDto,
+        currentUser,
+      );
     }
     return this.teamsService.update(id, updateDto as UpdateTeamDto);
   }
@@ -145,7 +159,12 @@ export class TeamsController {
     @Body() updateMemberEmailDto: UpdateMemberEmailDto,
     @GetUser('id') userId: string,
   ) {
-    return this.teamsService.updateMemberEmail(teamId, memberId, updateMemberEmailDto, userId);
+    return this.teamsService.updateMemberEmail(
+      teamId,
+      memberId,
+      updateMemberEmailDto,
+      userId,
+    );
   }
 
   @Delete(':id')
