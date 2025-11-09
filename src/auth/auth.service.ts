@@ -101,7 +101,7 @@ export class AuthService {
       });
       const resetPasswordToken = await this.prisma.tokenType.findUnique({
         where: { type: this.RESET_PASSWORD_TOKEN_NAME },
-      })
+      });
 
       if (!verificationToken) {
         this.logger.error(
@@ -188,7 +188,11 @@ export class AuthService {
     }
   }
 
-  async resetTokenExpiration(userId: string, typeOfToken: string): Promise<void> {
+  async resetTokenExpiration(userId: string, typeOfToken: EmailType): Promise<void> {
+    if (typeOfToken !== 'VERIFICACION_EMAIL' && typeOfToken !== 'RESETEAR_CONTRASENA') {
+      this.logger.warn(`Invalid typeOfToken provided: ${typeOfToken}`);
+      throw new BadRequestException(`Invalid typeOfToken: ${typeOfToken}`);
+    }
     try {
       // Buscar el token de verificación para el usuario
       const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
@@ -390,7 +394,7 @@ export class AuthService {
     this.logger.log(
       `Token ${tokenString.substring(0, 8)}... is valid for user ${storedToken.userId}`,
     );
-    
+
     // Only return success object for valid tokens
     return {
       isValid: true,
@@ -776,7 +780,10 @@ export class AuthService {
 
     try {
       // Delete any existing token of said type for this user
-      const tokenTypeId = typeOfEmail === 'VERIFICACION_EMAIL' ? this.verificationTokenId : this.resetPasswordTokenId;
+      const tokenTypeId =
+        typeOfEmail === 'VERIFICACION_EMAIL'
+          ? this.verificationTokenId
+          : this.resetPasswordTokenId;
       await this.prisma.verificationToken.deleteMany({
         where: {
           userId: user.id,

@@ -179,8 +179,23 @@ export class AuthController {
     },
   })
   @ApiOkResponse({ description: 'Password updated successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid token or password format'})
-  @ApiBadRequestResponse({ description: 'Token has expired' })
+  @ApiBadRequestResponse({
+    description: 'Bad Request',
+    content: {
+      'application/json': {
+        examples: {
+          invalidTokenOrPassword: {
+            summary: 'Invalid token or password format',
+            value: { statusCode: 400, message: 'Invalid token or password format', error: 'Bad Request' },
+          },
+          tokenExpired: {
+            summary: 'Token has expired',
+            value: { statusCode: 400, message: 'Token has expired', error: 'Bad Request' },
+          },
+        },
+      },
+    },
+  })
   async setPassword(
     @Body() setPasswordDto: SetPasswordDto,
   ): Promise<{ message: string }> {
