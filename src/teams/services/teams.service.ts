@@ -178,7 +178,19 @@ export class TeamsService {
     return team;
   }
 
-  async update(id: number, updateTeamDto: UpdateTeamDto) {
+  async update(id: number, updateTeamDto: UpdateTeamDto, currentUser: AppUser) {
+    const team = await this.teamRepository.findOne(id);
+    if (!team) {
+      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+    }
+
+    const isLeader = team.userId === currentUser.id;
+    const isAdmin = currentUser.roleId === 1;
+    if (!isLeader && !isAdmin) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource.',
+      );
+    }
     return this.teamRepository.update(id, updateTeamDto);
   }
 

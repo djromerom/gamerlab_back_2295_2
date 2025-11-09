@@ -131,23 +131,42 @@ export class TeamsController {
       );
     }
 
-    // Si el body contiene campos de UpdateTeamInfoDto, usar updateTeamInfo
-    const hasTeamInfoFields =
-      Object.prototype.hasOwnProperty.call(updateDto, 'teamName') ||
-      Object.prototype.hasOwnProperty.call(updateDto, 'videogameName') ||
-      Object.prototype.hasOwnProperty.call(updateDto, 'description') ||
-      Object.prototype.hasOwnProperty.call(updateDto, 'videoUrl') ||
-      Object.prototype.hasOwnProperty.call(updateDto, 'logoUrl') ||
-      Object.prototype.hasOwnProperty.call(updateDto, 'repoUrl');
-
-    if (hasTeamInfoFields) {
-      return this.teamsService.updateTeamInfo(
+    // Como UpdateTeamDto y UpdateTeamInfoDto comparten información,
+    // de la forma que estaba implementada antes (lo que está comentado)
+    // provocaba que aunque se quisera actualizar información más compleja del equipo
+    // como sus integrantes, videojuego, etc. (desde el admin) no tomara la función
+    // que actualiza estos datos <this.teamsService.update()>
+    const complexFields = ['members', 'videogame', 'isExternal'];
+    if (complexFields.some((field) => field in updateDto))
+      return this.teamsService.update(
         id,
-        updateDto as UpdateTeamInfoDto,
+        updateDto as UpdateTeamDto,
         currentUser,
       );
-    }
-    return this.teamsService.update(id, updateDto as UpdateTeamDto);
+
+    return this.teamsService.updateTeamInfo(
+      id,
+      updateDto as UpdateTeamInfoDto,
+      currentUser,
+    );
+
+    // Si el body contiene campos de UpdateTeamInfoDto, usar updateTeamInfo
+    // const hasTeamInfoFields =
+    //   Object.prototype.hasOwnProperty.call(updateDto, 'teamName') ||
+    //   Object.prototype.hasOwnProperty.call(updateDto, 'videogameName') ||
+    //   Object.prototype.hasOwnProperty.call(updateDto, 'description') ||
+    //   Object.prototype.hasOwnProperty.call(updateDto, 'videoUrl') ||
+    //   Object.prototype.hasOwnProperty.call(updateDto, 'logoUrl') ||
+    //   Object.prototype.hasOwnProperty.call(updateDto, 'repoUrl');
+
+    // if (hasTeamInfoFields) {
+    //   return this.teamsService.updateTeamInfo(
+    //     id,
+    //     updateDto as UpdateTeamInfoDto,
+    //     currentUser,
+    //   );
+    // }
+    // return this.teamsService.update(id, updateDto as UpdateTeamDto);
   }
 
   @Patch(':teamId/members/:memberId')
