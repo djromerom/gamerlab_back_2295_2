@@ -5,11 +5,12 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
-import { Team, Member, Videogame, Prisma } from '@prisma/client';
+import { Team, Member, Videogame, Prisma, User } from '@prisma/client';
 import { UpdateTeamDto } from '../dto/update-team.dto';
 import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
 import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
@@ -99,23 +100,190 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  async createTeam(dto: CreateTeamDto) {
+  async findExistingStudentCodes(studentCodes: string[]): Promise<Set<string>> {
+    if (studentCodes.length === 0) {
+      return new Set();
+    }
+
+    const existingMembers = await this.prisma.member.findMany({
+      where: {
+        studentCode: {
+          in: studentCodes,
+        },
+      },
+      select: {
+        studentCode: true,
+      },
+    });
+
+    return new Set(existingMembers.map(member => member.studentCode));
+  }
+
+  async findMemberById(memberId: number): Promise<Member | null> {
+    return this.prisma.member.findUnique({
+      where: { id: memberId },
+    });
+  }
+
+  async findUserById(userId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+  }
+
+  // Overloaded method to support both signatures
+  async createTeam(createTeamDto: CreateTeamDto): Promise<{
+    team: Team;
+    members: Member[];
+    videogame: Videogame;
+  }>;
+  async createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
+    createdUser: User;
+    team: Team;
+    members: Member[];
+    createdVideogame: Videogame;
+  }>;
+  async createTeam(dto: CreateTeamDto, userId?: string): Promise<any> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const userId = await this.handleUser(tx, dto.members[0]);
-        const team = await this.createTeamRecord(tx, dto, userId);
-        const members = await this.createMembers(tx, team.id, dto.members);
-        const videogame = await this.createVideogame(
-          tx,
-          team.id,
-          dto.videogame,
-        );
+        let finalUserId: string;
+        let createdUser: User | undefined;
 
-        return {
-          team,
-          members,
-          videogame,
-        };
+        if (userId) {
+          // Dev branch approach - user is provided
+          const { teamName, videogame, members } = dto;
+          
+          // 1. Verificar que el rol de Estudiante existe
+          const studentRole = await tx.role.findUnique({
+            where: { name: 'Estudiante' },
+          });
+
+          if (!studentRole) {
+            throw new Error('Role "Estudiante" not found.');
+          }
+
+          const firstMember = members[0];
+
+          // 2. Crear/actualizar el usuario principal
+          createdUser = await tx.user.update({
+            where: { id: userId },
+            data: {
+              firstName: firstMember.memberFirstName,
+              lastName: firstMember.memberLastName,
+              email: firstMember.memberEmail,
+              roleId: studentRole.id,
+            },
+          });
+
+          finalUserId = createdUser.id;
+
+          // 3. Crear el equipo
+          const team = await tx.team.create({
+            data: {
+              teamName,
+              userId: finalUserId,
+            },
+          });
+
+          // 4. Crear los miembros del equipo
+          const createdMembers: Member[] = [];
+
+          for (const member of members) {
+            if (member.nrc && member.nrc.length > 0) {
+              const nrcCodesFromDto = member.nrc.map(nrcCodeStr => parseInt(nrcCodeStr));
+
+              const nrcsFoundInDb = await tx.nRC.findMany({
+                where: {
+                  code: {
+                    in: nrcCodesFromDto,
+                  },
+                  isActive: true
+                },
+                select: {
+                  id: true,
+                  code: true,
+                },
+              });
+
+              const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(nrc => nrc.id);
+
+              if (dbIdsOfValidNrcsToConnect.length > 0) {
+                const createdMember = await tx.member.create({
+                  data: {
+                    firstName: member.memberFirstName,
+                    lastName: member.memberLastName,
+                    email: member.memberEmail,
+                    studentCode: member.studentCode,
+                    teamId: team.id,
+                    nrcs: {
+                      connect: dbIdsOfValidNrcsToConnect.map(id => ({ id })),
+                    },
+                  },
+                });
+                createdMembers.push(createdMember);
+              } else {
+                const createdMember = await tx.member.create({
+                  data: {
+                    firstName: member.memberFirstName,
+                    lastName: member.memberLastName,
+                    email: member.memberEmail,
+                    studentCode: member.studentCode,
+                    teamId: team.id,
+                  },
+                });
+                createdMembers.push(createdMember);
+              }
+            } else {
+              const createdMember = await tx.member.create({
+                data: {
+                  firstName: member.memberFirstName,
+                  lastName: member.memberLastName,
+                  email: member.memberEmail,
+                  studentCode: member.studentCode,
+                  teamId: team.id,
+                },
+              });
+              createdMembers.push(createdMember);
+            }
+          }
+
+          // 5. Crear el videojuego
+          const createdVideogame = await tx.videogame.create({
+            data: {
+              name: videogame.vgName,
+              description: videogame.description,
+              logoUrl: videogame.logoUrl,
+              videoUrl: videogame.videoUrl,
+              repoUrl: videogame.repoUrl,
+              additionalImages: videogame.additionalImages || [],
+              teamId: team.id,
+              videogameStatusId: 1,
+            },
+          });
+
+          return {
+            createdUser,
+            team,
+            members: createdMembers,
+            createdVideogame,
+          };
+        } else {
+          // HEAD branch approach - create/find user internally
+          finalUserId = await this.handleUser(tx, dto.members[0]);
+          const team = await this.createTeamRecord(tx, dto, finalUserId);
+          const members = await this.createMembers(tx, team.id, dto.members);
+          const videogame = await this.createVideogame(
+            tx,
+            team.id,
+            dto.videogame,
+          );
+
+          return {
+            team,
+            members,
+            videogame,
+          };
+        }
       });
     } catch (error: any) {
       handlePrismaError(error);
@@ -123,7 +291,20 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async findAll(): Promise<Team[]> {
-    return this.prisma.team.findMany();
+    return this.prisma.team.findMany({
+      include: {
+        videogame: true,
+        members: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
   }
 
   async findOne(id: number): Promise<Team | null> {
@@ -172,33 +353,211 @@ export class TeamRepository implements ITeamRepository {
     };
   }
 
-  async update(id: number, data: UpdateTeamDto) {
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        const teamData: UpdateTeamDto = {
-          teamName: data.teamName,
-          isExternal: data.isExternal,
-        };
-        const updatedTeam = teamData
-          ? await this.updateTeam(tx, id, teamData)
-          : null;
+  private readonly teamDetailsInclude = {
+    user: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    },
+    videogame: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        logoUrl: true,
+        videoUrl: true,
+        repoUrl: true,
+      },
+    },
+    members: {
+      where: { isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        studentCode: true,
+      },
+    },
+    assignedJurors: {
+      where: { isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    },
+    edition: {
+      select: {
+        id: true,
+        semester: true,
+        title: true,
+      },
+    },
+  };
 
-        const updatedMembers = data.members
-          ? await this.updateMembers(tx, id, data.members)
-          : null;
+  async findOneWithDetails(id: number): Promise<any> {
+    return this.prisma.team.findUnique({
+      where: { id },
+      include: this.teamDetailsInclude,
+    });
+  }
 
-        const updatedVideogame = data.videogame
-          ? await this.updateVideogame(tx, id, data.videogame)
-          : null;
-        return {
-          updatedTeam,
-          updatedMembers,
-          updatedVideogame,
-        };
+  async findOneWithDetailsByLeaderId(leaderId: string): Promise<any> {
+    return this.prisma.team.findFirst({
+      where: { userId: leaderId },
+      include: this.teamDetailsInclude,
+    });
+  }
+
+  // Overloaded update methods to match interface
+  async update(id: number, data: UpdateTeamDto): Promise<{
+    updatedTeam: Team | null;
+    updatedMembers: UpdateMemberDto[] | null;
+    updatedVideogame: Videogame | null;
+  }>;
+  async update(id: number, data: any): Promise<Team>;
+  async update(id: number, data: any): Promise<any> {
+    if (data.teamName !== undefined || data.isExternal !== undefined || data.members || data.videogame) {
+      // Complex update with members and videogame
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const teamData: UpdateTeamDto = {
+            teamName: data.teamName,
+            isExternal: data.isExternal,
+          };
+          const updatedTeam = teamData
+            ? await this.updateTeam(tx, id, teamData)
+            : null;
+
+          const updatedMembers = data.members
+            ? await this.updateMembers(tx, id, data.members)
+            : null;
+
+          const updatedVideogame = data.videogame
+            ? await this.updateVideogame(tx, id, data.videogame)
+            : null;
+          return {
+            updatedTeam,
+            updatedMembers,
+            updatedVideogame,
+          };
+        });
+      } catch (err) {
+        handlePrismaError(err);
+      }
+    } else {
+      // Simple update
+      return this.prisma.team.update({
+        where: { id },
+        data,
       });
-    } catch (err) {
-      handlePrismaError(err);
     }
+  }
+
+  async updateTeamInfo(teamId: number, updateData: {
+    teamName?: string;
+    videogameName?: string;
+    description?: string;
+    videoUrl?: string | null;
+    logoUrl?: string | null;
+    repoUrl?: string | null;
+  }): Promise<any> {
+    const { teamName, videogameName, ...videogameData } = updateData;
+    
+    await this.prisma.$transaction(async (tx) => {
+      // Actualizar nombre del equipo si se proporciona
+      if (teamName !== undefined) {
+        const existingTeam = await tx.team.findFirst({
+          where: {
+            teamName: {
+              equals: teamName,
+              mode: 'insensitive',
+            },
+            id: {
+              not: teamId,
+            },
+          },
+        });
+
+        if (existingTeam) {
+          throw new ConflictException('El nombre del equipo ya está en uso');
+        }
+
+        await tx.team.update({
+          where: { id: teamId },
+          data: { teamName },
+        });
+      }
+
+      // Actualizar información del videojuego
+      const videogameUpdateData: any = {};
+      if (videogameName !== undefined) {
+        videogameUpdateData.name = videogameName;
+      }
+      if ('description' in videogameData) {
+        videogameUpdateData.description = videogameData.description;
+      }
+      if ('videoUrl' in videogameData) {
+        videogameUpdateData.videoUrl = videogameData.videoUrl === '' ? null : videogameData.videoUrl;
+      }
+      if ('logoUrl' in videogameData) {
+        videogameUpdateData.logoUrl = videogameData.logoUrl === '' ? null : videogameData.logoUrl;
+      }
+      if ('repoUrl' in videogameData) {
+        videogameUpdateData.repoUrl = videogameData.repoUrl === '' ? null : videogameData.repoUrl;
+      }
+
+      if (Object.keys(videogameUpdateData).length > 0) {
+        await tx.videogame.update({
+          where: { teamId },
+          data: videogameUpdateData,
+        });
+      }
+    });
+
+    return this.findOneWithDetails(teamId);
+  }
+
+  async updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member> {
+    // Verificar que el miembro pertenece al equipo
+    const team = await this.prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        members: {
+          where: { id: memberId },
+        },
+      },
+    });
+
+    if (!team) {
+      throw new Error('Team not found');
+    }
+
+    if (team.members.length === 0) {
+      throw new Error('Member not found in team');
+    }
+
+    // Verificar que el email no esté en uso
+    const existingEmail = await this.prisma.member.findFirst({
+      where: {
+        email: newEmail,
+        id: { not: memberId },
+      },
+    });
+
+    if (existingEmail) {
+      throw new Error('Email already in use');
+    }
+
+    return this.prisma.member.update({
+      where: { id: memberId },
+      data: { email: newEmail },
+    });
   }
 
   async remove(id: number): Promise<Team> {
@@ -207,18 +566,99 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  // NOTA: Este usuario es el líder del equipo
+  async getTeamsWithLessThanThreeJurors(): Promise<Array<{
+    id: number;
+    nombre: string;
+    videojuego: string | null;
+    lider: {
+      id: string;
+      nombre: string;
+      email: string;
+    };
+    juradosAsignados: Array<{
+      id: string;
+      nombre: string;
+      email: string;
+    }>;
+    cantidadJurados: number;
+  }>> {
+    try {
+      const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
+        where: { status: 'CONFIRMADO', isActive: true },
+      });
+
+      if (!confirmedStatus) {
+        throw new InternalServerErrorException('Estado de confirmación no encontrado');
+      }
+
+      const teams = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          confirmId: confirmedStatus.id,
+        },
+        include: {
+          assignedJurors: {
+            where: {
+              isActive: true,
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return teams
+        .filter(team => team.assignedJurors.length < 3)
+        .map(team => ({
+          id: team.id,
+          nombre: team.teamName,
+          videojuego: team.videogame?.name || null,
+          lider: {
+            id: team.user.id,
+            nombre: `${team.user.firstName} ${team.user.lastName}`,
+            email: team.user.email,
+          },
+          juradosAsignados: team.assignedJurors.map(juror => ({
+            id: juror.id,
+            nombre: `${juror.firstName} ${juror.lastName}`,
+            email: juror.email,
+          })),
+          cantidadJurados: team.assignedJurors.length,
+        }));
+    } catch (error) {
+      this.logger.error('Error al obtener equipos con menos de 3 jurados:', error);
+      throw new InternalServerErrorException('Error al obtener equipos con menos de 3 jurados');
+    }
+  }
+
+  // Private helper methods
   private async handleUser(
     tx: Prisma.TransactionClient,
     firstMember: MemberDto,
   ) {
     const studentRole = await tx.role.findUnique({
-      where: { name: 'Estudiante' }, // ⚠️ Hardcodeado
+      where: { name: 'Estudiante' },
     });
     if (!studentRole) throw new Error('Role "Estudiante" not found');
 
-    // Verificar si el usuario ya existe
-    // Si no existe se crea
     const existingUser = await tx.user.findUnique({
       where: { email: firstMember.memberEmail },
     });
@@ -272,9 +712,6 @@ export class TeamRepository implements ITeamRepository {
   ) {
     const createdMembers: Member[] = [];
     for (const member of members) {
-      // Como los miembros se eliminan en cascada al eliminar el equipo
-      // no es necesario hacer upsert por lo que si un miembro con el
-      // mismo correo ya existe manda error directamente.
       const checkIfExist = await tx.member.findUnique({
         where: { email: member.memberEmail },
       });
@@ -328,6 +765,7 @@ export class TeamRepository implements ITeamRepository {
         repoUrl: videogame.repoUrl,
         videoUrl: videogame.videoUrl,
         logoUrl: videogame.logoUrl,
+        additionalImages: videogame.additionalImages || [],
       },
     });
   }
@@ -358,18 +796,9 @@ export class TeamRepository implements ITeamRepository {
         description: data.description,
         logoUrl: data.logoUrl,
         repoUrl: data.repoUrl,
+        videoUrl: data.videoUrl,
+        additionalImages: data.additionalImages || [],
         videogameStatusId: data.videogameStatusId,
-        uploads: data.uploads
-          ? {
-              deleteMany: {}, // Elimina todos los anteriores
-              create: data.uploads.map((upload) => ({
-                blobName: upload.blobName,
-                filename: upload.filename,
-                mimetype: upload.mimetype,
-                size: upload.size,
-              })),
-            }
-          : undefined,
       },
     });
   }
@@ -381,9 +810,6 @@ export class TeamRepository implements ITeamRepository {
   ) {
     const updatedMembers: UpdateMemberDto[] = [];
     for (const member of members) {
-      // Se verifica si el usuario a actualizar es el lider para posteriormente
-      // bloquear si se intenta actualizar su correo
-      // El lider es el único miembro que no puede actualizar su correo una vez registrado
       const dbMember = await tx.member.findUnique({
         where: { id: member.id },
       });
@@ -420,14 +846,13 @@ export class TeamRepository implements ITeamRepository {
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },
         data: {
-          // Solo se actualiza el email si NO es lider
           email: isLeader ? isLeader.email : member.memberEmail,
           firstName: member.memberFirstName,
           lastName: member.memberLastName,
           studentCode: member.studentCode,
           nrcs: member.nrc
             ? {
-                set: [], // Elimina los anteriores
+                set: [],
                 connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
               }
             : undefined,
@@ -436,55 +861,5 @@ export class TeamRepository implements ITeamRepository {
       updatedMembers.push(updatedMember);
     }
     return updatedMembers;
-  }
-
-  private async createTeamCode(teamId: number) {
-    // * El código dice qué nivel es el proyecto (si primer semestre o segundo)
-    // * Luego dice la materia. En caso de los grupos donde sea, por ejemplo,
-    // un proyecto para datos 1 y poo se coloca en el código cualquier materia -we don’t care-
-    // * Por último, un número
-    // Ex: N2-POO-09
-
-    let teamSubjects;
-    try {
-      teamSubjects = await this.getTeamSubjects(teamId);
-    } catch (err) {
-      handlePrismaError(err);
-    }
-    const firstSubject = teamSubjects?.[0];
-    // se le asigna semestre 0 a los equipos externos
-    const teamSemester = firstSubject?.semester ?? 0;
-    // todos los equipos internos deben estar asociados a una materia.
-    // si getSubjectCode() no recibe el nombre de una materia,
-    // significa que el equipo es externo.
-    // entonces devuelve un string de 3 letras aleatorio.
-    const subjectCode = getSubjectCode(firstSubject?.name);
-    const number = teamId.toString().padStart(2, '0');
-
-    return `N${teamSemester}-${subjectCode}-${number}`;
-  }
-
-  private async getTeamSubjects(teamId: number) {
-    const teamInfo = await this.prisma.team.findUnique({
-      where: { id: teamId },
-      select: {
-        members: {
-          select: {
-            nrcs: {
-              select: {
-                subject: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const subjects = teamInfo?.members.flatMap((m) =>
-      m.nrcs.map((nrc) => nrc.subject),
-    );
-
-    if (!subjects) return null;
-    return subjects;
   }
 }

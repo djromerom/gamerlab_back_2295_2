@@ -1,14 +1,5 @@
 // src/teams/dto/videogame.dto.ts
-import { Type } from 'class-transformer';
-import {
-  IsString,
-  IsNotEmpty,
-  MaxLength,
-  IsOptional,
-  IsArray,
-  ValidateNested,
-} from 'class-validator';
-import { UploadDto } from 'src/upload/create-upload.dto';
+import { IsString, IsNotEmpty, MaxLength, IsOptional, IsUrl, ValidateIf, IsArray } from 'class-validator';
 
 export class VideogameDto {
   @IsString()
@@ -24,19 +15,22 @@ export class VideogameDto {
 
   @IsString()
   @IsOptional()
-  repoUrl?: string;
-
-  @IsString()
-  @IsOptional()
   logoUrl?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @ValidateIf((o) => o.videoUrl && o.videoUrl.trim() !== '')
+  @IsUrl({}, { message: 'La URL de YouTube debe ser válida' })
   videoUrl?: string;
 
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => UploadDto)
   @IsOptional()
-  uploads?: UploadDto[];
+  @IsString()
+  @ValidateIf((o) => o.repoUrl && o.repoUrl.trim() !== '')
+  @IsUrl({}, { message: 'La URL del repositorio debe ser válida' })
+  repoUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  additionalImages?: string[];
 }
