@@ -13,10 +13,13 @@ import {
   Res,
   UseGuards,
   ParseIntPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { ProfessorsService } from './professors.service';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
+import { UpdateTeamEvaluationDto } from './dto/update-team-evaluation.dto';
 import { NRC, Subject, User } from '@prisma/client';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
@@ -26,6 +29,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Response } from 'express';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('professors')
 export class ProfessorsController {
@@ -66,6 +70,16 @@ export class ProfessorsController {
   @Get('select-options')
   async findSelectOptions(): Promise<SelectOption[]> {
     return this.professorsService.findForSelect();
+  }
+
+  @Get('download-grading-template-all')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportToExcel')
+  async downloadGradingTemplateAll(
+    @GetUser('id') professorId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.professorsService.downloadGradingTemplateAll(professorId, res);
   }
 
   @Get(':id')
@@ -148,5 +162,41 @@ export class ProfessorsController {
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.professorsService.exportSignatureReportToExcel(subjectName, professorId, res);
+  }
+
+  @Post('upload-senior-grades')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UploadSeniorGrades')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadSeniorGrades(
+    @UploadedFile() file: Express.Multer.File,
+    @GetUser('id') professorId: string,
+  ) {
+    return this.professorsService.processSeniorGradesExcel(file, professorId);
+  }
+
+  /**
+   * Crea o actualiza (upsert) una evaluación para un equipo (inline edit desde front).
+   * El front envía { teamId, score, isSenior? } y el servidor usa el usuario autenticado como jurorId.
+   * Devuelve 201 Created si se creó la evaluación, 200 OK si se actualizó.
+   */
+  @Post('team-evaluation')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UploadSeniorGrades')
+  async updateTeamEvaluationInline(
+    @Body() dto: UpdateTeamEvaluationDto,
+    @GetUser('id') professorId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    // professorId is taken from the authenticated user (token) to avoid trusting client-sent jurorId
+    // Accept either videogameId (preferred) or teamId (legacy). Service will resolve.
+    const { teamId, videogameId, score, isSenior } = dto;
+    const result = await this.professorsService.updateTeamEvaluation(teamId, professorId, score, isSenior, videogameId);
+    if (result && result.action === 'created') {
+      res.status(HttpStatus.CREATED);
+    } else {
+      res.status(HttpStatus.OK);
+    }
+    return result;
   }
 }
