@@ -78,8 +78,11 @@ export class ProfessorsController {
   async downloadGradingTemplateAll(
     @GetUser('id') professorId: string,
     @Res({ passthrough: true }) res: Response,
+    @Query('final') finalParam?: string,
   ) {
-    await this.professorsService.downloadGradingTemplateAll(professorId, res);
+    // Permitir ?final=true o ?final=1 para activar el modo final
+    const final = finalParam === 'true' || finalParam === '1';
+    await this.professorsService.downloadGradingTemplateAll(professorId, res, final);
   }
 
   @Get(':id')
