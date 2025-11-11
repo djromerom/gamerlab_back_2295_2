@@ -2152,116 +2152,25 @@
   {
     "table": "usuarios",
     "data": [
-      {
-        "id": "00000000-0000-0000-0000-000000000001",
-        "email": "admin@uninorte.edu.co",
-        "firstName": "Administrador",
-        "lastName": "Sistema",
-        "password": "$2b$10$example_hashed_password_here",
-        "roleId": 1,
-        "confirmationStatusId": 1,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z",
-        "lastSignInAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "id": "00000000-0000-0000-0000-000000000002",
-        "email": "estudiante1@uninorte.edu.co",
-        "firstName": "Juan",
-        "lastName": "Pérez",
-        "password": null,
-        "roleId": 2,
-        "confirmationStatusId": 2,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z",
-        "lastSignInAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "id": "00000000-0000-0000-0000-000000000003",
-        "email": "profesor1@uninorte.edu.co",
-        "firstName": "María",
-        "lastName": "González",
-        "password": null,
-        "roleId": 3,
-        "confirmationStatusId": 1,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z",
-        "lastSignInAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "id": "00000000-0000-0000-0000-000000000004",
-        "email": "jurado1@uninorte.edu.co",
-        "firstName": "Carlos",
-        "lastName": "Rodríguez",
-        "password": null,
-        "roleId": 4,
-        "confirmationStatusId": 1,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z",
-        "lastSignInAt": "2025-01-01T00:00:00.000Z"
-      }
+      
     ]
   },
   {
     "table": "equipos",
     "data": [
-      {
-        "id": 1,
-        "teamName": "Equipo Alpha",
-        "userId": "00000000-0000-0000-0000-000000000002",
-        "editionId": 1,
-        "confirmId": 1,
-        "isActive": true,
-        "registrationDate": "2025-01-01T00:00:00.000Z"
-      }
+      
     ]
   },
   {
     "table": "integrante",
     "data": [
-      {
-        "id": 1,
-        "firstName": "Juan",
-        "lastName": "Pérez",
-        "email": "juan.perez@uninorte.edu.co",
-        "studentCode": "202410001",
-        "teamId": 1,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "id": 2,
-        "firstName": "Ana",
-        "lastName": "Martínez",
-        "email": "ana.martinez@uninorte.edu.co",
-        "studentCode": "202410002",
-        "teamId": 1,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      }
+      
     ]
   },
   {
     "table": "videojuegos",
     "data": [
-      {
-        "id": 1,
-        "name": "Aventura Espacial",
-        "description": "Un emocionante juego de aventuras en el espacio",
-        "logoUrl": null,
-        "videoUrl": "https://www.youtube.com/watch?v=example",
-        "repoUrl": "https://github.com/example/aventura-espacial",
-        "teamId": 1,
-        "videogameStatusId": 1,
-        "isActive": true,
-        "registrationDate": "2025-01-01T00:00:00.000Z"
-      }
+      
     ]
   },
   {
@@ -2290,15 +2199,7 @@
   {
     "table": "nrc",
     "data": [
-      {
-        "id": 1,
-        "code": 12345,
-        "subjectId": 1,
-        "professorId": "00000000-0000-0000-0000-000000000003",
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      }
+      
     ]
   },
   {
