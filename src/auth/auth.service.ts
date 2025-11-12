@@ -41,10 +41,12 @@ export class AuthService {
   private confirmedStatusId: number;
   private pendingStatusId: number;
   private verificationTokenId: number;
+  private resetPasswordTokenId: number;
 
   private readonly CONFIRMED_STATUS_NAME = 'CONFIRMADO';
   private readonly PENDING_STATUS_NAME = 'PENDIENTE';
   private readonly VERIFICATION_TOKEN_NAME = 'VERIFICACION_EMAIL';
+  private readonly RESET_PASSWORD_TOKEN_NAME = 'RESETEAR_CONTRASENA';
 
   // Cache
   private readonly USER_PROFILE_CACHE_PREFIX = 'user_profile:';
@@ -97,6 +99,9 @@ export class AuthService {
       const verificationToken = await this.prisma.tokenType.findUnique({
         where: { type: this.VERIFICATION_TOKEN_NAME },
       });
+      const resetPasswordToken = await this.prisma.tokenType.findUnique({
+        where: { type: this.RESET_PASSWORD_TOKEN_NAME },
+      });
 
       if (!verificationToken) {
         this.logger.error(
@@ -107,7 +112,17 @@ export class AuthService {
         );
       }
 
+      if (!resetPasswordToken) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Token type '${this.RESET_PASSWORD_TOKEN_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required Token type '${this.RESET_PASSWORD_TOKEN_NAME}'.`,
+        );
+      }
+
       this.verificationTokenId = verificationToken.id;
+      this.resetPasswordTokenId = resetPasswordToken.id;
 
       this.logger.log('Setting USER_PROFILE_CACHE_TTL');
       this.USER_PROFILE_CACHE_TTL =
@@ -173,13 +188,16 @@ export class AuthService {
     }
   }
 
-  async resetTokenExpiration(userId: string): Promise<void> {
+  async resetTokenExpiration(userId: string, typeOfToken: EmailType): Promise<void> {
     try {
       // Buscar el token de verificación para el usuario
+      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
+        ? this.verificationTokenId
+        : this.resetPasswordTokenId;
       const token = await this.prisma.verificationToken.findFirst({
         where: {
           userId: userId,
-          tokenTypeId: this.verificationTokenId,
+          tokenTypeId: tokenTypeId,
         },
       });
       if (!token) {
@@ -352,32 +370,28 @@ export class AuthService {
 
     if (!storedToken) {
       this.logger.warn(`Token not found: ${tokenString.substring(0, 8)}...`);
-      return { isValid: false, message: 'Invalid or expired link.' };
+      throw new BadRequestException('Invalid or expired link.');
     }
 
     if (new Date() > storedToken.expiresAt) {
       this.logger.warn(
         `Token expired: ${tokenString.substring(0, 8)}... for user ${storedToken.userId}`,
       );
-      return {
-        isValid: false,
-        message: 'This link has expired. Please request a new one.',
-      };
+      throw new BadRequestException('This link has expired. Please request a new one.');
     }
 
     if (expectedTokenType && storedToken.type.type !== expectedTokenType) {
       this.logger.warn(
         `Token type mismatch for ${tokenString.substring(0, 8)}... Expected ${expectedTokenType}, got ${storedToken.type.type}`,
       );
-      return {
-        isValid: false,
-        message: 'This link cannot be used for this purpose.',
-      };
+      throw new BadRequestException('This link cannot be used for this purpose.');
     }
 
     this.logger.log(
       `Token ${tokenString.substring(0, 8)}... is valid for user ${storedToken.userId}`,
     );
+
+    // Only return success object for valid tokens
     return {
       isValid: true,
       message: 'Token is valid.',
@@ -699,8 +713,15 @@ export class AuthService {
   async getMyProfile(userId: string): Promise<Partial<User>> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        role: { select: { name: true, description: true } },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        createdAt: true,
+        lastSignInAt: true,
+        role: { select: { id: true, name: true } },
         confirmationStatus: { select: { status: true } },
       },
     });
@@ -712,8 +733,7 @@ export class AuthService {
       throw new NotFoundException('User profile not found.');
     }
 
-    const { roleId, confirmationStatusId, ...profileData } = user;
-    return profileData;
+    return user;
   }
 
   async invalidateUserProfileCache(userId: string): Promise<void> {
@@ -747,7 +767,7 @@ export class AuthService {
     }
 
     if (
-      typeOfEmail === 'CONFIRMATION' &&
+      typeOfEmail === 'VERIFICACION_EMAIL' &&
       user.confirmationStatus?.status === 'CONFIRMADO'
     ) {
       this.logger.warn(`User with email ${email} is already confirmed.`);
@@ -755,11 +775,15 @@ export class AuthService {
     }
 
     try {
-      // Delete any existing verification token for this user
+      // Delete any existing token of said type for this user
+      const tokenTypeId =
+        typeOfEmail === 'VERIFICACION_EMAIL'
+          ? this.verificationTokenId
+          : this.resetPasswordTokenId;
       await this.prisma.verificationToken.deleteMany({
         where: {
           userId: user.id,
-          tokenTypeId: this.verificationTokenId,
+          tokenTypeId: tokenTypeId,
         },
       });
 
@@ -785,7 +809,7 @@ export class AuthService {
           token: verificationToken,
           email: user.email,
           userId: user.id,
-          tokenTypeId: this.verificationTokenId,
+          tokenTypeId: tokenTypeId,
           expiresAt: expiresAt,
         },
       });
@@ -795,13 +819,13 @@ export class AuthService {
       let template: string;
       let templateParams: Record<string, unknown>;
 
-      if (typeOfEmail === 'CONFIRMATION') {
+      if (typeOfEmail === 'VERIFICACION_EMAIL') {
         template = this.EMAIL_CONFIRMATION_TEMPLATE;
         templateParams = {
           email: email,
           confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
         };
-      } else if (typeOfEmail === 'RESET_PASSWORD') {
+      } else if (typeOfEmail === 'RESETEAR_CONTRASENA') {
         // Get user's display name (firstName or lastName/email as fallback)
         const userName = user.firstName
           ? user.firstName.trim()
