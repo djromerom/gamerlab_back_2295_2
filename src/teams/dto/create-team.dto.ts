@@ -1,13 +1,22 @@
-/* eslint-disable prettier/prettier */
 // src/teams/dto/create-team.dto.ts
-import { IsString, IsNotEmpty, IsArray, ValidateNested, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  ValidateNested,
+  MaxLength,
+  IsBoolean,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { MemberDto } from './member.dto';
 import { VideogameDto } from './videogame.dto';
 
 export class CreateTeamDto {
   @IsString()
-  @MaxLength(50, { message: 'El nombre del equipo debe ser de máximo 50 caracteres' })
+  @MaxLength(50, {
+    message: 'El nombre del equipo debe ser de máximo 50 caracteres',
+  })
   @IsNotEmpty({ message: 'El nombre del equipo es obligatorio' })
   teamName: string;
 
@@ -20,7 +29,11 @@ export class CreateTeamDto {
   @Type(() => VideogameDto)
   videogame: VideogameDto;
 
+  @IsBoolean()
+  @IsOptional()
+  isExternal?: boolean;
+
   @IsString()
-  @IsNotEmpty({ message: 'El token de reCAPTCHA es obligatorio' })
+  @IsOptional()
   recaptchaToken: string;
 }
