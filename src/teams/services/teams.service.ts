@@ -12,6 +12,7 @@ import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { User } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class TeamsService {
@@ -139,7 +140,33 @@ export class TeamsService {
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto) {
-    return this.teamRepository.update(id, updateTeamDto);
+    try {
+      return await this.teamRepository.update(id, updateTeamDto);
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+        }
+        if (error.code === 'P2002') {
+          throw new ConflictException('Los datos proporcionados ya pertenecen a otro equipo');
+        }
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(`Error al actualizar el equipo ${id}: ${error.message}`, error.stack);
+      } else {
+        this.logger.error(`Error desconocido al actualizar el equipo ${id}: ${JSON.stringify(error)}`);
+      }
+      throw new InternalServerErrorException('Error al actualizar el equipo');
+    }
   }
 
   async updateTeamInfo(id: number, updateTeamInfoDto: UpdateTeamInfoDto, currentUser: AppUser) {
@@ -153,7 +180,33 @@ export class TeamsService {
       throw new UnauthorizedException('Solo el líder del equipo puede actualizar la información');
     }
 
-    return this.teamRepository.updateTeamInfo(id, updateTeamInfoDto);
+    try {
+      return await this.teamRepository.updateTeamInfo(id, updateTeamInfoDto);
+    } catch (error) {
+      if (
+        error instanceof ConflictException ||
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('No se encontró el videojuego asociado al equipo');
+        }
+        if (error.code === 'P2002') {
+          throw new ConflictException('Los datos proporcionados ya pertenecen a otro equipo');
+        }
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(`Error al actualizar la información del equipo ${id}: ${error.message}`, error.stack);
+      } else {
+        this.logger.error(`Error desconocido al actualizar la información del equipo ${id}: ${JSON.stringify(error)}`);
+      }
+      throw new InternalServerErrorException('Error al actualizar la información del equipo');
+    }
   }
 
   async updateMemberEmail(teamId: number, memberId: number, updateMemberEmailDto: UpdateMemberEmailDto, userId: string) {

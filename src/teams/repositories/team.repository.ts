@@ -235,7 +235,9 @@ export class TeamRepository implements ITeamRepository {
             logoUrl: videogame.logoURL,
             videoUrl: videogame.videoUrl,
             repoUrl: videogame.repoUrl,
-            additionalImages: videogame.additionalImages || [],
+            additionalImages: (videogame.additionalImages || [])
+              .filter((image) => typeof image === 'string' && image !== '')
+              .slice(0, 5),
             teamId: team.id,
             videogameStatusId: 1,
           },
@@ -352,6 +354,7 @@ export class TeamRepository implements ITeamRepository {
     videoUrl?: string | null;
     logoUrl?: string | null;
     repoUrl?: string | null;
+    additionalImages?: string[];
   }): Promise<any> {
     const { teamName, videogameName, ...videogameData } = updateData;
     
@@ -397,6 +400,12 @@ export class TeamRepository implements ITeamRepository {
       }
       if ('repoUrl' in videogameData) {
         videogameUpdateData.repoUrl = videogameData.repoUrl === '' ? null : videogameData.repoUrl;
+      }
+      if ('additionalImages' in videogameData) {
+        const images = Array.isArray(videogameData.additionalImages)
+          ? videogameData.additionalImages.filter((image) => typeof image === 'string' && image !== '')
+          : [];
+        videogameUpdateData.additionalImages = images.slice(0, 5);
       }
 
       if (Object.keys(videogameUpdateData).length > 0) {

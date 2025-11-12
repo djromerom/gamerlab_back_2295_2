@@ -1,5 +1,14 @@
 /* eslint-disable prettier/prettier */
-import { IsString, IsOptional, MaxLength, IsUrl, ValidateIf } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  IsUrl,
+  ValidateIf,
+  IsArray,
+  ArrayMaxSize,
+  IsString as IsStringValidator,
+} from 'class-validator';
 
 export class UpdateTeamInfoDto {
   @IsString()
@@ -31,5 +40,11 @@ export class UpdateTeamInfoDto {
   @IsString()
   @IsUrl({}, { message: 'La URL del repositorio debe ser válida' })
   repoUrl?: string;
+
+  @IsOptional()
+  @IsArray({ message: 'Las imágenes adicionales deben enviarse como un arreglo' })
+  @ArrayMaxSize(5, { message: 'Solo se permiten hasta 5 imágenes adicionales' })
+  @IsStringValidator({ each: true, message: 'Cada imagen adicional debe ser una cadena' })
+  additionalImages?: string[];
 }
 

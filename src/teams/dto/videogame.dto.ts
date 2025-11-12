@@ -1,6 +1,15 @@
 /* eslint-disable prettier/prettier */
 // src/teams/dto/videogame.dto.ts
-import { IsString, IsNotEmpty, MaxLength, IsOptional, IsUrl, ValidateIf, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  IsOptional,
+  IsUrl,
+  ValidateIf,
+  IsArray,
+  ArrayMaxSize,
+} from 'class-validator';
 
 export class VideogameDto {
   @IsString()
@@ -28,6 +37,7 @@ export class VideogameDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(5, { message: 'Solo se permiten hasta 5 imágenes adicionales' })
   @IsString({ each: true })
   additionalImages?: string[];
 }

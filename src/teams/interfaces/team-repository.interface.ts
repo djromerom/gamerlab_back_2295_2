@@ -18,5 +18,17 @@ export interface ITeamRepository {
   findOneWithDetails(id: number): Promise<any>;
   findOneWithDetailsByLeaderId(leaderId: string): Promise<any>;
   update(id: number, data: any): Promise<Team>;
+  updateTeamInfo(
+    teamId: number,
+    updateData: {
+      teamName?: string;
+      videogameName?: string;
+      description?: string;
+      videoUrl?: string | null;
+      logoUrl?: string | null;
+      repoUrl?: string | null;
+      additionalImages?: string[];
+    },
+  ): Promise<any>;
   remove(id: number): Promise<Team>;
 }
