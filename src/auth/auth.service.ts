@@ -189,10 +189,6 @@ export class AuthService {
   }
 
   async resetTokenExpiration(userId: string, typeOfToken: EmailType): Promise<void> {
-    if (typeOfToken !== 'VERIFICACION_EMAIL' && typeOfToken !== 'RESETEAR_CONTRASENA') {
-      this.logger.warn(`Invalid typeOfToken provided: ${typeOfToken}`);
-      throw new BadRequestException(`Invalid typeOfToken: ${typeOfToken}`);
-    }
     try {
       // Buscar el token de verificación para el usuario
       const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 

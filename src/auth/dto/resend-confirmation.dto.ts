@@ -1,4 +1,5 @@
 import { IsEmail, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { EmailType } from '../types/email-type.type';
 
 export class ResendConfirmationDto {
   @IsEmail()
@@ -9,5 +10,5 @@ export class ResendConfirmationDto {
   @Matches(/^(VERIFICACION_EMAIL|RESETEAR_CONTRASENA)$/, {
     message: 'typeOfToken must be either VERIFICACION_EMAIL or RESETEAR_CONTRASENA',
   })
-  typeOfToken?: string;
+  typeOfToken?: EmailType;
 }
