@@ -13,4 +13,9 @@ export class CreateSubjectDto {
   @IsInt()
   @Min(1) // Example validation: se mester should be at least 1
   semester: number; // Corresponds to 'semestre' in DB
+
+  @IsString()
+  @IsOptional()
+  @Length(3, 3)
+  abrevName?: string; // Corresponds to 'abreviacion' in DB
 }

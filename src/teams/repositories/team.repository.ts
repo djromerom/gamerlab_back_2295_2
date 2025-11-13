@@ -17,7 +17,6 @@ import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
 import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
-import { getSubjectCode } from 'src/subjects/subjects-codes.util';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -284,7 +283,6 @@ export class TeamRepository implements ITeamRepository {
             team.id,
             dto.videogame,
           );
-
           return {
             team,
             members,
@@ -730,13 +728,59 @@ export class TeamRepository implements ITeamRepository {
     dto: CreateTeamDto,
     userId: string,
   ) {
+    const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
+    const teamCode = await this.generateTeamCode(firstMemberNrcCode);
+
     return await tx.team.create({
       data: {
         teamName: dto.teamName,
         isExternal: dto.isExternal,
         userId,
+        teamCode,
       },
     });
+  }
+
+  private async generateTeamCode(nrcCode: number): Promise<string> {
+    const subjectData = await this.getSubjectAbreviation(nrcCode);
+    const abrev = subjectData.abrevName ?? this.genRandomCode();
+    const teamSemester = subjectData.semester ?? 0;
+
+    const randomNumber = Math.floor(Math.random() * 100);
+    const randomTwoDigits = String(randomNumber).padStart(2, '0');
+
+    return `N${teamSemester}-${abrev}-${randomTwoDigits}`;
+  }
+
+  private genRandomCode() {
+    let res = '';
+    for (let i = 0; i < 3; i++) {
+      const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      res += char;
+    }
+    return res;
+  }
+
+  private async getSubjectAbreviation(nrcCode: number): Promise<{
+    abrevName: string;
+    semester: number;
+  }> {
+    const subject: { abrevName: string; semester: number } | null =
+      await this.prisma.subject.findFirst({
+        where: {
+          nrcs: {
+            some: { code: nrcCode },
+          },
+        },
+        select: { abrevName: true, semester: true },
+      });
+
+    if (!subject) {
+      throw new NotFoundException(
+        `Materia asociada al nrc ${nrcCode} no encontrada.`,
+      );
+    }
+    return { abrevName: subject.abrevName, semester: subject.semester };
   }
 
   private async createMembers(
