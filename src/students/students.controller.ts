@@ -16,7 +16,19 @@ import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { EditNrcDto } from './dto/editNrc.dto';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBody,
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+} from '@nestjs/swagger';
 
+@ApiTags('Students')
 @Controller('students')
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) { }
@@ -49,6 +61,27 @@ export class StudentsController {
   @Patch('/members/:memberId/nrcs')
   @UseGuards(RolePermissionGuard)
   @RequiredService('EditMemberNrc')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Edit member NRC codes',
+    description: 'Updates the NRC codes assigned to a team member.',
+  })
+  @ApiBody({
+    type: EditNrcDto,
+    description: 'NRC codes to assign to the member',
+    schema: {
+      example: {
+        nrcCodes: [12345, 67890],
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Member NRC codes updated successfully',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid NRC codes' })
+  @ApiNotFoundResponse({ description: 'Member not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to edit member NRC codes' })
   async editNrc(
     @GetUser('id') id: string,
     @Param('memberId', ParseIntPipe) memberId: number,

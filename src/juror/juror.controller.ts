@@ -13,6 +13,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -49,6 +50,22 @@ export class JurorController {
   @Post()
   @UseGuards(RolePermissionGuard)
   @RequiredService('CreateJuror')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Create a new juror',
+    description: 'Creates a new juror account with the provided information.',
+  })
+  @ApiBody({
+    type: CreateJurorDto,
+    description: 'Juror creation data',
+  })
+  @ApiCreatedResponse({
+    description: 'Juror created successfully',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid juror data' })
+  @ApiConflictResponse({ description: 'Email already exists' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to create jurors' })
   create(@Body() dto: CreateJurorDto) {
     return this.jurorService.create(dto);
   }
@@ -65,12 +82,12 @@ export class JurorController {
   @RequiredService('ListJurors')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Listar jurados activos con sus equipos asignados',
+    summary: 'List active jurors with their assigned teams',
     description:
-      'Devuelve los jurados activos y confirmados junto a los equipos y videojuegos que tienen asignados, más la cantidad total de asignaciones.',
+      'Returns active and confirmed jurors along with the teams and videogames they have assigned, plus the total number of assignments.',
   })
   @ApiOkResponse({
-    description: 'Lista de jurados con sus equipos asignados',
+    description: 'List of jurors with their assigned teams',
     schema: {
       example: [
         {
@@ -87,8 +104,8 @@ export class JurorController {
       ],
     },
   })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'El usuario no tiene permiso para listar jurados' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to list jurors' })
   getEvaluatorsWithTeams() {
     return this.jurorService.getEvaluatorsWithTeams();
   }
@@ -98,8 +115,8 @@ export class JurorController {
   @RequiredService('AssignJurors')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Asignar manualmente un jurado a un equipo',
-    description: 'Permite asignar un jurado activo a un equipo que tenga menos de tres jurados registrados.',
+    summary: 'Manually assign a juror to a team',
+    description: 'Allows assigning an active juror to a team that has less than three registered jurors.',
   })
   @ApiBody({
     type: AssignJurorToTeamDto,
@@ -111,7 +128,7 @@ export class JurorController {
     },
   })
   @ApiOkResponse({
-    description: 'Jurado asignado correctamente al equipo',
+    description: 'Juror assigned successfully to the team',
     schema: {
       example: {
         message: 'Jurado asignado correctamente al equipo',
@@ -131,11 +148,11 @@ export class JurorController {
       },
     },
   })
-  @ApiBadRequestResponse({ description: 'Datos inválidos o el usuario no es jurado / el equipo ya tiene tres jurados' })
-  @ApiConflictResponse({ description: 'El jurado ya está asignado a ese equipo' })
-  @ApiNotFoundResponse({ description: 'Jurado o equipo no encontrado' })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'El usuario no tiene permiso para asignar jurados' })
+  @ApiBadRequestResponse({ description: 'Invalid data or user is not a juror / team already has three jurors' })
+  @ApiConflictResponse({ description: 'Juror is already assigned to that team' })
+  @ApiNotFoundResponse({ description: 'Juror or team not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to assign jurors' })
   assignJurorToTeam(@Body() assignDto: AssignJurorToTeamDto) {
     return this.jurorService.assignJurorToTeam(assignDto.jurorId, assignDto.teamId);
   }
@@ -155,11 +172,11 @@ export class JurorController {
   @RequiredService('ListJurors')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Obtener equipos asignados a un jurado',
-    description: 'Devuelve los equipos que tiene asignados el jurado especificado, incluyendo información básica del videojuego.',
+    summary: 'Get teams assigned to a juror',
+    description: 'Returns the teams assigned to the specified juror, including basic videogame information.',
   })
   @ApiOkResponse({
-    description: 'Equipos asignados al jurado',
+    description: 'Teams assigned to the juror',
     schema: {
       example: {
         jurorId: '1f5c2a5b-29a5-4e9b-8c3c-222222222222',
@@ -170,9 +187,9 @@ export class JurorController {
       },
     },
   })
-  @ApiNotFoundResponse({ description: 'Jurado no encontrado' })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'El usuario no tiene permiso para consultar este jurado' })
+  @ApiNotFoundResponse({ description: 'Juror not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to query this juror' })
   getTeamsAssignedToJuror(@Param('id') id: string) {
     return this.jurorService.getTeamsAssignedToJuror(id);
   }
@@ -187,6 +204,22 @@ export class JurorController {
   @Patch(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateJuror')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update a juror',
+    description: 'Updates juror information.',
+  })
+  @ApiBody({
+    type: UpdateJurorDto,
+    description: 'Juror update data',
+  })
+  @ApiOkResponse({
+    description: 'Juror updated successfully',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid update data' })
+  @ApiNotFoundResponse({ description: 'Juror not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to update jurors' })
   update(@Param('id') id: string, @Body() dto: UpdateJurorDto) {
     return this.jurorService.update(id, dto);
   }

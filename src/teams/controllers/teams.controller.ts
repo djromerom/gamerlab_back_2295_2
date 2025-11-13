@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiCreatedResponse,
   ApiExtraModels,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -45,6 +46,19 @@ export class TeamsController {
 
   @Public()
   @Post()
+  @ApiOperation({
+    summary: 'Create a new team',
+    description: 'Creates a new team with the provided information.',
+  })
+  @ApiBody({
+    type: CreateTeamDto,
+    description: 'Team creation data',
+  })
+  @ApiCreatedResponse({
+    description: 'Team created successfully',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid team data' })
+  @ApiConflictResponse({ description: 'Team name or videogame name already exists' })
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);
   }
@@ -54,12 +68,12 @@ export class TeamsController {
   @RequiredService('ListTeams')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Listar equipos confirmados con menos de tres jurados',
+    summary: 'List confirmed teams with less than three jurors',
     description:
-      'Devuelve los equipos activos y confirmados que aún no tienen tres jurados asignados, incluyendo datos del líder y jurados actuales.',
+      'Returns active and confirmed teams that do not yet have three jurors assigned, including leader data and current jurors.',
   })
   @ApiOkResponse({
-    description: 'Equipos obtenidos correctamente',
+    description: 'Teams retrieved successfully',
     schema: {
       example: [
         {
@@ -83,8 +97,8 @@ export class TeamsController {
       ],
     },
   })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'El usuario no tiene permiso para consultar equipos' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to query teams' })
   getTeamsWithIncompleteJurors() {
     return this.teamsService.getTeamsWithLessThanThreeJurors();
   }
@@ -110,6 +124,18 @@ export class TeamsController {
 
   @Public()
   @Post('validate-emails')
+  @ApiOperation({
+    summary: 'Validate email addresses',
+    description: 'Validates if the provided email addresses are valid and available.',
+  })
+  @ApiBody({
+    type: ValidateEmailsDto,
+    description: 'Email addresses to validate',
+  })
+  @ApiOkResponse({
+    description: 'Email validation result',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid email format' })
   validateEmails(@Body() validateEmailsDto: ValidateEmailsDto) {
     return this.teamsService.validateEmails(validateEmailsDto);
   }
@@ -119,12 +145,12 @@ export class TeamsController {
   @RequiredService('GetTeam')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Obtener información completa de un equipo',
+    summary: 'Get complete information of a team',
     description:
-      'Incluye datos del líder, videojuego (con URLs y recursos), integrantes, jurados y edición asociada.',
+      'Includes leader data, videogame (with URLs and resources), members, jurors and associated edition.',
   })
   @ApiOkResponse({
-    description: 'Información del equipo obtenida',
+    description: 'Team information retrieved',
     schema: {
       example: {
         id: 12,
@@ -172,9 +198,9 @@ export class TeamsController {
       },
     },
   })
-  @ApiNotFoundResponse({ description: 'Equipo no encontrado' })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'El usuario no tiene permiso para ver el equipo' })
+  @ApiNotFoundResponse({ description: 'Team not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to view the team' })
   findOneFull(@Param('id') id: string) {
     return this.teamsService.findOneWithDetails(id);
   }
@@ -184,13 +210,13 @@ export class TeamsController {
   @RequiredService('GetTeam')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Obtener un equipo por ID',
-    description: 'Devuelve la información básica del equipo identificado por su ID numérico.',
+    summary: 'Get a team by ID',
+    description: 'Returns the basic information of the team identified by its numeric ID.',
   })
-  @ApiOkResponse({ description: 'Equipo encontrado' })
-  @ApiNotFoundResponse({ description: 'Equipo no encontrado' })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'El usuario no tiene permiso para ver el equipo' })
+  @ApiOkResponse({ description: 'Team found' })
+  @ApiNotFoundResponse({ description: 'Team not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'User does not have permission to view the team' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.teamsService.findOne(id);
   }
@@ -200,12 +226,21 @@ export class TeamsController {
   @RequiredService('UpdateTeam')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Actualizar información de equipo',
+    summary: 'Update team information',
     description:
-      'Permite al líder del equipo actualizar datos del videojuego (incluyendo la lista de imágenes adicionales) o los datos del propio equipo.',
+      'Allows the team leader to update videogame data (including the list of additional images) or the team data itself.',
+  })
+  @ApiBody({
+    description: 'Update team data. Can be either UpdateTeamDto or UpdateTeamInfoDto',
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(UpdateTeamDto) },
+        { $ref: getSchemaPath(UpdateTeamInfoDto) },
+      ],
+    },
   })
   @ApiOkResponse({
-    description: 'Equipo actualizado correctamente',
+    description: 'Team updated successfully',
     schema: {
       example: {
         id: 12,
@@ -227,11 +262,11 @@ export class TeamsController {
       },
     },
   })
-  @ApiBadRequestResponse({ description: 'El cuerpo de la solicitud es inválido o está vacío' })
-  @ApiConflictResponse({ description: 'Conflicto con datos existentes (nombre o URLs)' })
-  @ApiNotFoundResponse({ description: 'Equipo o videojuego no encontrado' })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'Solo el líder del equipo puede actualizar la información' })
+  @ApiBadRequestResponse({ description: 'Request body is invalid or empty' })
+  @ApiConflictResponse({ description: 'Conflict with existing data (name or URLs)' })
+  @ApiNotFoundResponse({ description: 'Team or videogame not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Only the team leader can update the information' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDto: UpdateTeamDto | UpdateTeamInfoDto,
@@ -262,12 +297,12 @@ export class TeamsController {
   @RequiredService('UpdateTeam')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Actualizar el email de un integrante',
+    summary: 'Update a member email',
     description:
-      'Permite al líder del equipo actualizar el correo de un integrante específico que no sea el líder.',
+      'Allows the team leader to update the email of a specific member who is not the leader.',
   })
   @ApiOkResponse({
-    description: 'Email del integrante actualizado correctamente',
+    description: 'Member email updated successfully',
     schema: {
       example: {
         id: 45,
@@ -279,11 +314,20 @@ export class TeamsController {
       },
     },
   })
-  @ApiBadRequestResponse({ description: 'Solicitud inválida (por ejemplo, integrante no pertenece al equipo o email del líder)' })
-  @ApiConflictResponse({ description: 'El email ya está en uso' })
-  @ApiNotFoundResponse({ description: 'Equipo o integrante no encontrado' })
-  @ApiUnauthorizedResponse({ description: 'Token faltante o inválido' })
-  @ApiForbiddenResponse({ description: 'Solo el líder del equipo puede modificar integrantes' })
+  @ApiBadRequestResponse({ description: 'Invalid request (e.g., member does not belong to the team or leader email)' })
+  @ApiConflictResponse({ description: 'Email is already in use' })
+  @ApiNotFoundResponse({ description: 'Team or member not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Only the team leader can modify members' })
+  @ApiBody({
+    type: UpdateMemberEmailDto,
+    description: 'New email address for the member',
+    schema: {
+      example: {
+        email: 'new.email@uninorte.edu.co',
+      },
+    },
+  })
   updateMemberEmail(
     @Param('teamId', ParseIntPipe) teamId: number,
     @Param('memberId', ParseIntPipe) memberId: number,

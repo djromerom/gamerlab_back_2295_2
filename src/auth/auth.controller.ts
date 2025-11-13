@@ -31,6 +31,7 @@ import {
   ApiCreatedResponse,
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
+  ApiNotFoundResponse,
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
@@ -108,7 +109,7 @@ export class AuthController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'Refresh token invalid o expired' })
+  @ApiUnauthorizedResponse({ description: 'Refresh token invalid or expired' })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -118,6 +119,29 @@ export class AuthController {
 
   @Post('resend-confirmation')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend confirmation email',
+    description: 'Resends a confirmation email to the specified email address.',
+  })
+  @ApiBody({
+    type: ResendConfirmationDto,
+    description: 'Email address to resend confirmation',
+    schema: {
+      example: {
+        email: 'user@uninorte.edu.co',
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Confirmation email sent successfully',
+    schema: {
+      example: {
+        message: 'Confirmation email sent',
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid email format' })
+  @ApiNotFoundResponse({ description: 'User not found' })
   async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
     return await this.authService.resendEmailOfType(body.email, 'CONFIRMATION');
   }
@@ -125,6 +149,29 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request password reset',
+    description: 'Sends a password reset email to the specified email address.',
+  })
+  @ApiBody({
+    type: ResendConfirmationDto,
+    description: 'Email address to send password reset',
+    schema: {
+      example: {
+        email: 'user@uninorte.edu.co',
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Password reset email sent successfully',
+    schema: {
+      example: {
+        message: 'Password reset email sent',
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid email format' })
+  @ApiNotFoundResponse({ description: 'User not found' })
   async sendResetPasswordEmail(@Body() body: ResendConfirmationDto) {
     return await this.authService.resendEmailOfType(
       body.email,
@@ -135,6 +182,30 @@ export class AuthController {
   @Public()
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Set user password',
+    description: 'Sets a new password for a user using a valid token.',
+  })
+  @ApiBody({
+    type: SetPasswordDto,
+    description: 'Token and new password',
+    schema: {
+      example: {
+        token: 'valid-reset-token-here',
+        password: 'NewSecurePassword123',
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Password updated successfully',
+    schema: {
+      example: {
+        message: 'Password updated successfully',
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid token or password format' })
+  @ApiUnauthorizedResponse({ description: 'Token expired or invalid' })
   async setPassword(
     @Body() setPasswordDto: SetPasswordDto,
   ): Promise<{ message: string }> {
@@ -160,6 +231,29 @@ export class AuthController {
 
   @Post('reset-token-expiration')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reset token expiration',
+    description: 'Resets the token expiration date for a specific user.',
+  })
+  @ApiBody({
+    type: ResetTokenExpirationDto,
+    description: 'User ID to reset token expiration',
+    schema: {
+      example: {
+        userId: '0f5c2a5b-29a5-4e9b-8c3c-111111111111',
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Token expiration date reset successfully',
+    schema: {
+      example: {
+        message: 'Token expiration date reset successfully',
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid user ID format' })
+  @ApiNotFoundResponse({ description: 'User not found' })
   async resetTokenExpiration(
     @Body() body: ResetTokenExpirationDto,
   ): Promise<{ message: string }> {
