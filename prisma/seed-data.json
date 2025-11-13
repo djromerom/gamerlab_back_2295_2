@@ -2149,30 +2149,7 @@
       }
     ]
   },
-  {
-    "table": "usuarios",
-    "data": [
-      
-    ]
-  },
-  {
-    "table": "equipos",
-    "data": [
-      
-    ]
-  },
-  {
-    "table": "integrante",
-    "data": [
-      
-    ]
-  },
-  {
-    "table": "videojuegos",
-    "data": [
-      
-    ]
-  },
+
   {
     "table": "materia",
     "data": [
@@ -2194,12 +2171,6 @@
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       }
-    ]
-  },
-  {
-    "table": "nrc",
-    "data": [
-      
     ]
   },
   {
