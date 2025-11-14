@@ -161,7 +161,7 @@ model User {
   lastName             String             @db.VarChar(50)
   password             String?            @map("contrasena")
   microsoftOid         String?            @map("microsoft_oid")
-  authMethod           AuthMethod         @default(PASSWORD) @map("metodo_auth")
+  authMethod           AuthMethod?        @map("metodo_auth")
   createdTeam          Team?              @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
   managedNrcs          NRC[]              @relation("ProfessorNRC")

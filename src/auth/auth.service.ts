@@ -706,15 +706,23 @@ export class AuthService {
           data: {
             authMethod: 'ENTRA_ID',
             microsoftOid: userInfo.oid,
-            isActive: true
+            isActive: true,
+            confirmationStatusId: this.confirmedStatusId,
           }
         });
       }
 
       // Use existing login method with Entra ID
-      return await this.login(
+      await this.login(
         { email: userInfo.email, microsoftOid: userInfo.oid }, 'ENTRA_ID', res
       );
+
+      // Successful login - redirect to frontend
+      const REDIRECT_TO = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:5173',
+      );
+      return res.redirect(`${REDIRECT_TO}/inicio`);
     } catch (error) {
       // Log the error details
       const errorMessage = error instanceof Error ? error.message : String(error);
