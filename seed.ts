@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 
 const prisma = new PrismaClient();
 
@@ -10,6 +13,8 @@ interface SeedData {
 }
 
 async function main() {
+  const configService = new ConfigService();
+
   try {
     console.log('🌱 Starting seeding process from seed-data.json...');
     
@@ -188,6 +193,23 @@ async function main() {
       }
     }
     
+    const password = configService.get<string>('ADMIN_PASSWORD') || 'Admin1234';
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await prisma.user.create({
+      data: {
+        id: randomUUID(),
+        email: 'admin@uninorte.edu.co',
+        confirmationStatusId: 1,
+        firstName: 'Admin',
+        lastName: 'Romero',
+        roleId: 1,
+        isActive: true,
+        createdAt: new Date(),
+        authMethod: 'PASSWORD',
+        password: hashedPassword
+      }
+    })
+
     console.log('🎉 Seeding process completed successfully');
     
   } catch (error) {
