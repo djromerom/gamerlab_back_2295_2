@@ -21,8 +21,11 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CacheService } from 'src/cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
 import { EmailType } from './types/email-type.type';
+import { LoginType } from './types/login-type.type';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -43,6 +46,11 @@ export class AuthService {
   private verificationTokenId: number;
   private resetPasswordTokenId: number;
 
+  private tenantId: string;
+  private clientId: string;
+  private clientSecret: string;
+  private redirectUri: string;
+
   private readonly CONFIRMED_STATUS_NAME = 'CONFIRMADO';
   private readonly PENDING_STATUS_NAME = 'PENDIENTE';
   private readonly VERIFICATION_TOKEN_NAME = 'VERIFICACION_EMAIL';
@@ -57,6 +65,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     private readonly jwtService: JwtService,
+    private readonly httpService: HttpService,
   ) {}
 
   async onModuleInit() {
@@ -178,6 +187,23 @@ export class AuthService {
         privateKey: this.EMAIL_PRIVATE_API_KEY,
       });
       this.logger.log('EmailJS successfully initialized');
+
+      const tenantId = this.configService.get<string>('AZURE_TENANT_ID');
+      const clientId = this.configService.get<string>('AZURE_CLIENT_ID');
+      const clientSecret = this.configService.get<string>('AZURE_CLIENT_SECRET');
+      const redirectUri = this.configService.get<string>('REDIRECT_URI');
+
+      if (!tenantId || !clientId || !clientSecret || !redirectUri) {
+        throw new InternalServerErrorException(
+          `FATAL: Configuration error during onModuleInit - Microsoft Entra ID variables not found. Application might not function correctly`,
+        )
+      }
+
+      this.tenantId = tenantId;
+      this.clientId = clientId;
+      this.clientSecret = clientSecret;
+      this.redirectUri = redirectUri;
+
     } catch (error) {
       if (error instanceof Error)
         this.logger.error(
@@ -491,7 +517,7 @@ export class AuthService {
   }
 
   // done locally
-  async login(loginDto: LoginDto, res: Response): Promise<{ message: string, access: string; refresh: string }> {
+  async login(loginDto: LoginDto, logintType: LoginType, res: Response): Promise<{ message: string, access: string; refresh: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
 
     // Find user in local database
@@ -510,23 +536,62 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
-    if (!user.password) {
-      this.logger.warn(
-        `Login attempt failed: User ${loginDto.email} has no password set`,
-      );
-      throw new UnauthorizedException('Invalid credentials.');
-    }
+    if (logintType === 'PASSWORD') {
+      if (user.authMethod !== 'PASSWORD') {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} does not use password authentication`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
 
-    // Verify password using bcrypt
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-    if (!isPasswordValid) {
-      this.logger.warn(
-        `Login attempt failed: Invalid password for user: ${loginDto.email}`,
+      if (!user.password) {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} has no password set`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      if (!loginDto.password) {
+        this.logger.warn(
+          `Login attempt failed: No password provided for user: ${loginDto.email}`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+      // Verify password using bcrypt
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        user.password,
       );
-      throw new UnauthorizedException('Invalid credentials.');
+      if (!isPasswordValid) {
+        this.logger.warn(
+          `Login attempt failed: Invalid password for user: ${loginDto.email}`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+    } else { // loginType == 'ENTRA_ID'
+      if (user.authMethod !== 'ENTRA_ID') {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} does not use Entra ID authentication`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      if (!user.microsoftOid) {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} has no Microsoft account linked`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      // Additional validation: verify the Microsoft OID matches if provided in loginDto
+      if (loginDto.microsoftOid && user.microsoftOid !== loginDto.microsoftOid) {
+        this.logger.warn(
+          `Login attempt failed: Microsoft account mismatch for user: ${loginDto.email}`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      this.logger.log('Entra ID login validation passed');
     }
 
     // Check if user is active
@@ -567,6 +632,129 @@ export class AuthService {
     });
 
     return updatedUser; // O lo que quieras retornar
+  }
+
+  // This function gets teh Authorize URL for Outlook login based on Microsoft Entra ID credentials
+  getAuthorizeUrl() {
+    const params = new URLSearchParams({
+      client_id: this.clientId,
+      response_type: 'code',
+      redirect_uri: this.redirectUri,
+      response_mode: 'query',
+      scope: 'openid profile email',
+      state: 'xyz123',
+      prompt: 'select_account',
+    });
+    return `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
+  }
+
+  /**
+   * When a user chooses to sign in with Microsoft Entra ID,
+   * they get redirected to Microsoft's authorization endpoint. After they authenticate there,
+   * Microsoft redirects back to our callback URL with an authorization code.
+   * This function exchanges that code for tokens from Microsoft.
+   * @param code The authorization code received from Microsoft
+   * @returns The token response from Microsoft, including id_token and access_token
+   */
+  async exchangeCodeForToken(code: string) {
+    const tokenEndpoint = `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/token`;
+
+    const data = new URLSearchParams({
+      client_id: this.clientId,
+      scope: 'openid profile email',
+      code,
+      redirect_uri: this.redirectUri,
+      grant_type: 'authorization_code',
+      client_secret: this.clientSecret,
+    });
+
+    const response = await firstValueFrom(
+      this.httpService.post(tokenEndpoint, data.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      })
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Handles the Microsoft Entra ID callback after user authentication.
+   * If the user exists, logs them in.
+   * @param code The authorization code received from Microsoft
+   * @param res The Express response object to set cookies
+   * @returns The result of the login process. 201 if succesful.
+   */
+  async handleMicrosoftCallback(code: string, res: Response) {
+    try{
+      // Exchange code for Microsoft tokens and extract user info
+      const microsoftTokens = await this.exchangeCodeForToken(code);
+      const userInfo = this.parseIdToken(microsoftTokens.id_token);
+      
+      // Check if user exists
+      const user = await this.prisma.user.findUnique({
+        where: { email: userInfo.email }
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User does not exist.');
+      }
+
+      // Handle first-time setup (if authMethod is null)
+      if (user.authMethod === null) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            authMethod: 'ENTRA_ID',
+            microsoftOid: userInfo.oid,
+            isActive: true,
+            confirmationStatusId: this.confirmedStatusId,
+          }
+        });
+      }
+
+      // Use existing login method with Entra ID
+      await this.login(
+        { email: userInfo.email, microsoftOid: userInfo.oid }, 'ENTRA_ID', res
+      );
+
+      // Successful login - redirect to frontend
+      const REDIRECT_TO = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:5173',
+      );
+      return res.redirect(`${REDIRECT_TO}/inicio`);
+    } catch (error) {
+      // Log the error details
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error('Microsoft authentication failed:', {
+        error: errorMessage,
+        stack: errorStack,
+        code: code ? 'provided' : 'missing',
+      });
+
+      // Redirect to error page with specific error info
+      const errorType = error instanceof UnauthorizedException ? 'unauthorized' : 'server_error';
+      const REDIRECT_TO = this.configService.get<string>(
+        'FRONTEND_URL',
+        `http://localhost:5173`,
+      );
+      return res.redirect(`${REDIRECT_TO}/auth-error?error=${errorType}`);
+    }
+  }
+
+  /**
+   * Parses the ID token received from Microsoft to extract user information.
+   * @param idToken The ID token JWT string
+   * @returns An object containing the user's OID, email, and name
+   */
+  private parseIdToken(idToken: string) {
+    const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
+    return {
+      oid: payload.oid,
+      email: payload.email || payload.unique_name || payload.preferred_username,
+      name: payload.name,
+    };
   }
 
   /**

@@ -23,6 +23,7 @@ import { RequiredService } from './decorators/required-service.decorator';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { VerifyTokenDto } from './dto/verify-token.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
+import { ConfigService } from '@nestjs/config';
 import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 import {
   ApiTags,
@@ -92,7 +93,29 @@ export class AuthController {
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.login(loginDto, res);
+    return this.authService.login(loginDto, 'PASSWORD', res);
+  }
+
+  @Public()
+  @Get('outlook-login')
+  async outlookLogin(@Res() res: Response) {
+    const url = this.authService.getAuthorizeUrl();
+    return res.redirect(url);
+  }
+
+  @Public()
+  @Get('callback')
+  @ApiOperation({ summary: 'Microsoft Entra ID OAuth callback' })
+  @ApiQuery({
+    name: 'code',
+    description: 'Authorization code from Microsoft',
+    type: String,
+    required: true
+  })
+  @ApiOkResponse({ description: 'Authentication successful, redirects to frontend' })
+  @ApiUnauthorizedResponse({ description: 'Authentication failed, redirects to error page' })
+  async callback(@Query('code') code: string, @Res() res: Response) {
+    return this.authService.handleMicrosoftCallback(code, res);
   }
 
   // Refresh tokens

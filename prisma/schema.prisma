@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AuthMethod {
+  PASSWORD 
+  ENTRA_ID
+}
+
 model Edition {
   id                Int               @id @default(autoincrement()) @map("id_edicion")
   semester          String            @unique @map("semestre")
@@ -155,6 +160,8 @@ model User {
   firstName            String             @db.VarChar(50)
   lastName             String             @db.VarChar(50)
   password             String?            @map("contrasena")
+  microsoftOid         String?            @map("microsoft_oid")
+  authMethod           AuthMethod?        @map("metodo_auth")
   createdTeam          Team?              @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
   managedNrcs          NRC[]              @relation("ProfessorNRC")
