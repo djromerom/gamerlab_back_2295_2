@@ -23,6 +23,7 @@ import { RequiredService } from './decorators/required-service.decorator';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { VerifyTokenDto } from './dto/verify-token.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
+import { ConfigService } from '@nestjs/config';
 import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 import {
   ApiTags,
@@ -92,7 +93,20 @@ export class AuthController {
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.login(loginDto, res);
+    return this.authService.login(loginDto, 'PASSWORD', res);
+  }
+
+  @Public()
+  @Get('outlook-login')
+  async outlookLogin(@Res() res: Response) {
+    const url = this.authService.getAuthorizeUrl();
+    return res.redirect(url);
+  }
+
+
+  @Get('callback')
+  async callback(@Query('code') code: string, @Res() res: Response) {
+    await this.authService.handleMicrosoftCallback(code, res);
   }
 
   // Refresh tokens
