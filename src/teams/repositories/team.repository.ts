@@ -476,16 +476,9 @@ export class TeamRepository implements ITeamRepository {
 
   async updateTeamInfo(
     teamId: number,
-    updateData: {
-      teamName?: string;
-      videogameName?: string;
-      description?: string;
-      videoUrl?: string | null;
-      logoUrl?: string | null;
-      repoUrl?: string | null;
-    },
+    updateTeamDto: UpdateTeamDto,
   ): Promise<any> {
-    const { teamName, videogameName, ...videogameData } = updateData;
+    const { teamName, videogame } = updateTeamDto;
 
     await this.prisma.$transaction(async (tx) => {
       // Actualizar nombre del equipo si se proporciona
@@ -512,32 +505,42 @@ export class TeamRepository implements ITeamRepository {
         });
       }
 
-      // Actualizar información del videojuego
-      const videogameUpdateData: any = {};
-      if (videogameName !== undefined) {
-        videogameUpdateData.name = videogameName;
-      }
-      if ('description' in videogameData) {
-        videogameUpdateData.description = videogameData.description;
-      }
-      if ('videoUrl' in videogameData) {
-        videogameUpdateData.videoUrl =
-          videogameData.videoUrl === '' ? null : videogameData.videoUrl;
-      }
-      if ('logoUrl' in videogameData) {
-        videogameUpdateData.logoUrl =
-          videogameData.logoUrl === '' ? null : videogameData.logoUrl;
-      }
-      if ('repoUrl' in videogameData) {
-        videogameUpdateData.repoUrl =
-          videogameData.repoUrl === '' ? null : videogameData.repoUrl;
-      }
+      // Actualizar información del videojuego si se proporciona
+      if (videogame) {
+        const videogameUpdateData: any = {};
+        
+        if (videogame.vgName !== undefined) {
+          videogameUpdateData.name = videogame.vgName;
+        }
+        if (videogame.description !== undefined) {
+          videogameUpdateData.description = videogame.description;
+        }
+        if (videogame.videoUrl !== undefined) {
+          videogameUpdateData.videoUrl =
+            videogame.videoUrl === '' ? null : videogame.videoUrl;
+        }
+        if (videogame.logoUrl !== undefined) {
+          videogameUpdateData.logoUrl =
+            videogame.logoUrl === '' ? null : videogame.logoUrl;
+        }
+        if (videogame.repoUrl !== undefined) {
+          videogameUpdateData.repoUrl =
+            videogame.repoUrl === '' ? null : videogame.repoUrl;
+        }
+        if (videogame.additionalImages !== undefined) {
+          videogameUpdateData.additionalImages =
+            videogame.additionalImages || [];
+        }
+        if (videogame.videogameStatusId !== undefined) {
+          videogameUpdateData.videogameStatusId = videogame.videogameStatusId;
+        }
 
-      if (Object.keys(videogameUpdateData).length > 0) {
-        await tx.videogame.update({
-          where: { teamId },
-          data: videogameUpdateData,
-        });
+        if (Object.keys(videogameUpdateData).length > 0) {
+          await tx.videogame.update({
+            where: { teamId },
+            data: videogameUpdateData,
+          });
+        }
       }
     });
 

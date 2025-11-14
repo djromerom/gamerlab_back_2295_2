@@ -36,7 +36,7 @@ export interface ITeamRepository {
   }>;
   update(id: number, data: any): Promise<Team>;
   
-  updateTeamInfo(teamId: number, updateData: any): Promise<Team>;
+  updateTeamInfo(teamId: number, updateTeamDto: UpdateTeamDto): Promise<any>;
   updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member>;
   
   remove(id: number): Promise<Team>;

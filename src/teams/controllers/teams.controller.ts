@@ -18,7 +18,6 @@ import { ApiBody, ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
-import { UpdateTeamInfoDto } from '../dto/update-team-info.dto';
 import { UpdateMemberEmailDto } from '../dto/update-member-email.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 import { RolePermissionGuard } from '../../auth/guards/role-permission.guard';
@@ -29,7 +28,7 @@ import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 
 @Controller('teams')
-@ApiExtraModels(UpdateTeamDto, UpdateTeamInfoDto)
+@ApiExtraModels(UpdateTeamDto)
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
@@ -114,15 +113,12 @@ export class TeamsController {
   @RequiredService('UpdateTeam')
   @ApiBody({
     schema: {
-      oneOf: [
-        { $ref: getSchemaPath(UpdateTeamDto) },
-        { $ref: getSchemaPath(UpdateTeamInfoDto) },
-      ],
+      $ref: getSchemaPath(UpdateTeamDto),
     },
   })
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateDto: UpdateTeamDto | UpdateTeamInfoDto,
+    @Body() updateDto: UpdateTeamDto,
     @GetUser() currentUser: AppUser,
   ) {
     if (!updateDto || Object.keys(updateDto).length === 0) {
@@ -131,42 +127,21 @@ export class TeamsController {
       );
     }
 
-    // Como UpdateTeamDto y UpdateTeamInfoDto comparten información,
-    // de la forma que estaba implementada antes (lo que está comentado)
-    // provocaba que aunque se quisera actualizar información más compleja del equipo
-    // como sus integrantes, videojuego, etc. (desde el admin) no tomara la función
-    // que actualiza estos datos <this.teamsService.update()>
-    const complexFields = ['members', 'videogame', 'isExternal'];
+    // Si contiene campos complejos (members, isExternal), usar update completo
+    // Si solo tiene teamName o videogame, usar updateTeamInfo
+    const complexFields = ['members', 'isExternal'];
     if (complexFields.some((field) => field in updateDto))
       return this.teamsService.update(
         id,
-        updateDto as UpdateTeamDto,
+        updateDto,
         currentUser,
       );
 
     return this.teamsService.updateTeamInfo(
       id,
-      updateDto as UpdateTeamInfoDto,
+      updateDto,
       currentUser,
     );
-
-    // Si el body contiene campos de UpdateTeamInfoDto, usar updateTeamInfo
-    // const hasTeamInfoFields =
-    //   Object.prototype.hasOwnProperty.call(updateDto, 'teamName') ||
-    //   Object.prototype.hasOwnProperty.call(updateDto, 'videogameName') ||
-    //   Object.prototype.hasOwnProperty.call(updateDto, 'description') ||
-    //   Object.prototype.hasOwnProperty.call(updateDto, 'videoUrl') ||
-    //   Object.prototype.hasOwnProperty.call(updateDto, 'logoUrl') ||
-    //   Object.prototype.hasOwnProperty.call(updateDto, 'repoUrl');
-
-    // if (hasTeamInfoFields) {
-    //   return this.teamsService.updateTeamInfo(
-    //     id,
-    //     updateDto as UpdateTeamInfoDto,
-    //     currentUser,
-    //   );
-    // }
-    // return this.teamsService.update(id, updateDto as UpdateTeamDto);
   }
 
   @Patch(':teamId/members/:memberId')
