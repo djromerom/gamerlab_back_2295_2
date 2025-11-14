@@ -1015,6 +1015,17 @@
         "updatedAt": "2025-06-04T15:24:25.240Z",
         "isActive": true
       }
+      ,
+      {
+        "id": 51,
+        "name": "UploadSeniorGrades",
+        "description": "Upload grading template and persist senior juror grades (professors)",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      }
     ]
   },
   {
@@ -1377,6 +1388,14 @@
         "updatedAt": "2025-06-04T15:34:25.447Z",
         "isActive": true
       }
+      ,
+      {
+        "serviceId": 51,
+        "permissionId": 31,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      }
     ]
   },
   {
@@ -1492,6 +1511,13 @@
         "permissionId": 46,
         "createdAt": "2025-05-28T10:00:00.000Z",
         "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 31,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
       },
       {
