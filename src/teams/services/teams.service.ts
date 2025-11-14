@@ -12,7 +12,6 @@ import {
 import { AuthService } from '../../auth/auth.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
-import { UpdateTeamInfoDto } from '../dto/update-team-info.dto';
 import { UpdateMemberEmailDto } from '../dto/update-member-email.dto';
 import { RegisterUserDto } from '../dto/register-user.dto';
 import { TeamRepository } from '../repositories/team.repository';
@@ -196,7 +195,7 @@ export class TeamsService {
 
   async updateTeamInfo(
     id: number,
-    updateTeamInfoDto: UpdateTeamInfoDto,
+    updateTeamDto: UpdateTeamDto,
     currentUser: AppUser,
   ) {
     // Verificar que el equipo existe y que el usuario es el líder
@@ -213,7 +212,7 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.updateTeamInfo(id, updateTeamInfoDto);
+    return this.teamRepository.updateTeamInfo(id, updateTeamDto);
   }
 
   async updateMemberEmail(
