@@ -193,22 +193,34 @@ async function main() {
       }
     }
     
-    const password = configService.get<string>('ADMIN_PASSWORD') || 'Admin1234';
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await prisma.user.create({
-      data: {
-        id: randomUUID(),
-        email: 'admin@uninorte.edu.co',
-        confirmationStatusId: 1,
-        firstName: 'Admin',
-        lastName: 'Romero',
-        roleId: 1,
-        isActive: true,
-        createdAt: new Date(),
-        authMethod: 'PASSWORD',
-        password: hashedPassword
-      }
-    })
+    // Create admin user only if it doesn't exist
+    const adminEmail = 'admin@uninorte.edu.co';
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: adminEmail }
+    });
+
+    if (!existingAdmin) {
+      console.log('👤 Creating admin user...');
+      const password = configService.get<string>('ADMIN_PASSWORD') || 'Admin1234';
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await prisma.user.create({
+        data: {
+          id: randomUUID(),
+          email: adminEmail,
+          confirmationStatusId: 1,
+          firstName: 'Admin',
+          lastName: 'Romero',
+          roleId: 1,
+          isActive: true,
+          createdAt: new Date(),
+          authMethod: 'PASSWORD',
+          password: hashedPassword
+        }
+      });
+      console.log('✅ Admin user created successfully');
+    } else {
+      console.log('👤 Admin user already exists, skipping creation...');
+    }
 
     console.log('🎉 Seeding process completed successfully');
     
