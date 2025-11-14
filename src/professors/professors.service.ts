@@ -620,7 +620,7 @@ export class ProfessorsService {
     page: number,
     professorId: string,
   ) {
-    // Agrupa por equipo y lista todos los NRCs de la materia para cada equipo
+    // Group teams and list all NRCs of the subject for each team
     const offset = (page - 1) * limit;
     const teamWhere: Prisma.TeamWhereInput = {
       members: {
@@ -693,168 +693,36 @@ export class ProfessorsService {
     };
   }
 
-  async exportNRCreportToExcel(
-    nrcCode: number,
-    professorId: string,
-    res: Response,
-  ): Promise<void> {
-    const nrcSubjectSelect = {
-      code: true,
-      subject: {
-        select: {
-          name: true,
-        },
-      },
-    };
-
-    const videogameSelect = {
-      id: true,
-      name: true,
-      evaluations: {
-        select: {
-          totalScore: true,
-        },
-      },
-    };
-
-    const teamSelect = {
-      id: true,
-      teamName: true,
-      videogame: {
-        select: videogameSelect,
-      },
-    };
-
-    const memberSelect = {
-      firstName: true,
-      lastName: true,
-      studentCode: true,
-      email: true,
-      nrcs: {
-        where: { code: nrcCode, professorId: professorId },
-        select: nrcSubjectSelect,
-      },
-      team: {
-        select: teamSelect,
-      },
-    };
-
-    const memberWhere: Prisma.MemberWhereInput = {
-      nrcs: {
-        some: {
-          code: nrcCode,
-          professorId: professorId,
-        },
-      },
-    };
-
-    const members = await this.prisma.member.findMany({
-      where: memberWhere,
-      select: memberSelect,
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
-
-    const nrcDetails = await this.prisma.nRC.findFirst({
-      where: { code: nrcCode, professorId: professorId },
-      select: { subject: { select: { name: true } } },
-    });
-
-    if (members.length === 0) {
-      throw new NotFoundException(`No data found for NRC ${nrcCode}`);
-    }
-
-    // Build teams grouped data for export (one row per team)
-    const groups = new Map<string | number, { teamId: number | string; teamName: string; subject: string; nrcCodes: Set<number>; members: string[]; videogameName: string; videogameId: number | null; grade: number | null }>();
-
-    for (const member of members) {
-      const teamIdKey = member.team?.id ?? `no_team_${member.studentCode}`;
-      const teamName = member.team?.teamName ?? 'No team';
-      const vg = member.team?.videogame;
-      const videogameName = vg?.name ?? 'No videogame';
-      const grade = this.calculateAverageGrade(vg?.evaluations);
-
-      if (!groups.has(teamIdKey as any)) {
-        groups.set(teamIdKey as any, { teamId: member.team?.id ?? '', teamName, subject: nrcDetails?.subject?.name ?? '', nrcCodes: new Set<number>(), members: [], videogameName, videogameId: vg?.id ?? null, grade });
-      }
-      const g = groups.get(teamIdKey as any)!;
-      for (const nrc of member.nrcs) g.nrcCodes.add(nrc.code as unknown as number);
-      g.members.push(`${member.firstName} ${member.lastName}`);
-      if (g.grade === null && grade !== null) g.grade = grade;
-    }
-
-    const teamRows: any[] = [];
-    for (const [, g] of groups) {
-      // find calificacionDocente for videogame if exists
-      let calificacionDocente: string = '';
-      if (g.videogameId) {
-        try {
-          const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: g.videogameId, jurorId: professorId }, select: { totalScore: true } });
-          calificacionDocente = ev?.totalScore != null ? String(ev.totalScore) : '';
-        } catch (err) {
-          this.logger.warn(`Could not fetch teacher evaluation for videogameId ${g.videogameId}: ${(err as any)?.message}`);
-        }
-      }
-
-      teamRows.push({
-        teamCode: g.teamId ?? '',
-        nrc: Array.from(g.nrcCodes).join(', '),
-        team: g.teamName,
-        subject: g.subject,
-        integrantes: g.members.join(', '),
-        videogame: g.videogameName,
-        calificacionFeria: g.grade !== null ? (g.grade as number).toFixed(1) : '',
-        calificacionDocente,
-        videogameId: g.videogameId ?? null,
-      });
-    }
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(`NRC ${nrcCode} Report`);
-
-    // Headers: Código de Equipo, Nrc, Equipo, Materia, Integrantes, Videojuego, Calificacion Feria, Calificación Docente, VideojuegoID
-    const headers = ['Código de Equipo', 'NRC', 'Equipo', 'Materia', 'Integrantes', 'Videojuego', 'Calificación Feria', 'Calificación Docente', 'VideojuegoID'];
-    worksheet.addRow(headers);
-
-    worksheet.columns = [
-      { header: 'Código de Equipo', key: 'teamCode', width: 15 },
-      { header: 'NRC', key: 'nrc', width: 12 },
-      { header: 'Equipo', key: 'team', width: 25 },
-      { header: 'Materia', key: 'subject', width: 30 },
-      { header: 'Integrantes', key: 'integrantes', width: 40 },
-      { header: 'Videojuego', key: 'videogame', width: 30 },
-      { header: 'Calificación Feria', key: 'calificacionFeria', width: 18 },
-      { header: 'Calificación Docente', key: 'calificacionDocente', width: 18 },
-      { header: 'VideojuegoID', key: 'videogameId', width: 12 },
-    ];
-
-    if (teamRows.length > 0) {
-      teamRows.forEach((row) => worksheet.addRow(row));
-    } else {
-      worksheet.addRow(['No team data found for this report.']);
-    }
-
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename=nrc-report-${nrcCode}.xlsx`,
-    );
-
-    await workbook.xlsx.write(res);
-    res.end();
-  }
+  
 
   /**
-  * Genera y envía una plantilla Excel para que el profesor complete las
-  * calificaciones de jurado senior para todas sus materias/NRCs.
-  * Crea una hoja por cada NRC del profesor. El nombre de la hoja sigue el
-  * formato: (iniciales de la materia) - NRC (ej: IA-1234, IAI-1234 según la materia).
+   * Generate and send a single Excel workbook containing grading templates
+   * for all subjects/NRCs associated with the given professor.
+   * One worksheet is created per NRC. Worksheet names use a subject prefix
+   * plus the NRC code and are trimmed/uniquified to satisfy Excel limits.
+   *
+   * When `final` is true the template includes both the computed
+   * "Calificación Feria" column (read-only/style differentiated) and the
+   * teacher's column "Calificación Docente" (prefilled if available).
+   * When `final` is false the workbook is a blank template for the
+   * professor to fill in.
+   *
+   * Streams the generated XLSX directly to the provided Express `res`.
+   *
+   * @param professorId - id of the professor
+   * @param res - Express Response object to stream the file
+   * @param final - include final feria columns when true
    */
   async downloadGradingTemplateAll(professorId: string, res: Response, final: boolean = false): Promise<void> {
-    // Obtener las materias con sus NRCs para el profesor (incluso si hay NRCs sin estudiantes)
+    // High-level steps to generate the Excel file:
+    // 1) Fetch subjects and NRCs for the professor
+    // 2) For each NRC, build a worksheet name and create a worksheet
+    // 3) Fetch members for the subject and group them by team
+    // 4) Add headers and style them
+    // 5) Fill rows from grouped data (only teams that have at least one member with the NRC)
+    // 6) Auto-size columns and stream the workbook to the response
+
+    // Step 1: fetch subjects with their NRCs
     const subjects = await this.findSubjects(professorId, true);
 
     if (!subjects || subjects.length === 0) {
@@ -862,7 +730,6 @@ export class ProfessorsService {
     }
 
     const workbook = new ExcelJS.Workbook();
-
     const usedSheetNames = new Set<string>();
 
     for (const subj of subjects) {
@@ -945,9 +812,9 @@ export class ProfessorsService {
 
         const worksheet = workbook.addWorksheet(sheetName);
 
-    // (Removed title row - user requested no extra title line)
+        // (Removed title row - user requested no extra title line)
 
-        // Definir columnas y encabezados según si es final o no
+        // Prepare column keys and headers depending on whether this is the final export
         let columnKeys: string[];
         let headers: string[];
         if (final) {
@@ -960,251 +827,304 @@ export class ProfessorsService {
 
         worksheet.columns = columnKeys.map((k) => ({ key: k }));
 
-        // prepare auto-sizing: start with header lengths
-        const headerTexts = headers;
-        const maxLens = headerTexts.map((h) => h.length);
+        // STEP A: fetch members for this subject and group them by team
+        const members = await this.fetchMembersForExport(professorId, subjectName);
+        const groups = this.groupMembersByTeam(members, String(nrc.code));
 
-        // add explicit header row so we can style it
-        const scoreHeaderIdx = headers.indexOf('Calificación Docente');
-        const feriaHeaderIdx = headers.indexOf('Calificación Feria');
-        const headerRow = worksheet.addRow(headerTexts);
-        // style header: bold, centered, light gray background for all except score/feria
-        headerRow.eachCell((cell, colNumber) => {
-          cell.font = { bold: true } as any;
-          cell.alignment = { horizontal: 'center', vertical: 'middle' } as any;
-          // light gray background for headers except the score/feria columns
-          if (colNumber - 1 !== scoreHeaderIdx && colNumber - 1 !== feriaHeaderIdx) {
-            cell.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: 'FFF2F2F2' },
-            } as any;
-          }
-          // update maxLens with header lengths
-          if (String(cell.value ?? '').length > maxLens[colNumber - 1]) {
-            maxLens[colNumber - 1] = String(cell.value ?? '').length;
-          }
-        });
-        // highlight 'Calificación Docente' header with verde y 'Calificación Feria' con azul
-        if (scoreHeaderIdx >= 0) {
-          const scoreHeaderCell = headerRow.getCell(scoreHeaderIdx + 1);
-          scoreHeaderCell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFC6EFCE' },
-          } as any;
-        }
-        if (final && feriaHeaderIdx >= 0) {
-          const feriaHeaderCell = headerRow.getCell(feriaHeaderIdx + 1);
-          feriaHeaderCell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE5D5FA' }, // morado claro
-          } as any;
-        }
+        // STEP B: add and style header row, get column sizing hints
+        const { maxLens } = this.addAndStyleHeader(worksheet, headers, final);
 
-        // Populate rows with actual students/teams for this NRC (similar to signature report)
-        const videogameSelect = {
-          name: true,
-          evaluations: {
-            select: {
-              totalScore: true,
-            },
-          },
-        };
+        // STEP C: add data rows from groups (only teams that have at least one member with this NRC)
+        await this.addGroupRows(worksheet, groups, subjectName, String(nrc.code), final, professorId, columnKeys, maxLens);
 
-        const teamSelect = {
-          id: true,
-          teamName: true,
-          videogame: {
-            select: videogameSelect,
-          },
-        };
-
-        // Obtener todos los miembros de la materia y profesor (no solo del NRC)
-        const memberSelectForExport = {
-          firstName: true,
-          lastName: true,
-          studentCode: true,
-          email: true,
-          team: {
-            select: teamSelect,
-          },
-          nrcs: {
-            where: {
-              professorId: professorId,
-              subject: { name: subjectName },
-            },
-            select: { code: true },
-          },
-        };
-
-        const memberWhereForExport: Prisma.MemberWhereInput = {
-          nrcs: {
-            some: {
-              professorId: professorId,
-              subject: { name: subjectName },
-            },
-          },
-        };
-
-        const members = await this.prisma.member.findMany({
-          where: memberWhereForExport,
-          select: memberSelectForExport,
-          orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-        });
-
-        // Agrupar por equipo, pero solo incluir equipos que tengan al menos un miembro con el NRC de la hoja
-        const groups = new Map<string | number, {
-          teamId: number | string;
-          teamName: string;
-          videogameName: string;
-          nrcCodes: Set<string>;
-          members: string[];
-          grade: number | null;
-          hasNRC: boolean;
-        }>();
-
-        for (const member of members) {
-          const teamIdKey = member.team?.id ?? `no_team_${member.studentCode}`;
-          const teamName = member.team?.teamName ?? 'No team';
-          const videogameObj = member.team?.videogame;
-          const videogameName = videogameObj?.name ?? 'No videojuego';
-          const grade = this.calculateAverageGrade(videogameObj?.evaluations);
-
-          if (!groups.has(teamIdKey as any)) {
-            groups.set(teamIdKey as any, {
-              teamId: member.team?.id ?? '',
-              teamName,
-              videogameName,
-              nrcCodes: new Set<string>(),
-              members: [],
-              grade,
-              hasNRC: false,
-            });
-          }
-          const g = groups.get(teamIdKey as any)!;
-          // Agregar NRCs de este miembro
-          for (const nrcObj of member.nrcs) {
-            if (nrcObj.code) {
-              g.nrcCodes.add(String(nrcObj.code));
-              if (String(nrcObj.code) === String(nrc.code)) g.hasNRC = true;
-            }
-          }
-          g.members.push(`${member.firstName} ${member.lastName}`);
-          if (g.grade === null && grade !== null) g.grade = grade;
-        }
-
-        // Solo incluir equipos que tengan al menos un miembro con el NRC de la hoja
-        let anyRow = false;
-        for (const [, g] of groups) {
-          if (!g.hasNRC) continue;
-          const rowObj: Record<string, any> = {
-            teamCode: g.teamId ?? '',
-            subject: subjectName,
-            nrc: Array.from(g.nrcCodes).join(', '),
-            team: g.teamName,
-            members: g.members.join(', '),
-            videogame: g.videogameName,
-          };
-          if (final) {
-            // Buscar calificación docente (del jurado actual) para el videojuego del equipo
-            let docenteScore = '';
-            if (g.teamId && g.teamId !== '' && g.videogameName && g.videogameName !== 'No videojuego') {
-              // Buscar el videojuego por nombre y teamId
-              const vg = await this.prisma.videogame.findFirst({
-                where: {
-                  teamId: typeof g.teamId === 'number' ? g.teamId : Number(g.teamId),
-                  name: g.videogameName,
-                },
-                select: { id: true },
-              });
-              if (vg && vg.id) {
-                const ev = await this.prisma.evaluation.findFirst({
-                  where: { videogameId: vg.id, jurorId: professorId },
-                  select: { totalScore: true },
-                });
-                if (ev && ev.totalScore !== null && ev.totalScore !== undefined) {
-                  docenteScore = ev.totalScore.toFixed(1);
-                }
-              }
-            }
-            rowObj.feriaScore = g.grade !== null ? g.grade.toFixed(1) : '';
-            rowObj.docenteScore = docenteScore;
-          } else {
-            rowObj.score = g.grade !== null ? g.grade.toFixed(1) : '';
-          }
-          worksheet.addRow(rowObj);
-          anyRow = true;
-          // update column max lengths
-          columnKeys.forEach((k, i) => {
-            const v = String(rowObj[k] ?? '');
-            if (v.length > maxLens[i]) maxLens[i] = v.length;
-          });
-        }
-        if (!anyRow) {
-          // keep an empty row indicating no students
-          const emptyRow: Record<string, any> = {
-            teamCode: '',
-            subject: subjectName,
-            nrc: nrc.code,
-            team: 'No students',
-            members: '',
-            videogame: '',
-          };
-          if (final) {
-            emptyRow.feriaScore = '';
-            emptyRow.docenteScore = '';
-          } else {
-            emptyRow.score = '';
-          }
-          worksheet.addRow(emptyRow);
-          columnKeys.forEach((k, i) => {
-            const v = String(emptyRow[k] ?? '');
-            if (v.length > maxLens[i]) maxLens[i] = v.length;
-          });
-        }
-          // apply calculated widths (add small padding, cap at 50) and column alignments
-          worksheet.columns.forEach((col, idx) => {
-            const calculated = Math.min(Math.max(maxLens[idx] + 2, 10), 50);
-            col.width = calculated;
-            // center all editable fields except 'members'
-            if (columnKeys[idx] === 'members') {
-              col.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' } as any;
-            } else {
-              col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
-            }
-          });
+        // STEP D: finalize column sizing and alignment
+        this.applyColumnSizing(worksheet, columnKeys, maxLens);
       }
     }
 
-    // set response headers and stream the workbook
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename=grading-template-all-${professorId}.xlsx`,
-    );
-
+    // Step E: stream the workbook back to the client
+    // Set correct headers for XLSX download and write the workbook to the response
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=grading-template-all-${professorId}.xlsx`);
     await workbook.xlsx.write(res);
     res.end();
   }
 
   /**
-   * Procesa un archivo Excel con calificaciones de jurado senior.
-   * Se espera que el archivo contenga columnas (cualquier variante de casing/espacios):
-   * - Código de Equipo
-   * - Materia
+   * Fetch members for a given professor + subject used by the grading template.
+   * Returns the same structure as the previous inline `memberSelectForExport`.
+   */
+  private async fetchMembersForExport(professorId: string, subjectName: string) {
+    const videogameSelect = {
+      name: true,
+      evaluations: {
+        select: {
+          totalScore: true,
+        },
+      },
+    };
+
+    const teamSelect = {
+      id: true,
+      teamName: true,
+      videogame: {
+        select: videogameSelect,
+      },
+    };
+
+    const memberSelectForExport = {
+      firstName: true,
+      lastName: true,
+      studentCode: true,
+      email: true,
+      team: {
+        select: teamSelect,
+      },
+      nrcs: {
+        where: {
+          professorId: professorId,
+          subject: { name: subjectName },
+        },
+        select: { code: true },
+      },
+    };
+
+    const memberWhereForExport: Prisma.MemberWhereInput = {
+      nrcs: {
+        some: {
+          professorId: professorId,
+          subject: { name: subjectName },
+        },
+      },
+    };
+
+    return await this.prisma.member.findMany({
+      where: memberWhereForExport,
+      select: memberSelectForExport,
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+  }
+
+  /**
+   * Group members by team and collect NRCs, member names and videogame info.
+   * The returned Map uses teamIdKey as key and an object with shape matching
+   * the original implementation so the table-writing code can remain similar.
+   */
+  private groupMembersByTeam(members: any[], currentNrcCode: string) {
+    const groups = new Map<string | number, {
+      teamId: number | string;
+      teamName: string;
+      videogameName: string;
+      nrcCodes: Set<string>;
+      members: string[];
+      grade: number | null;
+      hasNRC: boolean;
+    }>();
+
+    for (const member of members) {
+      const teamIdKey = member.team?.id ?? `no_team_${member.studentCode}`;
+      const teamName = member.team?.teamName ?? 'No team';
+      const videogameObj = member.team?.videogame;
+      const videogameName = videogameObj?.name ?? 'No videojuego';
+      const grade = this.calculateAverageGrade(videogameObj?.evaluations);
+
+      if (!groups.has(teamIdKey as any)) {
+        groups.set(teamIdKey as any, {
+          teamId: member.team?.id ?? '',
+          teamName,
+          videogameName,
+          nrcCodes: new Set<string>(),
+          members: [],
+          grade,
+          hasNRC: false,
+        });
+      }
+
+      const g = groups.get(teamIdKey as any)!;
+      for (const nrcObj of member.nrcs) {
+        if (nrcObj.code) {
+          g.nrcCodes.add(String(nrcObj.code));
+          if (String(nrcObj.code) === String(currentNrcCode)) g.hasNRC = true;
+        }
+      }
+      g.members.push(`${member.firstName} ${member.lastName}`);
+      if (g.grade === null && grade !== null) g.grade = grade;
+    }
+
+    return groups;
+  }
+
+  /**
+   * Add header row and apply styling. Returns the array of max lengths per column
+   * used later for auto-sizing.
+   */
+  private addAndStyleHeader(worksheet: ExcelJS.Worksheet, headers: string[], final: boolean) {
+    const headerTexts = headers;
+    const maxLens = headerTexts.map((h) => h.length);
+
+    const scoreHeaderIdx = headers.indexOf('Calificación Docente');
+    const feriaHeaderIdx = headers.indexOf('Calificación Feria');
+    const headerRow = worksheet.addRow(headerTexts);
+
+    headerRow.eachCell((cell, colNumber) => {
+      cell.font = { bold: true } as any;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+      if (colNumber - 1 !== scoreHeaderIdx && colNumber - 1 !== feriaHeaderIdx) {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2F2F2' },
+        } as any;
+      }
+      if (String(cell.value ?? '').length > maxLens[colNumber - 1]) {
+        maxLens[colNumber - 1] = String(cell.value ?? '').length;
+      }
+    });
+
+    if (scoreHeaderIdx >= 0) {
+      const scoreHeaderCell = headerRow.getCell(scoreHeaderIdx + 1);
+      scoreHeaderCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFC6EFCE' },
+      } as any;
+    }
+    if (final && feriaHeaderIdx >= 0) {
+      const feriaHeaderCell = headerRow.getCell(feriaHeaderIdx + 1);
+      feriaHeaderCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE5D5FA' }, // morado claro
+      } as any;
+    }
+
+    return { headerRow, maxLens };
+  }
+
+  /**
+   * Given a team object (with teamId and videogameName), find the teacher's
+   * evaluation for the current professor and return formatted score string.
+   */
+  private async getDocenteScoreForTeam(g: any, professorId: string): Promise<string> {
+    let docenteScore = '';
+    if (g.teamId && g.teamId !== '' && g.videogameName && g.videogameName !== 'No videojuego') {
+      const vg = await this.prisma.videogame.findFirst({
+        where: {
+          teamId: typeof g.teamId === 'number' ? g.teamId : Number(g.teamId),
+          name: g.videogameName,
+        },
+        select: { id: true },
+      });
+      if (vg && vg.id) {
+        const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: vg.id, jurorId: professorId }, select: { totalScore: true } });
+        if (ev && ev.totalScore !== null && ev.totalScore !== undefined) {
+          docenteScore = ev.totalScore.toFixed(1);
+        }
+      }
+    }
+    return docenteScore;
+  }
+
+  /**
+   * Add rows to worksheet from grouped teams. Updates maxLens in place.
+   */
+  private async addGroupRows(
+    worksheet: ExcelJS.Worksheet,
+    groups: Map<string | number, any>,
+    subjectName: string,
+    nrcCode: string,
+    final: boolean,
+    professorId: string,
+    columnKeys: string[],
+    maxLens: number[],
+  ) {
+    let anyRow = false;
+    for (const [, g] of groups) {
+      if (!g.hasNRC) continue;
+      const rowObj: Record<string, any> = {
+        teamCode: g.teamId ?? '',
+        subject: subjectName,
+        nrc: Array.from(g.nrcCodes).join(', '),
+        team: g.teamName,
+        members: g.members.join(', '),
+        videogame: g.videogameName,
+      };
+
+      if (final) {
+        const docenteScore = await this.getDocenteScoreForTeam(g, professorId);
+        rowObj.feriaScore = g.grade !== null ? g.grade.toFixed(1) : '';
+        rowObj.docenteScore = docenteScore;
+      } else {
+        rowObj.score = g.grade !== null ? g.grade.toFixed(1) : '';
+      }
+
+      worksheet.addRow(rowObj);
+      anyRow = true;
+
+      // update column max lengths
+      columnKeys.forEach((k, i) => {
+        const v = String(rowObj[k] ?? '');
+        if (v.length > maxLens[i]) maxLens[i] = v.length;
+      });
+    }
+
+    if (!anyRow) {
+      const emptyRow: Record<string, any> = {
+        teamCode: '',
+        subject: subjectName,
+        nrc: nrcCode,
+        team: 'No students',
+        members: '',
+        videogame: '',
+      };
+      if (final) {
+        emptyRow.feriaScore = '';
+        emptyRow.docenteScore = '';
+      } else {
+        emptyRow.score = '';
+      }
+      worksheet.addRow(emptyRow);
+      columnKeys.forEach((k, i) => {
+        const v = String(emptyRow[k] ?? '');
+        if (v.length > maxLens[i]) maxLens[i] = v.length;
+      });
+    }
+  }
+
+  /**
+   * Auto-size and align columns according to max lengths and column keys.
+   */
+  private applyColumnSizing(worksheet: ExcelJS.Worksheet, columnKeys: string[], maxLens: number[]) {
+    worksheet.columns.forEach((col, idx) => {
+      const calculated = Math.min(Math.max(maxLens[idx] + 2, 10), 50);
+      col.width = calculated;
+      if (columnKeys[idx] === 'members') {
+        col.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' } as any;
+      } else {
+        col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+      }
+    });
+  }
+
+    
+
+  /**
+   * Process an uploaded Excel file containing senior juror grades.
+   * The workbook is expected to include columns (case/spacing tolerant):
+   * - Team Code (Código de Equipo)
+   * - Subject (Materia)
    * - NRC/NRCS
-   * - Equipo
-   * - Integrantes
-   * - Videojuego
-   * - Calificación docente
+   * - Team (Equipo)
+   * - Members (Integrantes)
+   * - Videogame (Videojuego)
+   * - Teacher Grade (Calificación docente)
    *
-   * Para cada fila intenta localizar el videojuego (por teamId o por nombre) y crea/actualiza
-   * una evaluación con `isSenior = true` y `totalScore` igual a la calificación indicada.
+   * For each row the function attempts to locate the videogame (by teamId
+   * or by name) and then upserts an `Evaluation` with `isSenior = true`
+   * and `totalScore` equal to the parsed grade value.
+   *
+   * @param file - uploaded file buffer (Multer file)
+   * @param professorId - id of the professor performing the upload
    */
   async processSeniorGradesExcel(file: Express.Multer.File, professorId: string) {
     if (!file || !file.buffer) {
@@ -1277,16 +1197,20 @@ export class ProfessorsService {
             continue;
           }
 
-          // check existing evaluation
-          const existing = await this.prisma.evaluation.findFirst({ where: { jurorId: professorId, videogameId: videogame.id } });
-          if (existing) {
-            const updateData: any = { totalScore: score, isSenior: true };
-            await this.prisma.evaluation.update({ where: { id: existing.id }, data: updateData });
-            results.updated++;
-          } else {
-            const createData: any = { jurorId: professorId, videogameId: videogame.id, totalScore: score, isSenior: true, editionId };
-            await this.prisma.evaluation.create({ data: createData });
-            results.created++;
+          // Use Prisma upsert to combine update/create by the unique (jurorId, videogameId)
+          // The schema defines the unique constraint with name `jurado_videojuego_unique`.
+          const whereUnique = { jurado_videojuego_unique: { jurorId: professorId, videogameId: videogame.id } } as any;
+          try {
+            const exists = await this.prisma.evaluation.findUnique({ where: whereUnique });
+            const upsertData = await this.prisma.evaluation.upsert({
+              where: whereUnique,
+              update: { totalScore: score, isSenior: true },
+              create: { jurorId: professorId, videogameId: videogame.id, totalScore: score, isSenior: true, editionId },
+            });
+            if (exists) results.updated++;
+            else results.created++;
+          } catch (err) {
+            throw err; // let outer catch handle and record
           }
         } catch (err) {
           const msg = (err as any)?.message ?? String(err);
@@ -1300,32 +1224,33 @@ export class ProfessorsService {
   }
 
   /**
-   * Actualiza o crea una evaluación para un equipo mediante su teamId.
-   * Retorna el objeto { action: 'created'|'updated', evaluation }
+   * Update or create an Evaluation for a team (or videogame).
+   * Uses an upsert based on the unique (jurorId, videogameId) composite key
+   * to atomically create or update the evaluation record.
+   *
+   * Returns an object with `{ action: 'created'|'updated', evaluation }`.
+   *
+   * @param teamId - optional team id to locate the videogame
+   * @param professorId - juror/professor id used as jurorId in evaluation
+   * @param score - numeric score to store as totalScore
+   * @param isSenior - boolean flag to mark the evaluation as senior
+   * @param videogameId - optional explicit videogame id to use instead of teamId
    */
   async updateTeamEvaluation(
-    teamId: number | undefined,
+    videogameId: number,
     professorId: string,
     score: number,
     isSenior: boolean = true,
-    videogameId?: number,
   ) {
-    // require at least one identifier
-    if ((teamId == null || teamId === 0) && (videogameId == null || videogameId === 0)) {
-      throw new BadRequestException('Either teamId or videogameId is required');
+    // videogameId is required by the controller/DTO
+    if (videogameId == null || videogameId === 0) {
+      throw new BadRequestException('videogameId is required');
     }
 
-    // resolve videogame: prefer explicit videogameId (id field), else try by teamId
-    let videogame: any = null;
-    if (typeof videogameId === 'number' && !isNaN(videogameId)) {
-      videogame = await this.prisma.videogame.findUnique({ where: { id: videogameId } });
-    }
-    if (!videogame && typeof teamId === 'number' && !isNaN(teamId)) {
-      videogame = await this.prisma.videogame.findFirst({ where: { teamId } });
-    }
+    // resolve videogame by id
+    const videogame = await this.prisma.videogame.findUnique({ where: { id: videogameId } });
     if (!videogame) {
-      const identifier = videogameId ?? teamId;
-      throw new NotFoundException(`No videogame found for identifier ${identifier}`);
+      throw new NotFoundException(`No videogame found for id ${videogameId}`);
     }
 
     // determine edition id (use latest or fallback)
@@ -1333,165 +1258,22 @@ export class ProfessorsService {
     const editionId = latestEdition?.id ?? 1;
 
     try {
-      const existing = await this.prisma.evaluation.findFirst({ where: { videogameId: videogame.id, jurorId: professorId } });
-      if (existing) {
-        const updateData: any = { totalScore: score };
-        if (typeof isSenior === 'boolean') updateData.isSenior = isSenior;
-        const updated = await this.prisma.evaluation.update({ where: { id: existing.id }, data: updateData as any });
-        return { action: 'updated', evaluation: updated };
-      } else {
-        const createData: any = { videogameId: videogame.id, jurorId: professorId, totalScore: score, editionId };
-        if (typeof isSenior === 'boolean') createData.isSenior = isSenior;
-        const created = await this.prisma.evaluation.create({ data: createData as any });
-        return { action: 'created', evaluation: created };
-      }
+      // Prisma unique constraint is named `jurado_videojuego_unique` in schema.prisma
+      const whereUnique = { jurado_videojuego_unique: { jurorId: professorId, videogameId: videogame.id } } as any;
+      const exists = await this.prisma.evaluation.findUnique({ where: whereUnique });
+      const evaluation = await this.prisma.evaluation.upsert({
+        where: whereUnique,
+        update: Object.assign({ totalScore: score }, typeof isSenior === 'boolean' ? { isSenior } : {}),
+        create: Object.assign({ videogameId: videogame.id, jurorId: professorId, totalScore: score, editionId }, typeof isSenior === 'boolean' ? { isSenior } : {}),
+      });
+      return { action: exists ? 'updated' : 'created', evaluation };
     } catch (err) {
-      this.logger.error(`Failed to update/create evaluation for teamId ${teamId}: ${(err as any)?.message}`);
+      this.logger.error(`Failed to update/create evaluation for videogameId ${videogameId}: ${(err as any)?.message}`);
       throw new InternalServerErrorException('Failed to save evaluation');
     }
   }
 
-  async exportSignatureReportToExcel(
-    subjectName: string,
-    professorId: string,
-    res: Response,
-  ): Promise<void> {
-    const videogameSelect = {
-      id: true,
-      name: true,
-      evaluations: {
-        select: {
-          totalScore: true,
-        },
-      },
-    };
-
-    const teamSelect = {
-      id: true,
-      teamName: true,
-      videogame: {
-        select: videogameSelect,
-      },
-    };
-
-    const memberSelectForExport = {
-      firstName: true,
-      lastName: true,
-      studentCode: true,
-      email: true,
-      team: {
-        select: teamSelect,
-      },
-      nrcs: {
-        where: {
-          professorId: professorId,
-          subject: {
-            name: subjectName,
-          },
-        },
-        select: {
-          code: true,
-          subject: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-    };
-
-    const memberWhereForExport: Prisma.MemberWhereInput = {
-      nrcs: {
-        some: {
-          professorId: professorId,
-          subject: {
-            name: subjectName,
-          },
-        },
-      },
-    };
-
-    const members = await this.prisma.member.findMany({
-      where: memberWhereForExport,
-      select: memberSelectForExport,
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
-
-    if (members.length === 0) {
-      throw new NotFoundException(`No data found for subject ${subjectName} (Professor: ${professorId}) to export.`);
-    }
-
-    const flattenedData = [];
-    for (const member of members) {
-      for (const nrc of member.nrcs) {
-        const videogame = member.team?.videogame;
-        const grade = this.calculateAverageGrade(videogame?.evaluations);
-
-        flattenedData.push({
-          NRC: nrc.code,
-          subject: nrc.subject.name,
-          student: `${member.firstName} ${member.lastName}`,
-          email: member.email,
-          studentCode: member.studentCode,
-          team: member.team?.teamName ?? 'No team',
-          videogame: videogame?.name ?? 'No videogame',
-          videogameId: videogame?.id ?? null,
-          calificacionDocente: '',
-          grade: grade !== null ? grade.toFixed(1) : 'N/A',
-        } as any);
-      }
-    }
-
-    // Fill calificacionDocente by querying evaluations for this professor
-    for (const row of flattenedData) {
-      if (row.videogameId) {
-        try {
-          const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: row.videogameId, jurorId: professorId }, select: { totalScore: true } });
-          row.calificacionDocente = ev?.totalScore != null ? String(ev.totalScore) : '';
-        } catch (err) {
-          this.logger.warn(`Could not fetch teacher evaluation for videogameId ${row.videogameId}: ${(err as any)?.message}`);
-        }
-      }
-      (row as any).videogameId = undefined;
-    }
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(`Subject ${subjectName} Report`);
-
-    worksheet.addRow([`Report for Subject: ${subjectName}`]);
-
-
-    worksheet.columns = [
-      { header: 'NRC', key: 'NRC', width: 10 },
-      { header: 'Subject', key: 'subject', width: 40 },
-      { header: 'Student', key: 'student', width: 30 },
-      { header: 'Email', key: 'email', width: 30 },
-      { header: 'Student Code', key: 'studentCode', width: 20 },
-      { header: 'Team', key: 'team', width: 20 },
-      { header: 'Videogame', key: 'videogame', width: 20 },
-      { header: 'Calificación docente', key: 'calificacionDocente', width: 18 },
-      { header: 'Grade', key: 'grade', width: 10 },
-    ];
-
-    if (flattenedData.length > 0) {
-      flattenedData.forEach((item) => worksheet.addRow(item));
-    } else {
-      worksheet.addRow({});
-      worksheet.addRow({ NRC: "No student data found for this report." });
-    }
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename=subject-report-${subjectName.replace(/\s+/g, '_')}-${professorId}.xlsx`,
-    );
-
-    await workbook.xlsx.write(res);
-    res.end();
-  }
+  // exportSignatureReportToExcel removed — route is unused by frontend
 
 
   private calculateAverageGrade(
