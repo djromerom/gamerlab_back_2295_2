@@ -17,7 +17,6 @@ import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
 import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
-import { getSubjectCode } from 'src/subjects/subjects-codes.util';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -284,7 +283,6 @@ export class TeamRepository implements ITeamRepository {
             team.id,
             dto.videogame,
           );
-
           return {
             team,
             members,
@@ -733,13 +731,95 @@ export class TeamRepository implements ITeamRepository {
     dto: CreateTeamDto,
     userId: string,
   ) {
+    if (dto.members.length === 0) {
+      throw new BadRequestException('El equipo debe tener al menos un miembro');
+    }
+
+    if (dto.members[0].nrc.length === 0) {
+      throw new BadRequestException(
+        'El equipo debe tener al menos un NRC asociado',
+      );
+    }
+
+    const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
+    const teamCode = await this.generateTeamCode(firstMemberNrcCode);
+
     return await tx.team.create({
       data: {
         teamName: dto.teamName,
         isExternal: dto.isExternal,
         userId,
+        teamCode,
       },
     });
+  }
+
+  private async generateTeamCode(nrcCode: number): Promise<string> {
+    const subjectData = await this.getSubjectAbreviation(nrcCode);
+    const abrev = subjectData.abrevName ?? this.genRandomAbrev();
+    const teamSemester = subjectData.semester ?? 0;
+    const teamNumber = await this.getTeamNumber(teamSemester);
+
+    return `N${teamSemester}-${abrev}-${teamNumber}`;
+  }
+
+  private genRandomAbrev() {
+    let res = '';
+    for (let i = 0; i < 3; i++) {
+      const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      res += char;
+    }
+    return res;
+  }
+
+  private async getSubjectAbreviation(nrcCode: number): Promise<{
+    abrevName: string;
+    semester: number;
+  }> {
+    const subject: { abrevName: string; semester: number } | null =
+      await this.prisma.subject.findFirst({
+        where: {
+          nrcs: {
+            some: { code: nrcCode },
+          },
+        },
+        select: { abrevName: true, semester: true },
+      });
+
+    if (!subject) {
+      throw new NotFoundException(
+        `Materia asociada al nrc ${nrcCode} no encontrada.`,
+      );
+    }
+    return { abrevName: subject.abrevName, semester: subject.semester };
+  }
+
+  private async getTeamNumber(semester: number): Promise<string> {
+    const teams = await this.prisma.team.findMany({
+      where: {
+        teamCode: {
+          startsWith: `N${semester}-`,
+        },
+      },
+      select: {
+        teamCode: true,
+      },
+    });
+
+    const usedNumbers = teams
+      .map((team) => team.teamCode.split('-').pop())
+      .filter((num) => num !== undefined && num !== '')
+      .map((num) => parseInt(num as string, 10))
+      .filter((num) => !isNaN(num));
+
+    // Find the smallest available team number in the semester's range
+    const baseNumber = semester * 100 + 1;
+    let teamNumber = baseNumber;
+    while (usedNumbers.includes(teamNumber)) {
+      teamNumber += 1;
+    }
+
+    return String(teamNumber).padStart(3, '0');
   }
 
   private async createMembers(
