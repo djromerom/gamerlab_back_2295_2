@@ -809,11 +809,11 @@ export class TeamRepository implements ITeamRepository {
       .map((num) => parseInt(num as string, 10))
       .filter((num) => !isNaN(num));
 
-    let teamNumber = 0;
-    if (usedNumbers.length === 0) {
-      teamNumber = semester * 100 + 1;
-    } else {
-      teamNumber = Math.max(...usedNumbers) + 1;
+    // Find the smallest available team number in the semester's range
+    const baseNumber = semester * 100 + 1;
+    let teamNumber = baseNumber;
+    while (usedNumbers.includes(teamNumber)) {
+      teamNumber += 1;
     }
 
     return String(teamNumber).padStart(3, '0');
