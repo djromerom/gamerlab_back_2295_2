@@ -29,6 +29,10 @@ services:
     env_file: .env
     environment:
       - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
@@ -66,6 +70,10 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - CHOKIDAR_INTERVAL=1000
       - WATCHPACK_POLLING=true
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     volumes:
       - .:/usr/src/app
       - node_modules_dev:/usr/src/app/node_modules
