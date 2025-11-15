@@ -11,7 +11,7 @@ export class CreateSubjectDto {
   code: string; // Corresponds to 'codigo' in DB
 
   @IsInt()
-  @Min(1) // Example validation: se mester should be at least 1
+  @Min(1) // Example validation: semester should be at least 1
   semester: number; // Corresponds to 'semestre' in DB
 
   @IsString()

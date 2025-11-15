@@ -170,7 +170,7 @@ model Team {
   teamName         String            @unique @map("nombre_equipo") @db.VarChar(50)
   registrationDate DateTime          @default(now()) @map("fecha_registro")
   userId           String            @unique @map("id_usuario")
-  teamCode         String            @unique @default("") @map("codigo_equipo") @db.VarChar(10)
+  teamCode         String            @map("codigo_equipo") @db.VarChar(10)
   editionId        Int               @default(1) @map("id_edicion")
   isActive         Boolean           @default(true) @map("activo")
   isExternal       Boolean           @default(false) @map("externo")
@@ -182,6 +182,7 @@ model Team {
   assignedJurors   User[]            @relation("JurorTeamAssignment")
 
   @@map("equipos")
+  @@unique([teamCode, editionId])
 }
 
 model Member {

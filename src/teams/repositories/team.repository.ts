@@ -728,6 +728,16 @@ export class TeamRepository implements ITeamRepository {
     dto: CreateTeamDto,
     userId: string,
   ) {
+    if (dto.members.length === 0) {
+      throw new BadRequestException('El equipo debe tener al menos un miembro');
+    }
+
+    if (dto.members[0].nrc.length === 0) {
+      throw new BadRequestException(
+        'El equipo debe tener al menos un NRC asociado',
+      );
+    }
+
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
     const teamCode = await this.generateTeamCode(firstMemberNrcCode);
 
@@ -743,16 +753,14 @@ export class TeamRepository implements ITeamRepository {
 
   private async generateTeamCode(nrcCode: number): Promise<string> {
     const subjectData = await this.getSubjectAbreviation(nrcCode);
-    const abrev = subjectData.abrevName ?? this.genRandomCode();
+    const abrev = subjectData.abrevName ?? this.genRandomAbrev();
     const teamSemester = subjectData.semester ?? 0;
+    const teamNumber = await this.getTeamNumber(teamSemester);
 
-    const randomNumber = Math.floor(Math.random() * 100);
-    const randomTwoDigits = String(randomNumber).padStart(2, '0');
-
-    return `N${teamSemester}-${abrev}-${randomTwoDigits}`;
+    return `N${teamSemester}-${abrev}-${teamNumber}`;
   }
 
-  private genRandomCode() {
+  private genRandomAbrev() {
     let res = '';
     for (let i = 0; i < 3; i++) {
       const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
@@ -781,6 +789,33 @@ export class TeamRepository implements ITeamRepository {
       );
     }
     return { abrevName: subject.abrevName, semester: subject.semester };
+  }
+
+  private async getTeamNumber(semester: number): Promise<string> {
+    const teams = await this.prisma.team.findMany({
+      where: {
+        teamCode: {
+          startsWith: `N${semester}-`,
+        },
+      },
+      select: {
+        teamCode: true,
+      },
+    });
+
+    const usedNumbers = teams
+      .map((team) => team.teamCode.split('-').pop())
+      .map((num) => parseInt(num ?? '0', 10))
+      .filter((num) => !isNaN(num));
+
+    let teamNumber = 0;
+    if (usedNumbers.length === 0) {
+      teamNumber = semester * 100 + 1;
+    } else {
+      teamNumber = Math.max(...usedNumbers) + 1;
+    }
+
+    return String(teamNumber).padStart(3, '0');
   }
 
   private async createMembers(
