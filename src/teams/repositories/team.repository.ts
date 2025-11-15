@@ -805,7 +805,8 @@ export class TeamRepository implements ITeamRepository {
 
     const usedNumbers = teams
       .map((team) => team.teamCode.split('-').pop())
-      .map((num) => parseInt(num ?? '0', 10))
+      .filter((num) => num !== undefined && num !== '')
+      .map((num) => parseInt(num as string, 10))
       .filter((num) => !isNaN(num));
 
     let teamNumber = 0;
