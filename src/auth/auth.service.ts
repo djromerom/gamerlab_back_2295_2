@@ -431,68 +431,9 @@ export class AuthService {
   async registerUser(registerDto: RegisterDto): Promise<User> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
-    let user: User;
     try {
-      // Check if user already exists
-      const existingUser = await this.prisma.user.findUnique({
-        where: { email: registerDto.email },
-      });
-      if (existingUser) {
-        this.logger.warn(
-          `Registration attempt for existing email: ${registerDto.email}`,
-        );
-        throw new ConflictException('A user with that email already exists');
-      }
-
-      // Create user in local database
-      const userId = randomUUID();
-      user = await this.prisma.user.create({
-        data: {
-          id: userId,
-          email: registerDto.email,
-          firstName: '',
-          lastName: '',
-          roleId: 2, // Default role ID (student)
-          confirmationStatusId: this.pendingStatusId,
-          isActive: false, // User starts inactive until email is confirmed
-          createdAt: new Date(),
-        },
-      });
-      this.logger.log(
-        `Local user created successfully for: ${registerDto.email}`,
-      );
-
-      // Send verification email (same flow as before)
-      this.logger.log(`Sending verification email for '${registerDto.email}'`);
-
-      const REDIRECT_TO = this.configService.get<string>(
-        'FRONTEND_URL',
-        `http://localhost:5173`,
-      );
-
-      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
-        'REGISTRATION_TOKEN_EXPIRATION',
-        24,
-      );
-
-      const verificationToken = randomUUID();
-      const expiresAt = new Date(
-        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
-      ); //24 hours
-
-      await this.prisma.verificationToken.create({
-        data: {
-          token: verificationToken,
-          email: user.email,
-          userId: user.id,
-          tokenTypeId: this.verificationTokenId,
-          expiresAt: expiresAt,
-        },
-      });
-
-      this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
-        email: registerDto.email,
-        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
+      return await this.prisma.$transaction(async (tx) => {
+        return this.registerUserInternal(registerDto, tx);
       });
     } catch (error) {
       if (
@@ -512,8 +453,117 @@ export class AuthService {
           'An unexpected error occurred during registration.',
         );
       }
+      throw error;
     }
-    return user!;
+  }
+
+  async registerUserWithTransaction(
+    registerDto: RegisterDto,
+    tx: any // Prisma transaction client
+  ): Promise<User> {
+    return this.registerUserInternal(registerDto, tx);
+  }
+
+  // Private method with the actual user registration logic
+  private async registerUserInternal(
+    registerDto: RegisterDto,
+    tx: any
+  ): Promise<User> {
+    try {
+      // Check if user already exists within transaction
+      const existingUser = await tx.user.findUnique({
+        where: { email: registerDto.email },
+      });
+
+      if (existingUser) {
+        this.logger.warn(
+          `Registration attempt for existing email: ${registerDto.email}`,
+        );
+        throw new ConflictException('A user with that email already exists');
+      }
+
+      // Create user within transaction
+      const userId = randomUUID();
+      const user = await tx.user.create({
+        data: {
+          id: userId,
+          email: registerDto.email,
+          firstName: '',
+          lastName: '',
+          roleId: 2, // Default role ID (student)
+          confirmationStatusId: this.pendingStatusId,
+          isActive: false, // User starts inactive until email is confirmed
+          createdAt: new Date(),
+        },
+      });
+
+      this.logger.log(
+        `Local user created successfully for: ${registerDto.email}`,
+      );
+
+      // Create verification token within transaction
+      const verificationToken = randomUUID();
+      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+        'REGISTRATION_TOKEN_EXPIRATION',
+        24,
+      );
+      const expiresAt = new Date(
+        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+      ); // 24 hours
+
+      await tx.verificationToken.create({
+        data: {
+          id: randomUUID(),
+          token: verificationToken,
+          email: user.email,
+          userId: user.id,
+          tokenTypeId: this.verificationTokenId,
+          expiresAt: expiresAt,
+        },
+      });
+
+      // Send verification email (async, outside transaction)
+      setImmediate(() => {
+        this.sendVerificationEmail(registerDto.email, verificationToken);
+      });
+
+      this.logger.log(`User registered successfully within transaction: ${user.email}`);
+      return user;
+
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Error registering user within transaction: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  // Helper method to send verification email
+  private async sendVerificationEmail(email: string, verificationToken: string): Promise<void> {
+    try {
+      this.logger.log(`Sending verification email for '${email}'`);
+
+      const REDIRECT_TO = this.configService.get<string>(
+        'FRONTEND_URL',
+        `http://localhost:5173`,
+      );
+
+      await this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
+        email: email,
+        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
+      });
+
+      this.logger.log(`Verification email sent successfully to: ${email}`);
+    } catch (error) {
+      // Log email errors but don't fail the registration
+      this.logger.error(
+        `Failed to send verification email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   // done locally

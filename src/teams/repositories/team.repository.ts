@@ -149,152 +149,172 @@ export class TeamRepository implements ITeamRepository {
   async createTeam(dto: CreateTeamDto, userId?: string): Promise<any> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        let finalUserId: string;
-        let createdUser: User | undefined;
-
-        if (userId) {
-          // Dev branch approach - user is provided
-          const { teamName, videogame, members } = dto;
-
-          // 1. Verificar que el rol de Estudiante existe
-          const studentRole = await tx.role.findUnique({
-            where: { name: 'Estudiante' },
-          });
-
-          if (!studentRole) {
-            throw new Error('Role "Estudiante" not found.');
-          }
-
-          const firstMember = members[0];
-
-          // 2. Crear/actualizar el usuario principal
-          createdUser = await tx.user.update({
-            where: { id: userId },
-            data: {
-              firstName: firstMember.memberFirstName,
-              lastName: firstMember.memberLastName,
-              email: firstMember.memberEmail,
-              roleId: studentRole.id,
-            },
-          });
-
-          finalUserId = createdUser.id;
-
-          // 3. Crear el equipo
-          const team = await tx.team.create({
-            data: {
-              teamName,
-              userId: finalUserId,
-            },
-          });
-
-          // 4. Crear los miembros del equipo
-          const createdMembers: Member[] = [];
-
-          for (const member of members) {
-            if (member.nrc && member.nrc.length > 0) {
-              const nrcCodesFromDto = member.nrc.map((nrcCodeStr) =>
-                parseInt(nrcCodeStr),
-              );
-
-              const nrcsFoundInDb = await tx.nRC.findMany({
-                where: {
-                  code: {
-                    in: nrcCodesFromDto,
-                  },
-                  isActive: true,
-                },
-                select: {
-                  id: true,
-                  code: true,
-                },
-              });
-
-              const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map(
-                (nrc) => nrc.id,
-              );
-
-              if (dbIdsOfValidNrcsToConnect.length > 0) {
-                const createdMember = await tx.member.create({
-                  data: {
-                    firstName: member.memberFirstName,
-                    lastName: member.memberLastName,
-                    email: member.memberEmail,
-                    studentCode: member.studentCode,
-                    teamId: team.id,
-                    nrcs: {
-                      connect: dbIdsOfValidNrcsToConnect.map((id) => ({ id })),
-                    },
-                  },
-                });
-                createdMembers.push(createdMember);
-              } else {
-                const createdMember = await tx.member.create({
-                  data: {
-                    firstName: member.memberFirstName,
-                    lastName: member.memberLastName,
-                    email: member.memberEmail,
-                    studentCode: member.studentCode,
-                    teamId: team.id,
-                  },
-                });
-                createdMembers.push(createdMember);
-              }
-            } else {
-              const createdMember = await tx.member.create({
-                data: {
-                  firstName: member.memberFirstName,
-                  lastName: member.memberLastName,
-                  email: member.memberEmail,
-                  studentCode: member.studentCode,
-                  teamId: team.id,
-                },
-              });
-              createdMembers.push(createdMember);
-            }
-          }
-
-          // 5. Crear el videojuego
-          const createdVideogame = await tx.videogame.create({
-            data: {
-              name: videogame.vgName,
-              description: videogame.description,
-              logoUrl: videogame.logoUrl,
-              videoUrl: videogame.videoUrl,
-              repoUrl: videogame.repoUrl,
-              additionalImages: videogame.additionalImages || [],
-              teamId: team.id,
-              videogameStatusId: 1,
-            },
-          });
-
-          return {
-            createdUser,
-            team,
-            members: createdMembers,
-            createdVideogame,
-          };
-        } else {
-          // HEAD branch approach - create/find user internally
-          finalUserId = await this.handleUser(tx, dto.members[0]);
-          const team = await this.createTeamRecord(tx, dto, finalUserId);
-          const members = await this.createMembers(tx, team.id, dto.members);
-          const videogame = await this.createVideogame(
-            tx,
-            team.id,
-            dto.videogame,
-          );
-
-          return {
-            team,
-            members,
-            videogame,
-          };
-        }
+        return this.createTeamInternal(dto, userId, tx);
       });
     } catch (error: any) {
       handlePrismaError(error);
     }
+  }
+
+  // Method to handle external transactions
+  async createTeamWithTransaction(
+    dto: CreateTeamDto,
+    userId?: string,
+    tx?: any
+  ): Promise<any> {
+    if (!tx) {
+      // If no transaction provided, use the regular createTeam method
+      if (userId) {
+        return this.createTeam(dto, userId);
+      } else {
+        return this.createTeam(dto);
+      }
+    }
+    
+    // Use the provided transaction
+    return this.createTeamInternal(dto, userId, tx);
+  }
+
+  // Private method with the actual team creation logic
+  private async createTeamInternal(
+    dto: CreateTeamDto, 
+    userId?: string, 
+    tx?: any
+  ): Promise<any> {
+    let finalUserId: string;
+    let createdUser: User | undefined;
+
+    if (userId) {
+      // Dev branch approach - user is provided
+      const { teamName, videogame, members } = dto;
+
+      // 1. Verificar que el rol de Estudiante existe
+      const studentRole = await tx.role.findUnique({
+        where: { name: 'Estudiante' },
+      });
+
+      if (!studentRole) {
+        throw new Error('Role "Estudiante" not found.');
+      }
+
+      const firstMember = members[0];
+
+      // 2. Crear/actualizar el usuario principal
+      createdUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          firstName: firstMember.memberFirstName,
+          lastName: firstMember.memberLastName,
+          email: firstMember.memberEmail,
+          roleId: studentRole.id,
+        },
+      });
+
+      if (!createdUser) {
+        throw new Error('Failed to update user.');
+      }
+
+      finalUserId = createdUser.id;
+
+      // 3. Crear el equipo
+      const team = await tx.team.create({
+        data: {
+          teamName,
+          userId: finalUserId,
+        },
+      });
+
+      // 4. Crear los miembros del equipo
+      const createdMembers = await this.createMembersWithNrcs(tx, team.id, members);
+
+      // 5. Crear el videojuego
+      const createdVideogame = await tx.videogame.create({
+        data: {
+          name: videogame.vgName,
+          description: videogame.description,
+          logoUrl: videogame.logoUrl,
+          videoUrl: videogame.videoUrl,
+          repoUrl: videogame.repoUrl,
+          additionalImages: videogame.additionalImages || [],
+          teamId: team.id,
+          videogameStatusId: 1,
+        },
+      });
+
+      return {
+        createdUser,
+        team,
+        members: createdMembers,
+        createdVideogame,
+      };
+    } else {
+      // HEAD branch approach - create/find user internally
+      finalUserId = await this.handleUser(tx, dto.members[0]);
+      const team = await this.createTeamRecord(tx, dto, finalUserId);
+      const members = await this.createMembers(tx, team.id, dto.members);
+      const videogame = await this.createVideogame(tx, team.id, dto.videogame);
+
+      return {
+        team,
+        members,
+        videogame,
+      };
+    }
+  }
+
+  // Helper method for creating members with NRCs (used by dev branch)
+  private async createMembersWithNrcs(
+    tx: any,
+    teamId: number,
+    members: any[]
+  ): Promise<Member[]> {
+    const createdMembers: Member[] = [];
+
+    for (const member of members) {
+      let memberData = {
+        firstName: member.memberFirstName,
+        lastName: member.memberLastName,
+        email: member.memberEmail,
+        studentCode: member.studentCode,
+        teamId: teamId,
+      };
+
+      if (member.nrc && member.nrc.length > 0) {
+        const nrcCodesFromDto = member.nrc.map((nrcCodeStr: string) =>
+          parseInt(nrcCodeStr),
+        );
+
+        const nrcsFoundInDb = await tx.nRC.findMany({
+          where: {
+            code: { in: nrcCodesFromDto },
+            isActive: true,
+          },
+          select: { id: true, code: true },
+        });
+
+        const dbIdsOfValidNrcsToConnect = nrcsFoundInDb.map((nrc: any) => nrc.id);
+
+        if (dbIdsOfValidNrcsToConnect.length > 0) {
+          const createdMember = await tx.member.create({
+            data: {
+              ...memberData,
+              nrcs: {
+                connect: dbIdsOfValidNrcsToConnect.map((id: any) => ({ id })),
+              },
+            },
+          });
+          createdMembers.push(createdMember);
+        } else {
+          const createdMember = await tx.member.create({ data: memberData });
+          createdMembers.push(createdMember);
+        }
+      } else {
+        const createdMember = await tx.member.create({ data: memberData });
+        createdMembers.push(createdMember);
+      }
+    }
+
+    return createdMembers;
   }
 
   async findAll(): Promise<Team[]> {

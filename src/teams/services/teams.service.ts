@@ -29,6 +29,7 @@ export class TeamsService {
     private readonly authService: AuthService,
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
+    private readonly prisma: PrismaService
   ) {}
 
   async findByTeamName(teamName: string): Promise<any> {
@@ -97,37 +98,54 @@ export class TeamsService {
       }
     }
 
-    // Attempt to register the user in the DB
-    let newUser: User;
     try {
-      newUser = await this.authService.registerUser({
-        email: firstMember.memberEmail,
+      const result = await this.prisma.$transaction(async (tx) => {
+        // 1. Register the user within transaction
+        const newUser = await this.authService.registerUserWithTransaction(
+          { email: firstMember.memberEmail },
+          tx
+        );
+
+        if (!newUser || !newUser.id) {
+          throw new InternalServerErrorException('User registration failed.');
+        }
+
+        // 2. Create the team within the same transaction
+        const team = await this.teamRepository.createTeamWithTransaction(
+          createTeamDto,
+          newUser.id,
+          tx // 👈 This is the key - pass the transaction here!
+        );
+
+        return team;
       });
 
-      if (!newUser || !newUser.id) {
-        throw new InternalServerErrorException('User registration failed.');
-      }
+      this.logger.log(`Team created successfully for user: ${firstMember.memberEmail}`);
+      return result;
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown registration error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      this.logger.error(
+        `Transaction failed for team creation: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      // Handle specific error types
       if (errorMessage.toLowerCase().includes('user already registered')) {
         throw new ConflictException(
           `Email ${firstMember.memberEmail} is already registered.`,
         );
       }
-      throw new InternalServerErrorException(`Error: ${errorMessage}`);
+      
+      if (errorMessage.toLowerCase().includes('team already exists')) {
+        throw new ConflictException('A team with this information already exists.');
+      }
+
+      throw new InternalServerErrorException(
+        `Failed to create team: ${errorMessage}`
+      );
     }
-
-    // Create the team using repository
-    const result = await this.teamRepository.createTeam(
-      createTeamDto,
-      newUser.id,
-    );
-
-    // Send confirmation email (moved out to email service)
-    // Removed dependency from this service
-
-    return result;
   }
 
   async createAsAdmin(createTeamDto: CreateTeamDto, user?: AppUser) {
