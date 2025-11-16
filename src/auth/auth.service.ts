@@ -396,7 +396,7 @@ export class AuthService {
 
     if (!storedToken) {
       this.logger.warn(`Token not found: ${tokenString.substring(0, 8)}...`);
-      throw new BadRequestException('Invalid or expired link.');
+      throw new BadRequestException('Invalid link.');
     }
 
     if (new Date() > storedToken.expiresAt) {
@@ -455,13 +455,6 @@ export class AuthService {
       }
       throw error;
     }
-  }
-
-  async registerUserWithTransaction(
-    registerDto: RegisterDto,
-    tx: Prisma.TransactionClient
-  ): Promise<User> {
-    return this.registerUserInternal(registerDto, tx);
   }
 
   // Private method with the actual user registration logic

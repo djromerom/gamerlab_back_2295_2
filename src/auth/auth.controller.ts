@@ -146,10 +146,10 @@ export class AuthController {
   }
 
   // Resend confirmation email
+  @Public()
   @Post('resend-confirmation')
   @ApiOperation({ summary: 'Resend confirmation email' })
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('access')
   @ApiBody({
     type: ResendConfirmationDto,
     examples: {
