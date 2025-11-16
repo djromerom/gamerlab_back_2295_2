@@ -170,7 +170,7 @@ export class TeamRepository implements ITeamRepository {
         return this.createTeam(dto);
       }
     }
-    
+
     // Use the provided transaction
     return this.createTeamInternal(dto, userId, tx);
   }
@@ -264,9 +264,9 @@ export class TeamRepository implements ITeamRepository {
 
   // Helper method for creating members with NRCs (used by dev branch)
   private async createMembersWithNrcs(
-    tx: any,
+    tx: Prisma.TransactionClient,
     teamId: number,
-    members: any[]
+    members: MemberDto[]
   ): Promise<Member[]> {
     const createdMembers: Member[] = [];
 

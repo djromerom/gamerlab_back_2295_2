@@ -106,7 +106,7 @@ export class TeamsService {
           tx
         );
 
-        if (!newUser || !newUser.id) {
+        if (!newUser.id) {
           throw new InternalServerErrorException('User registration failed.');
         }
 
@@ -114,7 +114,7 @@ export class TeamsService {
         const team = await this.teamRepository.createTeamWithTransaction(
           createTeamDto,
           newUser.id,
-          tx // 👈 This is the key - pass the transaction here!
+          tx // Pass the transaction to ensure atomicity
         );
 
         return team;

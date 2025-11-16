@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { User } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
@@ -459,7 +459,7 @@ export class AuthService {
 
   async registerUserWithTransaction(
     registerDto: RegisterDto,
-    tx: any // Prisma transaction client
+    tx: Prisma.TransactionClient
   ): Promise<User> {
     return this.registerUserInternal(registerDto, tx);
   }
@@ -467,7 +467,7 @@ export class AuthService {
   // Private method with the actual user registration logic
   private async registerUserInternal(
     registerDto: RegisterDto,
-    tx: any
+    tx: Prisma.TransactionClient
   ): Promise<User> {
     try {
       // Check if user already exists within transaction
