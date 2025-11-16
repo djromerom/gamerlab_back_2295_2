@@ -81,7 +81,6 @@ export class EvaluationService {
       // mark whether this evaluation is from a senior juror (professor)
       isSenior,
       totalScore: calculatedTotalScore,
-      editionId: 1, // Assuming a fixed editionId for now
       details: {
         create: detailsData,
       },
