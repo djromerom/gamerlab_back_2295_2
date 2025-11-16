@@ -1417,6 +1417,20 @@
       },
       {
         "roleId": 2,
+        "permissionId": 21,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 22,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
         "permissionId": 25,
         "createdAt": "2025-05-28T10:00:00.000Z",
         "updatedAt": "2025-06-04T15:29:52.745Z",

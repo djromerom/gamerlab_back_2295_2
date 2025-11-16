@@ -26,6 +26,10 @@ services:
     env_file: .env
     environment:
       - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     command: >
       sh -c "
         echo 'Generating Prisma client...' &&
@@ -54,6 +58,10 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
 
 volumes:
   postgres_data:
