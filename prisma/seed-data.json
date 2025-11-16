@@ -1593,6 +1593,22 @@
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "semester": "2025-30",
+        "title": "Feria Gamer 2025 - S2",
+        "year": 2025,
+        "semesterName": "Segundo semestre",
+        "name": "Feria Gamer 2025 - S3",
+        "date": "Noviembre 2025",
+        "description": "La innovación y la protección digital se encontraron en la III Feria Gamer del Programa de Ingeniería de Software y Computación de la Universidad del Norte, un evento donde los videojuegos se transformaron en herramientas para educar sobre los desafíos de la seguridad en línea.",
+        "description2": "Estudiantes de primer a tercer semestre presentaron el jueves, 27 de noviembre sus proyectos finales: experiencias interactivas creadas para concientizar sobre amenazas como el robo de información, suplantación de identidad, vulnerabilidades comunes y buenas prácticas de seguridad digital. A través de dinámicas lúdicas y creativas, los participantes demostraron su habilidad técnica y su compromiso con formar usuarios más preparados y responsables en un mundo cada vez más conectado.",
+        "highlightedGames": null,
+        "alt": "Feria Gamer 2025-30",
+        "isActive": true,
+        "createdAt": "2025-11-15T00:00:00.000Z",
+        "updatedAt": "2025-11-15T00:00:00.000Z"
       }
     ]
   },
@@ -1828,6 +1844,9 @@
     "data": [
       {
         "id": 1,
+        "editionId": 3,
+        "startDate": "2025-11-27T13:30:00.000Z",
+        "endDate": "2025-11-27T17:30:00.000Z",
         "evaluationsOpen": false,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"

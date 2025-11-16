@@ -71,7 +71,6 @@ export class EvaluationService {
         comments,
         videogameId,
         totalScore: calculatedTotalScore,
-        editionId: 1, // Assuming a fixed editionId for now
         details: {
           create: detailsData,
         },
