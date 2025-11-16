@@ -15,13 +15,6 @@ export interface ITeamRepository {
     members: Member[];
     videogame: Videogame;
   }>;
-  createTeam(createTeamDto: CreateTeamDto, userId: string): Promise<{
-    createdUser: User;
-    team: Team;
-    members: Member[];
-    createdVideogame: Videogame;
-  }>;
-  
   findAll(): Promise<Team[]>;
   findOne(id: number): Promise<Team | null>;
   findPaged(page: number, limit: number): Promise<any>;
