@@ -99,26 +99,7 @@ export class TeamsService {
     }
 
     try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        // 1. Register the user within transaction
-        const newUser = await this.authService.registerUserWithTransaction(
-          { email: firstMember.memberEmail },
-          tx
-        );
-
-        if (!newUser.id) {
-          throw new InternalServerErrorException('User registration failed.');
-        }
-
-        // 2. Create the team within the same transaction
-        const team = await this.teamRepository.createTeamWithTransaction(
-          createTeamDto,
-          newUser.id,
-          tx // Pass the transaction to ensure atomicity
-        );
-
-        return team;
-      });
+      const result = await this.teamRepository.createTeam(createTeamDto);
 
       this.logger.log(`Team created successfully for user: ${firstMember.memberEmail}`);
       return result;
