@@ -25,6 +25,13 @@ export class EvaluationService {
   async createEvaluationWithDetails(jurorId: string, evaluationPayload: CreateEvaluationDto) {
     await this.checkEvaluationsOpen();
     const { date, comments, videogameId, details } = evaluationPayload;
+    // Determine if the juror is a professor (roleId === 3) -> mark as senior
+    // We fetch only the roleId for the juror user to avoid extra data.
+    const jurorUser = await this.prisma.user.findUnique({
+      where: { id: jurorId },
+      select: { roleId: true },
+    });
+    const isSenior = jurorUser?.roleId === 3;
     
     const activeCriteria = await this.criterionService.findForSelect();
 
@@ -64,17 +71,23 @@ export class EvaluationService {
     
     calculatedTotalScore = parseFloat(calculatedTotalScore.toFixed(4));
 
-    const evaluation = await this.prisma.evaluation.create({
-      data: {
-        jurorId,
-        date: new Date(date),
-        comments,
-        videogameId,
-        totalScore: calculatedTotalScore,
-        details: {
-          create: detailsData,
-        },
+    // Build create data as `any` to avoid TypeScript errors if Prisma client
+    // types haven't been regenerated after the schema change.
+    const createData: any = {
+      jurorId,
+      date: new Date(date),
+      comments,
+      videogameId,
+      // mark whether this evaluation is from a senior juror (professor)
+      isSenior,
+      totalScore: calculatedTotalScore,
+      details: {
+        create: detailsData,
       },
+    };
+
+    const evaluation = await this.prisma.evaluation.create({
+      data: createData,
       select: {
         id: true,
       },

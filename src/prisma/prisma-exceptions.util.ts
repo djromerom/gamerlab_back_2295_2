@@ -25,6 +25,13 @@ export function handlePrismaError(error: unknown): never {
         );
       }
 
+      case 'P2022': {
+        const column = (error.meta?.column as string) ?? 'columna desconocida';
+        throw new BadRequestException(
+          `La columna '${column}' no existe en la base de datos.`,
+        );
+      }
+
       case 'P2025':
         throw new BadRequestException('Registro no encontrado.');
 

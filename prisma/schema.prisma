@@ -183,6 +183,7 @@ model Team {
   teamName         String     @unique @map("nombre_equipo") @db.VarChar(50)
   registrationDate DateTime   @default(now()) @map("fecha_registro")
   userId           String     @unique @map("id_usuario")
+  teamCode         String     @map("codigo_equipo") @db.VarChar(10)
   editionId        Int        @default(3) @map("id_edicion")
   isActive         Boolean    @default(true) @map("activo")
   isExternal       Boolean    @default(false) @map("externo")
@@ -194,6 +195,7 @@ model Team {
   assignedJurors   User[]     @relation("JurorTeamAssignment")
 
   @@map("equipos")
+  @@unique([teamCode, editionId])
 }
 
 model Member {
@@ -249,7 +251,8 @@ model Evaluation {
   totalScore  Float?             @map("puntaje_total")
   jurorId     String             @map("id_jurado")
   videogameId Int                @map("id_videojuego")
-  editionId   Int                @default(3) @map("id_edicion")
+  editionId   Int                @map("id_edicion") @default(3)
+  isSenior    Boolean            @default(false) @map("es_jurado_senior")
   isActive    Boolean            @default(true) @map("activo")
   details     EvaluationDetail[]
   Edition     Edition            @relation(fields: [editionId], references: [id])
@@ -264,6 +267,7 @@ model Subject {
   id        Int      @id @default(autoincrement()) @map("id_materia")
   name      String   @map("nombre") @db.VarChar(50)
   code      String   @map("codigo") @db.VarChar(50)
+  abrevName String   @default("IST") @map("abreviacion") @db.Char(3)
   semester  Int      @map("semestre")
   isActive  Boolean  @default(true) @map("activo")
   updatedAt DateTime @updatedAt @map("actualizado_en")
