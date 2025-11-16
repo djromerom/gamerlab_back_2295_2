@@ -234,6 +234,13 @@ export class TeamRepository implements ITeamRepository {
         logoUrl: true,
         videoUrl: true,
         repoUrl: true,
+        additionalImages: true,
+        videogameStatus: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     },
     members: {
