@@ -216,12 +216,7 @@ export class TeamRepository implements ITeamRepository {
       finalUserId = createdUser.id;
 
       // 3. Crear el equipo
-      const team = await tx.team.create({
-        data: {
-          teamName,
-          userId: finalUserId,
-        },
-      });
+      const team = await this.createTeamRecord(tx, dto, finalUserId);
 
       // 4. Crear los miembros del equipo
       const createdMembers = await this.createMembersWithNrcs(tx, team.id, members);
