@@ -320,6 +320,7 @@ export class AuthService {
           password: hashedPassword,
           confirmationStatusId: this.confirmedStatusId,
           isActive: true,
+          authMethod: 'PASSWORD'
         },
       });
 
