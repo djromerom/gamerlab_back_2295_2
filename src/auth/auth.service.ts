@@ -677,7 +677,7 @@ export class AuthService {
     return updatedUser; // O lo que quieras retornar
   }
 
-  // This function gets teh Authorize URL for Outlook login based on Microsoft Entra ID credentials
+  // This function gets the Authorize URL for Outlook login based on Microsoft Entra ID credentials
   getAuthorizeUrl() {
     const params = new URLSearchParams({
       client_id: this.clientId,

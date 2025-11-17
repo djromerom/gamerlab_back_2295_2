@@ -17,12 +17,16 @@ import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
 import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
   private readonly logger = new Logger(TeamRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authService: AuthService,
+  ) {}
 
   async findByTeamName(teamName: string): Promise<boolean> {
     const team = await this.prisma.team.findFirst({
@@ -579,15 +583,18 @@ export class TeamRepository implements ITeamRepository {
 
       userId = existingUser.id;
     } else {
-      const createdUser = await tx.user.create({
+      const createdUser = await this.authService.registerUser({
+        email: firstMember.memberEmail,
+      });
+      userId = createdUser.id;
+      await tx.user.update({
+        where: { id: userId },
         data: {
-          email: firstMember.memberEmail,
           firstName: firstMember.memberFirstName,
           lastName: firstMember.memberLastName,
           roleId: studentRole.id,
         },
       });
-      userId = createdUser.id;
     }
     return userId;
   }

@@ -46,8 +46,8 @@ export class TeamsController {
     return this.teamsService.createAsAdmin(CreateTeamDto, user);
   }
 
+  @Public()
   @Get('')
-  @UseGuards(RolePermissionGuard)
   @RequiredService('ListTeams')
   getTeams(
     @Query('page') @Optional() page?: string,
