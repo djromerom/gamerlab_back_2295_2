@@ -2,10 +2,10 @@ name: back-test
 on:
   push:
     branches:
-      - test
+      - dev
   pull_request:
     branches:
-      - test
+      - dev
       
 permissions:
   contents: write
