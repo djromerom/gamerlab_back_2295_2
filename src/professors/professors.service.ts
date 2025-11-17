@@ -507,10 +507,11 @@ export class ProfessorsService {
 
     if (teamsFull && teamsFull.length > 0) {
       for (const t of teamsFull) {
-        const members = (t.members || []).map((m: any) => `${m.firstName} ${m.lastName}`);
+        const team: any = t;
+        const members = (team.members || []).map((m: any) => `${m.firstName} ${m.lastName}`);
         // Buscar todos los NRCs de este equipo (de sus miembros) con el mismo profesor y materia
         const nrcSet = new Set<number>();
-        for (const m of t.members) {
+        for (const m of (team.members || [])) {
           if (m.nrcs && Array.isArray(m.nrcs)) {
             for (const n of m.nrcs) {
               if (n.code && n.professorId === professorId) nrcSet.add(Number(n.code));
@@ -519,7 +520,7 @@ export class ProfessorsService {
         }
         // Si no se encuentran, usar el nrcCode original
         const nrcCodes = nrcSet.size > 0 ? Array.from(nrcSet).join(', ') : String(nrcCode);
-        const vg = t.videogame;
+        const vg = team.videogame;
         const grade = this.calculateAverageGrade(vg?.evaluations);
         let calificacionDocente: number | null = null;
         if (vg?.id) {
@@ -527,7 +528,7 @@ export class ProfessorsService {
           calificacionDocente = ev?.totalScore ?? null;
         }
         teamRows.push({
-          teamCode: t.id,
+          teamCode: team.teamCode ?? team.id,
           nrc: nrcCodes,
           team: t.teamName ?? 'No team',
           subject: subjectName,
@@ -551,12 +552,12 @@ export class ProfessorsService {
           firstName: true,
           lastName: true,
           studentCode: true,
-          team: { select: { id: true, teamName: true, videogame: { select: { id: true, name: true, evaluations: { select: { totalScore: true } } } } } },
+          team: { select: { id: true, teamCode: true, teamName: true, videogame: { select: { id: true, name: true, evaluations: { select: { totalScore: true } } } } } },
         },
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       });
 
-      const groups = new Map<string | number, { teamId: number | string; teamName: string; videogameName: string; videogameId: number | null; members: string[]; grade: number | null }>();
+      const groups = new Map<string | number, { teamCode: string; teamName: string; videogameName: string; videogameId: number | null; members: string[]; grade: number | null }>();
       for (const m of members) {
         const teamKey = m.team?.id ?? `no_team_${m.studentCode}`;
         const teamName = m.team?.teamName ?? 'No team';
@@ -564,7 +565,7 @@ export class ProfessorsService {
         const videogameName = vg?.name ?? 'No videogame';
         const grade = this.calculateAverageGrade(vg?.evaluations);
         if (!groups.has(teamKey as any)) {
-          groups.set(teamKey as any, { teamId: m.team?.id ?? '', teamName, videogameName, videogameId: vg?.id ?? null, members: [], grade });
+          groups.set(teamKey as any, { teamCode: (m.team as any)?.teamCode ?? '', teamName, videogameName, videogameId: vg?.id ?? null, members: [], grade });
         }
         const g = groups.get(teamKey as any)!;
         g.members.push(`${m.firstName} ${m.lastName}`);
@@ -578,7 +579,7 @@ export class ProfessorsService {
           calificacionDocente = ev?.totalScore ?? null;
         }
         teamRows.push({
-          teamCode: g.teamId ?? '',
+          teamCode: g.teamCode ?? '',
           nrc: nrcCode,
           team: g.teamName,
           subject: subjectName,
@@ -659,14 +660,15 @@ export class ProfessorsService {
 
     const reportData = [] as any[];
     for (const t of teams) {
-      const members = (t.members || []).map((m: any) => `${m.firstName} ${m.lastName}`);
+      const team: any = t;
+      const members = (team.members || []).map((m: any) => `${m.firstName} ${m.lastName}`);
       // Unir todos los NRCs de la materia para este equipo (de todos los miembros)
       const nrcSet = new Set<string>();
       for (const m of t.members) {
         for (const n of m.nrcs) nrcSet.add(String(n.code));
       }
       const nrcCodes = Array.from(nrcSet).join(', ');
-      const vg = t.videogame;
+      const vg = team.videogame;
       const grade = this.calculateAverageGrade(vg?.evaluations);
       let calificacionDocente: number | null = null;
       if (vg?.id) {
@@ -674,9 +676,9 @@ export class ProfessorsService {
         calificacionDocente = ev?.totalScore ?? null;
       }
       reportData.push({
-        teamCode: t.id,
+        teamCode: team.teamCode ?? team.id,
         nrc: nrcCodes,
-        team: t.teamName ?? 'No team',
+        team: team.teamName ?? 'No team',
         subject: subjectName,
         integrantes: members.join(', '),
         videogame: vg?.name ?? 'No videojuego',
@@ -866,6 +868,7 @@ export class ProfessorsService {
 
     const teamSelect = {
       id: true,
+      teamCode: true,
       teamName: true,
       videogame: {
         select: videogameSelect,
@@ -906,13 +909,13 @@ export class ProfessorsService {
   }
 
   /**
-   * Group members by team and collect NRCs, member names and videogame info.
-   * The returned Map uses teamIdKey as key and an object with shape matching
-   * the original implementation so the table-writing code can remain similar.
+  * Group members by team and collect NRCs, member names and videogame info.
+  * The returned Map uses teamCode (or a synthetic key) and an object with
+  * a stable shape so the table-writing code can remain similar.
    */
   private groupMembersByTeam(members: any[], currentNrcCode: string) {
     const groups = new Map<string | number, {
-      teamId: number | string;
+      teamCode: string;
       teamName: string;
       videogameName: string;
       nrcCodes: Set<string>;
@@ -922,15 +925,15 @@ export class ProfessorsService {
     }>();
 
     for (const member of members) {
-      const teamIdKey = member.team?.id ?? `no_team_${member.studentCode}`;
+      const teamKey = member.team?.teamCode ?? `no_team_${member.studentCode}`;
       const teamName = member.team?.teamName ?? 'No team';
       const videogameObj = member.team?.videogame;
       const videogameName = videogameObj?.name ?? 'No videojuego';
       const grade = this.calculateAverageGrade(videogameObj?.evaluations);
 
-      if (!groups.has(teamIdKey as any)) {
-        groups.set(teamIdKey as any, {
-          teamId: member.team?.id ?? '',
+      if (!groups.has(teamKey as any)) {
+        groups.set(teamKey as any, {
+          teamCode: (member.team as any)?.teamCode ?? '',
           teamName,
           videogameName,
           nrcCodes: new Set<string>(),
@@ -940,7 +943,7 @@ export class ProfessorsService {
         });
       }
 
-      const g = groups.get(teamIdKey as any)!;
+      const g = groups.get(teamKey as any)!;
       for (const nrcObj of member.nrcs) {
         if (nrcObj.code) {
           g.nrcCodes.add(String(nrcObj.code));
@@ -1007,20 +1010,28 @@ export class ProfessorsService {
    */
   private async getDocenteScoreForTeam(g: any, professorId: string): Promise<string> {
     let docenteScore = '';
-    if (g.teamId && g.teamId !== '' && g.videogameName && g.videogameName !== 'No videojuego') {
-      const vg = await this.prisma.videogame.findFirst({
-        where: {
-          teamId: typeof g.teamId === 'number' ? g.teamId : Number(g.teamId),
-          name: g.videogameName,
-        },
-        select: { id: true },
-      });
-      if (vg && vg.id) {
-        const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: vg.id, jurorId: professorId }, select: { totalScore: true } });
+    // Prefer resolving videogame via teamCode (new approach). Fall back to videogameName if needed.
+    try {
+      let vgId: number | null = null;
+      if (g.teamCode && g.teamCode !== '') {
+        const team = await this.prisma.team.findFirst({ where: ({ teamCode: String(g.teamCode) } as any), select: { id: true } });
+        if (team && team.id) {
+          const vg = await this.prisma.videogame.findFirst({ where: { teamId: team.id }, select: { id: true } });
+          if (vg && vg.id) vgId = vg.id;
+        }
+      }
+      if (!vgId && g.videogameName && g.videogameName !== 'No videojuego') {
+        const vg = await this.prisma.videogame.findFirst({ where: { name: g.videogameName }, select: { id: true } });
+        if (vg && vg.id) vgId = vg.id;
+      }
+      if (vgId) {
+        const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: vgId, jurorId: professorId }, select: { totalScore: true } });
         if (ev && ev.totalScore !== null && ev.totalScore !== undefined) {
           docenteScore = ev.totalScore.toFixed(1);
         }
       }
+    } catch (err) {
+      this.logger.warn(`getDocenteScoreForTeam error: ${(err as any)?.message}`);
     }
     return docenteScore;
   }
@@ -1042,7 +1053,7 @@ export class ProfessorsService {
     for (const [, g] of groups) {
       if (!g.hasNRC) continue;
       const rowObj: Record<string, any> = {
-        teamCode: g.teamId ?? '',
+        teamCode: g.teamCode ?? '',
         subject: subjectName,
         nrc: Array.from(g.nrcCodes).join(', '),
         team: g.teamName,
