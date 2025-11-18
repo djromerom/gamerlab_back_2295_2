@@ -34,7 +34,10 @@ COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 # Copiar directorio de prisma para las migraciones Y el archivo de seeding
 COPY --from=builder /usr/src/app/prisma ./prisma
 COPY --from=builder /usr/src/app/seed.ts ./seed.ts
+COPY --from=builder /usr/src/app ./entrypoint.sh
+
+RUN chmod +x ./entrypoint.sh
 
 EXPOSE 3000
-
+ENTRYPOINT ["./entrypoint.sh"]
 CMD ["node", "dist/src/main.js"]
