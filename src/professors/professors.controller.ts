@@ -230,7 +230,7 @@ export class ProfessorsController {
       example: {
         data: [
           {
-            teamCode: 1,
+            teamCode: 'N1-IST-101',
             nrc: '2498, 2496',
             team: 'Warriors',
             subject: 'Algoritmia y Programación I',
@@ -287,7 +287,7 @@ export class ProfessorsController {
       example: {
         data: [
           {
-            teamCode: 2,
+            teamCode: 'N1-IST-101',
             nrc: '2498',
             team: 'Nebula',
             subject: 'Algoritmia y Programación I',
@@ -298,7 +298,7 @@ export class ProfessorsController {
             videogameId: 25
           },
           {
-            teamCode: 1,
+            teamCode: 'N1-IST-101',
             nrc: '2496, 2498',
             team: 'Warriors',
             subject: 'Algoritmia y Programación I',
