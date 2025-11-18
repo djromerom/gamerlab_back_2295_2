@@ -57,12 +57,12 @@ jobs:
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build Docker image
-        run: docker build -t arkadapi-image .
+        run: docker build -t arkadapi-test-image .
 
       - name: Tag Docker image
         run: |
-          docker tag arkadapi-image ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-${{ steps.versioning.outputs.version }}
+          docker tag arkadapi-test-image ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-test-${{ steps.versioning.outputs.version }}
 
       - name: Push Docker image
         run: | 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-${{ steps.versioning.outputs.version }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:arkadapi-test-${{ steps.versioning.outputs.version }}
