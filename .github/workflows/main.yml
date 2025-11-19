@@ -40,7 +40,7 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_TEST }}
           REDIRECT_URI: ${{ secrets.REDIRECT_URI_TEST }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_TEST }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD_TEMP }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL_TEST_TEMP }}
         with:
           host: ${{ secrets.HOST }}
