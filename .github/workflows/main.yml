@@ -1,57 +1,58 @@
 name: Deploy_back
-
 # Controls when the action will run. 
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ main ]
-
+    branches: [ test ]
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      
-    - name: Install dependencies
-      run: npm install
-
-       
-    - name: Deploy using ssh
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: 22
-        script: |
-          cd /home/proyecto/Arkad-Api
-          git pull origin main
-          git status
-          docker stop arkadn-api
-          docker rm arkadn-api
-          docker build --build-arg DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} --build-arg DIRECT_URL=${{ secrets.DIRECT_URL_PROD }}  -f Dockerfile -t arkadn-api-image . || { echo "Docker build failed"; exit 1; }
-          docker run -d \
-          --restart=unless-stopped \
-          -p 5036:3000 \
-          -e DATABASE_URL=${{ secrets.DATABASE_URL_PROD }} \
-          -e DIRECT_URL=${{ secrets.DIRECT_URL_PROD }} \
-          -e SUPABASE_URL=${{ secrets.SUPABASE_URL_PROD }} \
-          -e SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET_PROD }} \
-          -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY_PROD }} \
-          -e REGISTRATION_REDIRECT_URL=${{ secrets.REGISTRATION_REDIRECT_URL }} \
-          -e RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }} \
-          -e EMAIL_PUBLIC_API_KEY=${{ secrets.EMAIL_PUBLIC_API_KEY }} \
-          -e EMAIL_PRIVATE_API_KEY=${{ secrets.EMAIL_PRIVATE_API_KEY }} \
-          -e EMAIL_SERVICE_ID=${{ secrets.EMAIL_SERVICE_ID }} \
-          -e EMAIL_CONFIRMATION_TEMPLATE=${{ secrets.EMAIL_CONFIRMATION_TEMPLATE }} \
-          -e FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }} \
-          -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
-          --name arkadn-api \
-          arkadn-api-image
-          docker ps || echo "No running containers"
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Deploy using SSH
+        uses: appleboy/ssh-action@master
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_REPOSITORY: ${{ secrets.DOCKERHUB_REPOSITORY }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_TEST }}
+          ACCESS_TOKEN_EXPIRATION_MINUTES: ${{ secrets.ACCESS_TOKEN_EXPIRATION_MINUTES_TEST }}
+          REFRESH_TOKEN_EXPIRATION_DAYS: ${{ secrets.REFRESH_TOKEN_EXPIRATION_DAYS_TEST }}
+          REGISTRATION_TOKEN_EXPIRATION: ${{ secrets.REGISTRATION_TOKEN_EXPIRATION_TEST }}
+          USER_PROFILE_CACHE_TTL: ${{ secrets.USER_PROFILE_CACHE_TTL_TEST }}
+          RECAPTCHA_SECRET_KEY: ${{ secrets.RECAPTCHA_SECRET_KEY_TEST }}
+          EMAIL_PUBLIC_API_KEY: ${{ secrets.EMAIL_PUBLIC_API_KEY_TEST }}
+          EMAIL_PRIVATE_API_KEY: ${{ secrets.EMAIL_PRIVATE_API_KEY_TEST }}
+          EMAIL_SERVICE_ID: ${{ secrets.EMAIL_SERVICE_ID_TEST }}
+          EMAIL_CONFIRMATION_TEMPLATE: ${{ secrets.EMAIL_CONFIRMATION_TEMPLATE_TEST }}
+          EMAIL_RESET_PASSWORD_TEMPLATE: ${{ secrets.EMAIL_RESET_PASSWORD_TEMPLATE_TEST }}
+          AZURE_BLOB_SAS_URL: ${{ secrets.AZURE_BLOB_SAS_URL_TEST }}
+          AZURE_ACCOUNT_NAME: ${{ secrets.AZURE_ACCOUNT_NAME_TEST }}
+          AZURE_ACCOUNT_KEY: ${{ secrets.AZURE_ACCOUNT_KEY_TEST }}
+          AZURE_CONTAINER: ${{ secrets.AZURE_CONTAINER_TEST }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID_TEST }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_TEST }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET_TEST }}
+          REDIRECT_URI: ${{ secrets.REDIRECT_URI_TEST }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_TEST }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL_TEST_TEMP }}
+        with:
+          host: ${{ secrets.HOST }}
+          username: proyecto
+          key: ${{ secrets.KEYS }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          port: 22
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_REPOSITORY,DOCKERHUB_TOKEN,JWT_SECRET,ACCESS_TOKEN_EXPIRATION_MINUTES,REFRESH_TOKEN_EXPIRATION_DAYS,REGISTRATION_TOKEN_EXPIRATION,USER_PROFILE_CACHE_TTL,RECAPTCHA_SECRET_KEY,EMAIL_PUBLIC_API_KEY,EMAIL_PRIVATE_API_KEY,EMAIL_SERVICE_ID,EMAIL_CONFIRMATION_TEMPLATE,EMAIL_RESET_PASSWORD_TEMPLATE,AZURE_BLOB_SAS_URL,AZURE_ACCOUNT_NAME,AZURE_ACCOUNT_KEY,AZURE_CONTAINER,AZURE_TENANT_ID,AZURE_CLIENT_ID,AZURE_CLIENT_SECRET,REDIRECT_URI,ADMIN_PASSWORD,DATABASE_URL,FRONTEND_URL
+          script: |
+                  cd /home/proyecto/Arkad-api-prod
+                  echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+                  docker compose -f docker-compose.arkad-api-prod.yml down --volumes --remove-orphans
+                  docker image prune -a -f
+                  docker compose -f docker-compose.arkad-api-prod.yml pull
+                  docker compose -f docker-compose.arkad-api-prod.yml up -d --remove-orphans
