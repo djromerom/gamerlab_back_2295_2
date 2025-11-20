@@ -36,7 +36,7 @@ export class TeamsController {
   @HttpCode(400)
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
-    return 'Registrations are closed';
+    return this.teamsService.create(createTeamDto);
   }
 
   @Post('admin')
