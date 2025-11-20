@@ -33,7 +33,6 @@ export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
   @Public()
-  @HttpCode(400)
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);
