@@ -50,9 +50,6 @@ jobs:
             commit_user_email: zinbak78@gmail.com
             commit_author: CamiloDlRM <zinbak78@gmail.com>
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
       - name: Log in to Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
