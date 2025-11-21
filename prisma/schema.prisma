@@ -188,6 +188,7 @@ model Team {
   isActive         Boolean    @default(true) @map("activo")
   isExternal       Boolean    @default(false) @map("externo")
   confirmId        Int        @default(2) @map("id_estado_confirmacion")
+  likes            Int        @default(0)
   edition          Edition    @relation(fields: [editionId], references: [id])
   user             User       @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]   @relation("TeamMembers")

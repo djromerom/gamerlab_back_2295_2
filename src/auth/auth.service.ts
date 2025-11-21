@@ -754,6 +754,13 @@ export class AuthService {
             confirmationStatusId: this.confirmedStatusId,
           }
         });
+        await this.prisma.verificationToken.deleteMany({
+          where: {
+            userId: user.id,
+            tokenTypeId: this.verificationTokenId,
+          },
+        });
+        this.logger.log(`First-time Entra ID setup completed for user: ${user.email}`);
       }
 
       // Use existing login method with Entra ID
