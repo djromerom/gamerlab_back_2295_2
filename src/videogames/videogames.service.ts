@@ -66,6 +66,21 @@ export class VideogamesService {
           },
         },
       });
+      await this.prisma.videogame.update({
+        where: { id: videogameId },
+        data: {
+          likes: {
+            // Ensure likes do not go below zero
+            set: Math.max(
+              0,
+              (await this.prisma.videogame.findUnique({
+                where: { id: videogameId },
+                select: { likes: true },
+              }))?.likes || 0 - 1,
+            ),
+          },
+        },
+      });
     }
 
     const updatedVideogame = await this.prisma.videogame.findUnique({
