@@ -32,6 +32,7 @@ export class VideogamesController {
     return this.videogamesService.findOne(+id);
   }
 
+  @Public()
   @Post(':id/toggle-like/:liked')
   toggleLike(
     @Param('id') videogameId: string,
