@@ -54,7 +54,7 @@ jobs:
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build Docker image
-        run: docker build -t arkadapi-test-image .
+        run: docker build -t arkadapi-test-image -f Dockerfile .
 
       - name: Tag Docker image
         run: |
