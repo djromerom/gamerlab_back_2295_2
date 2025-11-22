@@ -13,40 +13,41 @@ enum AuthMethod {
 }
 
 model Edition {
-  id                   Int                  @id @default(autoincrement()) @map("id_edicion")
-  semester             String               @unique @map("semestre")
-  title                String?              @map("titulo") @db.VarChar(100)
-  year                 Int?                 @map("año")
-  semesterName         String?              @map("nombre_semestre") @db.VarChar(50)
-  name                 String?              @map("nombre") @db.VarChar(100)
-  date                 String?              @map("fecha") @db.VarChar(50)
-  description          String?              @map("descripcion") @db.Text
-  description2         String?              @map("descripcion2") @db.Text
-  highlightedGames     String?              @map("juegos_destacados") @db.Text
-  alt                  String?              @map("alt") @db.VarChar(100)
-  isActive             Boolean              @default(false) @map("activo")
-  createdAt            DateTime             @default(now()) @map("creado_en")
-  updatedAt            DateTime             @updatedAt @map("actualizado_en")
-  teams                Team[]
-  evaluations          Evaluation[]
-  podiums              Podium[]
-  educationalFocuses   EducationalFocus[]
-  testimonials         Testimonial[]
-  nrcs                 NRC[]
-  eventConfiguration   EventConfiguration?
+  id                 Int                 @id @default(autoincrement()) @map("id_edicion")
+  semester           String              @unique @map("semestre")
+  title              String?             @map("titulo") @db.VarChar(100)
+  year               Int?                @map("año")
+  semesterName       String?             @map("nombre_semestre") @db.VarChar(50)
+  name               String?             @map("nombre") @db.VarChar(100)
+  date               String?             @map("fecha") @db.VarChar(50)
+  description        String?             @map("descripcion") @db.Text
+  description2       String?             @map("descripcion2") @db.Text
+  highlightedGames   String?             @map("juegos_destacados") @db.Text
+  alt                String?             @map("alt") @db.VarChar(100)
+  isActive           Boolean             @default(false) @map("activo")
+  createdAt          DateTime            @default(now()) @map("creado_en")
+  updatedAt          DateTime            @updatedAt @map("actualizado_en")
+  teams              Team[]
+  evaluations        Evaluation[]
+  podiums            Podium[]
+  educationalFocuses EducationalFocus[]
+  testimonials       Testimonial[]
+  nrcs               NRC[]
+  eventConfiguration EventConfiguration?
+  weighting          Weighting?
 
   @@map("ediciones")
 }
 
 model EventConfiguration {
-  id              Int       @id @default(autoincrement())
-  editionId       Int       @map("id_edicion") @default(3) @unique
-  startDate       DateTime  @map("fecha_inicio")
-  endDate         DateTime  @map("fecha_fin")
-  evaluationsOpen Boolean   @default(false) @map("evaluaciones_abiertas")
-  createdAt       DateTime  @default(now()) @map("creado_en")
-  updatedAt       DateTime  @updatedAt @map("actualizado_en")
-  edition         Edition   @relation(fields: [editionId], references: [id])
+  id              Int      @id @default(autoincrement())
+  editionId       Int      @unique @default(3) @map("id_edicion")
+  startDate       DateTime @map("fecha_inicio")
+  endDate         DateTime @map("fecha_fin")
+  evaluationsOpen Boolean  @default(false) @map("evaluaciones_abiertas")
+  createdAt       DateTime @default(now()) @map("creado_en")
+  updatedAt       DateTime @updatedAt @map("actualizado_en")
+  edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
 }
@@ -194,8 +195,8 @@ model Team {
   videogame        Videogame?
   assignedJurors   User[]     @relation("JurorTeamAssignment")
 
-  @@map("equipos")
   @@unique([teamCode, editionId])
+  @@map("equipos")
 }
 
 model Member {
@@ -251,7 +252,7 @@ model Evaluation {
   totalScore  Float?             @map("puntaje_total")
   jurorId     String             @map("id_jurado")
   videogameId Int                @map("id_videojuego")
-  editionId   Int                @map("id_edicion") @default(3)
+  editionId   Int                @default(3) @map("id_edicion")
   isSenior    Boolean            @default(false) @map("es_jurado_senior")
   isActive    Boolean            @default(true) @map("activo")
   details     EvaluationDetail[]
@@ -320,6 +321,20 @@ model EvaluationDetail {
 
   @@unique([evaluationId, criterionId], name: "evaluacion_criterio_unique")
   @@map("detalle_evaluacion")
+}
+
+model Weighting {
+  id        Int      @id @default(autoincrement())
+  editionId Int      @map("id_edicion")
+  seniorPct Float    @map("senior_pct")
+  juniorPct Float    @map("junior_pct")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId])
+  @@map("ponderado")
 }
 
 model Upload {
