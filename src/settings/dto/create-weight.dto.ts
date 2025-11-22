@@ -1,8 +1,9 @@
-import { IsNumber, Min, Max } from 'class-validator';
+import { IsNumber, Min, Max, IsOptional } from 'class-validator';
 
 export class CreateWeightDto {
+  @IsOptional()
   @IsNumber()
-  editionId: number;
+  editionId?: number;
 
   @IsNumber()
   @Min(0)

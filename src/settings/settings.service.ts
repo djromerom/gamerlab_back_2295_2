@@ -6,8 +6,20 @@ import { CreateWeightDto } from './dto/create-weight.dto';
 export class SettingsService {
   constructor(private prisma: PrismaService) {}
 
-  async getByEdition(editionId: number) {
-    return this.prisma.weighting.findUnique({ where: { editionId } });
+  async getByEdition(editionId?: number) {
+    // If no editionId is provided, resolve the latest edition ID internally
+    let id = editionId;
+    if (!id) {
+      const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
+      id = latest?.id ?? 1;
+    }
+    return this.prisma.weighting.findUnique({ where: { editionId: id } });
+  }
+
+  async getLatest() {
+    const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
+    const editionId = latest?.id ?? 1;
+    return this.getByEdition(editionId);
   }
 
   async upsertWeights(dto: CreateWeightDto) {
@@ -22,10 +34,14 @@ export class SettingsService {
       // dto.juniorPct = 100 - dto.seniorPct;
       throw new BadRequestException('The sum of seniorPct and juniorPct must equal 100');
     }
+    // determine editionId: use provided one or fallback to latest edition
+    const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
+    const editionId = dto.editionId ?? latest?.id ?? 1;
+
     return this.prisma.weighting.upsert({
-      where: { editionId: dto.editionId },
+      where: { editionId },
       update: { seniorPct: dto.seniorPct, juniorPct: dto.juniorPct },
-      create: { editionId: dto.editionId, seniorPct: dto.seniorPct, juniorPct: dto.juniorPct },
+      create: { editionId, seniorPct: dto.seniorPct, juniorPct: dto.juniorPct },
     });
   }
 }

@@ -10,6 +10,23 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam } from '@nestjs/s
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
+  @Get()
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('GetWeight')
+  @ApiOperation({ summary: 'Get weighting configuration for the latest edition' })
+  @ApiResponse({ status: 200, description: 'Weighting configuration for latest edition', schema: { example: {
+    id: 1,
+    editionId: 2,
+    seniorPct: 60,
+    juniorPct: 40,
+    createdAt: '2025-11-22T19:29:27.461Z',
+    updatedAt: '2025-11-22T19:29:27.461Z'
+  } } })
+  @ApiResponse({ status: 404, description: 'Weighting not found for latest edition' })
+  getLatest() {
+    return this.settingsService.getLatest();
+  }
+
   @Get(':editionId')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetWeight')
@@ -32,7 +49,7 @@ export class SettingsController {
   @RequiredService('ManageWeight')
   @Post()
   @ApiOperation({ summary: 'Create or upsert weighting configuration for an edition' })
-  @ApiBody({ schema: { example: { editionId: 2, seniorPct: 60, juniorPct: 40 } }, type: CreateWeightDto })
+  @ApiBody({ schema: { example: { seniorPct: 60, juniorPct: 40 } }, type: CreateWeightDto })
   @ApiResponse({ status: 201, description: 'Weighting created/updated', schema: { example: {
     id: 1,
     editionId: 2,
@@ -48,9 +65,8 @@ export class SettingsController {
 
   @UseGuards(RolePermissionGuard)
   @RequiredService('ManageWeight')
-  @Put(':editionId')
-  @ApiOperation({ summary: 'Update weighting configuration for an edition' })
-  @ApiParam({ name: 'editionId', type: Number, description: 'Edition identifier', example: 2 })
+  @Put()
+  @ApiOperation({ summary: 'Update or upsert weighting configuration (uses latest edition when editionId is omitted)' })
   @ApiBody({ schema: { example: { seniorPct: 60, juniorPct: 40 } }, type: CreateWeightDto })
   @ApiResponse({ status: 200, description: 'Weighting updated', schema: { example: {
     id: 1,
@@ -61,7 +77,7 @@ export class SettingsController {
     updatedAt: '2025-11-22T19:29:27.461Z'
   } } })
   @ApiResponse({ status: 400, description: 'Invalid payload' })
-  update(@Param('editionId') editionId: string, @Body() dto: CreateWeightDto) {
-    return this.settingsService.upsertWeights({ ...dto, editionId: Number(editionId) });
+  update(@Body() dto: CreateWeightDto) {
+    return this.settingsService.upsertWeights(dto);
   }
 }
