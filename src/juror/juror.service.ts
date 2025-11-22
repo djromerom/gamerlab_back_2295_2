@@ -290,42 +290,184 @@ export class JurorService {
     });
   }
 
+  /**
+   * Extrae el nivel del código del equipo
+   * Formato esperado: N1-AYP-06 donde N es el nivel (en este caso nivel 1)
+   * @param teamCode Código del equipo
+   * @returns Nivel del equipo o null si no se puede extraer
+   */
+  private extractLevelFromTeamCode(teamCode: string): number | null {
+    // Buscar el patrón N<número> al inicio del código
+    const match = teamCode.match(/^N(\d+)/i);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+    return null;
+  }
+
   async asingEvaluations() {
-    const evalByTeam = 3;
-    const jurors = await this.getJurors();
+    const allJurors = await this.getJurors();
     const teams = await this.getTeams();
 
-    if (jurors.size === 0 || teams.length === 0) {
+    this.logger.log(`Jurados disponibles: ${allJurors.size}, Equipos disponibles: ${teams.length}`);
+
+    if (allJurors.size === 0 && teams.length === 0) {
       return {
-        message: "No hay jurados o equipos disponibles para asignar evaluaciones",
+        message: "No hay jurados ni equipos disponibles para asignar evaluaciones",
+        details: {
+          jurados: 0,
+          equipos: 0,
+        },
       };
     }
 
-    for (const team of teams) {
-
-      //const assignedJurorsIDs = team.assignedJurors.map(j => j.id);
-      const sortedJurors = Array.from(jurors.entries()).sort((a, b) => a[1] - b[1]);
-      //const availableJurors = sortedJurors.filter(([jurorId]) => !assignedJurorsIDs.includes(jurorId));
-      //const freeJurors = availableJurors.slice(0, evalByTeam);
-      const freeJurors = sortedJurors.slice(0, evalByTeam);
-
-      for (const [jurorId, count] of freeJurors) {
-        jurors.set(jurorId, count + 1);
-      }
-      await this.prisma.$transaction(async (tx) => {
-        await tx.team.update({
-          where: { id: team.id },
-          data: {
-            assignedJurors: {
-              set: freeJurors.map(([jurorId]) => ({ id: jurorId }))
-            }
-          }
-        });
-      })
-
+    if (allJurors.size === 0) {
+      return {
+        message: "No hay jurados disponibles para asignar evaluaciones",
+        details: {
+          jurados: 0,
+          equipos: teams.length,
+        },
+      };
     }
+
+    if (teams.length === 0) {
+      return {
+        message: "No hay equipos disponibles para asignar evaluaciones",
+        details: {
+          jurados: allJurors.size,
+          equipos: 0,
+        },
+      };
+    }
+
+    // Agrupar equipos por nivel
+    const teamsByLevel = new Map<number, typeof teams>();
+    let teamsWithoutCode = 0;
+    let teamsWithInvalidCode = 0;
+
+    for (const team of teams) {
+      // Verificar que el equipo tenga teamCode
+      if (!team.teamCode || team.teamCode.trim() === '') {
+        teamsWithoutCode++;
+        this.logger.warn(`Equipo ID ${team.id} no tiene teamCode`);
+        continue;
+      }
+
+      const level = this.extractLevelFromTeamCode(team.teamCode);
+      if (level === null) {
+        teamsWithInvalidCode++;
+        this.logger.warn(`No se pudo extraer el nivel del equipo ID ${team.id} con código: ${team.teamCode}`);
+        continue;
+      }
+
+      if (!teamsByLevel.has(level)) {
+        teamsByLevel.set(level, []);
+      }
+      teamsByLevel.get(level)!.push(team);
+    }
+
+    if (teamsByLevel.size === 0) {
+      return {
+        message: "No se encontraron equipos con formato de nivel válido (N<número>-...)",
+        details: {
+          totalEquipos: teams.length,
+          equiposSinCodigo: teamsWithoutCode,
+          equiposConCodigoInvalido: teamsWithInvalidCode,
+          equiposConNivelValido: 0,
+        },
+      };
+    }
+
+    this.logger.log(`Equipos agrupados por nivel: ${Array.from(teamsByLevel.entries()).map(([level, teams]) => `Nivel ${level}: ${teams.length} equipos`).join(', ')}`);
+
+    // Para cada nivel, distribuir jurados equitativamente
+    const results: string[] = [];
+
+    for (const [level, levelTeams] of teamsByLevel.entries()) {
+      // Ordenar jurados por carga actual (menos evaluaciones primero)
+      // Esto asegura que los jurados con menos carga se asignen primero
+      let sortedJurors = Array.from(allJurors.entries()).sort((a, b) => a[1] - b[1]);
+
+      const availableJurors = sortedJurors.length;
+
+      if (availableJurors === 0) {
+        results.push(`Nivel ${level}: No hay jurados disponibles`);
+        continue;
+      }
+
+      // Calcular cuántos jurados asignar por equipo de forma equitativa
+      const totalTeams = levelTeams.length;
+      const jurorsPerTeam = Math.floor(availableJurors / totalTeams);
+      const extraJurors = availableJurors % totalTeams;
+
+      // Distribuir jurados de forma circular para balancear la carga
+      let jurorIndex = 0;
+      const assignments: Array<{ teamId: number; jurorIds: string[] }> = [];
+
+      for (let teamIdx = 0; teamIdx < levelTeams.length; teamIdx++) {
+        const team = levelTeams[teamIdx];
+        const assignedJurorIds: string[] = [];
+        
+        // Calcular cuántos jurados asignar a este equipo
+        // Los primeros equipos reciben un jurado extra si hay sobrantes
+        const jurorsForThisTeam = jurorsPerTeam + (teamIdx < extraJurors ? 1 : 0);
+        
+        // Asignar jurados a este equipo
+        for (let i = 0; i < jurorsForThisTeam; i++) {
+          if (availableJurors > 0) {
+            // Reordenar antes de cada asignación para mantener el balance
+            sortedJurors = Array.from(allJurors.entries()).sort((a, b) => a[1] - b[1]);
+            
+            const [jurorId, currentLoad] = sortedJurors[jurorIndex % availableJurors];
+            assignedJurorIds.push(jurorId);
+            
+            // Incrementar la carga del jurado en el mapa global
+            allJurors.set(jurorId, currentLoad + 1);
+            
+            jurorIndex++;
+          }
+        }
+
+        assignments.push({
+          teamId: team.id,
+          jurorIds: assignedJurorIds,
+        });
+      }
+
+      // Actualizar las asignaciones en la base de datos
+      for (const assignment of assignments) {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.team.update({
+            where: { id: assignment.teamId },
+            data: {
+              assignedJurors: {
+                set: assignment.jurorIds.map((jurorId) => ({ id: jurorId })),
+              },
+            },
+          });
+        });
+      }
+
+      // Calcular estadísticas para el mensaje
+      const minJurors = Math.min(...assignments.map(a => a.jurorIds.length));
+      const maxJurors = Math.max(...assignments.map(a => a.jurorIds.length));
+      const avgJurors = (assignments.reduce((sum, a) => sum + a.jurorIds.length, 0) / assignments.length).toFixed(1);
+      
+      if (minJurors === maxJurors) {
+        results.push(
+          `Nivel ${level}: ${totalTeams} equipos asignados con ${minJurors} jurado${minJurors !== 1 ? 's' : ''} cada uno`,
+        );
+      } else {
+        results.push(
+          `Nivel ${level}: ${totalTeams} equipos asignados (${minJurors}-${maxJurors} jurados por equipo, promedio: ${avgJurors})`,
+        );
+      }
+    }
+
     return {
       message: "Evaluaciones asignadas correctamente",
+      details: results,
     };
   }
 
@@ -338,6 +480,7 @@ export class JurorService {
         },
         select: {
           id: true,
+          teamCode: true,
           assignedJurors: {
             select: { id: true }
           }
@@ -496,6 +639,46 @@ export class JurorService {
       // Verificar que el equipo no tenga más de 3 jurados (opcional, según requerimientos)
       if (team.assignedJurors.length >= 3) {
         throw new BadRequestException('El equipo ya tiene 3 jurados asignados');
+      }
+
+      // Extraer el nivel del equipo al que se quiere asignar
+      const teamLevel = this.extractLevelFromTeamCode(team.teamCode);
+      if (teamLevel === null) {
+        throw new BadRequestException(
+          `No se pudo determinar el nivel del equipo. El código del equipo debe tener formato N<número>-... (ej: N1-AYP-06)`,
+        );
+      }
+
+      // Verificar que el jurado no tenga equipos asignados de otro nivel
+      const existingTeams = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          assignedJurors: {
+            some: { id: jurorId },
+          },
+        },
+        select: {
+          id: true,
+          teamCode: true,
+        },
+      });
+
+      if (existingTeams.length > 0) {
+        // Verificar que todos los equipos existentes sean del mismo nivel
+        for (const existingTeam of existingTeams) {
+          const existingLevel = this.extractLevelFromTeamCode(existingTeam.teamCode);
+          if (existingLevel === null) {
+            this.logger.warn(
+              `No se pudo extraer el nivel del equipo existente con código: ${existingTeam.teamCode}`,
+            );
+            continue;
+          }
+          if (existingLevel !== teamLevel) {
+            throw new BadRequestException(
+              `El jurado ya está asignado a equipos de nivel ${existingLevel}. Solo puede evaluar equipos del mismo nivel.`,
+            );
+          }
+        }
       }
 
       // Asignar el jurado al equipo en la tabla intermedia
