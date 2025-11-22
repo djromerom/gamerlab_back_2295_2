@@ -9,17 +9,8 @@ export class SettingsService {
     evaluationsOpen: boolean;
     endDate: Date;
   }> {
-    const currentEdition = await this.prisma.edition.findFirst({
-      where: { isActive: true },
-      select: { id: true },
-    });
-
-    if (!currentEdition) {
-      throw new NotFoundException('There is not an active edition');
-    }
-
-    const cfg = await this.prisma.eventConfiguration.findUnique({
-      where: { editionId: currentEdition.id },
+    const cfg = await this.prisma.eventConfiguration.findFirst({
+      where: { edition: { isActive: true } },
       select: { evaluationsOpen: true, endDate: true },
     });
 
@@ -31,6 +22,30 @@ export class SettingsService {
     return {
       evaluationsOpen: cfg.evaluationsOpen,
       endDate: cfg.endDate,
+    };
+  }
+
+  async updateEvaluationStatus(
+    open: boolean,
+  ): Promise<{ evaluationsOpen: boolean; endDate: Date }> {
+    const cfg = await this.prisma.eventConfiguration.findFirst({
+      where: { edition: { isActive: true } },
+      select: { id: true },
+    });
+    if (!cfg)
+      throw new NotFoundException(
+        'A configuration for the active edition was not found',
+      );
+
+    const updated = await this.prisma.eventConfiguration.update({
+      where: { id: cfg.id },
+      data: { evaluationsOpen: open },
+      select: { evaluationsOpen: true, endDate: true },
+    });
+
+    return {
+      evaluationsOpen: updated.evaluationsOpen,
+      endDate: updated.endDate,
     };
   }
 }
