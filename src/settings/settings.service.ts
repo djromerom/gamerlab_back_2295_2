@@ -4,20 +4,29 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class SettingsService {
   constructor(private readonly prisma: PrismaService) {}
-  private readonly CONFIG_ID = 1;
 
   async getEvaluationsOpen(): Promise<{
     evaluationsOpen: boolean;
     endDate: Date;
   }> {
-    const cfg = await this.prisma.eventConfiguration.findFirst({
-      where: { id: this.CONFIG_ID }, // Assuming there's only one configuration entry
-      select: { endDate: true, evaluationsOpen: true },
+    const currentEdition = await this.prisma.edition.findFirst({
+      where: { isActive: true },
+      select: { id: true },
     });
 
-    if (!cfg) {
-      throw new NotFoundException('Event configuration not found');
+    if (!currentEdition) {
+      throw new NotFoundException('There is not an active edition');
     }
+
+    const cfg = await this.prisma.eventConfiguration.findUnique({
+      where: { editionId: currentEdition.id },
+      select: { evaluationsOpen: true, endDate: true },
+    });
+
+    if (!cfg)
+      throw new NotFoundException(
+        'A configuration for this edition was not found',
+      );
 
     return {
       evaluationsOpen: cfg.evaluationsOpen,
