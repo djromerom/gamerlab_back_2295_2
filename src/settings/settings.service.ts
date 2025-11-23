@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventConfiguration } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -9,19 +10,11 @@ export class SettingsService {
     evaluationsOpen: boolean;
     endDate: Date;
   }> {
-    const cfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: { isActive: true } },
-      select: { evaluationsOpen: true, endDate: true },
-    });
-
-    if (!cfg)
-      throw new NotFoundException(
-        'A configuration for this edition was not found',
-      );
+    const activeCnfgInfo = await this.getActiveConfig();
 
     return {
-      evaluationsOpen: cfg.evaluationsOpen,
-      endDate: cfg.endDate,
+      evaluationsOpen: activeCnfgInfo.evaluationsOpen,
+      endDate: activeCnfgInfo.endDate,
     };
   }
 
@@ -39,6 +32,11 @@ export class SettingsService {
     return updated;
   }
 
+  async getShowRanking(): Promise<{ showRanking: boolean }> {
+    const activeCnfg = await this.getActiveConfig();
+    return { showRanking: activeCnfg.showRanking as boolean };
+  }
+
   async setShowRanking(show: boolean): Promise<{ showRanking: boolean }> {
     const activeCnfg = await this.getActiveConfig();
 
@@ -49,6 +47,11 @@ export class SettingsService {
     });
 
     return updated;
+  }
+
+  async getShowEvaluation(): Promise<{ showEvaluations: boolean }> {
+    const activeCnfg = await this.getActiveConfig();
+    return { showEvaluations: activeCnfg.showEvaluations as boolean };
   }
 
   async setShowEvaluation(
@@ -65,10 +68,9 @@ export class SettingsService {
     return updated;
   }
 
-  private async getActiveConfig() {
+  private async getActiveConfig(): Promise<EventConfiguration> {
     const activeCnfg = await this.prisma.eventConfiguration.findFirst({
       where: { edition: { isActive: true } },
-      select: { id: true },
     });
     if (!activeCnfg)
       throw new NotFoundException(
