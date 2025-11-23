@@ -34,7 +34,7 @@ export class JurorService {
 
     try {
 
-      const jurorRole: Role | null = await this.prisma.role.findUnique({
+      const jurorRole: Role | null = await this.prisma.role.findFirst({
         where: { name: this.JUROR_ROLE_NAME, isActive: true }
       });
 
@@ -52,7 +52,7 @@ export class JurorService {
         `Juror role ID initialized: Juror role ID=${this.jurorRoleId}`,
       );
 
-      // Buscar ID del estado "CONFIRMADO"
+      // Buscar ID del estado de videojuego "CONFIRMADO"
       const confirmedStatus = await this.prisma.videogameStatus.findUnique({
         where: { status: this.CONFIRMED_STATUS_NAME, isActive: true },
       });
