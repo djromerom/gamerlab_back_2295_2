@@ -39,4 +39,18 @@ export class SettingsController {
   updateEvaluationStatus(@Query('open') open: boolean) {
     return this.settingsService.updateEvaluationStatus(open);
   }
+
+  @Patch('show-ranking')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateSettings')
+  setShowRanking(@Query('show') show: boolean) {
+    return this.settingsService.setShowRanking(show);
+  }
+
+  @Patch('show-evaluations')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateSettings')
+  setShowEvaluations(@Query('show') show: boolean) {
+    return this.settingsService.setShowEvaluation(show);
+  }
 }

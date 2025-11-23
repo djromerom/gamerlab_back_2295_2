@@ -44,6 +44,8 @@ model EventConfiguration {
   startDate       DateTime  @map("fecha_inicio")
   endDate         DateTime  @map("fecha_fin")
   evaluationsOpen Boolean   @default(false) @map("evaluaciones_abiertas")
+  showRanking     Boolean   @default(false) @map("mostrar_raking")
+  showEvaluations Boolean   @default(false) @map("mostrar_evaluaciones")
   createdAt       DateTime  @default(now()) @map("creado_en")
   updatedAt       DateTime  @updatedAt @map("actualizado_en")
   edition         Edition   @relation(fields: [editionId], references: [id])
