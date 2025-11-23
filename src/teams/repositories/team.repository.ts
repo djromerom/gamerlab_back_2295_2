@@ -479,27 +479,49 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async remove(id: number): Promise<Team> {
-    let teamToDelete: Team;
-    this.prisma.$transaction(async (tx) => {
-      const userId = await tx.team.findUnique({
-        where: { id },
-        select: { userId: true },
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        // First, get the team with user information
+        const teamToDelete = await tx.team.findUnique({
+          where: { id },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+              },
+            },
+          },
+        });
+
+        if (!teamToDelete) {
+          throw new NotFoundException(`Team with id ${id} not found`);
+        }
+
+        if (!teamToDelete.user) {
+          throw new NotFoundException(`User associated with team ${id} not found`);
+        }
+
+        // Delete the team (cascade delete videogames and members)
+        const deletedTeam = await tx.team.delete({
+          where: { id },
+        });
+
+        // Delete verification tokens for the user
+        await tx.verificationToken.deleteMany({
+          where: { email: teamToDelete.user.email },
+        });
+
+        // Delete the user
+        await tx.user.delete({
+          where: { id: teamToDelete.user.id },
+        });
+
+        return deletedTeam;
       });
-      const userEmail = await tx.user.findUnique({
-        where: { id: userId?.userId },
-        select: { email: true },
-      });
-      teamToDelete = await tx.team.delete({
-        where: { id },
-      });
-      await tx.verificationToken.deleteMany({
-        where: { email: userEmail?.email },
-      });
-      await tx.user.delete({
-        where: { id: userId?.userId },
-      });
-    });
-    return teamToDelete!;
+    } catch (error: any) {
+      handlePrismaError(error);
+    }
   }
 
   async getTeamsWithLessThanThreeJurors(): Promise<
