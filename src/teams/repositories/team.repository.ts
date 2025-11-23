@@ -158,8 +158,20 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  async findAll(): Promise<Team[]> {
+  async findAll(sortByLikes = false): Promise<Team[]> {
+    const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
+      { confirmId: 'asc' } // always first
+    ];
+
+    if (sortByLikes) {
+      orderBy.push({ videogame: { likes: 'desc' } });
+      orderBy.push({ registrationDate: 'asc' });
+    } else {
+      orderBy.push({ id: 'asc' });
+    }
+
     return this.prisma.team.findMany({
+      orderBy: orderBy,
       include: {
         videogame: true,
         members: true,
@@ -181,15 +193,25 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  async findPaged(page = 1, limit = 10) {
+  async findPaged(page = 1, limit = 10, sortByLikes = false) {
     const currentPage = Math.max(page, 1);
     const itemsPerPage = Math.max(limit, 1);
 
+    const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
+      { confirmId: 'asc' } // always first
+    ];
+
+    if (sortByLikes) {
+      orderBy.push({ videogame: { likes: 'desc' } });
+      orderBy.push({ registrationDate: 'asc' });
+    } else {
+      orderBy.push({ id: 'asc' });
+    }
     const [teams, totalItems] = await this.prisma.$transaction([
       this.prisma.team.findMany({
         skip: (currentPage - 1) * itemsPerPage,
         take: itemsPerPage,
-        orderBy: { id: 'asc' },
+        orderBy: orderBy,
         include: {
           members: {
             include: {

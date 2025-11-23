@@ -47,6 +47,50 @@ export class VideogamesService {
     }));
   }
 
+  async toggleLike(videogameId: number, liked: boolean) : Promise<{ liked: boolean, likeCount: number }> {
+    if (liked) {
+      await this.prisma.videogame.update({
+        where: { id: videogameId },
+        data: {
+          likes: {
+            increment: 1,
+          },
+        },
+      });
+    } else {
+      await this.prisma.videogame.update({
+        where: { id: videogameId },
+        data: {
+          likes: {
+            decrement: 1,
+          },
+        },
+      });
+      await this.prisma.videogame.update({
+        where: { id: videogameId },
+        data: {
+          likes: {
+            // Ensure likes do not go below zero
+            set: Math.max(
+              0,
+              (await this.prisma.videogame.findUnique({
+                where: { id: videogameId },
+                select: { likes: true },
+              }))?.likes || 0 - 1,
+            ),
+          },
+        },
+      });
+    }
+
+    const updatedVideogame = await this.prisma.videogame.findUnique({
+      where: { id: videogameId },
+      select: { likes: true },
+    });
+
+    return { liked, likeCount: updatedVideogame?.likes || 0 };
+  }
+
   async findOne(videogameId: number) {
     throw new NotImplementedException('Method findOne not implemented yet');
   }

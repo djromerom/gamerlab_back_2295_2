@@ -147,8 +147,8 @@ export class TeamsService {
     return this.authService.registerUser(authRegisterPayload);
   }
 
-  async findAll() {
-    return this.teamRepository.findAll();
+  async findAll(sortByLikes: boolean) {
+    return this.teamRepository.findAll(sortByLikes);
   }
 
   async findOne(id: number): Promise<unknown> {
@@ -293,8 +293,8 @@ export class TeamsService {
     return this.teamRepository.getTeamsWithLessThanThreeJurors();
   }
 
-  async findPaged(page: number, limit: number) {
-    return await this.teamRepository.findPaged(page, limit);
+  async findPaged(page: number, limit: number, sortByLikes: boolean) {
+    return await this.teamRepository.findPaged(page, limit, sortByLikes);
   }
 
   async getLeaderStatus(email: string) {
