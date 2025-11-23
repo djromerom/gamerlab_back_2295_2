@@ -160,7 +160,7 @@ export class TeamRepository implements ITeamRepository {
 
   async findAll(sortByLikes = false): Promise<Team[]> {
     const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
-      { confirmId: 'asc' } // always first
+      { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
     ];
 
     if (sortByLikes) {
@@ -198,7 +198,7 @@ export class TeamRepository implements ITeamRepository {
     const itemsPerPage = Math.max(limit, 1);
 
     const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
-      { confirmId: 'asc' } // always first
+      { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
     ];
 
     if (sortByLikes) {
@@ -543,7 +543,7 @@ export class TeamRepository implements ITeamRepository {
     }>
   > {
     try {
-      const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
+      const confirmedStatus = await this.prisma.videogameStatus.findFirst({
         where: { status: 'CONFIRMADO', isActive: true },
       });
 
@@ -556,7 +556,9 @@ export class TeamRepository implements ITeamRepository {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
-          confirmId: confirmedStatus.id,
+          videogame: {
+            videogameStatusId: confirmedStatus.id,
+          },
         },
         include: {
           assignedJurors: {
@@ -574,6 +576,12 @@ export class TeamRepository implements ITeamRepository {
             select: {
               id: true,
               name: true,
+              videogameStatus: {
+                select: {
+                  id: true,
+                  status: true,
+                },
+              },
             },
           },
           user: {
