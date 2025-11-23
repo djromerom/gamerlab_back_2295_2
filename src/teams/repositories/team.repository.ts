@@ -479,9 +479,27 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async remove(id: number): Promise<Team> {
-    return this.prisma.team.delete({
-      where: { id },
+    let teamToDelete: Team;
+    this.prisma.$transaction(async (tx) => {
+      const userId = await tx.team.findUnique({
+        where: { id },
+        select: { userId: true },
+      });
+      const userEmail = await tx.user.findUnique({
+        where: { id: userId?.userId },
+        select: { email: true },
+      });
+      teamToDelete = await tx.team.delete({
+        where: { id },
+      });
+      await tx.verificationToken.deleteMany({
+        where: { email: userEmail?.email },
+      });
+      await tx.user.delete({
+        where: { id: userId?.userId },
+      });
     });
+    return teamToDelete!;
   }
 
   async getTeamsWithLessThanThreeJurors(): Promise<
