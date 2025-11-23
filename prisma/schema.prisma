@@ -187,7 +187,6 @@ model Team {
   editionId        Int        @default(3) @map("id_edicion")
   isActive         Boolean    @default(true) @map("activo")
   isExternal       Boolean    @default(false) @map("externo")
-  confirmId        Int        @default(2) @map("id_estado_confirmacion")
   edition          Edition    @relation(fields: [editionId], references: [id])
   user             User       @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]   @relation("TeamMembers")
@@ -216,7 +215,7 @@ model Member {
 
 model VideogameStatus {
   id         Int         @id @default(autoincrement()) @map("id_estado")
-  status     String      @map("estado") @db.VarChar(30)
+  status     String      @map("estado") @db.VarChar(30) @unique
   isActive   Boolean     @default(true) @map("activo")
   updatedAt  DateTime    @updatedAt @map("actualizado_en")
   createdAt  DateTime    @default(now()) @map("creado_en")
