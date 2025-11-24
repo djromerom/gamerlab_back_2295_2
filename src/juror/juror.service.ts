@@ -429,136 +429,142 @@ export class JurorService {
         continue;
       }
 
-      // Garantizar que cada equipo reciba al menos 1 evaluador
+      // CONSTANTES: Mínimo 3 jurados por equipo, máximo 5 equipos por jurado
+      const MIN_JURORS_PER_TEAM = 3;
+      const MAX_TEAMS_PER_JUROR = 5;
+      
       const totalTeams = levelTeams.length;
       
-      // Primero, asignar al menos 1 evaluador a cada equipo de forma circular
+      // Verificar que hay suficientes evaluadores disponibles
+      const totalRequiredAssignments = totalTeams * MIN_JURORS_PER_TEAM;
+      const availableSlots = availableEvaluators * MAX_TEAMS_PER_JUROR;
+      
+      if (totalRequiredAssignments > availableSlots) {
+        const evaluatorType = level === 0 ? 'profesores' : 'jurados';
+        results.push(
+          `Nivel ${level}: ERROR - No hay suficientes ${evaluatorType}. ` +
+          `Se necesitan ${totalRequiredAssignments} asignaciones pero solo hay ${availableSlots} disponibles ` +
+          `(${availableEvaluators} ${evaluatorType} × ${MAX_TEAMS_PER_JUROR} equipos máximo por ${evaluatorType === 'jurados' ? 'jurado' : 'profesor'})`
+        );
+        this.logger.error(
+          `Nivel ${level}: No hay suficientes ${evaluatorType}. ` +
+          `Requerido: ${totalRequiredAssignments}, Disponible: ${availableSlots}`
+        );
+        continue;
+      }
+      
+      // Inicializar asignaciones con los jurados actuales del equipo
       const assignments: Array<{ teamId: number; jurorIds: string[] }> = [];
       
-      // Inicializar asignaciones vacías
       for (const team of levelTeams) {
+        // Obtener jurados ya asignados al equipo (solo del rol correcto)
+        const currentAssignedJurors = team.assignedJurors
+          .filter(j => {
+            const roleId = level === 0 ? this.professorRoleId : this.jurorRoleId;
+            return j.roleId === roleId;
+          })
+          .map(j => j.id);
+        
         assignments.push({
           teamId: team.id,
-          jurorIds: [],
+          jurorIds: [...currentAssignedJurors], // Mantener asignaciones existentes
         });
       }
       
-      // Paso 1: Asignar al menos 1 evaluador a cada equipo de forma circular
-      // Esto asegura que ningún equipo quede sin evaluador
-      // Si hay más equipos que evaluadores, los evaluadores se asignarán de forma circular
-      let evaluatorRoundRobinIndex = 0;
-      const evaluatorsAssignedInStep1 = Math.min(totalTeams, availableEvaluators);
-      
-      for (let teamIdx = 0; teamIdx < evaluatorsAssignedInStep1; teamIdx++) {
-        // Obtener el evaluador con menor carga (circular)
-        sortedEvaluators = Array.from(currentEvaluators.entries()).sort((a, b) => a[1] - b[1]);
-        const evaluatorIndex = evaluatorRoundRobinIndex % sortedEvaluators.length;
-        const [evaluatorId, currentLoad] = sortedEvaluators[evaluatorIndex];
+      // Asignar evaluadores hasta que cada equipo tenga al menos MIN_JURORS_PER_TEAM
+      for (let teamIdx = 0; teamIdx < totalTeams; teamIdx++) {
+        const assignment = assignments[teamIdx];
+        const neededJurors = Math.max(0, MIN_JURORS_PER_TEAM - assignment.jurorIds.length);
         
-        // Asignar el evaluador al equipo
-        assignments[teamIdx].jurorIds.push(evaluatorId);
-        
-        // Actualizar la carga
-        currentEvaluators.set(evaluatorId, currentLoad + 1);
-        if (level !== 0) {
-          allJurors.set(evaluatorId, currentLoad + 1);
+        if (neededJurors === 0) {
+          // El equipo ya tiene suficientes evaluadores
+          continue;
         }
         
-        evaluatorRoundRobinIndex++;
-      }
-      
-      // Si hay más equipos que evaluadores, asignar evaluadores de forma circular
-      // a los equipos restantes
-      for (let teamIdx = evaluatorsAssignedInStep1; teamIdx < totalTeams; teamIdx++) {
-        sortedEvaluators = Array.from(currentEvaluators.entries()).sort((a, b) => a[1] - b[1]);
-        if (sortedEvaluators.length > 0) {
-          const evaluatorIndex = evaluatorRoundRobinIndex % sortedEvaluators.length;
-          const [evaluatorId, currentLoad] = sortedEvaluators[evaluatorIndex];
+        // Obtener evaluadores disponibles (que no estén ya asignados y no hayan alcanzado el límite)
+        sortedEvaluators = Array.from(currentEvaluators.entries())
+          .filter(([evaluatorId, teamCount]) => 
+            !assignment.jurorIds.includes(evaluatorId) && 
+            teamCount < MAX_TEAMS_PER_JUROR
+          )
+          .sort((a, b) => a[1] - b[1]); // Ordenar por carga (menos equipos primero)
+        
+        if (sortedEvaluators.length < neededJurors) {
+          this.logger.warn(
+            `Nivel ${level}, Equipo ${assignment.teamId}: ` +
+            `Faltan ${neededJurors} evaluadores pero solo hay ${sortedEvaluators.length} disponibles`
+          );
+        }
+        
+        // Asignar los evaluadores necesarios
+        for (let i = 0; i < neededJurors && i < sortedEvaluators.length; i++) {
+          const [evaluatorId, currentLoad] = sortedEvaluators[i];
           
-          assignments[teamIdx].jurorIds.push(evaluatorId);
+          // Verificar que el evaluador no haya alcanzado el límite
+          if (currentLoad >= MAX_TEAMS_PER_JUROR) {
+            this.logger.warn(
+              `Nivel ${level}, Equipo ${assignment.teamId}: ` +
+              `Evaluador ${evaluatorId} ya tiene ${currentLoad} equipos (límite: ${MAX_TEAMS_PER_JUROR})`
+            );
+            continue;
+          }
+          
+          assignment.jurorIds.push(evaluatorId);
           currentEvaluators.set(evaluatorId, currentLoad + 1);
           if (level !== 0) {
             allJurors.set(evaluatorId, currentLoad + 1);
           }
-          
-          evaluatorRoundRobinIndex++;
         }
       }
       
-      // Paso 2: Distribuir los evaluadores restantes equitativamente entre los equipos
-      // Ya asignamos 1 evaluador a cada equipo, ahora distribuimos el resto
-      const evaluatorsAlreadyAssigned = Math.min(totalTeams, availableEvaluators);
-      const remainingEvaluators = availableEvaluators - evaluatorsAlreadyAssigned;
-      
-      if (remainingEvaluators > 0) {
-        // Calcular cuántos evaluadores adicionales asignar por equipo
-        const additionalEvaluatorsPerTeam = Math.floor(remainingEvaluators / totalTeams);
-        const extraEvaluators = remainingEvaluators % totalTeams;
+      // Verificar que todos los equipos tengan al menos MIN_JURORS_PER_TEAM evaluadores
+      const teamsWithoutEnoughEvaluators = assignments.filter(a => a.jurorIds.length < MIN_JURORS_PER_TEAM);
+      if (teamsWithoutEnoughEvaluators.length > 0) {
+        this.logger.error(
+          `CRÍTICO: ${teamsWithoutEnoughEvaluators.length} equipo(s) del nivel ${level} ` +
+          `no tienen el mínimo de ${MIN_JURORS_PER_TEAM} evaluadores asignados`
+        );
         
-        for (let teamIdx = 0; teamIdx < totalTeams; teamIdx++) {
-          const team = assignments[teamIdx];
-          // Calcular cuántos evaluadores adicionales asignar a este equipo
-          const additionalEvaluators = additionalEvaluatorsPerTeam + (teamIdx < extraEvaluators ? 1 : 0);
+        // Intentar asignar evaluadores adicionales como último recurso
+        for (const assignment of teamsWithoutEnoughEvaluators) {
+          const stillNeeded = MIN_JURORS_PER_TEAM - assignment.jurorIds.length;
+          this.logger.error(`  - Equipo ID ${assignment.teamId} tiene solo ${assignment.jurorIds.length} evaluadores (necesita ${MIN_JURORS_PER_TEAM})`);
           
-          for (let i = 0; i < additionalEvaluators; i++) {
-            // Obtener el evaluador con menor carga
-            sortedEvaluators = Array.from(currentEvaluators.entries()).sort((a, b) => a[1] - b[1]);
+          // Intentar asignar evaluadores adicionales, incluso si ya tienen equipos asignados
+          sortedEvaluators = Array.from(currentEvaluators.entries())
+            .filter(([evaluatorId]) => !assignment.jurorIds.includes(evaluatorId))
+            .sort((a, b) => a[1] - b[1]);
+          
+          for (let i = 0; i < stillNeeded && i < sortedEvaluators.length; i++) {
+            const [evaluatorId, currentLoad] = sortedEvaluators[i];
             
-            // Encontrar un evaluador que no esté ya asignado a este equipo
-            let evaluatorAssigned = false;
-            for (const [evaluatorId, currentLoad] of sortedEvaluators) {
-              if (!team.jurorIds.includes(evaluatorId)) {
-                team.jurorIds.push(evaluatorId);
-                currentEvaluators.set(evaluatorId, currentLoad + 1);
-                if (level !== 0) {
-                  allJurors.set(evaluatorId, currentLoad + 1);
-                }
-                evaluatorAssigned = true;
-                break;
-              }
+            // Asignar incluso si está cerca del límite, pero registrar advertencia
+            if (currentLoad >= MAX_TEAMS_PER_JUROR) {
+              this.logger.warn(
+                `  - Evaluador ${evaluatorId} ya tiene ${currentLoad} equipos, pero se asignará como último recurso`
+              );
             }
             
-            // Si todos los evaluadores ya están asignados a este equipo, asignar el de menor carga
-            if (!evaluatorAssigned && sortedEvaluators.length > 0) {
-              const [evaluatorId, currentLoad] = sortedEvaluators[0];
-              team.jurorIds.push(evaluatorId);
-              currentEvaluators.set(evaluatorId, currentLoad + 1);
-              if (level !== 0) {
-                allJurors.set(evaluatorId, currentLoad + 1);
-              }
-            }
-          }
-        }
-      }
-      
-      // Verificar que todos los equipos tengan al menos un evaluador
-      const teamsWithoutEvaluators = assignments.filter(a => a.jurorIds.length === 0);
-      if (teamsWithoutEvaluators.length > 0) {
-        this.logger.error(`CRÍTICO: ${teamsWithoutEvaluators.length} equipo(s) quedaron sin evaluadores asignados en nivel ${level}`);
-        for (const assignment of teamsWithoutEvaluators) {
-          this.logger.error(`  - Equipo ID ${assignment.teamId} no tiene evaluadores`);
-          // Intentar asignar el evaluador con menor carga
-          if (availableEvaluators > 0) {
-            sortedEvaluators = Array.from(currentEvaluators.entries()).sort((a, b) => a[1] - b[1]);
-            if (sortedEvaluators.length > 0) {
-              const [evaluatorId, currentLoad] = sortedEvaluators[0];
-              assignment.jurorIds.push(evaluatorId);
-              currentEvaluators.set(evaluatorId, currentLoad + 1);
-              if (level !== 0) {
-                allJurors.set(evaluatorId, currentLoad + 1);
-              }
-              this.logger.warn(`  - Asignado evaluador ${evaluatorId} al equipo ${assignment.teamId} como último recurso`);
+            assignment.jurorIds.push(evaluatorId);
+            currentEvaluators.set(evaluatorId, currentLoad + 1);
+            if (level !== 0) {
+              allJurors.set(evaluatorId, currentLoad + 1);
             }
           }
         }
       }
       
       // Log final de verificación
-      const finalTeamsWithoutEvaluators = assignments.filter(a => a.jurorIds.length === 0).length;
-      if (finalTeamsWithoutEvaluators === 0) {
-        this.logger.log(`✓ Todos los equipos del nivel ${level} tienen al menos 1 evaluador asignado`);
+      const finalTeamsWithoutEnoughEvaluators = assignments.filter(a => a.jurorIds.length < MIN_JURORS_PER_TEAM).length;
+      if (finalTeamsWithoutEnoughEvaluators === 0) {
+        this.logger.log(
+          `✓ Todos los equipos del nivel ${level} tienen al menos ${MIN_JURORS_PER_TEAM} evaluadores asignados`
+        );
       } else {
-        this.logger.error(`✗ ERROR: ${finalTeamsWithoutEvaluators} equipo(s) del nivel ${level} aún no tienen evaluadores asignados`);
+        this.logger.error(
+          `✗ ERROR: ${finalTeamsWithoutEnoughEvaluators} equipo(s) del nivel ${level} ` +
+          `aún no tienen el mínimo de ${MIN_JURORS_PER_TEAM} evaluadores asignados`
+        );
       }
 
       // Actualizar las asignaciones en la base de datos
@@ -579,16 +585,24 @@ export class JurorService {
       const minEvaluators = Math.min(...assignments.map(a => a.jurorIds.length));
       const maxEvaluators = Math.max(...assignments.map(a => a.jurorIds.length));
       const avgEvaluators = (assignments.reduce((sum, a) => sum + a.jurorIds.length, 0) / assignments.length).toFixed(1);
+      const teamsWithMinEvaluators = assignments.filter(a => a.jurorIds.length >= MIN_JURORS_PER_TEAM).length;
       
-      if (minEvaluators === maxEvaluators) {
-        const evaluatorType = level === 0 ? (minEvaluators === 1 ? 'profesor' : 'profesores') : (minEvaluators === 1 ? 'jurado' : 'jurados');
-        results.push(
-          `Nivel ${level}: ${totalTeams} equipos asignados con ${minEvaluators} ${evaluatorType} cada uno`,
-        );
+      const evaluatorType = level === 0 ? 'profesores' : 'jurados';
+      
+      if (teamsWithMinEvaluators === totalTeams) {
+        if (minEvaluators === maxEvaluators) {
+          results.push(
+            `Nivel ${level}: ${totalTeams} equipos asignados con ${minEvaluators} ${evaluatorType} cada uno (mínimo cumplido)`,
+          );
+        } else {
+          results.push(
+            `Nivel ${level}: ${totalTeams} equipos asignados (${minEvaluators}-${maxEvaluators} ${evaluatorType} por equipo, promedio: ${avgEvaluators}, mínimo cumplido)`,
+          );
+        }
       } else {
-        const evaluatorType = level === 0 ? 'profesores' : 'jurados';
         results.push(
-          `Nivel ${level}: ${totalTeams} equipos asignados (${minEvaluators}-${maxEvaluators} ${evaluatorType} por equipo, promedio: ${avgEvaluators})`,
+          `Nivel ${level}: ${teamsWithMinEvaluators}/${totalTeams} equipos con mínimo de ${MIN_JURORS_PER_TEAM} ${evaluatorType} ` +
+          `(${minEvaluators}-${maxEvaluators} ${evaluatorType} por equipo, promedio: ${avgEvaluators})`,
         );
       }
     }
@@ -601,10 +615,14 @@ export class JurorService {
 
   async getTeams() {
     try {
-      const teams = await this.prisma.team.findMany({
+      // Obtener TODOS los equipos activos con videojuegos confirmados
+      // Esto incluye todos los niveles (0, 1, 2, 3, 4, etc.)
+      const allTeams = await this.prisma.team.findMany({
         where: {
           isActive: true,
-          confirmId: this.confirmedStatusId, // Confirmado
+          videogame: {
+            isNot: null, // Asegurar que tiene videojuego
+          },
         },
         select: {
           id: true,
@@ -621,17 +639,46 @@ export class JurorService {
               id: true,
               roleId: true
             }
+          },
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+              videogameStatusId: true,
+            }
           }
         }
       });
+      
+      // Filtrar solo los equipos con videojuegos confirmados
+      const teams = allTeams.filter(team => 
+        team.videogame?.videogameStatusId === this.confirmedStatusId
+      );
       
       // Contar equipos con evaluadores asignados
       const teamsWithEvaluators = teams.filter(t => t.assignedJurors.length > 0).length;
       const teamsWithoutEvaluators = teams.length - teamsWithEvaluators;
       
+      // Agrupar por nivel para logging
+      const teamsByLevel = new Map<number, number>();
+      for (const team of teams) {
+        if (team.teamCode) {
+          const level = this.extractLevelFromTeamCode(team.teamCode);
+          if (level !== null) {
+            teamsByLevel.set(level, (teamsByLevel.get(level) || 0) + 1);
+          }
+        }
+      }
+      
+      const levelSummary = Array.from(teamsByLevel.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([level, count]) => `Nivel ${level}: ${count}`)
+        .join(', ');
+      
       this.logger.log(
         `Obtenidos ${teams.length} equipos confirmados y activos para asignación ` +
-        `(${teamsWithEvaluators} con evaluadores asignados, ${teamsWithoutEvaluators} sin evaluadores)`
+        `(${teamsWithEvaluators} con evaluadores asignados, ${teamsWithoutEvaluators} sin evaluadores). ` +
+        `Distribución por nivel: ${levelSummary || 'N/A'}`
       );
       
       return teams;
