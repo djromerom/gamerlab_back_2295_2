@@ -1722,8 +1722,8 @@
       {
         "id": 1,
         "editionId": 3,
-        "seniorPct": 40,
-        "juniorPct": 60,
+        "seniorPct": 60,
+        "juniorPct": 40,
         "createdAt": "2025-11-15T00:00:00.000Z",
         "updatedAt": "2025-11-15T00:00:00.000Z"
       }
