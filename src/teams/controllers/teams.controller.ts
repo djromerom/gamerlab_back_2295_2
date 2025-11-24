@@ -52,15 +52,19 @@ export class TeamsController {
   getTeams(
     @Query('page') @Optional() page?: string,
     @Query('limit') @Optional() limit?: string,
+    @Query('sortByLikes') @Optional() sortByLikes?: boolean,
   ) {
+    if (sortByLikes === undefined) {
+      sortByLikes = false;
+    }
     if (page && limit) {
       const pageNum = parseInt(page, 10);
       const limitNum = parseInt(limit, 10);
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
-        return this.teamsService.findPaged(pageNum, limitNum);
+        return this.teamsService.findPaged(pageNum, limitNum, sortByLikes);
       }
     }
-    return this.teamsService.findAll();
+    return this.teamsService.findAll(sortByLikes);
   }
 
   @Get('incomplete-jurors')

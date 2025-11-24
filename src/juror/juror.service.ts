@@ -36,7 +36,7 @@ export class JurorService {
 
     try {
 
-      const jurorRole: Role | null = await this.prisma.role.findUnique({
+      const jurorRole: Role | null = await this.prisma.role.findFirst({
         where: { name: this.JUROR_ROLE_NAME, isActive: true }
       });
 
@@ -72,9 +72,9 @@ export class JurorService {
       this.logger.log(
         `Professor role ID initialized: Professor role ID=${this.professorRoleId}`,
       );
-
-      // Buscar ID del estado "CONFIRMADO"
-      const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
+      
+      // Buscar ID del estado de videojuego "CONFIRMADO"
+      const confirmedStatus = await this.prisma.videogameStatus.findUnique({
         where: { status: this.CONFIRMED_STATUS_NAME, isActive: true },
       });
 
@@ -604,7 +604,9 @@ export class JurorService {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
-          confirmId: this.confirmedStatusId, // Confirmado
+          videogame: {
+            videogameStatusId: this.confirmedStatusId,
+          },
         },
         select: {
           id: true,
@@ -1061,7 +1063,9 @@ export class JurorService {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
-          confirmId: this.confirmedStatusId,
+          videogame: {
+            videogameStatusId: this.confirmedStatusId,
+          },
         },
         select: {
           id: true,

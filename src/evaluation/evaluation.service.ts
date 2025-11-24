@@ -18,9 +18,9 @@ export class EvaluationService {
     }
   }
   /**
-   * Crea una evaluación y sus detalles en una sola consulta.
-   * @param jurorId string
-   * @param evaluationPayload objeto con date, comments, videogameId, totalScore, details (array)
+    * Creates an evaluation and its details in a single query.
+    * @param jurorId string
+    * @param evaluationPayload object with date, comments, videogameId, totalScore, details (array)
    */
   async createEvaluationWithDetails(jurorId: string, evaluationPayload: CreateEvaluationDto) {
     await this.checkEvaluationsOpen();
@@ -95,4 +95,40 @@ export class EvaluationService {
 
     return { evaluationId: evaluation.id, message: 'Evaluación y detalles guardados correctamente' };
   }
+  async computeFinalScoreForVideogame(videogameId: number, editionId?: number) {
+  // 1. get weights (by editionId if provided) or use default 60/40
+  const weighting = editionId
+    ? await this.prisma.weighting.findUnique({ where: { editionId } })
+    : null;
+  const seniorPct = weighting?.seniorPct ?? 60;
+  const juniorPct = weighting?.juniorPct ?? 40;
+
+  // 2. averages
+  const seniorAgg = await this.prisma.evaluation.aggregate({
+    _avg: { totalScore: true },
+    where: { videogameId, isSenior: true, isActive: true },
+  });
+  const juniorAgg = await this.prisma.evaluation.aggregate({
+    _avg: { totalScore: true },
+    where: { videogameId, isSenior: false, isActive: true },
+  });
+
+  const seniorAvg = seniorAgg._avg.totalScore ?? null;
+  const juniorAvg = juniorAgg._avg.totalScore ?? null;
+
+  // 3. if one of the groups is missing, normalize or use the other (policy choice)
+  if (seniorAvg == null && juniorAvg == null) return null; // no data
+
+  if (seniorAvg == null) {
+    // fallback: treat junior average as 100%
+    return Number((juniorAvg!).toFixed(2));
+  }
+  if (juniorAvg == null) {
+    return Number((seniorAvg!).toFixed(2));
+  }
+
+  // both exist -> apply weighted average
+  const final = (seniorAvg * seniorPct + juniorAvg * juniorPct) / 100;
+  return Number(final.toFixed(2));
+}
 }
