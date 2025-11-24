@@ -247,7 +247,7 @@ async function main() {
       materiaColegios = await prisma.subject.create({
         data: {
           name: 'Colegios',
-          code: 'COL',
+          code: 'COL-0000',
           abrevName: 'COL',
           semester: 0,
           isActive: true
@@ -265,7 +265,7 @@ async function main() {
 
     if (!profesor) {
       console.log(`👨‍🏫 Creating professor ${profesorEmail}...`);
-      const password = configService.get<string>('PROFESOR_COLEGIOS_PASSWORD') || 'Admin1234';
+      const password = configService.get<string>('PROFESOR_COLEGIOS_PASSWORD') || 'Pass1234';
       const hashedPassword = await bcrypt.hash(password, 10);
       profesor = await prisma.user.create({
         data: {
