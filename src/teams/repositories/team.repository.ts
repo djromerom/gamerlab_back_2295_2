@@ -158,8 +158,20 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  async findAll(): Promise<Team[]> {
+  async findAll(sortByLikes = false): Promise<Team[]> {
+    const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
+      { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
+    ];
+
+    if (sortByLikes) {
+      orderBy.push({ videogame: { likes: 'desc' } });
+      orderBy.push({ registrationDate: 'asc' });
+    } else {
+      orderBy.push({ id: 'asc' });
+    }
+
     return this.prisma.team.findMany({
+      orderBy: orderBy,
       include: {
         videogame: true,
         members: true,
@@ -181,15 +193,25 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  async findPaged(page = 1, limit = 10) {
+  async findPaged(page = 1, limit = 10, sortByLikes = false) {
     const currentPage = Math.max(page, 1);
     const itemsPerPage = Math.max(limit, 1);
 
+    const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
+      { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
+    ];
+
+    if (sortByLikes) {
+      orderBy.push({ videogame: { likes: 'desc' } });
+      orderBy.push({ registrationDate: 'asc' });
+    } else {
+      orderBy.push({ id: 'asc' });
+    }
     const [teams, totalItems] = await this.prisma.$transaction([
       this.prisma.team.findMany({
         skip: (currentPage - 1) * itemsPerPage,
         take: itemsPerPage,
-        orderBy: { id: 'asc' },
+        orderBy: orderBy,
         include: {
           members: {
             include: {
@@ -457,9 +479,49 @@ export class TeamRepository implements ITeamRepository {
   }
 
   async remove(id: number): Promise<Team> {
-    return this.prisma.team.delete({
-      where: { id },
-    });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        // First, get the team with user information
+        const teamToDelete = await tx.team.findUnique({
+          where: { id },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+              },
+            },
+          },
+        });
+
+        if (!teamToDelete) {
+          throw new NotFoundException(`Team with id ${id} not found`);
+        }
+
+        if (!teamToDelete.user) {
+          throw new NotFoundException(`User associated with team ${id} not found`);
+        }
+
+        // Delete the team (cascade delete videogames and members)
+        const deletedTeam = await tx.team.delete({
+          where: { id },
+        });
+
+        // Delete verification tokens for the user
+        await tx.verificationToken.deleteMany({
+          where: { email: teamToDelete.user.email },
+        });
+
+        // Delete the user
+        await tx.user.delete({
+          where: { id: teamToDelete.user.id },
+        });
+
+        return deletedTeam;
+      });
+    } catch (error: any) {
+      handlePrismaError(error);
+    }
   }
 
   async getTeamsWithLessThanThreeJurors(): Promise<
@@ -481,7 +543,7 @@ export class TeamRepository implements ITeamRepository {
     }>
   > {
     try {
-      const confirmedStatus = await this.prisma.confirmationStatus.findUnique({
+      const confirmedStatus = await this.prisma.videogameStatus.findFirst({
         where: { status: 'CONFIRMADO', isActive: true },
       });
 
@@ -494,7 +556,9 @@ export class TeamRepository implements ITeamRepository {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
-          confirmId: confirmedStatus.id,
+          videogame: {
+            videogameStatusId: confirmedStatus.id,
+          },
         },
         include: {
           assignedJurors: {
@@ -512,6 +576,12 @@ export class TeamRepository implements ITeamRepository {
             select: {
               id: true,
               name: true,
+              videogameStatus: {
+                select: {
+                  id: true,
+                  status: true,
+                },
+              },
             },
           },
           user: {

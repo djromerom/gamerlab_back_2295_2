@@ -166,6 +166,12 @@ async function main() {
               skipDuplicates: true
             });
             break;
+          case 'ponderado':
+            await prisma.weighting.createMany({
+              data: tableData.data,
+              skipDuplicates: true,
+            });
+            break;
           case 'evaluacion':
             await prisma.evaluation.createMany({
               data: tableData.data,
