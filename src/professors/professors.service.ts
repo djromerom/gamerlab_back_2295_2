@@ -255,6 +255,24 @@ export class ProfessorsService {
     }
   }
 
+  private async getAvgJuniorByVideogameId(videogameId: number): Promise<number | null> {
+    if (!videogameId) return null;
+    try {
+      const result: any = await this.prisma.$queryRaw`
+        SELECT avg_junior FROM public.vw_team_final_scores WHERE videogame_id = ${videogameId} LIMIT 1
+      `;
+      if (Array.isArray(result) && result.length > 0) {
+        const val = result[0].avg_junior ?? result[0].avgjunior ?? null;
+        if (val === null || val === undefined) return null;
+        return typeof val === 'number' ? val : parseFloat(String(val));
+      }
+      return null;
+    } catch (err) {
+      this.logger.warn(`getAvgJuniorByVideogameId error: ${(err as any)?.message}`);
+      return null;
+    }
+  }
+
   private async resolveVideogameId(teamCode?: string, videogameName?: string): Promise<number | null> {
     try {
       if (teamCode && teamCode !== '') {
@@ -890,8 +908,8 @@ export class ProfessorsService {
         let columnKeys: string[];
         let headers: string[];
         if (final) {
-          columnKeys = ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'feriaScore', 'docenteScore'];
-          headers = ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Feria', 'Calificación Docente'];
+          columnKeys = ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'feriaScore', 'juniorScore', 'docenteScore'];
+          headers = ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Feria', 'Calificación Jurado Junior', 'Calificación Docente'];
         } else {
           columnKeys = ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'score'];
           headers = ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Docente'];
@@ -1044,12 +1062,13 @@ export class ProfessorsService {
 
     const scoreHeaderIdx = headers.indexOf('Calificación Docente');
     const feriaHeaderIdx = headers.indexOf('Calificación Feria');
+    const juniorHeaderIdx = headers.indexOf('Calificación Jurado Junior');
     const headerRow = worksheet.addRow(headerTexts);
 
     headerRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true } as any;
       cell.alignment = { horizontal: 'center', vertical: 'middle' } as any;
-      if (colNumber - 1 !== scoreHeaderIdx && colNumber - 1 !== feriaHeaderIdx) {
+      if (colNumber - 1 !== scoreHeaderIdx && colNumber - 1 !== feriaHeaderIdx && colNumber - 1 !== juniorHeaderIdx) {
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
@@ -1075,6 +1094,14 @@ export class ProfessorsService {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FFE5D5FA' }, // morado claro
+      } as any;
+    }
+    if (final && juniorHeaderIdx >= 0) {
+      const juniorHeaderCell = headerRow.getCell(juniorHeaderIdx + 1);
+      juniorHeaderCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD6EAF8' }, // azul claro
       } as any;
     }
 
@@ -1133,8 +1160,23 @@ export class ProfessorsService {
         this.logger.warn(`addGroupRows get docente/feria score error: ${(err as any)?.message}`);
       }
 
-      if (final) {
+        if (final) {
+        // include junior juror average (avg_junior from view) before docente score
+        let juniorScore = '';
+        try {
+          const vgIdLocal = g.videogameId ? Number(g.videogameId) || null : null;
+          if (vgIdLocal) {
+            const avgJunior = await this.getAvgJuniorByVideogameId(vgIdLocal);
+            if (avgJunior !== null && avgJunior !== undefined) {
+              juniorScore = avgJunior.toFixed(1);
+            }
+          }
+        } catch (err) {
+          this.logger.warn(`addGroupRows get junior avg error: ${(err as any)?.message}`);
+        }
+
         rowObj.feriaScore = feriaScoreVal !== null && feriaScoreVal !== undefined ? feriaScoreVal.toFixed(1) : '';
+        rowObj.juniorScore = juniorScore;
         rowObj.docenteScore = docenteScore;
       } else {
         rowObj.score = g.grade !== null ? g.grade.toFixed(1) : '';
@@ -1161,6 +1203,7 @@ export class ProfessorsService {
       };
       if (final) {
         emptyRow.feriaScore = '';
+        emptyRow.juniorScore = '';
         emptyRow.docenteScore = '';
       } else {
         emptyRow.score = '';
