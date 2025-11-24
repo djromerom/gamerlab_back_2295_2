@@ -52,7 +52,8 @@ jobs:
           script: |
                   cd /home/proyecto/Arkad-api-prod
                   echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-                  docker compose -f docker-compose.arkad-api-prod.yml down --remove-orphans
+                  docker compose -f docker-compose.arkad-api.yml stop app
+                  docker compose -f docker-compose.arkad-api.yml rm -f app
                   docker image prune -a -f
-                  docker compose -f docker-compose.arkad-api-prod.yml pull
-                  docker compose -f docker-compose.arkad-api-prod.yml up -d --remove-orphans
+                  docker compose -f docker-compose.arkad-api.yml pull app
+                  docker compose -f docker-compose.arkad-api.yml up -d app
