@@ -509,6 +509,14 @@
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
+      },
+      {
+        "id": 52,
+        "name": "UPDATE_SETTINGS",
+        "description": "Permite actualizar la configuración actual del evento",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true 
       }
     ]
   },
@@ -1025,6 +1033,16 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 52,
+        "name": "UpdateSettings",
+        "description": "Update current event settings",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1395,6 +1413,13 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 52,
+        "permissionId": 51,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1481,6 +1506,20 @@
       {
         "roleId": 3,
         "permissionId": 9,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 13,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 14,
         "createdAt": "2025-05-28T10:00:00.000Z",
         "updatedAt": "2025-06-04T15:29:52.745Z",
         "isActive": true

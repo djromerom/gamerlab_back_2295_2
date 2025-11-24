@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventConfiguration } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -21,6 +25,7 @@ export class SettingsService {
   async updateEvaluationStatus(
     open: boolean,
   ): Promise<{ evaluationsOpen: boolean; endDate: Date }> {
+    if (!open) throw new BadRequestException("Missing 'open' parameter");
     const activeCnfg = await this.getActiveConfig();
 
     const updated = await this.prisma.eventConfiguration.update({
@@ -38,6 +43,7 @@ export class SettingsService {
   }
 
   async setShowRanking(show: boolean): Promise<{ showRanking: boolean }> {
+    if (!show) throw new BadRequestException("Missing 'show' parameter");
     const activeCnfg = await this.getActiveConfig();
 
     const updated = await this.prisma.eventConfiguration.update({
@@ -57,6 +63,7 @@ export class SettingsService {
   async setShowEvaluation(
     show: boolean,
   ): Promise<{ showEvaluations: boolean }> {
+    if (!show) throw new BadRequestException("Missing 'show' parameter");
     const activeCnfg = await this.getActiveConfig();
 
     const updated = await this.prisma.eventConfiguration.update({

@@ -36,8 +36,17 @@ export class SettingsController {
   @Patch('evaluations-status')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateSettings')
-  updateEvaluationStatus(@Body() open: boolean) {
-    return this.settingsService.updateEvaluationStatus(open);
+  @ApiOperation({ summary: 'Update evaluations open status' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Returns the updated evaluations open status and event end date',
+    schema: {
+      example: { evaluationsOpen: false },
+    },
+  })
+  updateEvaluationStatus(@Body() dto: { open: boolean }) {
+    return this.settingsService.updateEvaluationStatus(dto.open);
   }
 
   @Public()
@@ -61,8 +70,8 @@ export class SettingsController {
     description: 'Returns the updated ranking visibility',
     schema: { example: { showRanking: true } },
   })
-  setShowRanking(@Body() show: boolean) {
-    return this.settingsService.setShowRanking(show);
+  setShowRanking(@Body() dto: { show: boolean }) {
+    return this.settingsService.setShowRanking(dto.show);
   }
 
   @Public()
@@ -86,7 +95,7 @@ export class SettingsController {
     description: 'Returns the updated evaluations visibility',
     schema: { example: { showEvaluations: true } },
   })
-  setShowEvaluations(@Body() show: boolean) {
-    return this.settingsService.setShowEvaluation(show);
+  setShowEvaluations(@Body() dto: { show: boolean }) {
+    return this.settingsService.setShowEvaluation(dto.show);
   }
 }
