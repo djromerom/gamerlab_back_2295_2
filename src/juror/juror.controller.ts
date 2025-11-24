@@ -69,6 +69,13 @@ export class JurorController {
     return this.jurorService.removeAllJurorAssignments();
   }
 
+  @Delete(':id/assignments')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('AssignJurors')
+  removeAllAssignmentsFromJuror(@Param('id') id: string) {
+    return this.jurorService.removeAllAssignmentsFromJuror(id);
+  }
+
   @Delete('assignments')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')

@@ -737,49 +737,142 @@ export class JurorService {
 
   async removeAllJurorAssignments(): Promise<any> {
     try {
-      // Contar asignaciones antes de eliminar para el mensaje de respuesta (jurados y profesores)
-      const countResult = await this.prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) as count
-        FROM "_JurorTeamAssignment" jta
-        INNER JOIN equipos t ON t.id_equipo = jta."A"
-        INNER JOIN usuarios u ON u.id_usuario = jta."B"
-        INNER JOIN roles r ON r.id_rol = u.id_rol
-        WHERE t.activo = true
-          AND u.activo = true
-          AND (r.rol = ${this.JUROR_ROLE_NAME} OR r.rol = ${this.PROFESSOR_ROLE_NAME})
-      `;
+      // Obtener todos los equipos activos que tienen asignaciones de jurados/profesores
+      const teamsWithAssignments = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          assignedJurors: {
+            some: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+          },
+        },
+        include: {
+          assignedJurors: {
+            where: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
 
-      const assignmentCount = Number(countResult[0]?.count || 0);
+      // Contar el total de asignaciones antes de eliminarlas
+      const assignmentCount = teamsWithAssignments.reduce(
+        (total, team) => total + team.assignedJurors.length,
+        0,
+      );
 
       if (assignmentCount === 0) {
         return {
-          message: 'No hay asignaciones de jurados o profesores para eliminar',
+          message: 'No hay asignaciones de evaluadores (jurados o profesores) para eliminar',
           asignacionesEliminadas: 0,
         };
       }
 
-      // Eliminar todas las asignaciones de jurados y profesores de equipos activos
-      // usando DELETE directo en la tabla de relaciones (más eficiente)
-      await this.prisma.$executeRaw`
-        DELETE FROM "_JurorTeamAssignment" jta
-        USING equipos t, usuarios u, roles r
-        WHERE jta."A" = t.id_equipo
-          AND jta."B" = u.id_usuario
-          AND u.id_rol = r.id_rol
-          AND t.activo = true
-          AND u.activo = true
-          AND (r.rol = ${this.JUROR_ROLE_NAME} OR r.rol = ${this.PROFESSOR_ROLE_NAME})
-      `;
+      // Eliminar todas las asignaciones usando Prisma set: [] para cada equipo
+      await this.prisma.$transaction(
+        teamsWithAssignments.map((team) =>
+          this.prisma.team.update({
+            where: { id: team.id },
+            data: {
+              assignedJurors: { set: [] }, // sets assignedJurors to an empty list
+            },
+          }),
+        ),
+      );
 
-      this.logger.log(`Se eliminaron ${assignmentCount} asignaciones de jurados y profesores`);
+      this.logger.log(`Se eliminaron ${assignmentCount} asignaciones de evaluadores (jurados o profesores)`);
       
       return {
-        message: 'Todas las asignaciones de jurados y profesores han sido eliminadas correctamente',
+        message: 'Todas las asignaciones de evaluadores (jurados o profesores) han sido eliminadas correctamente',
         asignacionesEliminadas: assignmentCount,
       };
     } catch (error) {
-      this.logger.error('Error al eliminar todas las asignaciones de jurados y profesores:', error);
-      throw new InternalServerErrorException('Error al eliminar todas las asignaciones de jurados y profesores');
+      this.logger.error('Error al eliminar todas las asignaciones de evaluadores:', error);
+      throw new InternalServerErrorException('Error al eliminar todas las asignaciones de evaluadores');
+    }
+  }
+
+  async removeAllAssignmentsFromJuror(jurorId: string): Promise<any> {
+    try {
+      // Verificar que el usuario (jurado o profesor) existe y está activo
+      const evaluator = await this.prisma.user.findUnique({
+        where: { id: jurorId },
+        include: { 
+          role: true,
+          teamsToEvaluate: {
+            where: { isActive: true },
+            select: { id: true },
+          },
+        },
+      });
+
+      if (!evaluator || !evaluator.isActive) {
+        throw new NotFoundException('Evaluador (jurado o profesor) no encontrado o inactivo');
+      }
+
+      // Validar que sea jurado o profesor
+      if (evaluator.roleId !== this.jurorRoleId && evaluator.roleId !== this.professorRoleId) {
+        throw new BadRequestException('El usuario no es un jurado ni un profesor');
+      }
+
+      const assignedTeams = evaluator.teamsToEvaluate;
+      const assignmentCount = assignedTeams.length;
+
+      if (assignmentCount === 0) {
+        return {
+          message: 'El evaluador (jurado o profesor) no tiene asignaciones para eliminar',
+          asignacionesEliminadas: 0,
+          evaluador: {
+            id: evaluator.id,
+            nombre: `${evaluator.firstName} ${evaluator.lastName}`,
+            email: evaluator.email,
+          },
+        };
+      }
+
+      // Eliminar todas las asignaciones del jurado usando disconnect en cada equipo
+      await this.prisma.$transaction(
+        assignedTeams.map((team) =>
+          this.prisma.team.update({
+            where: { id: team.id },
+            data: {
+              assignedJurors: {
+                disconnect: { id: jurorId },
+              },
+            },
+          }),
+        ),
+      );
+
+      this.logger.log(`Se eliminaron ${assignmentCount} asignaciones del evaluador ${jurorId}`);
+      
+      return {
+        message: `Todas las asignaciones del evaluador (jurado o profesor) han sido eliminadas correctamente`,
+        asignacionesEliminadas: assignmentCount,
+        evaluador: {
+          id: evaluator.id,
+          nombre: `${evaluator.firstName} ${evaluator.lastName}`,
+          email: evaluator.email,
+        },
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Error al eliminar todas las asignaciones del evaluador:', error);
+      throw new InternalServerErrorException('Error al eliminar todas las asignaciones del evaluador');
     }
   }
 
