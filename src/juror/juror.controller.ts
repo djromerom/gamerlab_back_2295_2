@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Query,
+  Delete,
   UseGuards,
 } from '@nestjs/common';
 import { JurorService } from './juror.service';
@@ -59,6 +60,20 @@ export class JurorController {
   @RequiredService('AssignJurors')
   assignJurorToTeam(@Body() assignDto: AssignJurorToTeamDto) {
     return this.jurorService.assignJurorToTeam(assignDto.jurorId, assignDto.teamId);
+  }
+
+  @Delete('assignments/all')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('AssignJurors')
+  removeAllJurorAssignments() {
+    return this.jurorService.removeAllJurorAssignments();
+  }
+
+  @Delete('assignments')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('AssignJurors')
+  removeJurorFromTeam(@Body() assignDto: AssignJurorToTeamDto) {
+    return this.jurorService.removeJurorFromTeam(assignDto.jurorId, assignDto.teamId);
   }
 
   @Get()
