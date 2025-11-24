@@ -34,7 +34,7 @@ export class SettingsService {
 
   async getShowRanking(): Promise<{ showRanking: boolean }> {
     const activeCnfg = await this.getActiveConfig();
-    return { showRanking: activeCnfg.showRanking as boolean };
+    return { showRanking: activeCnfg.showRanking };
   }
 
   async setShowRanking(show: boolean): Promise<{ showRanking: boolean }> {
@@ -51,7 +51,7 @@ export class SettingsService {
 
   async getShowEvaluation(): Promise<{ showEvaluations: boolean }> {
     const activeCnfg = await this.getActiveConfig();
-    return { showEvaluations: activeCnfg.showEvaluations as boolean };
+    return { showEvaluations: activeCnfg.showEvaluations };
   }
 
   async setShowEvaluation(
@@ -64,7 +64,6 @@ export class SettingsService {
       data: { showEvaluations: show },
       select: { showEvaluations: true },
     });
-
     return updated;
   }
 

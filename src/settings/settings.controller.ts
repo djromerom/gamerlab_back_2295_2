@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Patch, Query } from '@nestjs/common';
+import { Controller, Get, UseGuards, Patch, Body } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SettingsService } from './settings.service';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -36,12 +36,18 @@ export class SettingsController {
   @Patch('evaluations-status')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateSettings')
-  updateEvaluationStatus(@Query('open') open: boolean) {
+  updateEvaluationStatus(@Body() open: boolean) {
     return this.settingsService.updateEvaluationStatus(open);
   }
 
   @Public()
   @Get('show-ranking')
+  @ApiOperation({ summary: 'Get if ranking is visible for users' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns whether the ranking is visible',
+    schema: { example: { showRanking: true } },
+  })
   getShowRanking() {
     return this.settingsService.getShowRanking();
   }
@@ -49,12 +55,24 @@ export class SettingsController {
   @Patch('show-ranking')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateSettings')
-  setShowRanking(@Query('show') show: boolean) {
+  @ApiOperation({ summary: 'Update ranking visibility for users' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the updated ranking visibility',
+    schema: { example: { showRanking: true } },
+  })
+  setShowRanking(@Body() show: boolean) {
     return this.settingsService.setShowRanking(show);
   }
 
   @Public()
   @Get('show-evaluations')
+  @ApiOperation({ summary: 'Get if evaluations are visible for users' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns whether evaluations are visible',
+    schema: { example: { showEvaluations: true } },
+  })
   getShowEvaluations() {
     return this.settingsService.getShowEvaluation();
   }
@@ -62,7 +80,13 @@ export class SettingsController {
   @Patch('show-evaluations')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateSettings')
-  setShowEvaluations(@Query('show') show: boolean) {
+  @ApiOperation({ summary: 'Update evaluations visibility for users' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the updated evaluations visibility',
+    schema: { example: { showEvaluations: true } },
+  })
+  setShowEvaluations(@Body() show: boolean) {
     return this.settingsService.setShowEvaluation(show);
   }
 }
