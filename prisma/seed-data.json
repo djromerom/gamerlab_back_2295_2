@@ -510,23 +510,6 @@
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
       }
-      ,
-      {
-        "id": 51,
-        "name": "READ_WEIGHT",
-        "description": "Permite leer la configuración de ponderado por edición",
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      },
-      {
-        "id": 52,
-        "name": "MANAGE_WEIGHT",
-        "description": "Permite crear/editar la configuración de ponderado por edición",
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      }
     ]
   },
   {
@@ -1043,27 +1026,6 @@
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
       }
-      ,
-      {
-        "id": 52,
-        "name": "GetWeight",
-        "description": "Obtener configuración de ponderado por edición (SettingsController.getWeight)",
-        "url": null,
-        "method": "GET",
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      },
-      {
-        "id": 53,
-        "name": "ManageWeight",
-        "description": "Crear/editar configuración de ponderado por edición (SettingsController.create/update)",
-        "url": null,
-        "method": "POST",
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      }
     ]
   },
   {
@@ -1434,355 +1396,11 @@
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
       }
-      ,
-      {
-        "serviceId": 52,
-        "permissionId": 51,
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      },
-      {
-        "serviceId": 53,
-        "permissionId": 52,
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      }
     ]
   },
   {
     "table": "rol_permiso",
     "data": [
-      {
-        "roleId": 1,
-        "permissionId": 1,
-        "createdAt": "2025-05-03T02:38:45.690Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 2,
-        "createdAt": "2025-05-03T02:38:45.690Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 3,
-        "createdAt": "2025-05-02T22:41:36.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 5,
-        "createdAt": "2025-05-03T02:38:45.690Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 6,
-        "createdAt": "2025-05-03T02:38:45.690Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 7,
-        "createdAt": "2025-05-03T02:38:45.690Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 8,
-        "createdAt": "2025-05-03T02:38:45.690Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 9,
-        "createdAt": "2025-05-03T15:39:26.281Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 10,
-        "createdAt": "2025-05-03T15:39:46.494Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 11,
-        "createdAt": "2025-05-03T15:39:57.159Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 12,
-        "createdAt": "2025-05-03T15:40:05.868Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 15,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 16,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 17,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 18,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 19,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 20,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 21,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 22,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 23,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 24,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 25,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 26,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 27,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 28,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 29,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 30,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 31,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 32,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 33,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 34,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 35,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 36,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 37,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 38,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 39,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 40,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 41,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 42,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 43,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 44,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 45,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 46,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 47,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 48,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 49,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 50,
-        "createdAt": "2025-05-28T10:00:00.000Z",
-        "updatedAt": "2025-06-04T15:29:52.745Z",
-        "isActive": true
-      },
       {
         "roleId": 2,
         "permissionId": 3,
@@ -1793,6 +1411,27 @@
       {
         "roleId": 2,
         "permissionId": 4,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 20,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 21,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 2,
+        "permissionId": 22,
         "createdAt": "2025-05-28T10:00:00.000Z",
         "updatedAt": "2025-06-04T15:29:52.745Z",
         "isActive": true
@@ -1951,21 +1590,6 @@
         "updatedAt": "2025-06-04T15:29:52.745Z",
         "isActive": true
       }
-      ,
-      {
-        "roleId": 1,
-        "permissionId": 51,
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      },
-      {
-        "roleId": 1,
-        "permissionId": 52,
-        "createdAt": "2025-11-14T06:00:00.000Z",
-        "updatedAt": "2025-11-14T06:00:00.000Z",
-        "isActive": true
-      }
     ]
   },
   {
@@ -2002,6 +1626,22 @@
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "semester": "2025-30",
+        "title": "Feria Gamer 2025 - S2",
+        "year": 2025,
+        "semesterName": "Segundo semestre",
+        "name": "Feria Gamer 2025 - S3",
+        "date": "Noviembre 2025",
+        "description": "La innovación y la protección digital se encontraron en la III Feria Gamer del Programa de Ingeniería de Software y Computación de la Universidad del Norte, un evento donde los videojuegos se transformaron en herramientas para educar sobre los desafíos de la seguridad en línea.",
+        "description2": "Estudiantes de primer a tercer semestre presentaron el jueves, 27 de noviembre sus proyectos finales: experiencias interactivas creadas para concientizar sobre amenazas como el robo de información, suplantación de identidad, vulnerabilidades comunes y buenas prácticas de seguridad digital. A través de dinámicas lúdicas y creativas, los participantes demostraron su habilidad técnica y su compromiso con formar usuarios más preparados y responsables en un mundo cada vez más conectado.",
+        "highlightedGames": null,
+        "alt": "Feria Gamer 2025-30",
+        "isActive": true,
+        "createdAt": "2025-11-15T00:00:00.000Z",
+        "updatedAt": "2025-11-15T00:00:00.000Z"
       }
     ]
   },
@@ -2077,6 +1717,19 @@
     ]
   },
   {
+    "table": "ponderado",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 3,
+        "seniorPct": 40,
+        "juniorPct": 60,
+        "createdAt": "2025-11-15T00:00:00.000Z",
+        "updatedAt": "2025-11-15T00:00:00.000Z"
+      }
+    ]
+  },
+  {
     "table": "enfoque_educativo",
     "data": [
       {
@@ -2141,8 +1794,9 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 3,
         "editionId": 2,
-        "name": "Marian Andrea Pacheco Charris ",
+        "name": "Marian Andrea Pacheco Charris",
         "role": "Participante",
         "quote": "Puedo describir mi experiencia participando en la feria gamer como muy enriquecedora, fue un excelente espacio para profundizar mis habilidades de comunicación, y exponer acerca del proceso que fue realizar un proyecto que relacionaba dos materias de programación. Además, me brindó la oportunidad de escuchar diferentes opiniones y críticas constructivas para tener en cuenta en mis próximos proyectos.",
         "isActive": true,
@@ -2150,6 +1804,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
+        "id": 4,
         "editionId": 2,
         "name": "Arturo José González Barros",
         "role": "Participante",
@@ -2159,7 +1814,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 3,
+        "id": 5,
         "editionId": 2,
         "name": "María Alejandra Lobo León",
         "role": "Participante - Hidden Deck",
@@ -2169,7 +1824,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 4,
+        "id": 6,
         "editionId": 2,
         "name": "Jefferson Jose Torres Lora",
         "role": "Monitor Programación Orientada a Objetos",
@@ -2179,7 +1834,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 5,
+        "id": 7,
         "editionId": 2,
         "name": "Elvira Elena Florez Carbonell",
         "role": "Monitora Estructura de Datos I y Algoritmia y Programación I",
@@ -2189,7 +1844,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 6,
+        "id": 8,
         "editionId": 2,
         "name": "Margarita Gamarra Acosta",
         "role": "Profesora Departamento de Ingeniería de Sistemas y Computación",
@@ -2199,7 +1854,7 @@
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
-        "id": 1,
+        "id": 9,
         "editionId": 1,
         "name": "Laura Vanessa Acuña Ordóñez",
         "role": "Participante",
@@ -2209,7 +1864,7 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
-        "id": 2,
+        "id": 10,
         "editionId": 1,
         "name": "María Del Mar Yusti Prins",
         "role": "Participante",
@@ -2219,12 +1874,26 @@
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
-        "id": 3,
+        "id": 11,
         "editionId": 1,
         "name": "Marianna Contreras Zapata",
         "role": "Participante",
         "quote": "Fue una buena experiencia y oportunidad de presentar con mi grupo el proyecto que veníamos preparando, todo el proceso de ir avanzando y hacer el juego fue muy enriquecedora, luego explicarlo y exponerlo ante los demás y así mostrar nuestra capacidad de aprendizaje de las clases y aplicarlo fue única",
         "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "configuracion_evento",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 3,
+        "startDate": "2025-11-27T13:30:00.000Z",
+        "endDate": "2025-11-27T17:30:00.000Z",
+        "evaluationsOpen": false,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       }
