@@ -103,7 +103,7 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('SendEmail')
   async resendConfirmation(@Body('email') email: string) {
-    return await this.authService.resendEmailOfType(email, 'VERIFICACION_EMAIL');
+    return await this.authService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL');
   }
 
   @Get('evaluators')

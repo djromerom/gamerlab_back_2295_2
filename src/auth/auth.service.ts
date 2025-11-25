@@ -864,11 +864,11 @@ export class AuthService {
    * @throws {InternalServerErrorException} If there is an error sending the email.
    */
   // done locally
-  async resendEmailOfType(
+  async resendAuthEmailOfType(
     email: string,
     typeOfEmail: AuthEmailType,
   ): Promise<{ message: string }> {
-    return this.emailService.resendEmailOfType(email, typeOfEmail);
+    return this.emailService.resendAuthEmailOfType(email, typeOfEmail);
   }
 
   private setAuthCookies(

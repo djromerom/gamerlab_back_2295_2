@@ -28,7 +28,7 @@ import { EmailModule } from './email/email.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
-    EmailModule, // Add EmailModule to make email endpoints available
+    EmailModule,
     SubjectsModule,
     NrcsModule,
     PendingGamesModule,

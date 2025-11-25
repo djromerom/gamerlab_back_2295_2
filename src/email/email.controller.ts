@@ -31,7 +31,7 @@ export class EmailController {
   @ApiOperation({ summary: 'Resend verification email to a user' })
   @HttpCode(200)
   async resendVerificationEmail(@Body() resendEmailDto: ResendEmailDto) {
-    return this.emailService.resendEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail);
+    return this.emailService.resendAuthEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail);
   }
 
   @Post('reset-token-expiration')

@@ -255,7 +255,7 @@ export class EmailService {
   /**
    * Resends an email of the specified type (verification or password reset)
    */
-  async resendEmailOfType(
+  async resendAuthEmailOfType(
     email: string,
     typeOfEmail: AuthEmailType,
   ): Promise<{ message: string }> {
