@@ -147,8 +147,8 @@ export class TeamsService {
     return this.authService.registerUser(authRegisterPayload);
   }
 
-  async findAll() {
-    return this.teamRepository.findAll();
+  async findAll(sortByLikes: boolean) {
+    return this.teamRepository.findAll(sortByLikes);
   }
 
   async findOne(id: number): Promise<unknown> {
@@ -293,8 +293,24 @@ export class TeamsService {
     return this.teamRepository.getTeamsWithLessThanThreeJurors();
   }
 
-  async findPaged(page: number, limit: number) {
-    return await this.teamRepository.findPaged(page, limit);
+  async getFinalScoreByVideogame(videogameId: number): Promise<any[] | null> {
+    if (!Number.isInteger(videogameId) || videogameId <= 0) {
+      throw new BadRequestException('Invalid videogame id');
+    }
+    const client: any = (this.prisma as any).teamFinalScore;
+    return client.findMany({ where: { videogameId } });
+  }
+
+  async getFinalScoreByTeam(teamId: number): Promise<any[] | null> {
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      throw new BadRequestException('Invalid team id');
+    }
+    const client: any = (this.prisma as any).teamFinalScore;
+    return client.findMany({ where: { teamId } });
+  }
+
+  async findPaged(page: number, limit: number, sortByLikes: boolean) {
+    return await this.teamRepository.findPaged(page, limit, sortByLikes);
   }
 
   async getLeaderStatus(email: string) {

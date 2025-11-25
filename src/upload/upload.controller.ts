@@ -1,8 +1,9 @@
-import { Controller, Get, Param, Post, UploadedFile, UseInterceptors, Query, Delete } from '@nestjs/common';
+import { Controller, Get, Param, Post, UploadedFile, UseInterceptors, Query, Delete, BadRequestException, PayloadTooLargeException, UseFilters } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AzureStorageService } from './azure-storage.service';
 import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator'; // Add this import
+import { MulterExceptionFilter } from './multer-exception.filter';
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -11,6 +12,7 @@ export class UploadController {
 
   @Public()
   @Post()
+  @UseFilters(MulterExceptionFilter)
   @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -38,10 +40,76 @@ export class UploadController {
       }
     }
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @ApiResponse({
+    status: 413,
+    description: 'Archivo demasiado grande (máximo 1MB)',
+    schema: {
+      example: {
+        statusCode: 413,
+        message: 'El archivo es demasiado grande. Tamaño máximo permitido: 1MB',
+        error: 'Payload Too Large'
+      }
+    }
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Error de validación de archivo',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'No se proporcionó ningún archivo',
+        error: 'Bad Request'
+      }
+    }
+  })
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 1024 * 1024, // 1MB limit
+    },
+    fileFilter: (req, file, callback) => {
+      // Optional: Add file type validation
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return callback(new BadRequestException('Tipo de archivo no permitido. Solo se permiten imágenes (JPEG, PNG, GIF, WebP)'), false);
+      }
+      callback(null, true);
+    },
+  }))
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    const saved = await this.azureService.uploadFile(file);
-    return saved;
+    // Validate file exists
+    if (!file) {
+      throw new BadRequestException('No se proporcionó ningún archivo');
+    }
+
+    // Additional size check (backup to multer config)
+    const maxSize = 1024 * 1024; // 1MB
+    if (file.size > maxSize) {
+      throw new PayloadTooLargeException('El archivo es demasiado grande. Tamaño máximo permitido: 1MB');
+    }
+
+    try {
+      const saved = await this.azureService.uploadFile(file);
+      return saved;
+    } catch (error: any) {
+      // Handle Azure-specific errors
+      if (error.code === 'REQUEST_BODY_TOO_LARGE' || error.statusCode === 413) {
+        throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage');
+      }
+      
+      // Handle other Azure errors
+      if (error.statusCode === 400) {
+        throw new BadRequestException(`Error de Azure Storage: ${error.message || 'Solicitud inválida'}`);
+      }
+
+      // Re-throw NestJS exceptions (from service)
+      if (error instanceof PayloadTooLargeException || error instanceof BadRequestException) {
+        throw error;
+      }
+
+      // Log unknown errors and re-throw
+      console.error('Azure Storage Error:', error);
+      throw new BadRequestException('Error al subir el archivo. Por favor, inténtelo de nuevo.');
+    }
   }
 
   @Get(':id')

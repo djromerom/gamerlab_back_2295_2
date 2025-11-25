@@ -518,6 +518,23 @@
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true 
       }
+      ,
+      {
+        "id": 51,
+        "name": "READ_WEIGHT",
+        "description": "Permite leer la configuración de ponderado por edición",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 52,
+        "name": "MANAGE_WEIGHT",
+        "description": "Permite crear/editar la configuración de ponderado por edición",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      }
     ]
   },
   {
@@ -1044,6 +1061,27 @@
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
       }
+      ,
+      {
+        "id": 52,
+        "name": "GetWeight",
+        "description": "Obtener configuración de ponderado por edición (SettingsController.getWeight)",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 53,
+        "name": "ManageWeight",
+        "description": "Crear/editar configuración de ponderado por edición (SettingsController.create/update)",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      }
     ]
   },
   {
@@ -1421,6 +1459,21 @@
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
       }
+      ,
+      {
+        "serviceId": 52,
+        "permissionId": 51,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 53,
+        "permissionId": 52,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      }
     ]
   },
   {
@@ -1752,6 +1805,19 @@
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "ponderado",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 3,
+        "seniorPct": 40,
+        "juniorPct": 60,
+        "createdAt": "2025-11-15T00:00:00.000Z",
+        "updatedAt": "2025-11-15T00:00:00.000Z"
       }
     ]
   },
