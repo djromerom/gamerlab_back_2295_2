@@ -237,6 +237,62 @@ export class ProfessorsService {
     return nrcs;
   }
 
+  private async getFinalScoreByVideogameId(videogameId: number): Promise<number | null> {
+    if (!videogameId) return null;
+    try {
+      // Use Prisma model mapped to the view `vw_team_final_scores`
+      const row = await this.prisma.teamFinalScore.findFirst({ where: { videogameId: videogameId } as any });
+      if (!row) return null;
+      const val = (row as any).finalScore ?? (row as any).final_score ?? null;
+      if (val === null || val === undefined) return null;
+      return typeof val === 'number' ? val : parseFloat(String(val));
+    } catch (err) {
+      this.logger.warn(`getFinalScoreByVideogameId error: ${(err as any)?.message}`);
+      return null;
+    }
+  }
+
+  private async getAvgJuniorByVideogameId(videogameId: number): Promise<number | null> {
+    if (!videogameId) return null;
+    try {
+      const row = await this.prisma.teamFinalScore.findFirst({ where: { videogameId: videogameId } as any });
+      if (!row) return null;
+      const val = (row as any).avgJunior ?? (row as any).avg_junior ?? (row as any).avgjunior ?? null;
+      if (val === null || val === undefined) return null;
+      return typeof val === 'number' ? val : parseFloat(String(val));
+    } catch (err) {
+      this.logger.warn(`getAvgJuniorByVideogameId error: ${(err as any)?.message}`);
+      return null;
+    }
+  }
+
+  private async resolveVideogameId(teamCode?: string, videogameName?: string): Promise<number | null> {
+    try {
+      if (teamCode && teamCode !== '') {
+        // teamCode might be numeric id or code
+        if (!isNaN(Number(teamCode))) {
+          const team = await this.prisma.team.findUnique({ where: { id: Number(teamCode) } as any, select: { id: true } });
+          if (team && team.id) {
+            const vg = await this.prisma.videogame.findFirst({ where: { teamId: team.id }, select: { id: true } });
+            if (vg && vg.id) return vg.id;
+          }
+        }
+        const teamByCode = await this.prisma.team.findFirst({ where: { teamCode: String(teamCode) }, select: { id: true } });
+        if (teamByCode && teamByCode.id) {
+          const vg = await this.prisma.videogame.findFirst({ where: { teamId: teamByCode.id }, select: { id: true } });
+          if (vg && vg.id) return vg.id;
+        }
+      }
+      if (videogameName && videogameName !== '') {
+        const vg = await this.prisma.videogame.findFirst({ where: { name: String(videogameName) }, select: { id: true } });
+        if (vg && vg.id) return vg.id;
+      }
+    } catch (err) {
+      this.logger.warn(`resolveVideogameId error: ${(err as any)?.message}`);
+    }
+    return null;
+  }
+
   async findSubjects(
     professorId: string,
     includeNrcs: boolean,
@@ -521,10 +577,16 @@ export class ProfessorsService {
         // Si no se encuentran, usar el nrcCode original
         const nrcCodes = nrcSet.size > 0 ? Array.from(nrcSet).join(', ') : String(nrcCode);
         const vg = team.videogame;
-        const grade = this.calculateAverageGrade(vg?.evaluations);
+        let grade: number | null = null;
+        if (vg && vg.id) {
+          grade = await this.getFinalScoreByVideogameId(vg.id);
+        }
         let calificacionDocente: number | null = null;
-        if (vg?.id) {
-          const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: vg.id, jurorId: professorId }, select: { totalScore: true } });
+        if (professorId && vg?.id) {
+          const ev = await this.prisma.evaluation.findFirst({
+            where: { videogameId: vg.id, jurorId: professorId },
+            select: { totalScore: true },
+          });
           calificacionDocente = ev?.totalScore ?? null;
         }
         teamRows.push({
@@ -563,13 +625,29 @@ export class ProfessorsService {
         const teamName = m.team?.teamName ?? 'No team';
         const vg = m.team?.videogame;
         const videogameName = vg?.name ?? 'No videogame';
-        const grade = this.calculateAverageGrade(vg?.evaluations);
+        const grade = null;
         if (!groups.has(teamKey as any)) {
           groups.set(teamKey as any, { teamCode: (m.team as any)?.teamCode ?? '', teamName, videogameName, videogameId: vg?.id ?? null, members: [], grade });
         }
         const g = groups.get(teamKey as any)!;
         g.members.push(`${m.firstName} ${m.lastName}`);
         if (g.grade === null && grade !== null) g.grade = grade;
+      }
+
+      // Resolve final scores for groups (by videogameId if present, otherwise try to resolve videogame)
+      for (const [, g] of groups) {
+        if (g.videogameId) {
+          const fs = await this.getFinalScoreByVideogameId(g.videogameId);
+          if (fs !== null) g.grade = fs;
+        } else {
+          // try to resolve videogame id from teamCode or videogameName
+          const vgId = await this.resolveVideogameId(g.teamCode, g.videogameName);
+          if (vgId) {
+            const fs = await this.getFinalScoreByVideogameId(vgId);
+            if (fs !== null) g.grade = fs;
+            g.videogameId = vgId;
+          }
+        }
       }
 
       for (const [, g] of groups) {
@@ -669,7 +747,10 @@ export class ProfessorsService {
       }
       const nrcCodes = Array.from(nrcSet).join(', ');
       const vg = team.videogame;
-      const grade = this.calculateAverageGrade(vg?.evaluations);
+      let grade: number | null = null;
+      if (vg && vg.id) {
+        grade = await this.getFinalScoreByVideogameId(vg.id);
+      }
       let calificacionDocente: number | null = null;
       if (vg?.id) {
         const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: vg.id, jurorId: professorId }, select: { totalScore: true } });
@@ -820,8 +901,8 @@ export class ProfessorsService {
         let columnKeys: string[];
         let headers: string[];
         if (final) {
-          columnKeys = ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'feriaScore', 'docenteScore'];
-          headers = ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Feria', 'Calificación Docente'];
+          columnKeys = ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'feriaScore', 'juniorScore', 'docenteScore'];
+          headers = ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Feria', 'Calificación Jurado Junior', 'Calificación Docente'];
         } else {
           columnKeys = ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'score'];
           headers = ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Docente'];
@@ -858,8 +939,10 @@ export class ProfessorsService {
    */
   private async fetchMembersForExport(professorId: string, subjectName: string) {
     const videogameSelect = {
+      id: true,
       name: true,
       evaluations: {
+        where: { jurorId: professorId },
         select: {
           totalScore: true,
         },
@@ -918,6 +1001,7 @@ export class ProfessorsService {
       teamCode: string;
       teamName: string;
       videogameName: string;
+      videogameId: number | null;
       nrcCodes: Set<string>;
       members: string[];
       grade: number | null;
@@ -929,6 +1013,7 @@ export class ProfessorsService {
       const teamName = member.team?.teamName ?? 'No team';
       const videogameObj = member.team?.videogame;
       const videogameName = videogameObj?.name ?? 'No videojuego';
+      // Use only the professor's evaluations fetched in fetchMembersForExport
       const grade = this.calculateAverageGrade(videogameObj?.evaluations);
 
       if (!groups.has(teamKey as any)) {
@@ -936,6 +1021,7 @@ export class ProfessorsService {
           teamCode: (member.team as any)?.teamCode ?? '',
           teamName,
           videogameName,
+          videogameId: videogameObj?.id ?? null,
           nrcCodes: new Set<string>(),
           members: [],
           grade,
@@ -952,6 +1038,8 @@ export class ProfessorsService {
       }
       g.members.push(`${member.firstName} ${member.lastName}`);
       if (g.grade === null && grade !== null) g.grade = grade;
+      // keep videogameId populated if present from any member
+      if (!g.videogameId && videogameObj?.id) g.videogameId = videogameObj.id;
     }
 
     return groups;
@@ -967,12 +1055,13 @@ export class ProfessorsService {
 
     const scoreHeaderIdx = headers.indexOf('Calificación Docente');
     const feriaHeaderIdx = headers.indexOf('Calificación Feria');
+    const juniorHeaderIdx = headers.indexOf('Calificación Jurado Junior');
     const headerRow = worksheet.addRow(headerTexts);
 
     headerRow.eachCell((cell, colNumber) => {
       cell.font = { bold: true } as any;
       cell.alignment = { horizontal: 'center', vertical: 'middle' } as any;
-      if (colNumber - 1 !== scoreHeaderIdx && colNumber - 1 !== feriaHeaderIdx) {
+      if (colNumber - 1 !== scoreHeaderIdx && colNumber - 1 !== feriaHeaderIdx && colNumber - 1 !== juniorHeaderIdx) {
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
@@ -1000,40 +1089,16 @@ export class ProfessorsService {
         fgColor: { argb: 'FFE5D5FA' }, // morado claro
       } as any;
     }
+    if (final && juniorHeaderIdx >= 0) {
+      const juniorHeaderCell = headerRow.getCell(juniorHeaderIdx + 1);
+      juniorHeaderCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD6EAF8' }, // azul claro
+      } as any;
+    }
 
     return { headerRow, maxLens };
-  }
-
-  /**
-   * Given a team object (with teamId and videogameName), find the teacher's
-   * evaluation for the current professor and return formatted score string.
-   */
-  private async getDocenteScoreForTeam(g: any, professorId: string): Promise<string> {
-    let docenteScore = '';
-    // Prefer resolving videogame via teamCode (new approach). Fall back to videogameName if needed.
-    try {
-      let vgId: number | null = null;
-      if (g.teamCode && g.teamCode !== '') {
-        const team = await this.prisma.team.findFirst({ where: ({ teamCode: String(g.teamCode) } as any), select: { id: true } });
-        if (team && team.id) {
-          const vg = await this.prisma.videogame.findFirst({ where: { teamId: team.id }, select: { id: true } });
-          if (vg && vg.id) vgId = vg.id;
-        }
-      }
-      if (!vgId && g.videogameName && g.videogameName !== 'No videojuego') {
-        const vg = await this.prisma.videogame.findFirst({ where: { name: g.videogameName }, select: { id: true } });
-        if (vg && vg.id) vgId = vg.id;
-      }
-      if (vgId) {
-        const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: vgId, jurorId: professorId }, select: { totalScore: true } });
-        if (ev && ev.totalScore !== null && ev.totalScore !== undefined) {
-          docenteScore = ev.totalScore.toFixed(1);
-        }
-      }
-    } catch (err) {
-      this.logger.warn(`getDocenteScoreForTeam error: ${(err as any)?.message}`);
-    }
-    return docenteScore;
   }
 
   /**
@@ -1060,10 +1125,51 @@ export class ProfessorsService {
         members: g.members.join(', '),
         videogame: g.videogameName,
       };
+      // Compute feria (final) score from the final-score view and the docente score separately.
+      let docenteScore = '';
+      let feriaScoreVal: number | null = null;
+      try {
+        // resolve videogame id if present or by teamCode/name
+        let vgId: number | null = g.videogameId ? Number(g.videogameId) || null : null;
+        if (!vgId) {
+          vgId = await this.resolveVideogameId(g.teamCode, g.videogameName);
+          if (vgId) g.videogameId = vgId;
+        }
 
-      if (final) {
-        const docenteScore = await this.getDocenteScoreForTeam(g, professorId);
-        rowObj.feriaScore = g.grade !== null ? g.grade.toFixed(1) : '';
+        if (vgId) {
+          // final feria score from view
+          feriaScoreVal = await this.getFinalScoreByVideogameId(vgId);
+          // docente score for this professor
+          if (professorId) {
+            const ev = await this.prisma.evaluation.findFirst({ where: { videogameId: vgId, jurorId: professorId }, select: { totalScore: true } });
+            if (ev && ev.totalScore !== null && ev.totalScore !== undefined) {
+              docenteScore = ev.totalScore.toFixed(1);
+              // also keep numeric value in g.grade for backward compatibility if needed
+              g.grade = typeof ev.totalScore === 'number' ? ev.totalScore : parseFloat(String(ev.totalScore));
+            }
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`addGroupRows get docente/feria score error: ${(err as any)?.message}`);
+      }
+
+        if (final) {
+        // include junior juror average (avg_junior from view) before docente score
+        let juniorScore = '';
+        try {
+          const vgIdLocal = g.videogameId ? Number(g.videogameId) || null : null;
+          if (vgIdLocal) {
+            const avgJunior = await this.getAvgJuniorByVideogameId(vgIdLocal);
+            if (avgJunior !== null && avgJunior !== undefined) {
+              juniorScore = avgJunior.toFixed(1);
+            }
+          }
+        } catch (err) {
+          this.logger.warn(`addGroupRows get junior avg error: ${(err as any)?.message}`);
+        }
+
+        rowObj.feriaScore = feriaScoreVal !== null && feriaScoreVal !== undefined ? feriaScoreVal.toFixed(1) : '';
+        rowObj.juniorScore = juniorScore;
         rowObj.docenteScore = docenteScore;
       } else {
         rowObj.score = g.grade !== null ? g.grade.toFixed(1) : '';
@@ -1090,6 +1196,7 @@ export class ProfessorsService {
       };
       if (final) {
         emptyRow.feriaScore = '';
+        emptyRow.juniorScore = '';
         emptyRow.docenteScore = '';
       } else {
         emptyRow.score = '';

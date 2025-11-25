@@ -393,3 +393,18 @@ model Testimonial {
   @@unique([editionId, name], name: "testimonio_criterio_unique")
   @@map("testimonio")
 }
+
+model TeamFinalScore {
+  teamId        Int     @map("team_id")
+  teamCode      String? @map("team_code")
+  isExternal    Boolean @map("is_external")
+  videogameId   Int     @map("videogame_id")
+  videogameName String? @map("videogame_name")
+  editionId     Int     @map("edition_id")
+  avgJunior     Float?  @map("avg_junior")
+  avgSenior     Float?  @map("avg_senior")
+  finalScore    Float?  @map("final_score")
+
+  @@id([teamId, videogameId, editionId])
+  @@map("vw_team_final_scores")
+}
