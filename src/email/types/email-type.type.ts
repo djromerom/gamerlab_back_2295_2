@@ -1,0 +1,1 @@
+export type AuthEmailType = 'VERIFICACION_EMAIL' | 'RESETEAR_CONTRASENA';

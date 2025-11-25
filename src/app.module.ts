@@ -21,12 +21,14 @@ import { CacheModule } from './cache/cache.module';
 import { StudentsModule } from './students/students.module';
 import { UploadModule } from './upload/upload.module';
 import { SettingsModule } from './settings/settings.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    EmailModule, // Add EmailModule to make email endpoints available
     SubjectsModule,
     NrcsModule,
     PendingGamesModule,
