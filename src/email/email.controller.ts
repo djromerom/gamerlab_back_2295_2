@@ -38,7 +38,7 @@ export class EmailController {
   @ApiOperation({ summary: 'Resend team email of a certain type to a team' })
   @HttpCode(200)
   async resendTeamEmailOfType(@Body() resendEmailDto: ResendTeamEmailDto) {
-    return this.emailService.resendTeamEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail);
+    return this.emailService.resendTeamEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, { rejectionReason: resendEmailDto.rejectionReason?? '' });
   }
 
   @Post('resend-certificate-email')

@@ -28,9 +28,9 @@ export class EmailService {
   private EMAIL_VIDEOGAME_APPROVED_TEMPLATE: string;
   private EMAIL_VIDEOGAME_REJECTED_TEMPLATE: string;
   private EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE: string;
-  private EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE: string;
-  private EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE: string;
-  private EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE: string;
+  private EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE: string;
+  private EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE: string;
+  private EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE: string;
 
   // Auth-related token IDs (will be set in onModuleInit)
   private verificationTokenId: number;
@@ -99,14 +99,14 @@ export class EmailService {
       const EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE = this.configService.get<string>(
         'EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE',
       );
-      const EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE = this.configService.get<string>(
-        'EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE',
+      const EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE = this.configService.get<string>(
+        'EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE',
       );
-      const EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE = this.configService.get<string>(
-        'EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE',
+      const EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE = this.configService.get<string>(
+        'EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE',
       );
-      const EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE = this.configService.get<string>(
-        'EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE',
+      const EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE = this.configService.get<string>(
+        'EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE',
       );
 
       if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
@@ -141,17 +141,17 @@ export class EmailService {
         throw new InternalServerErrorException(
           `FATAL: Configuration error during onModuleInit - 'EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
         );
-      else if (!EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE)
+      else if (!EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE)
         throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
         );
-      else if (!EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE)
+      else if (!EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE)
         throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
         );
-      else if (!EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE)
+      else if (!EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE)
         throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
+          `FATAL: Configuration error during onModuleInit - 'EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
         );
 
       this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
@@ -163,9 +163,9 @@ export class EmailService {
       this.EMAIL_VIDEOGAME_APPROVED_TEMPLATE = EMAIL_VIDEOGAME_APPROVED_TEMPLATE;
       this.EMAIL_VIDEOGAME_REJECTED_TEMPLATE = EMAIL_VIDEOGAME_REJECTED_TEMPLATE;
       this.EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE = EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE;
-      this.EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE = EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE;
-      this.EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE = EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE;
-      this.EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE = EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE;
+      this.EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE = EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE;
+      this.EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE = EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE;
+      this.EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE = EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE;
 
       this.logger.log('Initializing EmailJS with found EMAIL_API_KEY');
       emailjs.init({
@@ -315,7 +315,7 @@ export class EmailService {
     email: string,
     typeOfEmail: TeamEmailType,
     params?: Record<string, unknown>,
-  ): Promise<void> {
+  ): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
   
     try {
@@ -354,7 +354,7 @@ export class EmailService {
       await this.sendEmailTemplate(template, templateParams);
   
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
-      
+      return { message: 'Correo reenviado con éxito' };
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -379,7 +379,7 @@ export class EmailService {
     email: string,
     typeOfEmail: CertEmailType,
     certificate: string,
-  ): Promise<void> {
+  ): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend ${typeOfEmail} certificate email to: ${email}`);
   
     try {
@@ -403,13 +403,13 @@ export class EmailService {
           template = this.EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE;
           break;
         case '1ST_PLACE_CERTIFICATE':
-          template = this.EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE;
+          template = this.EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE;
           break;
         case '2ND_PLACE_CERTIFICATE':
-          template = this.EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE;
+          template = this.EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE;
           break;
         case '3RD_PLACE_CERTIFICATE':
-          template = this.EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE;
+          template = this.EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE;
           break;
         default:
           this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);
@@ -420,7 +420,7 @@ export class EmailService {
       await this.sendEmailTemplate(template, templateParams);
   
       this.logger.log(`${typeOfEmail} certificate email resent successfully to: ${email}`);
-      
+      return { message: 'Correo reenviado con éxito' };
     } catch (error) {
       if (
         error instanceof NotFoundException ||

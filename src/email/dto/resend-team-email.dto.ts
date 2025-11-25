@@ -13,10 +13,10 @@ export class ResendTeamEmailDto {
 
   @ApiProperty({
     description: 'The type of email to resend',
-    enum: ['VERIFICACION_EMAIL', 'RESETEAR_CONTRASENA'],
-    example: 'VERIFICACION_EMAIL'
+    enum: ['VIDEOGAME_APPROVED', 'VIDEOGAME_REJECTED', 'UPDATE_VIDEOGAME_INFO'],
+    example: 'VIDEOGAME_REJECTED'
   })
-  @IsEnum(['VERIFICACION_EMAIL', 'RESETEAR_CONTRASENA'])
+  @IsEnum(['VIDEOGAME_APPROVED', 'VIDEOGAME_REJECTED', 'UPDATE_VIDEOGAME_INFO'])
   @IsNotEmpty()
   typeOfEmail: TeamEmailType;
 
