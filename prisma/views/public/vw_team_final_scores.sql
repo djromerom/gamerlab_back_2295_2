@@ -71,7 +71,7 @@ FROM
             WHERE
               (ediciones.activo = TRUE)
             ORDER BY
-              w.id DESC
+              ediciones.id_edicion DESC
             LIMIT
               1
           )
