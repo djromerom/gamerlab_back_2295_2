@@ -8,7 +8,6 @@ import {
   Param,
   Delete,
   UseGuards,
-  HttpCode,
   ParseIntPipe,
   Query,
   Optional,
@@ -26,6 +25,7 @@ import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
+import { MemberDto } from '../dto/member.dto';
 
 @Controller('teams')
 @ApiExtraModels(UpdateTeamDto)
@@ -131,17 +131,9 @@ export class TeamsController {
     // Si solo tiene teamName o videogame, usar updateTeamInfo
     const complexFields = ['members', 'isExternal'];
     if (complexFields.some((field) => field in updateDto))
-      return this.teamsService.update(
-        id,
-        updateDto,
-        currentUser,
-      );
+      return this.teamsService.update(id, updateDto, currentUser);
 
-    return this.teamsService.updateTeamInfo(
-      id,
-      updateDto,
-      currentUser,
-    );
+    return this.teamsService.updateTeamInfo(id, updateDto, currentUser);
   }
 
   @Patch(':teamId/members/:memberId')
@@ -166,5 +158,27 @@ export class TeamsController {
   @RequiredService('DeleteTeam')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.teamsService.remove(id);
+  }
+
+  @Post(':id/add-member')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
+  addMember(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() memberDto: MemberDto,
+    @GetUser() user: AppUser,
+  ) {
+    return this.teamsService.addMember(id, memberDto, user);
+  }
+
+  @Delete(':id/members/:memberId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
+  deleteMember(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @GetUser() user: AppUser,
+  ) {
+    return this.teamsService.deleteMember(id, memberId, user);
   }
 }

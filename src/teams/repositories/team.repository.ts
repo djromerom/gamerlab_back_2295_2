@@ -143,9 +143,21 @@ export class TeamRepository implements ITeamRepository {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const finalUserId = await this.handleUser(tx, createTeamDto.members[0]);
-        const team = await this.createTeamRecord(tx, createTeamDto, finalUserId);
-        const members = await this.createMembers(tx, team.id, createTeamDto.members);
-        const videogame = await this.createVideogame(tx, team.id, createTeamDto.videogame);
+        const team = await this.createTeamRecord(
+          tx,
+          createTeamDto,
+          finalUserId,
+        );
+        const members = await this.createMembers(
+          tx,
+          team.id,
+          createTeamDto.members,
+        );
+        const videogame = await this.createVideogame(
+          tx,
+          team.id,
+          createTeamDto.videogame,
+        );
 
         return {
           team,
@@ -376,7 +388,7 @@ export class TeamRepository implements ITeamRepository {
       // Actualizar información del videojuego si se proporciona
       if (videogame) {
         const videogameUpdateData: any = {};
-        
+
         if (videogame.vgName !== undefined) {
           videogameUpdateData.name = videogame.vgName;
         }
@@ -554,6 +566,51 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
+  async addMember(teamId: number, memberDto: MemberDto): Promise<any> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const team = await this.findOne(teamId);
+        if (!team)
+          throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+
+        const members = await this.createMembers(tx, teamId, [memberDto]);
+
+        return members[0];
+      });
+    } catch (err) {
+      handlePrismaError(err);
+    }
+  }
+
+  async deleteMember(teamId: number, memberId: number): Promise<void> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const team = await this.findOne(teamId);
+        if (!team)
+          throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+
+        const leader = await this.prisma.user.findFirst({
+          where: { id: team.userId },
+        });
+
+        const member = await this.findMemberById(memberId);
+        if (member?.email === leader?.email) {
+          throw new BadRequestException(
+            'No se puede eliminar al líder del equipo',
+          );
+        }
+
+        await tx.member.delete({
+          where: { id: memberId },
+        });
+
+        return { message: 'Miembro eliminado exitosamente', member };
+      });
+    } catch (err) {
+      handlePrismaError(err);
+    }
+  }
+
   // Private helper methods
   private async handleUser(
     tx: Prisma.TransactionClient,
@@ -707,7 +764,7 @@ export class TeamRepository implements ITeamRepository {
       });
       if (checkIfExist)
         throw new ConflictException(
-          `El correo ${member.memberEmail} ya está registrado en otro registro`,
+          `El correo ${member.memberEmail} ya está registrado en un equipo`,
         );
 
       const nrcRecords = await tx.nRC.findMany({
@@ -836,7 +893,7 @@ export class TeamRepository implements ITeamRepository {
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },
         data: {
-          email: isLeader ? isLeader.email : member.memberEmail,
+          email: member.memberEmail,
           firstName: member.memberFirstName,
           lastName: member.memberLastName,
           studentCode: member.studentCode,
@@ -848,6 +905,17 @@ export class TeamRepository implements ITeamRepository {
             : undefined,
         },
       });
+      if (isLeader) {
+        await tx.user.update({
+          where: { email: dbMember.email },
+          data: {
+            firstName: member.memberFirstName,
+            lastName: member.memberLastName,
+            email: member.memberEmail,
+          },
+        });
+      }
+
       updatedMembers.push(updatedMember);
     }
     return updatedMembers;
