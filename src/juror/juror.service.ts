@@ -621,7 +621,6 @@ export class JurorService {
         where: {
           isActive: true,
           videogame: {
-            isNot: null, // Asegurar que tiene videojuego
             videogameStatusId: this.confirmedStatusId,
           },
         },
