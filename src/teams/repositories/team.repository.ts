@@ -174,7 +174,9 @@ export class TeamRepository implements ITeamRepository {
       orderBy: orderBy,
       include: {
         videogame: true,
-        members: true,
+        members: {
+          orderBy: { id: 'asc' },
+        },
         user: {
           select: {
             id: true,
@@ -219,6 +221,7 @@ export class TeamRepository implements ITeamRepository {
                 include: { subject: true },
               },
             },
+            orderBy: { id: 'asc' },
           },
           videogame: true,
         },
