@@ -34,6 +34,6 @@ export class ResendCertEmailDto {
     description: 'The certificate file to include in the email',
     example: 'base64-encoded-certificate-string'
   })
-  @IsNotEmpty()
-  certificate: string;
+  @IsOptional()
+  certificate?: string;
 }

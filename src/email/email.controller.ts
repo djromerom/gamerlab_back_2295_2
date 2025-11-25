@@ -15,7 +15,7 @@ import {
   Optional,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiBody, ApiExtraModels, getSchemaPath, ApiOperation, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiExtraModels, getSchemaPath, ApiOperation, ApiOkResponse, ApiTags, ApiNotFoundResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { EmailService } from './email.service';
 import { TeamEmailType } from './types/team-email.type';
 import { ResendAuthEmailDto } from './dto/resend-auth-email.dto';
@@ -29,6 +29,11 @@ export class EmailController {
   
   @Post('resend-auth-email')
   @ApiOperation({ summary: 'Resend auth email of a certain type to a user' })
+  @ApiExtraModels(ResendAuthEmailDto)
+  @ApiBody({ schema: { $ref: getSchemaPath(ResendAuthEmailDto) } })
+  @ApiOkResponse({ description: 'Auth email resent successfully' })
+  @ApiNotFoundResponse({ description: 'User with the provided email does not exist' })
+  @ApiBadRequestResponse({ description: 'Invalid type of email provided' })
   @HttpCode(200)
   async resendAuthEmailOfType(@Body() resendEmailDto: ResendAuthEmailDto) {
     return this.emailService.resendAuthEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail);
@@ -36,15 +41,30 @@ export class EmailController {
 
   @Post('resend-team-email')
   @ApiOperation({ summary: 'Resend team email of a certain type to a team' })
+  @ApiExtraModels(ResendTeamEmailDto)
+  @ApiBody({ schema: { $ref: getSchemaPath(ResendTeamEmailDto) } })
+  @ApiOkResponse({ description: 'Team email resent successfully' })
+  @ApiNotFoundResponse({ description: 'User with the provided email does not exist' })
+  @ApiBadRequestResponse({ description: 'Invalid type of email provided' })
   @HttpCode(200)
   async resendTeamEmailOfType(@Body() resendEmailDto: ResendTeamEmailDto) {
-    return this.emailService.resendTeamEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, { rejectionReason: resendEmailDto.rejectionReason?? '' });
+    return this.emailService.resendTeamEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, { rejectionReason: resendEmailDto.rejectionReason ?? '' });
   }
 
   @Post('resend-certificate-email')
   @ApiOperation({ summary: 'Resend certificate email to a team' })
+  @ApiExtraModels(ResendCertEmailDto)
+  @ApiBody({ schema: { $ref: getSchemaPath(ResendCertEmailDto) } })
+  @ApiOkResponse({ description: 'Certificate email resent successfully' })
+  @ApiNotFoundResponse({ description: 'User with the provided email does not exist' })
+  @ApiBadRequestResponse({ description: 'Invalid type of email provided' })
   @HttpCode(200)
   async resendCertificateEmail(@Body() resendEmailDto: ResendCertEmailDto) {
-    return this.emailService.resendCertEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, resendEmailDto.certificate);
+    let certificate = resendEmailDto.certificate;
+    if (!certificate) {
+      // TODO: generate certificate if not provided
+      certificate = '';
+    }
+    return this.emailService.resendCertEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, certificate);
   }
 }
