@@ -398,6 +398,8 @@ view TeamFinalScore {
   avg_junior     Float?
   avg_senior     Float?
   final_score    Float?
+
+  @@unique([team_id, videogame_id, edition_id])
 }
 
 enum AuthMethod {
