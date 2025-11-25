@@ -9,6 +9,15 @@ import {
   Delete,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiOkResponse,
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
+} from '@nestjs/swagger';
 import { JurorService } from './juror.service';
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
@@ -20,6 +29,7 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
 import { AuthService } from '../auth/auth.service';
 
+@ApiTags('Juror')
 @Controller('juror')
 export class JurorController {
   constructor(
@@ -30,6 +40,54 @@ export class JurorController {
   @Get('evaluations-assignment')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
+  @ApiOperation({
+    summary: 'Asignar evaluaciones automáticamente',
+    description: `
+      Asigna automáticamente jurados a cada equipo confirmado, agrupando por nivel.
+      Los jurados se distribuyen equitativamente entre los equipos del mismo nivel.
+      
+      **Reglas de asignación:**
+      - Los jurados solo pueden evaluar equipos del mismo nivel
+      - El nivel se extrae del código del equipo (formato: N<número>-...)
+      - Ejemplos de códigos válidos: N0-COLEGIOS-01, N1-AYP-06, N2-AYP2-05, N3-DATOS-08, N4-DATOS2-20
+      - Se distribuyen equitativamente los jurados disponibles entre los equipos del mismo nivel
+      - El número de jurados por equipo se calcula automáticamente: total_jurados / total_equipos
+      - Si hay sobrantes, se distribuyen equitativamente entre los primeros equipos
+      
+      **Niveles:**
+      - N0: Colegios
+      - N1: AYP1
+      - N2: AYP2
+      - N3: DATOS 1, POO
+      - N4: DATOS 2
+    `,
+  })
+  @ApiOkResponse({
+    description: 'Evaluaciones asignadas correctamente',
+    schema: {
+      example: {
+        message: 'Evaluaciones asignadas correctamente',
+        details: [
+          'Nivel 0: 2 equipos asignados con 2 jurados cada uno',
+          'Nivel 1: 5 equipos asignados (2-3 jurados por equipo, promedio: 2.4)',
+          'Nivel 2: 3 equipos asignados con 3 jurados cada uno',
+          'Nivel 3: 4 equipos asignados (1-2 jurados por equipo, promedio: 1.5)',
+          'Nivel 4: 2 equipos asignados con 2 jurados cada uno',
+        ],
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'No se encontraron equipos con formato de nivel válido',
+    schema: {
+      example: {
+        message: 'No se encontraron equipos con formato de nivel válido (N<número>-...)',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'No autenticado' })
+  @ApiForbiddenResponse({ description: 'No tiene permisos para asignar jurados' })
+  @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
   AsignEvaluations() {
     return this.jurorService.asingEvaluations();
   }
