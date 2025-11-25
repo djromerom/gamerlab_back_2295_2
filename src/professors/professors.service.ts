@@ -240,15 +240,12 @@ export class ProfessorsService {
   private async getFinalScoreByVideogameId(videogameId: number): Promise<number | null> {
     if (!videogameId) return null;
     try {
-      const result: any = await this.prisma.$queryRaw`
-        SELECT final_score FROM public.vw_team_final_scores WHERE videogame_id = ${videogameId} LIMIT 1
-      `;
-      if (Array.isArray(result) && result.length > 0) {
-        const val = result[0].final_score ?? result[0].finalscore ?? result[0].final_score;
-        if (val === null || val === undefined) return null;
-        return typeof val === 'number' ? val : parseFloat(String(val));
-      }
-      return null;
+      // Use Prisma model mapped to the view `vw_team_final_scores`
+      const row = await this.prisma.teamFinalScore.findFirst({ where: { videogameId: videogameId } as any });
+      if (!row) return null;
+      const val = (row as any).finalScore ?? (row as any).final_score ?? null;
+      if (val === null || val === undefined) return null;
+      return typeof val === 'number' ? val : parseFloat(String(val));
     } catch (err) {
       this.logger.warn(`getFinalScoreByVideogameId error: ${(err as any)?.message}`);
       return null;
@@ -258,15 +255,11 @@ export class ProfessorsService {
   private async getAvgJuniorByVideogameId(videogameId: number): Promise<number | null> {
     if (!videogameId) return null;
     try {
-      const result: any = await this.prisma.$queryRaw`
-        SELECT avg_junior FROM public.vw_team_final_scores WHERE videogame_id = ${videogameId} LIMIT 1
-      `;
-      if (Array.isArray(result) && result.length > 0) {
-        const val = result[0].avg_junior ?? result[0].avgjunior ?? null;
-        if (val === null || val === undefined) return null;
-        return typeof val === 'number' ? val : parseFloat(String(val));
-      }
-      return null;
+      const row = await this.prisma.teamFinalScore.findFirst({ where: { videogameId: videogameId } as any });
+      if (!row) return null;
+      const val = (row as any).avgJunior ?? (row as any).avg_junior ?? (row as any).avgjunior ?? null;
+      if (val === null || val === undefined) return null;
+      return typeof val === 'number' ? val : parseFloat(String(val));
     } catch (err) {
       this.logger.warn(`getAvgJuniorByVideogameId error: ${(err as any)?.message}`);
       return null;
