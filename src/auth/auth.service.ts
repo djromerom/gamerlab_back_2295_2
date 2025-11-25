@@ -163,8 +163,48 @@ export class AuthService {
     }
   }
 
+  /**
+   * Resets token expiration for a user's verification or reset password token
+   */
   async resetTokenExpiration(userId: string, typeOfToken: AuthEmailType): Promise<void> {
-    return this.emailService.resetTokenExpiration(userId, typeOfToken);
+    try {
+      // Find the appropriate token type
+      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
+        ? this.verificationTokenId
+        : this.resetPasswordTokenId;
+      
+      const token = await this.prisma.verificationToken.findFirst({
+        where: {
+          userId: userId,
+          tokenTypeId: tokenTypeId,
+        },
+      });
+      
+      if (!token) {
+        this.logger.warn(`No verification token found for this user`);
+        throw new NotFoundException('No verification token found for this user.');
+      }
+
+      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+        'REGISTRATION_TOKEN_EXPIRATION',
+        24,
+      );
+
+      const newExpiresAt = new Date(
+        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+      );
+
+      await this.prisma.verificationToken.update({
+        where: { id: token.id },
+        data: { expiresAt: newExpiresAt },
+      });
+
+      this.logger.log(`Token expiration reset for user ${userId}`);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.error(`Failed to reset token expiration: ${error instanceof Error ? error.message : String(error)}`);
+      throw new InternalServerErrorException('Failed to reset token expiration.');
+    }
   }
 
   // done locally

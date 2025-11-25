@@ -1,6 +1,6 @@
 import { IsUUID, IsEnum, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { AuthEmailType } from '../types/email-type.type';
+import { AuthEmailType } from '../../email/types/email-type.type';
 
 export class ResetTokenExpirationDto {
   @ApiProperty({

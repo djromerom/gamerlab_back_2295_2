@@ -1,8 +1,4 @@
 export type TeamEmailType = 
-    'UPDATE-VIDEOGAME-INFO'      |
-    'TEAM-APPROVED'              |
-    'TEAM-REJECTED'              |
-    'PARTICIPATION-CERTIFICATE'  |
-    '1ST-PLACE-CERTIFICATE'      |
-    '2ND-PLACE-CERTIFICATE'      |
-    '3RD-PLACE-CERTIFICATE'      ;
+    'UPDATE_VIDEOGAME_INFO'      |
+    'VIDEOGAME_APPROVED'         |
+    'VIDEOGAME_REJECTED'         ;

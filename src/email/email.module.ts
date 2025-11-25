@@ -11,10 +11,10 @@ import { HttpModule } from '@nestjs/axios';
   imports: [
     PrismaModule,
     ConfigModule,
-    HttpModule, // Add HttpModule for any HTTP requests that might be needed
+    HttpModule,
   ],
   controllers: [EmailController],
   providers: [EmailService],
-  exports: [EmailService], // Export EmailService so it can be used by other modules
+  exports: [EmailService],
 })
 export class EmailModule {}

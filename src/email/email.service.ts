@@ -14,6 +14,7 @@ import { AuthEmailType } from './types/email-type.type';
 import { ConfigService } from '@nestjs/config';
 import emailjs, { EmailJSResponseStatus } from '@emailjs/nodejs';
 import { randomUUID } from 'node:crypto';
+import { CertEmailType } from './types/cert-email.type';
 
 @Injectable()
 export class EmailService {
@@ -182,50 +183,6 @@ export class EmailService {
   }
 
   /**
-   * Resets token expiration for a user's verification or reset password token
-   */
-  async resetTokenExpiration(userId: string, typeOfToken: AuthEmailType): Promise<void> {
-    try {
-      // Find the appropriate token type
-      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
-        ? this.verificationTokenId
-        : this.resetPasswordTokenId;
-      
-      const token = await this.prisma.verificationToken.findFirst({
-        where: {
-          userId: userId,
-          tokenTypeId: tokenTypeId,
-        },
-      });
-      
-      if (!token) {
-        this.logger.warn(`No verification token found for this user`);
-        throw new NotFoundException('No verification token found for this user.');
-      }
-
-      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
-        'REGISTRATION_TOKEN_EXPIRATION',
-        24,
-      );
-
-      const newExpiresAt = new Date(
-        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
-      );
-
-      await this.prisma.verificationToken.update({
-        where: { id: token.id },
-        data: { expiresAt: newExpiresAt },
-      });
-
-      this.logger.log(`Token expiration reset for user ${userId}`);
-    } catch (error) {
-      if (error instanceof NotFoundException) throw error;
-      this.logger.error(`Failed to reset token expiration: ${error instanceof Error ? error.message : String(error)}`);
-      throw new InternalServerErrorException('Failed to reset token expiration.');
-    }
-  }
-
-  /**
    * Resends an email of the specified type (verification or password reset)
    */
   async resendAuthEmailOfType(
@@ -343,6 +300,136 @@ export class EmailService {
       }
       this.logger.error(
         `Failed to resend ${typeOfEmail} email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new InternalServerErrorException('Failed to resend email.');
+    }
+  }
+
+  /**
+   * Resends a team-related email of the specified type
+   * @param email The recipient's email address
+   * @param typeOfEmail The type of team email to resend
+   * @param params Additional parameters required for the email template
+   */
+  async resendTeamEmailOfType(
+    email: string,
+    typeOfEmail: TeamEmailType,
+    params?: Record<string, unknown>,
+  ): Promise<void> {
+    this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
+  
+    try {
+      const emailExists = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!emailExists) {
+        this.logger.error(`User with email ${email} not found in local DB.`);
+        throw new NotFoundException('The email address is not registered.');
+      }
+      
+      let template: string;
+      let templateParams: Record<string, unknown> = { email };
+      switch (typeOfEmail) {
+        case 'UPDATE_VIDEOGAME_INFO':
+          template = this.EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE;
+          break;
+        case 'VIDEOGAME_APPROVED':
+          template = this.EMAIL_VIDEOGAME_APPROVED_TEMPLATE;
+          break;
+        case 'VIDEOGAME_REJECTED':
+          template = this.EMAIL_VIDEOGAME_REJECTED_TEMPLATE;
+          break;
+        default:
+          this.logger.error(`Invalid team email type specified: ${typeOfEmail}`);
+          throw new BadRequestException('Invalid team email type specified.');
+      }
+  
+      // Merge additional params if provided
+      if (params) {
+        templateParams = { ...templateParams, ...params };
+      }
+  
+      // Send the email
+      await this.sendEmailTemplate(template, templateParams);
+  
+      this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
+      
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Failed to resend ${typeOfEmail} email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new InternalServerErrorException('Failed to resend email.');
+    }
+  }
+
+  /**
+   * Resends a team certificate email of the specified type
+   * @param email The recipient's email address
+   * @param typeOfEmail The type of certificate email to resend
+   * @param certificate The certificate file to include in the email
+   */
+  async resendCertEmailOfType(
+    email: string,
+    typeOfEmail: CertEmailType,
+    certificate: string,
+  ): Promise<void> {
+    this.logger.log(`Attempting to resend ${typeOfEmail} certificate email to: ${email}`);
+  
+    try {
+      const emailExists = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!emailExists) {
+        this.logger.error(`User with email ${email} not found in local DB.`);
+        throw new NotFoundException('The email address is not registered.');
+      }
+      
+      const certificateBase64 = Buffer.from(certificate, 'binary').toString('base64');
+      let template: string;
+      let templateParams: Record<string, unknown> = { 
+        email,
+        certificate_url: certificateBase64,
+      };
+      switch (typeOfEmail) {
+        case 'PARTICIPATION_CERTIFICATE':
+          template = this.EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE;
+          break;
+        case '1ST_PLACE_CERTIFICATE':
+          template = this.EMAIL_FIRST_PLACE_CERTIFICATE_TEMPLATE;
+          break;
+        case '2ND_PLACE_CERTIFICATE':
+          template = this.EMAIL_SECOND_PLACE_CERTIFICATE_TEMPLATE;
+          break;
+        case '3RD_PLACE_CERTIFICATE':
+          template = this.EMAIL_THIRD_PLACE_CERTIFICATE_TEMPLATE;
+          break;
+        default:
+          this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);
+          throw new BadRequestException('Invalid certificate email type specified.');
+      }
+  
+      // Send the email
+      await this.sendEmailTemplate(template, templateParams);
+  
+      this.logger.log(`${typeOfEmail} certificate email resent successfully to: ${email}`);
+      
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      this.logger.error(
+        `Failed to resend ${typeOfEmail} certificate email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw new InternalServerErrorException('Failed to resend email.');
     }

@@ -1,8 +1,8 @@
-import { IsEmail, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { AuthEmailType } from '../types/email-type.type';
+import { TeamEmailType } from '../types/team-email.type';
 
-export class ResendEmailDto {
+export class ResendTeamEmailDto {
   @ApiProperty({
     description: 'The email address to resend the email to',
     example: 'user@example.com'
@@ -18,5 +18,12 @@ export class ResendEmailDto {
   })
   @IsEnum(['VERIFICACION_EMAIL', 'RESETEAR_CONTRASENA'])
   @IsNotEmpty()
-  typeOfEmail: AuthEmailType;
+  typeOfEmail: TeamEmailType;
+
+  @ApiProperty({
+    description: 'The rejection reason for the videogame, if applicable',
+    example: 'The videogame does not meet the quality standards.'
+  })
+  @IsOptional()
+  rejectionReason?: string;
 }
