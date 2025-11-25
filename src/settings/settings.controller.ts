@@ -11,7 +11,7 @@ import { Public } from 'src/auth/decorators/public.decorator';
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
-  @Get('weigths')
+  @Get('weights')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetWeight')
   @ApiOperation({ summary: 'Get weighting configuration for the latest edition' })
