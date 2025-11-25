@@ -27,10 +27,10 @@ import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 export class EmailController {
   constructor(private readonly emailService: EmailService) {}
   
-  @Post('resend-verification')
-  @ApiOperation({ summary: 'Resend verification email to a user' })
+  @Post('resend-auth-email')
+  @ApiOperation({ summary: 'Resend auth email of a certain type to a user' })
   @HttpCode(200)
-  async resendVerificationEmail(@Body() resendEmailDto: ResendEmailDto) {
+  async resendAuthEmailOfType(@Body() resendEmailDto: ResendEmailDto) {
     return this.emailService.resendAuthEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail);
   }
 

@@ -226,38 +226,12 @@ export class EmailService {
   }
 
   /**
-   * Sends a verification email to the specified email address
-   */
-  async sendVerificationEmail(email: string, verificationToken: string): Promise<void> {
-    try {
-      this.logger.log(`Sending verification email for '${email}'`);
-
-      const REDIRECT_TO = this.configService.get<string>(
-        'FRONTEND_URL',
-        `http://localhost:5173`,
-      );
-
-      await this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
-        email: email,
-        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-      });
-
-      this.logger.log(`Verification email sent successfully to: ${email}`);
-    } catch (error) {
-      // Log email errors but don't fail the operation
-      this.logger.error(
-        `Failed to send verification email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw error;
-    }
-  }
-
-  /**
    * Resends an email of the specified type (verification or password reset)
    */
   async resendAuthEmailOfType(
     email: string,
     typeOfEmail: AuthEmailType,
+    token?: string,
   ): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
@@ -280,45 +254,52 @@ export class EmailService {
     }
 
     try {
-      // Delete any existing token of said type for this user
-      const tokenTypeId =
-        typeOfEmail === 'VERIFICACION_EMAIL'
-          ? this.verificationTokenId
-          : this.resetPasswordTokenId;
-      
-      await this.prisma.verificationToken.deleteMany({
-        where: {
-          userId: user.id,
-          tokenTypeId: tokenTypeId,
-        },
-      });
-
       // Generate new verification token
       const REDIRECT_TO = this.configService.get<string>(
         'FRONTEND_URL',
         `http://localhost:5173`,
       );
 
-      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
-        'REGISTRATION_TOKEN_EXPIRATION',
-        24,
-      );
+      let verificationToken: string;
+      
+      if (token === undefined) {
+        // Delete any existing token of said type for this user
+        const tokenTypeId =
+          typeOfEmail === 'VERIFICACION_EMAIL'
+            ? this.verificationTokenId
+            : this.resetPasswordTokenId;
+        
+        await this.prisma.verificationToken.deleteMany({
+          where: {
+            userId: user.id,
+            tokenTypeId: tokenTypeId,
+          },
+        });
 
-      const verificationToken = randomUUID();
-      const expiresAt = new Date(
-        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
-      ); // 24 hours
+        const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+          'REGISTRATION_TOKEN_EXPIRATION',
+          24,
+        );
 
-      // Create new verification token
-      await this.prisma.verificationToken.create({
-        data: {
-          token: verificationToken,
-          email: user.email,
-          userId: user.id,
-          tokenTypeId: tokenTypeId,
-          expiresAt: expiresAt,
-        },
-      });
+        verificationToken = randomUUID();
+        const expiresAt = new Date(
+          Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+        ); // 24 hours
+
+        // Create new verification token
+        await this.prisma.verificationToken.create({
+          data: {
+            token: verificationToken,
+            email: user.email,
+            userId: user.id,
+            tokenTypeId: tokenTypeId,
+            expiresAt: expiresAt,
+          },
+        });
+      } else {
+        // Use the provided token
+        verificationToken = token;
+      }
 
       // Determine the email template based on typeOfEmail
       let template: string;
