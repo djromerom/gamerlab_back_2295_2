@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { BlobServiceClient, BlockBlobClient, BlobSASPermissions, StorageSharedKeyCredential, generateBlobSASQueryParameters } from '@azure/storage-blob';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,22 +16,54 @@ export class AzureStorageService {
   }
 
   async uploadFile(file: Express.Multer.File): Promise<Upload> {
+    if (!file) {
+      throw new BadRequestException('No se proporcionó ningún archivo');
+    }
+
+    // Validate file size (1MB limit)
+    const maxSize = 1024 * 1024; // 1MB
+    if (file.size > maxSize) {
+      throw new PayloadTooLargeException(`El archivo es demasiado grande (${Math.round(file.size / 1024 / 1024 * 100) / 100}MB). Tamaño máximo permitido: 1MB`);
+    }
+
     const blobName = `${Date.now()}-${path.basename(file.originalname)}`;
     const blockBlobClient: BlockBlobClient = this.containerClient.getBlockBlobClient(blobName);
 
-    await blockBlobClient.uploadData(file.buffer, {
-      blobHTTPHeaders: { blobContentType: file.mimetype },
-    });
+    try {
+      await blockBlobClient.uploadData(file.buffer, {
+        blobHTTPHeaders: { blobContentType: file.mimetype },
+      });
 
-    return this.prisma.upload.create({
-      data: {
-        blobName,
-        filename: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size,
-        isPublic: false,
-      },
-    });
+      return this.prisma.upload.create({
+        data: {
+          blobName,
+          filename: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+          isPublic: false,
+        },
+      });
+    } catch (error: any) {
+      // Handle Azure-specific errors
+      if (error.statusCode === 413 || error.code === 'REQUEST_BODY_TOO_LARGE') {
+        throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage. Tamaño máximo permitido: 1MB');
+      }
+      
+      if (error.statusCode === 400) {
+        throw new BadRequestException(`Error de Azure Storage: ${error.message || 'Solicitud inválida'}`);
+      }
+
+      // Log and re-throw unexpected errors
+      console.error('Error uploading to Azure Storage:', {
+        error: error.message,
+        statusCode: error.statusCode,
+        code: error.code,
+        fileName: file.originalname,
+        fileSize: file.size,
+      });
+      
+      throw new BadRequestException('Error interno al subir el archivo. Por favor, inténtelo de nuevo.');
+    }
   }
 
   async getById(id: string): Promise<Upload | null> {

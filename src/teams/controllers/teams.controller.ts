@@ -14,7 +14,7 @@ import {
   Optional,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiBody, ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
+import { ApiBody, ApiExtraModels, getSchemaPath, ApiOperation, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
@@ -28,6 +28,7 @@ import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 
 @Controller('teams')
+@ApiTags('Teams')
 @ApiExtraModels(UpdateTeamDto)
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
@@ -85,6 +86,56 @@ export class TeamsController {
   @Get('videogame/:videogameName')
   findByVideogameName(@Param('videogameName') videogameName: string) {
     return this.teamsService.findByVideogameName(videogameName);
+  }
+
+  @Public()
+  @Get('final-score/videogame/:videogameId')
+  @ApiOperation({ summary: 'Get final scores for all teams for a videogame' })
+  @ApiOkResponse({
+    description: 'Array of team final scores for the videogame',
+    schema: {
+      example: [
+        {
+          teamId: 1,
+          teamCode: 'N1-IST-101',
+          isExternal: false,
+          videogameId: 24,
+          videogameName: 'Stella',
+          editionId: 3,
+          avgJunior: null,
+          avgSenior: 5,
+          finalScore: 2
+        }
+      ]
+    }
+  })
+  getFinalScoreByVideogame(@Param('videogameId', ParseIntPipe) videogameId: number) {
+    return this.teamsService.getFinalScoreByVideogame(videogameId);
+  }
+
+  @Public()
+  @Get('final-score/team/:teamId')
+  @ApiOperation({ summary: 'Get final score(s) for a specific team' })
+  @ApiOkResponse({
+    description: 'Final score(s) for the team (one row per videogame)',
+    schema: {
+      example: [
+        {
+          teamId: 1,
+          teamCode: 'N1-IST-101',
+          isExternal: false,
+          videogameId: 24,
+          videogameName: 'Stella',
+          editionId: 3,
+          avgJunior: null,
+          avgSenior: 5,
+          finalScore: 2
+        }
+      ]
+    }
+  })
+  getFinalScoreByTeam(@Param('teamId', ParseIntPipe) teamId: number) {
+    return this.teamsService.getFinalScoreByTeam(teamId);
   }
 
   @Public()
