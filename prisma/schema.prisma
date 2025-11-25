@@ -391,17 +391,17 @@ model Testimonial {
 }
 
 view TeamFinalScore {
-  team_id        Int?
-  team_code      String?  @db.VarChar(10)
-  is_external    Boolean?
-  videogame_id   Int?
-  videogame_name String?  @db.VarChar(30)
-  edition_id     Int?
-  avg_junior     Float?
-  avg_senior     Float?
-  final_score    Float?
+  teamId        Int     @map("team_id")
+  teamCode      String? @map("team_code")
+  isExternal    Boolean @map("is_external")
+  videogameId   Int     @map("videogame_id")
+  videogameName String? @map("videogame_name")
+  editionId     Int     @map("edition_id")
+  avgJunior     Float?  @map("avg_junior")
+  avgSenior     Float?  @map("avg_senior")
+  finalScore    Float?  @map("final_score")
 
-  @@unique([team_id, videogame_id, edition_id])
+  @@unique([teamId, videogameId, editionId])
   @@map("vw_team_final_scores")
 }
 
