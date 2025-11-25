@@ -36,14 +36,16 @@ model Edition {
 }
 
 model EventConfiguration {
-  id              Int      @id @default(autoincrement())
-  evaluationsOpen Boolean  @default(false) @map("evaluaciones_abiertas")
-  createdAt       DateTime @default(now()) @map("creado_en")
-  updatedAt       DateTime @updatedAt @map("actualizado_en")
-  endDate         DateTime @map("fecha_fin")
-  startDate       DateTime @map("fecha_inicio")
-  editionId       Int      @unique @default(3) @map("id_edicion")
-  edition         Edition  @relation(fields: [editionId], references: [id])
+  id              Int       @id @default(autoincrement())
+  editionId       Int       @map("id_edicion") @default(3) @unique
+  startDate       DateTime  @map("fecha_inicio")
+  endDate         DateTime  @map("fecha_fin")
+  evaluationsOpen Boolean   @default(false) @map("evaluaciones_abiertas")
+  showRanking     Boolean   @default(false) @map("mostrar_ranking")
+  showEvaluations Boolean   @default(false) @map("mostrar_evaluaciones")
+  createdAt       DateTime  @default(now()) @map("creado_en")
+  updatedAt       DateTime  @updatedAt @map("actualizado_en")
+  edition         Edition   @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
 }
