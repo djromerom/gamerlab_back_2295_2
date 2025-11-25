@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado de Participación</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400..900&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Tektur", Arial, sans-serif;
+      background: #f8f8f8;
+    }
+
+    .certificate {
+      width: 297mm;
+      height: 210mm;
+      padding: 15mm 35mm;
+      box-sizing: border-box;
+      background: white;
+      position: relative;
+
+      background-image: url("https://gamerlab.blob.core.windows.net/gamer-storage-container/1763953769063-background-printable.png?sv=2025-11-05&se=2030-11-23T08%3A42%3A49Z&sr=b&sp=r&sig=mhrZBZCA8CJi75gr0yF6Tk%2F893TFGaOuJ30bk37Ji3Q%3D");
+      background-size: cover;
+      background-position: center;
+    }
+
+    .logos {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      gap: 30px;
+      margin-top: -10px;
+      margin-bottom: 5px;
+    }
+
+    .logo {
+      height: 280px;
+      width: auto;
+      max-width: 650px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 15px rgba(0, 0, 0, 0.2));
+      transition: transform 0.3s ease;
+      display: block;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 600;
+      margin-top: -60px;
+      margin-bottom: 10px;
+      color: hsl(0, 0%, 0%);
+    }
+
+    .name-line {
+      width: 83%;
+      height: 2px;
+      background: #000000;
+      margin: 100px auto;
+      border: none;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 25mm;
+      left: 35mm;
+      right: 35mm;
+      text-align: center;
+      font-size: 14px;
+      color: #000000;
+      
+    }
+
+    .signature-img {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      width: 200px;
+      height: auto; 
+      margin-top: 0;
+      margin-bottom: 5px;
+    }
+
+    .signature-block {
+      width: 250px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .signature-line {
+      width: 80%;
+      height: 1px;
+      background: #000000;
+      margin-bottom: 5px;
+      margin-top: 0;
+    }
+
+    .signatures {
+      position: absolute;
+      bottom: 30mm;
+      width: calc(100% - 70mm);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      text-align: center;
+      font-size: 14px;
+      color: #000000;
+      gap: 40px;
+    }
+
+    .signature-name {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .signature-title {
+      font-weight: 400;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .premio {
+      width: 180px;
+      height: auto;
+      object-fit: contain;
+      margin: -40px 5px 40px 5px;
+      align-self: flex-start;
+    }
+  </style>
+</head>
+<body>
+  <div class="certificate">
+
+    <!-- LOGO -->
+    <div class="logos">
+      <img class="logo" src="Logo_uninorte.png" alt="Logo Uninorte" />
+      <!--<img class="logo" src="logo.png" alt="Logo Arkad" />-->
+    </div>
+
+    <h1>La Universidad del Norte otorga el premio de equipo ganador de la IV Feria Gamer 2025-30 a:</h1>
+    
+    <div class="name-line"></div>
+  <!-- SIGNATURES -->
+  <div class="signatures">
+    <div class="signature-block">
+      <img src="firma.png" class="signature-img" alt="Firma Daniel Romero" />
+      <div class="signature-line"></div>
+      <div class="signature-name">Daniel Romero Martínez</div>
+      <div class="signature-title">Arquitecto de Software de Arkad</div>
+    </div>
+
+    <img class="premio" src="medalla-negra.png" alt="Medalla" />
+
+    <div class="signature-block">
+      <img src="firma.png" class="signature-img" alt="Firma Miguel Jimeno" />
+      <div class="signature-line"></div>
+      <div class="signature-name">Miguel Jimeno Paba</div>
+      <div class="signature-title">Director de Departamento</div>
+    </div>
+  </div>
+
+    <div class="footer">
+      Universidad del Norte — Departamento de Ingeniería de Sistemas y Computación
+    </div>
+
+  </div>
+</body>
+</html>
