@@ -19,8 +19,10 @@ import { JurorListItem } from './types/juror-list-item.type';
 export class JurorService {
   private readonly logger = new Logger(AuthService.name);
   private readonly JUROR_ROLE_NAME = "Jurado";
+  private readonly PROFESSOR_ROLE_NAME = "Profesor";
   private readonly CONFIRMED_STATUS_NAME = "CONFIRMADO";
   private jurorRoleId: number;
+  private professorRoleId: number;
   private confirmedStatusId: number;
 
   constructor(
@@ -51,6 +53,24 @@ export class JurorService {
       this.logger.log(
         `Juror role ID initialized: Juror role ID=${this.jurorRoleId}`,
       );
+
+      // Buscar ID del rol de Profesor
+      const professorRole: Role | null = await this.prisma.role.findFirst({
+        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true }
+      });
+
+      if (!professorRole) {
+        this.logger.warn(
+          `Warning: Professor role '${this.PROFESSOR_ROLE_NAME}' not found. Some features may not work correctly.`,
+        );
+        // Inicializar con un valor que no pueda coincidir con ningún rol real
+        this.professorRoleId = -1;
+      } else {
+        this.professorRoleId = professorRole.id;
+        this.logger.log(
+          `Professor role ID initialized: Professor role ID=${this.professorRoleId}`,
+        );
+      }
 
       // Buscar ID del estado de videojuego "CONFIRMADO"
       const confirmedStatus = await this.prisma.videogameStatus.findUnique({
@@ -712,6 +732,267 @@ export class JurorService {
       }
       this.logger.error('Error al obtener equipos asignados al jurado:', error);
       throw new InternalServerErrorException('Error al obtener equipos asignados al jurado');
+    }
+  }
+
+  async removeAllJurorAssignments(): Promise<any> {
+    try {
+      // Obtener todos los equipos activos que tienen asignaciones de jurados/profesores
+      const teamsWithAssignments = await this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          assignedJurors: {
+            some: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+          },
+        },
+        include: {
+          assignedJurors: {
+            where: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      // Contar el total de asignaciones antes de eliminarlas
+      const assignmentCount = teamsWithAssignments.reduce(
+        (total, team) => total + team.assignedJurors.length,
+        0,
+      );
+
+      if (assignmentCount === 0) {
+        return {
+          message: 'No hay asignaciones de evaluadores (jurados o profesores) para eliminar',
+          asignacionesEliminadas: 0,
+        };
+      }
+
+      // Eliminar todas las asignaciones usando Prisma set: [] para cada equipo
+      await this.prisma.$transaction(
+        teamsWithAssignments.map((team) =>
+          this.prisma.team.update({
+            where: { id: team.id },
+            data: {
+              assignedJurors: { set: [] }, // sets assignedJurors to an empty list
+            },
+          }),
+        ),
+      );
+
+      this.logger.log(`Se eliminaron ${assignmentCount} asignaciones de evaluadores (jurados o profesores)`);
+      
+      return {
+        message: 'Todas las asignaciones de evaluadores (jurados o profesores) han sido eliminadas correctamente',
+        asignacionesEliminadas: assignmentCount,
+      };
+    } catch (error) {
+      this.logger.error('Error al eliminar todas las asignaciones de evaluadores:', error);
+      throw new InternalServerErrorException('Error al eliminar todas las asignaciones de evaluadores');
+    }
+  }
+
+  async removeAllAssignmentsFromJuror(jurorId: string): Promise<any> {
+    try {
+      // Verificar que el usuario (jurado o profesor) existe y está activo
+      const evaluator = await this.prisma.user.findUnique({
+        where: { id: jurorId },
+        include: { 
+          role: true,
+          teamsToEvaluate: {
+            where: { isActive: true },
+            select: { id: true },
+          },
+        },
+      });
+
+      if (!evaluator || !evaluator.isActive) {
+        throw new NotFoundException('Evaluador (jurado o profesor) no encontrado o inactivo');
+      }
+
+      // Validar que sea jurado o profesor
+      if (evaluator.roleId !== this.jurorRoleId && evaluator.roleId !== this.professorRoleId) {
+        throw new BadRequestException('El usuario no es un jurado ni un profesor');
+      }
+
+      const assignedTeams = evaluator.teamsToEvaluate;
+      const assignmentCount = assignedTeams.length;
+
+      if (assignmentCount === 0) {
+        return {
+          message: 'El evaluador (jurado o profesor) no tiene asignaciones para eliminar',
+          asignacionesEliminadas: 0,
+          evaluador: {
+            id: evaluator.id,
+            nombre: `${evaluator.firstName} ${evaluator.lastName}`,
+            email: evaluator.email,
+          },
+        };
+      }
+
+      // Eliminar todas las asignaciones del jurado usando disconnect en cada equipo
+      await this.prisma.$transaction(
+        assignedTeams.map((team) =>
+          this.prisma.team.update({
+            where: { id: team.id },
+            data: {
+              assignedJurors: {
+                disconnect: { id: jurorId },
+              },
+            },
+          }),
+        ),
+      );
+
+      this.logger.log(`Se eliminaron ${assignmentCount} asignaciones del evaluador ${jurorId}`);
+      
+      return {
+        message: `Todas las asignaciones del evaluador (jurado o profesor) han sido eliminadas correctamente`,
+        asignacionesEliminadas: assignmentCount,
+        evaluador: {
+          id: evaluator.id,
+          nombre: `${evaluator.firstName} ${evaluator.lastName}`,
+          email: evaluator.email,
+        },
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Error al eliminar todas las asignaciones del evaluador:', error);
+      throw new InternalServerErrorException('Error al eliminar todas las asignaciones del evaluador');
+    }
+  }
+
+  async removeJurorFromTeam(jurorId: string, teamId: number): Promise<any> {
+    try {
+      // Verificar que el usuario (jurado o profesor) existe y está activo
+      const evaluator = await this.prisma.user.findUnique({
+        where: { id: jurorId },
+        include: { role: true },
+      });
+
+      if (!evaluator || !evaluator.isActive) {
+        throw new NotFoundException('Evaluador (jurado o profesor) no encontrado o inactivo');
+      }
+
+      // Validar que sea jurado o profesor
+      if (evaluator.roleId !== this.jurorRoleId && evaluator.roleId !== this.professorRoleId) {
+        throw new BadRequestException('El usuario no es un jurado ni un profesor');
+      }
+
+      // Verificar que el equipo existe y está activo
+      const team = await this.prisma.team.findUnique({
+        where: { id: teamId },
+        include: {
+          assignedJurors: {
+            where: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (!team || !team.isActive) {
+        throw new NotFoundException('Equipo no encontrado o inactivo');
+      }
+
+      // Verificar que el evaluador está asignado al equipo
+      const isAssigned = team.assignedJurors.some(j => j.id === jurorId);
+      if (!isAssigned) {
+        throw new NotFoundException('El evaluador (jurado o profesor) no está asignado a este equipo');
+      }
+
+      // Eliminar la asignación
+      const updatedTeam = await this.prisma.$transaction(async (tx) => {
+        // Eliminar la relación usando disconnect
+        await tx.team.update({
+          where: { id: teamId },
+          data: {
+            assignedJurors: {
+              disconnect: {
+                id: jurorId,
+              },
+            },
+          },
+        });
+
+        // Obtener el equipo actualizado
+        const teamUpdated = await tx.team.findUnique({
+          where: { id: teamId },
+          include: {
+            assignedJurors: {
+              where: {
+                isActive: true,
+                OR: [
+                  { roleId: this.jurorRoleId },
+                  { roleId: this.professorRoleId },
+                ],
+              },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            videogame: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        });
+
+        return teamUpdated;
+      });
+
+      if (!updatedTeam) {
+        throw new NotFoundException('Equipo no encontrado después de la desasignación');
+      }
+
+      this.logger.log(`Se eliminó la asignación del evaluador ${jurorId} del equipo ${teamId}`);
+
+      return {
+        message: 'Evaluador (jurado o profesor) desasignado correctamente del equipo',
+        equipo: {
+          id: updatedTeam.id,
+          nombre: updatedTeam.teamName,
+          videojuego: updatedTeam.videogame?.name || null,
+          juradosAsignados: updatedTeam.assignedJurors.map(j => ({
+            id: j.id,
+            nombre: `${j.firstName} ${j.lastName}`,
+            email: j.email,
+          })),
+          cantidadJurados: updatedTeam.assignedJurors.length,
+        },
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Error al desasignar jurado del equipo:', error);
+      throw new InternalServerErrorException('Error al desasignar jurado del equipo');
     }
   }
 
