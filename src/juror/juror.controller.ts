@@ -154,8 +154,6 @@ export class JurorController {
   }
 
   @Get('teams/:teamId/evaluation-stats')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ListJurors')
   @ApiOperation({
     summary: 'Obtener estadísticas de evaluación de un equipo',
     description: 'Devuelve la cantidad de jurados asignados a un equipo y cuántos de ellos ya han calificado el videojuego del equipo',
