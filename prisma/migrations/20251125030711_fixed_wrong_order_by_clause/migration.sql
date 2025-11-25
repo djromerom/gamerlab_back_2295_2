@@ -43,7 +43,7 @@ FROM
     LEFT JOIN ponderado w ON w.id_edicion = COALESCE(
         t.id_edicion,
         (
-            SELECT id
+            SELECT ediciones.id_edicion
             FROM ediciones
             WHERE
                 activo = true

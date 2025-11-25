@@ -400,6 +400,7 @@ view TeamFinalScore {
   final_score    Float?
 
   @@unique([team_id, videogame_id, edition_id])
+  @@map("vw_team_final_scores")
 }
 
 enum AuthMethod {

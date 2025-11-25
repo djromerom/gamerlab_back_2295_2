@@ -65,7 +65,7 @@ FROM
           t.id_edicion,
           (
             SELECT
-              w.id
+              ediciones.id_edicion
             FROM
               ediciones
             WHERE
