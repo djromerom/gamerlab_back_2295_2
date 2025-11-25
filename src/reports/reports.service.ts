@@ -18,6 +18,7 @@ export class ReportsService {
       criterios: { [nombreCriterio: string]: number };
       evaluacionesCompletadas?: number;
       totalJuradosAsignados?: number;
+      codigoEquipo?: string | null;
     }[]
   > {
     const videojuegos = await this.prisma.videogame.findMany({
@@ -98,6 +99,7 @@ export class ReportsService {
         criterios,
         evaluacionesCompletadas,
         totalJuradosAsignados: v.team.assignedJurors.length,
+        codigoEquipo: v.team.teamCode ?? null,
       };
     });
   }
