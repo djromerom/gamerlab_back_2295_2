@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
-import { EmailType } from '../types/email-type.type';
+import { AuthEmailType } from '../../email/types/email-type.type';
 
 export class ResetTokenExpirationDto {
   @IsNotEmpty()
@@ -11,5 +11,5 @@ export class ResetTokenExpirationDto {
   @Matches(/^(VERIFICACION_EMAIL|RESETEAR_CONTRASENA)$/, {
     message: 'typeOfToken must be either VERIFICACION_EMAIL or RESETEAR_CONTRASENA',
   })
-  typeOfToken: EmailType;
+  typeOfToken: AuthEmailType;
 }
