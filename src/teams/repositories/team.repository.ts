@@ -453,7 +453,7 @@ export class TeamRepository implements ITeamRepository {
         if (!isAdmin) {
           await tx.videogame.update({
             where: { teamId: teamId },
-            data: { videogameStatusId: 2 }, // PENDING REVIEW
+            data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
           });
         }
       }
