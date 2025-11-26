@@ -326,6 +326,7 @@ async getJuradosData(): Promise<
     correo?: string;
     videojuegosAsignados: string[];
     videojuegosCompletos: string[];
+    estado?: string;
   }[]
 > {
   // 1. Obtener todos los usuarios que tienen el rol de "Jurado"
@@ -343,6 +344,10 @@ async getJuradosData(): Promise<
       firstName: true, // Usamos 'firstName' como el nombre principal del jurado
       lastName: true, // Usamos 'lastName' como el apellido del jurado
       email: true,
+      isActive: true,
+      confirmationStatus: {
+        select: { status: true }
+      },
       // Para videojuegosAsignados: User -> teamsToEvaluate (Team[]) -> videogame (Videogame)
       teamsToEvaluate: {
         where: {
@@ -401,6 +406,7 @@ async getJuradosData(): Promise<
       id: user.id,
       nombre: nombreCompleto || "Nombre no disponible", // Fallback si 'firstName' es null
       correo: user.email, // 'email' es requerido en tu modelo User, así que debería estar
+      estado: user.isActive ? (user.confirmationStatus?.status ?? 'Activo') : 'Inactivo',
       videojuegosAsignados: uniqueAsignados,
       videojuegosCompletos: uniqueCompletos,
     };

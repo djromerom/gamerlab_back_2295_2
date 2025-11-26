@@ -4,7 +4,9 @@ import { Response } from 'express';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Public } from 'src/auth/decorators/public.decorator';
 import * as ExcelJS from 'exceljs';
+import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse } from '@nestjs/swagger';
 
+@ApiTags('reports')
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) { }
@@ -13,35 +15,44 @@ export class ReportsController {
   @UseInterceptors(CacheInterceptor)
   @CacheTTL(600000)
   @Get('videojuegoData')
+  @ApiOperation({ summary: 'Get videogames with subject and NRC' })
   async getWithMateriaYNRC() {
     return this.reportsService.getVideogamesData();
   }
 
   @Public()
   @Get('materiaData')
+  @ApiOperation({ summary: 'Get active subjects' })
   async getSubjects() {
     return this.reportsService.getSubjects();
   }
 
   @Public()
   @Get('NRCData')
+  @ApiOperation({ summary: 'Get NRCs with average per NRC' })
   async getNrcWithSubjectNameAndAverage() {
     return this.reportsService.getNrcWithSubjectNameAndAverage();
   }
 
   @Public()
   @Get('DatosGraficoMateria')
+  @ApiOperation({ summary: 'Get average score per subject (for charts)' })
   async getAverageScorePerSubject() {
     return this.reportsService.getSubjectAverageScores();
   }
 
   @Public()
   @Get('JuradosData')
+  @ApiOperation({ summary: 'Get jurors data' })
   async getJuradosData() {
     return this.reportsService.getJuradosData();
   }
 
   @Get('exportExcel')
+  @ApiOperation({ summary: 'Export videogame report to Excel' })
+  @ApiQuery({ name: 'materia', required: false, description: 'Subject name to filter' })
+  @ApiQuery({ name: 'nrc', required: false, description: 'NRC code to filter', type: Number })
+  @ApiOkResponse({ description: 'Excel file with the report' })
   async exportToExcel(
     @Res() res: Response,
     @Query('materia') materia?: string,
@@ -182,6 +193,94 @@ export class ReportsController {
         // Si los headers fueron enviados pero el stream no terminó, intenta cerrar.
         res.end();
       }
+    }
+  }
+
+  @Get('exportJurados')
+  @ApiOperation({ summary: 'Export jurors report to Excel' })
+  @ApiOkResponse({ description: 'Excel file with jurors and their status' })
+  async exportJurados(
+    @Res() res: Response,
+  ) {
+    try {
+      const data = await this.reportsService.getJuradosData();
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Jurados');
+
+      const columns: Partial<ExcelJS.Column>[] = [
+        { header: 'Nombre Jurado', key: 'nombre', width: 30 },
+        { header: 'Email Jurado', key: 'correo', width: 30 },
+        { header: 'Estado', key: 'estado', width: 15 },
+        { header: 'Juegos revisados', key: 'revisados', width: 40 },
+        { header: 'Juegos pendientes', key: 'pendientes', width: 40 },
+      ];
+
+      worksheet.columns = columns;
+
+      // header style
+      const headerRow = worksheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true } as any;
+        cell.alignment = { horizontal: 'left', vertical: 'middle' } as any;
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFD6EAF8' },
+        } as any;
+      });
+
+      // Sort jurors: pending first, then confirmed/active, then others
+      const statusOrder = (s?: string) => {
+        const st = (s ?? '').toLowerCase();
+        if (st.includes('pend') || st.includes('pending') || st.includes('pendiente')) return 0;
+        if (st.includes('confirm') || st.includes('activo') || st.includes('active') || st.includes('confirmed')) return 1;
+        return 2;
+      };
+      data.sort((a, b) => statusOrder(a.estado) - statusOrder(b.estado));
+
+      data.forEach(item => {
+        const asignados = item.videojuegosAsignados || [];
+        const revisados = item.videojuegosCompletos || [];
+        const pendientes = asignados.filter(a => !revisados.includes(a));
+
+        worksheet.addRow({
+          nombre: item.nombre,
+          correo: item.correo,
+          estado: item.estado,
+          revisados: (revisados || []).join(', '),
+          pendientes: (pendientes || []).join(', '),
+        });
+      });
+
+      // Auto-size
+      const maxLens: number[] = columns.map(c => String(c.header ?? '').length);
+      worksheet.eachRow((row) => {
+        row.eachCell((cell, colNumber) => {
+          const v = String(cell.value ?? '');
+          if (v.length > (maxLens[colNumber - 1] ?? 0)) maxLens[colNumber - 1] = v.length;
+        });
+      });
+      // add autofilter for the header row
+      worksheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: columns.length },
+      } as any;
+
+      worksheet.columns.forEach((col, idx) => {
+        const calculated = Math.min(Math.max((maxLens[idx] ?? 0) + 2, 18), 80);
+        col.width = calculated;
+        const key = String(columns[idx].key);
+        if (key === 'estado') {
+          col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+        } 
+      });
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_jurados.xlsx');
+      await workbook.xlsx.write(res);
+      if (!res.writableEnded) res.end();
+    } catch (error) {
+      console.error('Error exportJurados:', error);
+      if (!res.headersSent) res.status(500).send('Error al generar el reporte de jurados'); else if (!res.writableEnded) res.end();
     }
   }
 }
