@@ -8,12 +8,14 @@ import {
   Query,
   Delete,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiOkResponse,
   ApiBadRequestResponse,
+  ApiNotFoundResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
@@ -149,6 +151,30 @@ export class JurorController {
   ): Promise<PaginatedResult<JurorListItem>> {
     const { includeInactive, limit, page } = query;
     return this.jurorService.findAll(includeInactive, limit, page);
+  }
+
+  @Get('teams/:teamId/evaluation-stats')
+  @ApiOperation({
+    summary: 'Obtener estadísticas de evaluación de un equipo',
+    description: 'Devuelve la cantidad de jurados asignados a un equipo y cuántos de ellos ya han calificado el videojuego del equipo',
+  })
+  @ApiOkResponse({
+    description: 'Estadísticas de evaluación del equipo',
+    schema: {
+      example: {
+        totalJurorsAssigned: 3,
+        jurorsWhoEvaluated: 2,
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'ID de equipo inválido' })
+  @ApiNotFoundResponse({ description: 'Equipo no encontrado' })
+  getTeamEvaluationStats(@Param('teamId') teamId: string) {
+    const teamIdNumber = parseInt(teamId, 10);
+    if (isNaN(teamIdNumber)) {
+      throw new BadRequestException('ID de equipo inválido');
+    }
+    return this.jurorService.getTeamEvaluationStats(teamIdNumber);
   }
 
   @Get(':id/teams')

@@ -1514,4 +1514,69 @@ export class JurorService {
     }
   }
 
+  async getTeamEvaluationStats(teamId: number): Promise<{
+    totalJurorsAssigned: number;
+    jurorsWhoEvaluated: number;
+  }> {
+    try {
+      // Obtener el equipo con sus jurados asignados y su videojuego
+      const team = await this.prisma.team.findUnique({
+        where: { id: teamId },
+        select: {
+          id: true,
+          videogame: {
+            select: {
+              id: true,
+            },
+          },
+          assignedJurors: {
+            where: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (!team) {
+        throw new NotFoundException('Equipo no encontrado');
+      }
+
+      if (!team.videogame) {
+        return {
+          totalJurorsAssigned: team.assignedJurors.length,
+          jurorsWhoEvaluated: 0,
+        };
+      }
+
+      const assignedJurorIds = team.assignedJurors.map(j => j.id);
+
+      // Contar evaluaciones realizadas por los jurados asignados para este videojuego
+      const evaluationsCount = await this.prisma.evaluation.count({
+        where: {
+          videogameId: team.videogame.id,
+          jurorId: { in: assignedJurorIds },
+          isActive: true,
+        },
+      });
+
+      return {
+        totalJurorsAssigned: team.assignedJurors.length,
+        jurorsWhoEvaluated: evaluationsCount,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Error al obtener estadísticas de evaluación del equipo:', error);
+      throw new InternalServerErrorException('Error al obtener estadísticas de evaluación del equipo');
+    }
+  }
+
 }
