@@ -313,6 +313,11 @@ export class EmailService {
           break;
         case 'VIDEOGAME_APPROVED':
           template = this.EMAIL_VIDEOGAME_APPROVED_TEMPLATE;
+          const videogame = await this.prisma.videogame.findFirst({
+            where: { team: { members: { some: { email } } } },
+            select: { name: true },
+          })
+          templateParams['videogameName'] = (videogame)?.name || '';
           break;
         case 'VIDEOGAME_REJECTED':
           template = this.EMAIL_VIDEOGAME_REJECTED_TEMPLATE;
