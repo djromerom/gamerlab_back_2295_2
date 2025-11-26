@@ -160,7 +160,7 @@ export class TeamsController {
     return this.teamsService.remove(id);
   }
 
-  @Post(':id/add-member')
+  @Post(':id/member')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateTeam')
   addMember(

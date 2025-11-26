@@ -569,7 +569,7 @@ export class TeamRepository implements ITeamRepository {
   async addMember(teamId: number, memberDto: MemberDto): Promise<Member> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const team = await this.findOne(teamId);
+        const team = await tx.team.findUnique({ where: { id: teamId } });
         if (!team)
           throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
 
@@ -588,15 +588,15 @@ export class TeamRepository implements ITeamRepository {
   ): Promise<{ message: string; member: Member | null }> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const team = await this.findOne(teamId);
+        const team = await tx.team.findUnique({ where: { id: teamId } });
         if (!team)
           throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
 
-        const leader = await this.prisma.user.findFirst({
+        const leader = await tx.user.findFirst({
           where: { id: team.userId },
         });
 
-        const member = await this.findMemberById(memberId);
+        const member = await tx.member.findUnique({ where: { id: memberId } });
         if (member?.email === leader?.email) {
           throw new BadRequestException(
             'No se puede eliminar al líder del equipo',
