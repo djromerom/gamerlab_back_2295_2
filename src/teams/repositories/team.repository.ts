@@ -566,7 +566,10 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  async addMember(teamId: number, memberDto: MemberDto): Promise<Member> {
+  async addMember(
+    teamId: number,
+    memberDto: MemberDto,
+  ): Promise<Member | undefined> {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const team = await tx.team.findUnique({ where: { id: teamId } });
@@ -585,7 +588,7 @@ export class TeamRepository implements ITeamRepository {
   async deleteMember(
     teamId: number,
     memberId: number,
-  ): Promise<{ message: string; member: Member | null }> {
+  ): Promise<{ message: string; member: Member | null } | undefined> {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const team = await tx.team.findUnique({ where: { id: teamId } });
