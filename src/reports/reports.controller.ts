@@ -55,25 +55,21 @@ export class ReportsController {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Videojuegos');
 
-      // Definir cabeceras
-      /*worksheet.columns = [
-        { header: 'ID', key: 'id', width: 10 },
-        { header: 'Nombre', key: 'nombre', width: 30 },
-        { header: 'Materia', key: 'materia', width: 25 },
-        { header: 'NRC', key: 'nrc', width: 10 },
-        { header: 'Promedio', key: 'promedio', width: 12 },
-        { header: 'Evaluaciones Completadas', key: 'evaluacionesCompletadas', width: 25 },
-        { header: 'Jurados Asignados', key: 'totalJuradosAsignados', width: 20 },
-      ];*/
-
       const columnDefinitions: Partial<ExcelJS.Column>[] = [ // Usar Partial<ExcelJS.Column> para mejor tipado
-        { header: 'ID', key: 'id', width: 10 },
-        { header: 'Nombre del videojuego', key: 'nombre', width: 30 },
+        { header: 'Código del equipo', key: 'teamCode', width: 15 },
+        { header: 'Videojuego', key: 'nombre', width: 30 },
+        { header: 'Equipo', key: 'teamName', width: 25 },
+        { header: 'Integrantes', key: 'integrantes', width: 40 },
+        { header: 'Semestre', key: 'semestre', width: 12 },
         { header: 'Materia', key: 'materia', width: 25 },
         { header: 'NRC', key: 'nrc', width: 10 },
-        { header: 'Promedio', key: 'promedio', width: 12 },
-        { header: 'No. Evaluaciones Completadas', key: 'evaluacionesCompletadas', width: 25 },
-        { header: 'No. Jurados Asignados', key: 'totalJuradosAsignados', width: 20 },
+        { header: 'Calificación Feria', key: 'promedio', width: 25 },
+        { header: 'Calif. J. Junior', key: 'avgJunior', width: 12.5 },
+        { header: 'Calif. J. Senior', key: 'avgSenior', width: 12.5 },
+        { header: 'Evaluaciones Completadas', key: 'evaluacionesCompletadas', width: 25 },
+        { header: 'Jurados Asignados', key: 'totalJuradosAsignados', width: 25 },
+        { header: 'Jurados Junior', key: 'juniorCount', width: 13 },
+        { header: 'Jurados Senior', key: 'seniorCount', width: 13 },
       ];
 
       // Agregar criterios como columnas dinámicas
@@ -97,16 +93,35 @@ export class ReportsController {
 
       worksheet.columns = columnDefinitions;
 
+      // Style headers: apply requested pattern fill to all header cells
+      const headerRow = worksheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true } as any;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE5D5FA' },
+        } as any;
+      });
+
       // Agregar datos
       data.forEach(item => {
         const rowData: any = { // Usar 'any' o un tipo más específico si defines todas las keys
-          id: item.id,
+          teamCode: item.teamCode ?? '',
           nombre: item.nombre,
+          teamName: item.teamName ?? '',
+          integrantes: item.integrantes ?? '',
+          semestre: item.semestre ?? '',
           materia: item.materia,
           nrc: item.nrc,
           promedio: item.promedio,
+          avgJunior: (item as any).avgJunior ?? null,
+          avgSenior: (item as any).avgSenior ?? null,
           evaluacionesCompletadas: item.evaluacionesCompletadas,
           totalJuradosAsignados: item.totalJuradosAsignados,
+          juniorCount: (item as any).juniorCount ?? 0,
+          seniorCount: (item as any).seniorCount ?? 0,
         };
 
         if (item.criterios && typeof item.criterios === 'object') { // Añadir verificación
@@ -116,6 +131,30 @@ export class ReportsController {
           });
         }
         worksheet.addRow(rowData);
+      });
+
+      // Auto-size and align columns according to content (compute max lens)
+      const columnKeys = columnDefinitions.map(c => String(c.key ?? ''));
+      const maxLens: number[] = columnKeys.map((k, i) => {
+        const headerText = String(columnDefinitions[i].header ?? '');
+        return headerText.length;
+      });
+
+      worksheet.eachRow((row) => {
+        row.eachCell((cell, colNumber) => {
+          const v = String(cell.value ?? '');
+          if (v.length > (maxLens[colNumber - 1] ?? 0)) maxLens[colNumber - 1] = v.length;
+        });
+      });
+
+      worksheet.columns.forEach((col, idx) => {
+        const calculated = Math.min(Math.max((maxLens[idx] ?? 0) + 1, 7), 40);
+        col.width = calculated;
+        if (columnKeys[idx] === 'integrantes') {
+          col.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' } as any;
+        } else {
+          col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+        }
       });
 
       // Configurar la respuesta
