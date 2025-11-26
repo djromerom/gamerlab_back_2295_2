@@ -109,63 +109,40 @@ export class EmailService {
         'EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE',
       );
 
-      if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_PUBLIC_API_KEY' or 'EMAIL_PRIVATE_API_KEY' variables not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_SERVICE_ID)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_SERVICE_ID' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_CONFIRMATION_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_RESET_PASSWORD_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_RESET_PASSWORD_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_VIDEOGAME_APPROVED_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_VIDEOGAME_APPROVED_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_VIDEOGAME_REJECTED_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_VIDEOGAME_REJECTED_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE' not found. Application might not function correctly`,
-        );
+      const requiredConfigs = [
+        { key: 'EMAIL_PUBLIC_API_KEY', value: EMAIL_PUBLIC_API_KEY },
+        { key: 'EMAIL_PRIVATE_API_KEY', value: EMAIL_PRIVATE_API_KEY },
+        { key: 'EMAIL_SERVICE_ID', value: EMAIL_SERVICE_ID },
+        { key: 'EMAIL_CONFIRMATION_TEMPLATE', value: EMAIL_CONFIRMATION_TEMPLATE },
+        { key: 'EMAIL_RESET_PASSWORD_TEMPLATE', value: EMAIL_RESET_PASSWORD_TEMPLATE },
+        { key: 'EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE', value: EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE },
+        { key: 'EMAIL_VIDEOGAME_APPROVED_TEMPLATE', value: EMAIL_VIDEOGAME_APPROVED_TEMPLATE },
+        { key: 'EMAIL_VIDEOGAME_REJECTED_TEMPLATE', value: EMAIL_VIDEOGAME_REJECTED_TEMPLATE },
+        { key: 'EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE', value: EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE },
+        { key: 'EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE', value: EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE },
+        { key: 'EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE', value: EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE },
+        { key: 'EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE', value: EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE },
+      ];
+      for (const config of requiredConfigs) {
+        if (!config.value) {
+          throw new InternalServerErrorException(
+            `FATAL: Configuration error during onModuleInit - '${config.key}' not found. Application might not function correctly`,
+          );
+        }
+      }
 
-      this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
-      this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY;
-      this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID;
-      this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE;
-      this.EMAIL_RESET_PASSWORD_TEMPLATE = EMAIL_RESET_PASSWORD_TEMPLATE;
-      this.EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE = EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE;
-      this.EMAIL_VIDEOGAME_APPROVED_TEMPLATE = EMAIL_VIDEOGAME_APPROVED_TEMPLATE;
-      this.EMAIL_VIDEOGAME_REJECTED_TEMPLATE = EMAIL_VIDEOGAME_REJECTED_TEMPLATE;
-      this.EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE = EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE;
-      this.EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE = EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE;
-      this.EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE = EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE;
-      this.EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE = EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE;
+      this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY!;
+      this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY!;
+      this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID!;
+      this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE!;
+      this.EMAIL_RESET_PASSWORD_TEMPLATE = EMAIL_RESET_PASSWORD_TEMPLATE!;
+      this.EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE = EMAIL_UPDATE_VIDEOGAME_INFO_TEMPLATE!;
+      this.EMAIL_VIDEOGAME_APPROVED_TEMPLATE = EMAIL_VIDEOGAME_APPROVED_TEMPLATE!;
+      this.EMAIL_VIDEOGAME_REJECTED_TEMPLATE = EMAIL_VIDEOGAME_REJECTED_TEMPLATE!;
+      this.EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE = EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE!;
+      this.EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE = EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE!;
+      this.EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE = EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE!;
+      this.EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE = EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE!;
 
       this.logger.log('Initializing EmailJS with found EMAIL_API_KEY');
       emailjs.init({
@@ -289,7 +266,7 @@ export class EmailService {
       await this.sendEmailTemplate(template, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
-      return { message: 'Correo reenviado con éxito' };
+      return { message: 'Email resent succesfully' };
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -354,7 +331,7 @@ export class EmailService {
       await this.sendEmailTemplate(template, templateParams);
   
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
-      return { message: 'Correo reenviado con éxito' };
+      return { message: 'Email resent succesfully' };
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -419,7 +396,7 @@ export class EmailService {
       await this.sendEmailTemplate(template, templateParams);
   
       this.logger.log(`${typeOfEmail} certificate email resent successfully to: ${email}`);
-      return { message: 'Correo reenviado con éxito' };
+      return { message: 'Email resent succesfully' };
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -443,7 +420,7 @@ export class EmailService {
   ): Promise<void> {
     try {
       this.logger.log(
-        `Attempting to send email to ${templateParams.email} via EmailJS.`,
+        `Attempting to send email using template '${template}' to ${templateParams.email} via EmailJS.`,
       );
 
       await emailjs.send(this.EMAIL_SERVICE_ID, template, templateParams);
@@ -453,14 +430,14 @@ export class EmailService {
       if (error instanceof EmailJSResponseStatus) {
         this.logger.error(`EmailJS service failed: ${JSON.stringify(error)}`);
         throw new InternalServerErrorException(
-          'An error occurred while preparing the verification email',
+          'An error occurred while sending the email',
         );
       }
 
       this.logger.error(error);
       if (error instanceof InternalServerErrorException) throw error;
       throw new InternalServerErrorException(
-        'An error occurred while preparing the verification email.',
+        'An error occurred while sending the email.',
       );
     }
   }

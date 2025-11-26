@@ -2,22 +2,12 @@
 // src/email/email.controller.ts
 import {
   Controller,
-  Get,
   Post,
   Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
   HttpCode,
-  ParseIntPipe,
-  Query,
-  Optional,
-  BadRequestException,
 } from '@nestjs/common';
 import { ApiBody, ApiExtraModels, getSchemaPath, ApiOperation, ApiOkResponse, ApiTags, ApiNotFoundResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { EmailService } from './email.service';
-import { TeamEmailType } from './types/team-email.type';
 import { ResendAuthEmailDto } from './dto/resend-auth-email.dto';
 import { ResendTeamEmailDto } from './dto/resend-team-email.dto';
 import { ResendCertEmailDto } from './dto/resend-cert-email.dto';
@@ -48,7 +38,11 @@ export class EmailController {
   @ApiBadRequestResponse({ description: 'Invalid type of email provided' })
   @HttpCode(200)
   async resendTeamEmailOfType(@Body() resendEmailDto: ResendTeamEmailDto) {
-    return this.emailService.resendTeamEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, { rejectionReason: resendEmailDto.rejectionReason ?? '' });
+    const params: Record<string, unknown> = {};
+    if (resendEmailDto.typeOfEmail === 'VIDEOGAME_REJECTED' && resendEmailDto.rejectionReason) {
+      params.rejectionReason = resendEmailDto.rejectionReason;
+    }
+    return this.emailService.resendTeamEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, params);
   }
 
   @Post('resend-certificate-email')

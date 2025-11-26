@@ -472,7 +472,7 @@ export class AuthService {
 
   // Helper method to send verification email
   private async sendVerificationEmail(email: string, verificationToken: string): Promise<{ message: string }> {
-    return this.emailService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL', verificationToken);
+    return await this.emailService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL', verificationToken);
   }
 
   // done locally
