@@ -349,6 +349,7 @@ export class TeamRepository implements ITeamRepository {
       // Complex update with members and videogame
       try {
         return await this.prisma.$transaction(async (tx) => {
+          this.logger.log(`Updating team ID: ${id} with data: ${JSON.stringify(data)}`);
           const teamData: UpdateTeamDto = {
             teamName: data.teamName,
             isExternal: data.isExternal,
@@ -377,6 +378,7 @@ export class TeamRepository implements ITeamRepository {
           };
         });
       } catch (err) {
+        this.logger.error('Error updating team:', err);
         handlePrismaError(err);
       }
     } else {
@@ -1010,7 +1012,7 @@ export class TeamRepository implements ITeamRepository {
             : undefined,
         },
       });
-      if (isLeader) {
+      if (isLeader && member.memberEmail) {
         if (member.memberEmail !== dbMember.email) {
           const existingUser = await tx.user.findUnique({
             where: { email: member.memberEmail },
