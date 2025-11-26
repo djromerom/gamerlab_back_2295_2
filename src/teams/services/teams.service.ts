@@ -18,7 +18,7 @@ import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Team, User } from '@prisma/client';
+import { Member, Team, User } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
 
@@ -348,21 +348,11 @@ export class TeamsService {
     }
   }
 
-  async addMember(id: number, memberDto: MemberDto, user: User): Promise<any> {
-    const isAdmin = user.roleId === 1;
-    if (!isAdmin)
-      throw new ForbiddenException(
-        'You do not have permission to access this resource.',
-      );
+  async addMember(id: number, memberDto: MemberDto, user: User): Promise<Member | undefined> {
     return await this.teamRepository.addMember(id, memberDto);
   }
 
-  async deleteMember(teamId: number, memberId: number, user: User) {
-    const isAdmin = user.roleId === 1;
-    if (!isAdmin)
-      throw new ForbiddenException(
-        'You do not have permission to access this resource.',
-      );
+  async deleteMember(teamId: number, memberId: number, user: User): Promise<{ message: string; member: Member | null } | undefined> {
     return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }

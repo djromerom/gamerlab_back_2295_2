@@ -696,6 +696,9 @@ export class TeamRepository implements ITeamRepository {
         });
 
         const member = await tx.member.findUnique({ where: { id: memberId } });
+        if (!member) {
+          throw new NotFoundException(`Miembro con ID ${memberId} no encontrado`);
+        }
         if (member?.email === leader?.email) {
           throw new BadRequestException(
             'No se puede eliminar al líder del equipo',
@@ -1008,6 +1011,18 @@ export class TeamRepository implements ITeamRepository {
         },
       });
       if (isLeader) {
+        if (member.memberEmail !== dbMember.email) {
+          const existingUser = await tx.user.findUnique({
+            where: { email: member.memberEmail },
+          });
+          
+          if (existingUser && existingUser.email !== dbMember.email) {
+            throw new ConflictException(
+              `El correo ${member.memberEmail} ya está en uso por otro usuario`,
+            );
+          }
+        }
+
         await tx.user.update({
           where: { email: dbMember.email },
           data: {
