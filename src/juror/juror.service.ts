@@ -305,9 +305,8 @@ export class JurorService {
     const user = await this.findOne(id);
     // We invalidate the cache of the user being deleted
     this.auth.invalidateUserProfileCache(id);
-    return this.prisma.user.update({
-      where: { id: user.id },
-      data: { isActive: false },
+    return this.prisma.user.delete({
+      where: { id: user.id }
     });
   }
 

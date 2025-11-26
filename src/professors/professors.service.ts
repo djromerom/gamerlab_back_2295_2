@@ -444,25 +444,16 @@ export class ProfessorsService {
   async remove(id: string): Promise<User> {
     this.logger.log(`Attempting to soft delete professor with ID: ${id}`);
 
-    const professor = await this.prisma.user.findUnique({
+    const professor = await this.prisma.user.delete({
       where: { id: id },
     });
 
     if (!professor || professor.roleId !== this.professorRoleId) {
       this.logger.warn(
-        `Soft delete failed: User ${id} not found or is not a professor.`,
+        `Delete failed: User ${id} not found or is not a professor.`,
       );
       throw new NotFoundException(
         `Professor with ID ${id} not found or is not a professor role.`,
-      );
-    }
-
-    if (!professor.isActive) {
-      this.logger.warn(
-        `Soft delete failed: Professor ${id} is already inactive.`,
-      );
-      throw new BadRequestException(
-        `Professor with ID ${id} is already inactive.`,
       );
     }
 
@@ -471,7 +462,7 @@ export class ProfessorsService {
         where: { id: id },
         data: { isActive: false },
       });
-      this.logger.log(`Professor ${id} soft deleted successfully.`);
+      this.logger.log(`Professor ${id} deleted successfully.`);
 
       this.authService.invalidateUserProfileCache(id);
       return deactivatedProfessor;

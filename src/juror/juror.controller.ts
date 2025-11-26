@@ -198,7 +198,7 @@ export class JurorController {
     return this.jurorService.update(id, dto);
   }
 
-  @Patch(':id/delete')
+  @Delete(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('DeleteJurror')
   softdelete(@Param('id') id: string) {
