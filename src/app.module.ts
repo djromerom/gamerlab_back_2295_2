@@ -20,12 +20,15 @@ import { ReportsModule } from './reports/reports.module';
 import { CacheModule } from './cache/cache.module';
 import { StudentsModule } from './students/students.module';
 import { UploadModule } from './upload/upload.module';
+import { SettingsModule } from './settings/settings.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    EmailModule,
     SubjectsModule,
     NrcsModule,
     PendingGamesModule,
@@ -40,8 +43,9 @@ import { UploadModule } from './upload/upload.module';
     CacheModule,
     StudentsModule,
     UploadModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
 })
-export class AppModule { }
+export class AppModule {}

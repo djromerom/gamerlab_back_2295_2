@@ -6,11 +6,15 @@ import {
   Patch,
   Param,
   Delete,
+  Put,
+  UseGuards,
 } from '@nestjs/common';
 import { VideogamesService } from './videogames.service';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
 import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 
 @Controller('videogames')
 export class VideogamesController {
@@ -30,6 +34,31 @@ export class VideogamesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.videogamesService.findOne(+id);
+  }
+
+  @Public()
+  @Get(':id/likes')
+  getLikes(@Param('id') id: string) {
+    return this.videogamesService.getLikes(+id);
+  }
+
+  @Public()
+  @Post(':id/toggle-like/:liked')
+  toggleLike(
+    @Param('id') videogameId: string,
+    @Param('liked') liked: boolean,
+  ) {
+    return this.videogamesService.toggleLike(+videogameId, liked);
+  }
+
+  @Put(':id/likes')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('SetLikes')
+  setLikes(
+    @Param('id') videogameId: string,
+    @Body() setLikesDto: { likes: number },
+  ) {
+    return this.videogamesService.setLikes(+videogameId, setLikesDto.likes);
   }
 
   @Patch(':id')
