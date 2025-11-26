@@ -22,6 +22,7 @@ import { AuthService } from 'src/auth/auth.service';
 @Injectable()
 export class TeamRepository implements ITeamRepository {
   private readonly logger = new Logger(TeamRepository.name);
+  private readonly PENDING_REVIEW_STATUS_ID = 2;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -318,13 +319,14 @@ export class TeamRepository implements ITeamRepository {
   async update(
     id: number,
     data: UpdateTeamDto,
+    isAdmin: boolean,
   ): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;
-  async update(id: number, data: any): Promise<Team>;
-  async update(id: number, data: any): Promise<any> {
+  async update(id: number, data: any, isAdmin: boolean): Promise<Team>;
+  async update(id: number, data: any, isAdmin: boolean): Promise<any> {
     if (
       data.teamName !== undefined ||
       data.isExternal !== undefined ||
@@ -349,6 +351,12 @@ export class TeamRepository implements ITeamRepository {
           const updatedVideogame = data.videogame
             ? await this.updateVideogame(tx, id, data.videogame)
             : null;
+          if (!isAdmin) {
+            await tx.videogame.update({
+              where: { teamId: id },
+              data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
+            });
+          }
           return {
             updatedTeam,
             updatedMembers,
@@ -360,6 +368,12 @@ export class TeamRepository implements ITeamRepository {
       }
     } else {
       // Simple update
+      if (!isAdmin) {
+        await this.prisma.videogame.update({
+          where: { teamId: id },
+          data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
+        });
+      }
       return this.prisma.team.update({
         where: { id },
         data,
@@ -370,6 +384,7 @@ export class TeamRepository implements ITeamRepository {
   async updateTeamInfo(
     teamId: number,
     updateTeamDto: UpdateTeamDto,
+    isAdmin: boolean,
   ): Promise<any> {
     const { teamName, videogame } = updateTeamDto;
 
@@ -432,6 +447,13 @@ export class TeamRepository implements ITeamRepository {
           await tx.videogame.update({
             where: { teamId },
             data: videogameUpdateData,
+          });
+        }
+
+        if (!isAdmin) {
+          await tx.videogame.update({
+            where: { teamId: teamId },
+            data: { videogameStatusId: 2 }, // PENDING REVIEW
           });
         }
       }

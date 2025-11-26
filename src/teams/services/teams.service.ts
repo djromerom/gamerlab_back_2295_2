@@ -189,7 +189,7 @@ export class TeamsService {
         'You do not have permission to access this resource.',
       );
     }
-    return this.teamRepository.update(id, updateTeamDto);
+    return this.teamRepository.update(id, updateTeamDto, isAdmin);
   }
 
   async updateTeamInfo(
@@ -211,7 +211,7 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.updateTeamInfo(id, updateTeamDto);
+    return this.teamRepository.updateTeamInfo(id, updateTeamDto, isAdmin);
   }
 
   async updateMemberEmail(

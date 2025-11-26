@@ -22,14 +22,14 @@ export interface ITeamRepository {
   findOneWithDetailsByLeaderId(leaderId: string): Promise<any>;
   
   // Overloaded update methods to support both signatures  
-  update(id: number, data: UpdateTeamDto): Promise<{
+  update(id: number, data: UpdateTeamDto, isAdmin: boolean): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;
-  update(id: number, data: any): Promise<Team>;
+  update(id: number, data: any, isAdmin: boolean): Promise<Team>;
   
-  updateTeamInfo(teamId: number, updateTeamDto: UpdateTeamDto): Promise<any>;
+  updateTeamInfo(teamId: number, updateTeamDto: UpdateTeamDto, isAdmin: boolean): Promise<any>;
   updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member>;
   
   remove(id: number): Promise<Team>;
