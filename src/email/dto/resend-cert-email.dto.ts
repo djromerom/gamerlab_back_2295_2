@@ -14,18 +14,18 @@ export class ResendCertEmailDto {
   @ApiProperty({
     description: 'The type of email to resend',
     enum: [
-      'PARTICIPATION_CERTIFICATE_EMAIL',
-      '1ST_PLACE_CERTIFICATE_EMAIL',
-      '2ND_PLACE_CERTIFICATE_EMAIL',
-      '3RD_PLACE_CERTIFICATE_EMAIL'
+      'PARTICIPATION_CERTIFICATE',
+      '1ST_PLACE_CERTIFICATE',
+      '2ND_PLACE_CERTIFICATE',
+      '3RD_PLACE_CERTIFICATE'
     ],
-    example: '1ST_PLACE_CERTIFICATE_EMAIL'
+    example: '1ST_PLACE_CERTIFICATE'
   })
   @IsEnum([
     'PARTICIPATION_CERTIFICATE_EMAIL',
-    '1ST_PLACE_CERTIFICATE_EMAIL',
-    '2ND_PLACE_CERTIFICATE_EMAIL',
-    '3RD_PLACE_CERTIFICATE_EMAIL'
+    '1ST_PLACE_CERTIFICATE',
+    '2ND_PLACE_CERTIFICATE',
+    '3RD_PLACE_CERTIFICATE'
     ])
   @IsNotEmpty()
   typeOfEmail: CertEmailType;

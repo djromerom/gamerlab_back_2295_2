@@ -392,11 +392,10 @@ export class EmailService {
         throw new NotFoundException('The email address is not registered.');
       }
       
-      const certificateBase64 = Buffer.from(certificate, 'binary').toString('base64');
       let template: string;
       let templateParams: Record<string, unknown> = { 
         email,
-        certificate_url: certificateBase64,
+        certificate: certificate,
       };
       switch (typeOfEmail) {
         case 'PARTICIPATION_CERTIFICATE':
