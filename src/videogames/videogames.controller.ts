@@ -51,14 +51,14 @@ export class VideogamesController {
     return this.videogamesService.toggleLike(+videogameId, liked);
   }
 
-  @Put(':id/likes/:likes')
+  @Put(':id/likes')
   @UseGuards(RolePermissionGuard)
   @RequiredService('SetLikes')
   setLikes(
     @Param('id') videogameId: string,
-    @Param('likes') likes: string,
+    @Body() setLikesDto: { likes: number },
   ) {
-    return this.videogamesService.setLikes(+videogameId, +likes);
+    return this.videogamesService.setLikes(+videogameId, setLikesDto.likes);
   }
 
   @Patch(':id')

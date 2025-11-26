@@ -8,6 +8,9 @@ import { Prisma } from '@prisma/client';
 export class VideogamesService {
   private readonly logger = new Logger(VideogamesService.name);
   constructor(private prisma: PrismaService) {}
+  private readonly MAX_LIKES_LOGO_ONLY = 20;
+  private readonly MAX_LIKES_NO_CONTENT = 10;
+  private readonly MAX_LIKES = 999999;
 
   async create(dto: CreateVideogameDto) {
     throw new NotImplementedException('Method create not implemented yet');
@@ -61,7 +64,7 @@ export class VideogamesService {
       throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
     }
 
-    return { videogameId, likes: videogame.likes }
+    return { videogameId, likes: videogame.likes };
   }  
 
   async toggleLike(videogameId: number, liked: boolean): Promise<{ liked: boolean; likeCount: number }> {
@@ -81,14 +84,14 @@ export class VideogamesService {
 
     // Check if the game has videos or photos
     const hasContent = videogame.videoUrl || (videogame.additionalImages && videogame.additionalImages.length > 0);
-    const hasNothing = !hasContent && !videogame.logoUrl;
+    const lacksContentAndLogo = !hasContent && !videogame.logoUrl;
 
     // Enforce like limit for games without content
-    if (!hasContent && liked && videogame.likes >= 20) {
-      throw new BadRequestException('This game cannot receive more than 20 likes without videos or photos');
+    if (lacksContentAndLogo && liked && videogame.likes >= this.MAX_LIKES_NO_CONTENT) {
+      throw new BadRequestException('This game cannot receive more than 10 likes without any video, photo, or logo.');
     }
-    if (hasNothing && liked && videogame.likes >= 10) {
-      throw new BadRequestException('This game cannot receive more than 10 likes without any video, photo, or logo.')
+    if (!hasContent && liked && videogame.likes >= this.MAX_LIKES_LOGO_ONLY) {
+      throw new BadRequestException('This game cannot receive more than 20 likes without videos or photos');
     }
 
     // Increment or decrement likes
@@ -119,7 +122,7 @@ export class VideogamesService {
     if (likes < 0) {
       throw new BadRequestException('Likes cannot be negative');
     }
-    if (likes > 999999) {
+    if (likes > this.MAX_LIKES) {
       throw new BadRequestException('Likes cannot exceed 999,999');
     }
 
@@ -130,10 +133,7 @@ export class VideogamesService {
         select: { likes: true },
       });
 
-      return { 
-        videogameId, 
-        likeCount: videogame.likes 
-      } 
+      return { videogameId, likeCount: videogame.likes }; 
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
