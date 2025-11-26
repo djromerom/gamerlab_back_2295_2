@@ -17,7 +17,7 @@ import { JurorListItem } from './types/juror-list-item.type';
 
 @Injectable()
 export class JurorService {
-  private readonly logger = new Logger(AuthService.name);
+  private readonly logger = new Logger(JurorService.name);
   private readonly JUROR_ROLE_NAME = "Jurado";
   private readonly PROFESSOR_ROLE_NAME = "Profesor";
   private readonly CONFIRMED_STATUS_NAME = "CONFIRMADO";

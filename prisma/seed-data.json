@@ -534,6 +534,14 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 53,
+        "name": "SET_LIKES",
+        "description": "Permite definir la cantidad de likes de un juego",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1081,6 +1089,16 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 54,
+        "name": "SetLikes",
+        "description": "Definir la cantidad de likes de un videojuego.",
+        "url": null,
+        "method": "PUT",
+        "createdAt": "2025-11-25T06:00:00.000Z",
+        "updatedAt": "2025-11-25T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1470,6 +1488,13 @@
       {
         "serviceId": 53,
         "permissionId": 52,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 54,
+        "permissionId": 53,
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
