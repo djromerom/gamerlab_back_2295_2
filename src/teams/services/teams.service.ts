@@ -144,7 +144,7 @@ export class TeamsService {
       name: registerDto.name,
     };
 
-    return this.authService.registerUser(authRegisterPayload);
+    return await this.authService.registerUser(authRegisterPayload);
   }
 
   async findAll(sortByLikes: boolean) {
