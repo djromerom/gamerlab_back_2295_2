@@ -473,12 +473,12 @@ export class JurorService {
       // Obtener las asignaciones ya inicializadas para este nivel
       const assignments = assignmentsByLevel.get(level) || [];
 
-      // CONSTANTES: Mínimo 4 jurados por equipo, 3-5 equipos por jurado
-      // Distribución equitativa: cada jurado debe tener entre 3 y 5 equipos
+      // CONSTANTES: Mínimo 3 jurados por equipo, 3-6 equipos por jurado
+      // Distribución equitativa: cada jurado debe tener entre 3 y 6 equipos
       const MAX_JURORS_PER_TEAM = 4; // Máximo 4 jurados por equipo
-      const MAX_TEAMS_PER_JUROR = 5; // Máximo 5 equipos por jurado
+      const MAX_TEAMS_PER_JUROR = 6; // Máximo 6 equipos por jurado
       const MIN_TEAMS_PER_JUROR = 3; // Mínimo 3 equipos por jurado
-      const MIN_JURORS_PER_TEAM = 4; // Mínimo 4 jurados por equipo
+      const MIN_JURORS_PER_TEAM = 3; // Mínimo 3 jurados por equipo (CRÍTICO: ningún equipo puede quedar sin jurados)
       const totalTeams = levelTeams.length;
       
       // Las asignaciones ya están inicializadas arriba, se obtienen de assignmentsByLevel
@@ -540,19 +540,13 @@ export class JurorService {
             }
             assignmentIndex++;
           } else {
-            // Si no hay disponibles que cumplan las condiciones, buscar cualquiera que no esté en el equipo
-            const anyJuror = evaluatorList.find(j => !assignment.jurorIds.includes(j.id));
-            if (anyJuror) {
-              assignment.jurorIds.push(anyJuror.id);
-              anyJuror.count++;
-              currentEvaluators.set(anyJuror.id, anyJuror.count);
-              if (level !== 0) {
-                allJurors.set(anyJuror.id, anyJuror.count);
-              }
-            } else {
-              // No hay más jurados disponibles que no estén ya en este equipo
-              break;
-            }
+            // CRÍTICO: No asignar si no hay jurados disponibles que cumplan el límite
+            // Esto previene que algunos jurados tengan demasiados equipos
+            this.logger.warn(
+              `Nivel ${level}: No hay más jurados disponibles (sin exceder ${MAX_TEAMS_PER_JUROR} equipos) para el equipo ${assignment.teamId}. ` +
+              `Equipo tiene ${assignment.jurorIds.length}/${MIN_JURORS_PER_TEAM} jurados.`
+            );
+            break;
           }
         }
       }
@@ -629,6 +623,92 @@ export class JurorService {
         }
       }
       
+      // VERIFICACIÓN CRÍTICA: Asegurar que ningún jurado exceda MAX_TEAMS_PER_JUROR
+      // Redistribuir equipos de jurados sobrecargados a jurados con menos equipos
+      let jurorsExceedingMax = Array.from(currentEvaluators.entries())
+        .filter(([_, count]) => count > MAX_TEAMS_PER_JUROR)
+        .map(([id, count]) => ({ id, count }))
+        .sort((a, b) => b.count - a.count); // Los más sobrecargados primero
+      
+      if (jurorsExceedingMax.length > 0) {
+        this.logger.error(
+          `🚨 CRÍTICO: ${jurorsExceedingMax.length} jurado(s) exceden el máximo de ${MAX_TEAMS_PER_JUROR} equipos. Redistribuyendo...`
+        );
+        
+        for (const overloadedJuror of jurorsExceedingMax) {
+          const excessTeams = overloadedJuror.count - MAX_TEAMS_PER_JUROR;
+          
+          // Buscar jurados con menos equipos que puedan recibir más
+          let jurorsWithCapacity = Array.from(currentEvaluators.entries())
+            .filter(([id, count]) => 
+              id !== overloadedJuror.id && 
+              count < MAX_TEAMS_PER_JUROR
+            )
+            .map(([id, count]) => ({ id, count }))
+            .sort((a, b) => a.count - b.count); // Los que tienen menos equipos primero
+          
+          // Buscar equipos asignados al jurado sobrecargado para redistribuir
+          let redistributed = 0;
+          for (const assignment of assignments) {
+            if (redistributed >= excessTeams) break;
+            
+            if (assignment.jurorIds.includes(overloadedJuror.id)) {
+              // Intentar reemplazar este jurado con uno que tenga capacidad
+              for (const jurorWithCapacity of jurorsWithCapacity) {
+                if (redistributed >= excessTeams) break;
+                
+                // Verificar que el nuevo jurado no esté ya en el equipo
+                if (!assignment.jurorIds.includes(jurorWithCapacity.id) &&
+                    assignment.jurorIds.length >= MIN_JURORS_PER_TEAM) {
+                  // Reemplazar al jurado sobrecargado
+                  const index = assignment.jurorIds.indexOf(overloadedJuror.id);
+                  assignment.jurorIds[index] = jurorWithCapacity.id;
+                  
+                  overloadedJuror.count--;
+                  currentEvaluators.set(overloadedJuror.id, overloadedJuror.count);
+                  if (level !== 0) {
+                    allJurors.set(overloadedJuror.id, overloadedJuror.count);
+                  }
+                  
+                  jurorWithCapacity.count++;
+                  currentEvaluators.set(jurorWithCapacity.id, jurorWithCapacity.count);
+                  if (level !== 0) {
+                    allJurors.set(jurorWithCapacity.id, jurorWithCapacity.count);
+                  }
+                  
+                  redistributed++;
+                  
+                  // Actualizar la lista de jurados con capacidad
+                  jurorsWithCapacity = jurorsWithCapacity.filter(j => j.id !== jurorWithCapacity.id || j.count < MAX_TEAMS_PER_JUROR);
+                  jurorsWithCapacity.sort((a, b) => a.count - b.count);
+                  
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (redistributed < excessTeams) {
+            this.logger.error(
+              `⚠️ No se pudieron redistribuir todos los equipos del jurado ${overloadedJuror.id}. ` +
+              `Quedan ${overloadedJuror.count - MAX_TEAMS_PER_JUROR} equipos excedentes.`
+            );
+          } else {
+            this.logger.log(
+              `✓ Se redistribuyeron ${redistributed} equipos del jurado ${overloadedJuror.id}`
+            );
+          }
+        }
+        
+        // Recalcular después de la redistribución
+        currentEvaluators.clear();
+        for (const assignment of assignments) {
+          for (const jurorId of assignment.jurorIds) {
+            currentEvaluators.set(jurorId, (currentEvaluators.get(jurorId) || 0) + 1);
+          }
+        }
+      }
+      
       // Verificar que todos los jurados asignados a este nivel tengan al menos 1 equipo
       // Si hay jurados sin equipos, asignarlos a equipos que tienen menos de 4 jurados
       const jurorsWithoutTeams = Array.from(currentEvaluators.entries())
@@ -669,11 +749,9 @@ export class JurorService {
         );
         
         // Buscar jurados que pueden recibir más equipos
+        // CRÍTICO: Solo considerar jurados que NO hayan alcanzado el máximo
         const availableJurors = Array.from(currentEvaluators.entries())
-          .filter(([id, count]) => {
-            // Jurados que no han alcanzado el máximo O jurados sin equipos
-            return count < MAX_TEAMS_PER_JUROR || count === 0;
-          })
+          .filter(([id, count]) => count < MAX_TEAMS_PER_JUROR)
           .sort((a, b) => a[1] - b[1]); // Priorizar los que tienen menos equipos
         
         for (const assignment of teamsStillNeedingAfterRecalc) {
@@ -684,18 +762,23 @@ export class JurorService {
             
             // Verificar que el jurado no esté ya asignado a este equipo
             if (assignment.jurorIds.includes(jurorId)) {
-            continue;
-          }
-          
+              continue;
+            }
+            
             // Verificar que el equipo no exceda el máximo
             if (assignment.jurorIds.length >= MAX_JURORS_PER_TEAM) {
               break;
             }
             
+            // Verificar nuevamente que el jurado no haya alcanzado el máximo (por seguridad)
+            if (currentCount >= MAX_TEAMS_PER_JUROR) {
+              continue;
+            }
+            
             assignment.jurorIds.push(jurorId);
             const newCount = currentCount + 1;
             currentEvaluators.set(jurorId, newCount);
-          if (level !== 0) {
+            if (level !== 0) {
               allJurors.set(jurorId, newCount);
             }
             
@@ -1054,12 +1137,49 @@ export class JurorService {
           
           this.logger.error(`  - Equipo ID ${assignment.teamId} tiene solo ${assignment.jurorIds.length} evaluadores (necesita ${MIN_JURORS_PER_TEAM})`);
           
-          // Primero intentar con evaluadores que no han alcanzado el máximo
-          let sortedEvaluators = Array.from(currentEvaluators.entries())
-            .filter(([evaluatorId]) => !assignment.jurorIds.includes(evaluatorId))
-            .sort((a, b) => a[1] - b[1]); // Priorizar los que tienen menos carga
+          const isCriticalTeam = assignment.jurorIds.length === 0 || assignment.jurorIds.length < 2; // Equipo sin jurados o con muy pocos
           
-          // Si no hay suficientes, usar cualquiera disponible (incluso los que exceden el máximo)
+          // CRÍTICO: Priorizar evaluadores que NO hayan alcanzado el máximo
+          // Pero si el equipo está en situación crítica (0-1 jurados), permitir exceder ligeramente
+          let sortedEvaluators = Array.from(currentEvaluators.entries())
+            .filter(([evaluatorId, count]) => 
+              !assignment.jurorIds.includes(evaluatorId)
+            )
+            .sort((a, b) => {
+              // Priorizar: primero los que no han alcanzado el máximo, luego los que tienen menos carga
+              const aWithinLimit = a[1] < MAX_TEAMS_PER_JUROR ? 0 : 1;
+              const bWithinLimit = b[1] < MAX_TEAMS_PER_JUROR ? 0 : 1;
+              if (aWithinLimit !== bWithinLimit) return aWithinLimit - bWithinLimit;
+              return a[1] - b[1];
+            });
+          
+          // Si no hay suficientes que estén dentro del límite, para equipos críticos buscar cualquiera disponible
+          const withinLimit = sortedEvaluators.filter(([_, count]) => count < MAX_TEAMS_PER_JUROR);
+          if (isCriticalTeam && withinLimit.length < stillNeeded) {
+            // Para equipos críticos, permitir usar jurados que excedan ligeramente el máximo (hasta +1)
+            const slightlyOverLimit = sortedEvaluators.filter(([_, count]) => 
+              count >= MAX_TEAMS_PER_JUROR && count <= MAX_TEAMS_PER_JUROR + 1
+            );
+            sortedEvaluators = [...withinLimit, ...slightlyOverLimit, ...sortedEvaluators.filter(([_, count]) => count > MAX_TEAMS_PER_JUROR + 1)];
+          } else {
+            // Para equipos no críticos, solo usar los que están dentro del límite
+            sortedEvaluators = withinLimit;
+          }
+          
+          // Buscar también jurados sin equipos asignados
+          const jurorsWithoutTeams = evaluatorList
+            .filter(e => 
+              !assignment.jurorIds.includes(e.id) &&
+              e.count === 0
+            )
+            .sort((a, b) => a.count - b.count);
+          
+          // Agregar jurados sin equipos al inicio de la lista (mayor prioridad)
+          sortedEvaluators = [
+            ...jurorsWithoutTeams.map(e => [e.id, e.count] as [string, number]),
+            ...sortedEvaluators.filter(([id, _]) => !jurorsWithoutTeams.some(j => j.id === id))
+          ];
+          
           let assigned = 0;
           for (let i = 0; i < stillNeeded && i < sortedEvaluators.length; i++) {
             // Verificar que el equipo no exceda el límite
@@ -1069,6 +1189,15 @@ export class JurorService {
             
             const [evaluatorId, currentLoad] = sortedEvaluators[i];
             
+            // Para equipos críticos, permitir hasta 1 equipo adicional más del máximo si es necesario
+            // Para equipos no críticos, respetar el límite estricto
+            if (!isCriticalTeam && currentLoad >= MAX_TEAMS_PER_JUROR) {
+              continue;
+            }
+            if (isCriticalTeam && currentLoad > MAX_TEAMS_PER_JUROR + 1) {
+              continue;
+            }
+            
             assignment.jurorIds.push(evaluatorId);
             const newLoad = currentLoad + 1;
             currentEvaluators.set(evaluatorId, newLoad);
@@ -1076,6 +1205,19 @@ export class JurorService {
               allJurors.set(evaluatorId, newLoad);
             }
             assigned++;
+            
+            if (isCriticalTeam && newLoad > MAX_TEAMS_PER_JUROR) {
+              this.logger.warn(
+                `⚠️ Equipo crítico ${assignment.teamId}: Asignado jurado ${evaluatorId} que ahora tiene ${newLoad} equipos ` +
+                `(excede máximo por ${newLoad - MAX_TEAMS_PER_JUROR}) para asegurar que el equipo tenga jurados`
+              );
+            }
+            
+            // Actualizar el evaluador en la lista si existe
+            const evaluator = evaluatorList.find(e => e.id === evaluatorId);
+            if (evaluator) {
+              evaluator.count = newLoad;
+            }
           }
           
           if (assigned < stillNeeded) {
@@ -1086,6 +1228,164 @@ export class JurorService {
         }
         
         // Recalcular después de esta asignación de emergencia
+        currentEvaluators.clear();
+        for (const assignment of assignments) {
+          for (const jurorId of assignment.jurorIds) {
+            currentEvaluators.set(jurorId, (currentEvaluators.get(jurorId) || 0) + 1);
+          }
+        }
+        
+        // VERIFICACIÓN CRÍTICA: Redistribuir equipos de jurados sobrecargados a jurados sin equipos
+        const jurorsWithExcess = Array.from(currentEvaluators.entries())
+          .filter(([_, count]) => count > MAX_TEAMS_PER_JUROR)
+          .map(([id, count]) => ({ id, count }))
+          .sort((a, b) => b.count - a.count);
+        
+        const jurorsWithoutAnyTeams = evaluatorList
+          .filter(e => (currentEvaluators.get(e.id) || 0) === 0)
+          .sort((a, b) => a.count - b.count);
+        
+        if (jurorsWithExcess.length > 0 && jurorsWithoutAnyTeams.length > 0) {
+          this.logger.warn(
+            `⚠️ Redistribuyendo equipos: ${jurorsWithExcess.length} jurado(s) con exceso, ` +
+            `${jurorsWithoutAnyTeams.length} jurado(s) sin equipos`
+          );
+          
+          for (const overloadedJuror of jurorsWithExcess) {
+            const excessCount = overloadedJuror.count - MAX_TEAMS_PER_JUROR;
+            let redistributed = 0;
+            
+            // Buscar equipos asignados al jurado sobrecargado para redistribuir a jurados sin equipos
+            for (const assignment of assignments) {
+              if (redistributed >= excessCount) break;
+              
+              if (assignment.jurorIds.includes(overloadedJuror.id) &&
+                  assignment.jurorIds.length >= MIN_JURORS_PER_TEAM) {
+                // Buscar un jurado sin equipos para reemplazar
+                for (const emptyJuror of jurorsWithoutAnyTeams) {
+                  if (redistributed >= excessCount) break;
+                  
+                  if (!assignment.jurorIds.includes(emptyJuror.id)) {
+                    // Reemplazar al jurado sobrecargado con el jurado sin equipos
+                    const index = assignment.jurorIds.indexOf(overloadedJuror.id);
+                    assignment.jurorIds[index] = emptyJuror.id;
+                    
+                    overloadedJuror.count--;
+                    currentEvaluators.set(overloadedJuror.id, overloadedJuror.count);
+                    if (level !== 0) {
+                      allJurors.set(overloadedJuror.id, overloadedJuror.count);
+                    }
+                    
+                    emptyJuror.count++;
+                    currentEvaluators.set(emptyJuror.id, emptyJuror.count);
+                    if (level !== 0) {
+                      allJurors.set(emptyJuror.id, emptyJuror.count);
+                    }
+                    
+                    redistributed++;
+                    
+                    this.logger.log(
+                      `  ✓ Equipo ${assignment.teamId}: ${overloadedJuror.id} → ${emptyJuror.id} (${overloadedJuror.count} equipos)`
+                    );
+                    
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          
+          // Recalcular después de redistribución
+          currentEvaluators.clear();
+          for (const assignment of assignments) {
+            for (const jurorId of assignment.jurorIds) {
+              currentEvaluators.set(jurorId, (currentEvaluators.get(jurorId) || 0) + 1);
+            }
+          }
+        }
+      }
+      
+      // VERIFICACIÓN FINAL ABSOLUTA: Asegurar que NINGÚN jurado exceda MAX_TEAMS_PER_JUROR
+      // Recalcular la carga final
+      currentEvaluators.clear();
+      for (const assignment of assignments) {
+        for (const jurorId of assignment.jurorIds) {
+          currentEvaluators.set(jurorId, (currentEvaluators.get(jurorId) || 0) + 1);
+        }
+      }
+      
+      // Verificar y corregir jurados que exceden el máximo
+      const finalJurorsExceedingMax = Array.from(currentEvaluators.entries())
+        .filter(([_, count]) => count > MAX_TEAMS_PER_JUROR)
+        .map(([id, count]) => ({ id, count }));
+      
+      if (finalJurorsExceedingMax.length > 0) {
+        this.logger.error(
+          `🚨 ERROR CRÍTICO: ${finalJurorsExceedingMax.length} jurado(s) aún exceden el máximo de ${MAX_TEAMS_PER_JUROR} equipos. ` +
+          `Redistribución forzada...`
+        );
+        
+        for (const overloaded of finalJurorsExceedingMax) {
+          const excess = overloaded.count - MAX_TEAMS_PER_JUROR;
+          
+          // Buscar jurados con menos equipos para redistribuir
+          const availableRecipients = Array.from(currentEvaluators.entries())
+            .filter(([id, count]) => 
+              id !== overloaded.id && 
+              count < MAX_TEAMS_PER_JUROR
+            )
+            .sort((a, b) => a[1] - b[1]);
+          
+          let moved = 0;
+          for (const assignment of assignments) {
+            if (moved >= excess) break;
+            
+            if (assignment.jurorIds.includes(overloaded.id) &&
+                assignment.jurorIds.length >= MIN_JURORS_PER_TEAM) {
+              // Buscar un jurado con capacidad para reemplazar
+              for (const [recipientId, recipientCount] of availableRecipients) {
+                if (moved >= excess) break;
+                if (recipientCount >= MAX_TEAMS_PER_JUROR) continue;
+                if (assignment.jurorIds.includes(recipientId)) continue;
+                
+                const index = assignment.jurorIds.indexOf(overloaded.id);
+                assignment.jurorIds[index] = recipientId;
+                
+                overloaded.count--;
+                currentEvaluators.set(overloaded.id, overloaded.count);
+                if (level !== 0) {
+                  allJurors.set(overloaded.id, overloaded.count);
+                }
+                
+                const newRecipientCount = recipientCount + 1;
+                currentEvaluators.set(recipientId, newRecipientCount);
+                if (level !== 0) {
+                  allJurors.set(recipientId, newRecipientCount);
+                }
+                
+                moved++;
+                
+                // Actualizar la lista de destinatarios
+                const recipientIndex = availableRecipients.findIndex(([id]) => id === recipientId);
+                if (recipientIndex >= 0) {
+                  availableRecipients[recipientIndex][1] = newRecipientCount;
+                  availableRecipients.sort((a, b) => a[1] - b[1]);
+                }
+                
+                break;
+              }
+            }
+          }
+          
+          if (moved < excess) {
+            this.logger.error(
+              `⚠️ No se pudieron redistribuir todos los equipos del jurado ${overloaded.id}. ` +
+              `Quedan ${overloaded.count - MAX_TEAMS_PER_JUROR} equipos excedentes.`
+            );
+          }
+        }
+        
+        // Recalcular final
         currentEvaluators.clear();
         for (const assignment of assignments) {
           for (const jurorId of assignment.jurorIds) {
@@ -1191,6 +1491,111 @@ export class JurorService {
         }
       }
       
+      // VERIFICACIÓN FINAL CRÍTICA: Asegurar que NINGÚN jurado exceda MAX_TEAMS_PER_JUROR
+      // Esta es la última verificación antes de guardar
+      const finalCheckOverloaded = Array.from(currentEvaluators.entries())
+        .filter(([_, count]) => count > MAX_TEAMS_PER_JUROR)
+        .map(([id, count]) => ({ id, count }))
+        .sort((a, b) => b.count - a.count);
+      
+      if (finalCheckOverloaded.length > 0) {
+        this.logger.error(
+          `🚨 VERIFICACIÓN FINAL CRÍTICA: ${finalCheckOverloaded.length} jurado(s) aún exceden ${MAX_TEAMS_PER_JUROR} equipos. ` +
+          `Aplicando redistribución final forzada...`
+        );
+        
+        // Buscar jurados sin equipos o con pocos equipos
+        const availableForRedistribution = Array.from(currentEvaluators.entries())
+          .filter(([id, count]) => 
+            !finalCheckOverloaded.some(o => o.id === id) &&
+            count < MAX_TEAMS_PER_JUROR
+          )
+          .sort((a, b) => a[1] - b[1]);
+        
+        for (const overloaded of finalCheckOverloaded) {
+          const excess = overloaded.count - MAX_TEAMS_PER_JUROR;
+          let redistributed = 0;
+          
+          // Redistribuir equipos del jurado sobrecargado
+          for (const assignment of assignments) {
+            if (redistributed >= excess) break;
+            
+            if (assignment.jurorIds.includes(overloaded.id) &&
+                assignment.jurorIds.length >= MIN_JURORS_PER_TEAM) {
+              
+              // Buscar un jurado disponible para reemplazar
+              for (const [recipientId, recipientCount] of availableForRedistribution) {
+                if (redistributed >= excess) break;
+                if (recipientCount >= MAX_TEAMS_PER_JUROR) continue;
+                if (assignment.jurorIds.includes(recipientId)) continue;
+                
+                // Reemplazar
+                const index = assignment.jurorIds.indexOf(overloaded.id);
+                assignment.jurorIds[index] = recipientId;
+                
+                overloaded.count--;
+                currentEvaluators.set(overloaded.id, overloaded.count);
+                if (level !== 0) {
+                  allJurors.set(overloaded.id, overloaded.count);
+                }
+                
+                const newRecipientCount = recipientCount + 1;
+                currentEvaluators.set(recipientId, newRecipientCount);
+                if (level !== 0) {
+                  allJurors.set(recipientId, newRecipientCount);
+                }
+                
+                redistributed++;
+                
+                // Actualizar la lista
+                const recipientIndex = availableForRedistribution.findIndex(([id]) => id === recipientId);
+                if (recipientIndex >= 0) {
+                  availableForRedistribution[recipientIndex][1] = newRecipientCount;
+                  availableForRedistribution.sort((a, b) => a[1] - b[1]);
+                }
+                
+                break;
+              }
+            }
+          }
+          
+          if (redistributed < excess) {
+            this.logger.error(
+              `⚠️ ATENCIÓN: Jurado ${overloaded.id} aún tiene ${overloaded.count} equipos (excede máximo por ${overloaded.count - MAX_TEAMS_PER_JUROR}). ` +
+              `No hay suficientes jurados disponibles para redistribuir.`
+            );
+          } else {
+            this.logger.log(
+              `✓ Jurado ${overloaded.id} corregido: ${overloaded.count} equipos`
+            );
+          }
+        }
+        
+        // Recalcular final después de la corrección
+        currentEvaluators.clear();
+        for (const assignment of assignments) {
+          for (const jurorId of assignment.jurorIds) {
+            currentEvaluators.set(jurorId, (currentEvaluators.get(jurorId) || 0) + 1);
+          }
+        }
+      }
+      
+      // Log final de verificación de límites
+      const finalDistributionCheck = Array.from(currentEvaluators.entries())
+        .map(([_, count]) => count);
+      const maxFinal = finalDistributionCheck.length > 0 ? Math.max(...finalDistributionCheck) : 0;
+      const minFinal = finalDistributionCheck.length > 0 ? Math.min(...finalDistributionCheck) : 0;
+      
+      if (maxFinal > MAX_TEAMS_PER_JUROR) {
+        this.logger.error(
+          `❌ ERROR FINAL: Algunos jurados aún tienen más de ${MAX_TEAMS_PER_JUROR} equipos (máximo encontrado: ${maxFinal})`
+        );
+      } else {
+        this.logger.log(
+          `✅ Verificación de límites: Todos los jurados respetan el máximo de ${MAX_TEAMS_PER_JUROR} equipos (máximo actual: ${maxFinal}, mínimo: ${minFinal})`
+        );
+      }
+      
       // ELIMINAR DUPLICADOS: Asegurar que ningún jurado esté dos veces en el mismo equipo
       for (const assignment of assignments) {
         const uniqueJurorIds = [...new Set(assignment.jurorIds)]; // Eliminar duplicados
@@ -1255,12 +1660,19 @@ export class JurorService {
           
           for (const assignment of teamsStillNeeding) {
             let stillNeeded = MIN_JURORS_PER_TEAM - assignment.jurorIds.length;
+            const isCritical = assignment.jurorIds.length === 0 || assignment.jurorIds.length < 2; // Equipos sin jurados o con muy pocos
             
             for (const juror of allAvailableJurors) {
               if (stillNeeded <= 0) break;
               if (assignment.jurorIds.length >= MAX_JURORS_PER_TEAM) break;
               if (assignment.jurorIds.includes(juror.id)) continue;
-              if (juror.count >= MAX_TEAMS_PER_JUROR) continue;
+              
+              // Si es crítico (0 o 1 jurados), permitir asignar incluso si excede ligeramente el máximo
+              // Si no es crítico, respetar el límite estricto
+              if (!isCritical && juror.count >= MAX_TEAMS_PER_JUROR) continue;
+              
+              // Para casos críticos, permitir hasta 1 equipo adicional más del máximo si es necesario
+              if (isCritical && juror.count > MAX_TEAMS_PER_JUROR + 1) continue;
               
               assignment.jurorIds.push(juror.id);
               juror.count++;
@@ -1269,6 +1681,13 @@ export class JurorService {
                 allJurors.set(juror.id, juror.count);
               }
               stillNeeded--;
+              
+              if (isCritical && juror.count > MAX_TEAMS_PER_JUROR) {
+                this.logger.warn(
+                  `⚠️ Equipo ${assignment.teamId} tenía ${assignment.jurorIds.length - 1} jurados. ` +
+                  `Asignado jurado ${juror.id} que ahora tiene ${juror.count} equipos (excede máximo por ${juror.count - MAX_TEAMS_PER_JUROR})`
+                );
+              }
             }
           }
         }
@@ -1386,7 +1805,7 @@ export class JurorService {
     // REDISTRIBUCIÓN ENTRE NIVELES: Mover jurados sin asignaciones a otros niveles con espacios
     this.logger.log(`Iniciando redistribución de jurados entre niveles...`);
     
-    const MIN_JURORS_PER_TEAM_REDIST = 4; // Mínimo de jurados por equipo
+    const MIN_JURORS_PER_TEAM_REDIST = 3; // Mínimo de jurados por equipo (CRÍTICO: ningún equipo puede quedar sin jurados)
     const MAX_JURORS_PER_TEAM_REDIST = 4; // Máximo de jurados por equipo
     const jurorsWithoutAssignmentsByLevel = new Map<number, string[]>();
     
@@ -1478,8 +1897,8 @@ export class JurorService {
     }
     
     // Contar TODOS los equipos procesados y verificar que coincidan con el total
-    const MIN_JURORS_REQUIRED = 4;
-    const MIN_JURORS_PER_TEAM = 4;
+    const MIN_JURORS_REQUIRED = 3; // Mínimo 3 jurados por equipo (CRÍTICO: ningún equipo puede quedar sin jurados)
+    const MIN_JURORS_PER_TEAM = 3;
     let totalTeamsProcessed = 0;
     let finalTeamsWithoutJurors = 0;
     let finalTeamsWithInsufficientJurors = 0;
@@ -1575,6 +1994,112 @@ export class JurorService {
     
     if (totalDuplicatesRemoved > 0) {
       this.logger.warn(`⚠️ Total de duplicados eliminados: ${totalDuplicatesRemoved}`);
+    }
+
+    // VERIFICACIÓN CRÍTICA FINAL: Asegurar que ABSOLUTAMENTE ningún equipo quede sin jurados
+    // Esta es la última verificación antes de guardar - PRIORIDAD ABSOLUTA
+    this.logger.log(`🔍 Verificación crítica final: Asegurando que todos los equipos tengan al menos 3 jurados...`);
+    
+    const CRITICAL_MIN_JURORS = 3; // Mínimo absoluto: ningún equipo puede tener menos de esto
+    const CRITICAL_MAX_JURORS_PER_TEAM = 4; // Máximo de jurados por equipo
+    let teamsWithoutEnoughJurors = 0;
+    const allJurorLoadsFinal = new Map<string, number>();
+    
+    // Calcular carga actual de todos los jurados
+    for (const [level, assignments] of assignmentsByLevel.entries()) {
+      for (const assignment of assignments) {
+        for (const jurorId of assignment.jurorIds) {
+          allJurorLoadsFinal.set(jurorId, (allJurorLoadsFinal.get(jurorId) || 0) + 1);
+        }
+      }
+    }
+    
+    // Obtener todos los jurados disponibles (de todos los niveles)
+    const allAvailableJurorsList = Array.from(allJurors.keys())
+      .map(id => ({
+        id,
+        count: allJurorLoadsFinal.get(id) || 0
+      }))
+      .sort((a, b) => a.count - b.count); // Priorizar los que tienen menos carga
+    
+    // Verificar y corregir cada nivel
+    for (const [level, assignments] of assignmentsByLevel.entries()) {
+      const teamsNeedingJurors = assignments.filter(a => a.jurorIds.length < CRITICAL_MIN_JURORS);
+      
+      if (teamsNeedingJurors.length > 0) {
+        teamsWithoutEnoughJurors += teamsNeedingJurors.length;
+        this.logger.error(
+          `🚨 CRÍTICO: ${teamsNeedingJurors.length} equipo(s) del nivel ${level} tienen menos de ${CRITICAL_MIN_JURORS} jurados. ` +
+          `Corrigiendo inmediatamente...`
+        );
+        
+        for (const assignment of teamsNeedingJurors) {
+          const needed = CRITICAL_MIN_JURORS - assignment.jurorIds.length;
+          
+          // Intentar asignar jurados disponibles
+          for (let i = 0; i < needed; i++) {
+            if (assignment.jurorIds.length >= CRITICAL_MAX_JURORS_PER_TEAM) break;
+            
+            // Buscar un jurado disponible que no esté ya en el equipo
+            let assigned = false;
+            for (const juror of allAvailableJurorsList) {
+              if (assignment.jurorIds.includes(juror.id)) continue;
+              if (assignment.jurorIds.length >= CRITICAL_MAX_JURORS_PER_TEAM) break;
+              
+              // Asignar incluso si el jurado excede ligeramente el máximo (prioridad: ningún equipo sin jurados)
+              assignment.jurorIds.push(juror.id);
+              juror.count++;
+              allJurorLoadsFinal.set(juror.id, juror.count);
+              if (level !== 0) {
+                allJurors.set(juror.id, juror.count);
+              }
+              
+              // Actualizar la lista
+              allAvailableJurorsList.sort((a, b) => a.count - b.count);
+              
+              assigned = true;
+              this.logger.log(
+                `  ✓ Equipo ${assignment.teamId} (Nivel ${level}): Asignado jurado ${juror.id} ` +
+                `(ahora tiene ${assignment.jurorIds.length} jurados, jurado tiene ${juror.count} equipos)`
+              );
+              break;
+            }
+            
+            if (!assigned) {
+              this.logger.error(
+                `  ✗ No se pudo asignar más jurados al equipo ${assignment.teamId} (Nivel ${level}). ` +
+                `Tiene ${assignment.jurorIds.length} jurados, necesita ${CRITICAL_MIN_JURORS}.`
+              );
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Verificación final después de la corrección
+    let finalTeamsWithoutEnough = 0;
+    for (const [level, assignments] of assignmentsByLevel.entries()) {
+      const teamsWithout = assignments.filter(a => a.jurorIds.length < CRITICAL_MIN_JURORS);
+      finalTeamsWithoutEnough += teamsWithout.length;
+      
+      if (teamsWithout.length > 0) {
+        this.logger.error(
+          `❌ ERROR CRÍTICO: ${teamsWithout.length} equipo(s) del nivel ${level} aún tienen menos de ${CRITICAL_MIN_JURORS} jurados: ` +
+          teamsWithout.map(t => `Equipo ${t.teamId} (${t.jurorIds.length} jurados)`).join(', ')
+        );
+      }
+    }
+    
+    if (finalTeamsWithoutEnough === 0) {
+      this.logger.log(
+        `✅ Verificación crítica final exitosa: Todos los equipos tienen al menos ${CRITICAL_MIN_JURORS} jurados asignados.`
+      );
+    } else {
+      this.logger.error(
+        `🚨 ALERTA CRÍTICA: ${finalTeamsWithoutEnough} equipo(s) aún tienen menos de ${CRITICAL_MIN_JURORS} jurados ` +
+        `después de todos los intentos de corrección. Esto puede deberse a falta de jurados disponibles.`
+      );
     }
 
     // Guardar todas las asignaciones finales en la base de datos
