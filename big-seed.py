@@ -22,10 +22,10 @@ def bulk_insert(table, rows):
             else:
                 vals.append(str(v))
         values_sql.append("(" + ", ".join(vals) + ")")
-    return f"INSERT INTO public.{table} ({col_sql}) VALUES\n" + ",\n".join(values_sql) + ";\n\n"
+    return f"INSERT INTO {table} ({col_sql}) VALUES\n" + ",\n".join(values_sql) + ";\n\n"
 
 
-def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
+def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc, students_per_semester):
     OFFSET = 1000
 
     sql = ""
@@ -46,7 +46,7 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
             "id_estado_confirmacion": 1,
             "actualizado_en": "2024-01-01 00:00:00"
         })
-    sql += bulk_insert("usuarios", prof_users)
+    sql += bulk_insert("public.usuarios", prof_users)
 
     # -------------------------
     # 2. Subjects
@@ -61,7 +61,7 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
             "semestre": k,
             "actualizado_en": "2024-01-01 00:00:00"
         })
-    sql += bulk_insert("materias", subjects)
+    sql += bulk_insert("public.materia", subjects)
 
     # -------------------------
     # 3. NRCs
@@ -71,11 +71,11 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
         nrcs.append({
             "id_nrc": OFFSET + k,
             "codigo": f"{k}{k}{k}{k}",
-            "id_nrc": OFFSET + k,
+            "id_materia": OFFSET + k,
             "id_profesor": OFFSET + k,
             "actualizado_en": "2024-01-01 00:00:00"
         })
-    sql += bulk_insert("nrcs", nrcs)
+    sql += bulk_insert("public.nrc", nrcs)
 
     # -------------------------
     # 4. Jurors
@@ -93,7 +93,7 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
             "id_estado_confirmacion": 1,
             "actualizado_en": "2024-01-01 00:00:00"
         })
-    sql += bulk_insert("usuarios", juror_users)
+    sql += bulk_insert("public.usuarios", juror_users)
 
     # -------------------------
     # 5. Internal students
@@ -111,7 +111,7 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
             "id_estado_confirmacion": 1,
             "actualizado_en": "2024-01-01 00:00:00"
         })
-    sql += bulk_insert("usuarios", student_users)
+    sql += bulk_insert("public.usuarios", student_users)
 
     # -------------------------
     # 6. Teams, integrantes, NRC links, videogames — INTERNAL
@@ -128,8 +128,10 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
     member_id_counter = OFFSET + 2000
     student_code_counter = 1001
 
+    student_index = 0
+
     for nrc_k in range(1, n_profes + 1):
-        count_here = students_per_nrc + (1 if nrc_k <= extra else 0)
+        count_here = students_per_semester[nrc_k - 1]
 
         for i in range(1, count_here + 1):
             student_index += 1
@@ -143,9 +145,8 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
                 "nombre_equipo": f"Team{student_index}",
                 "id_edicion": 3,
                 "externo": False,
-                "teamCode": team_code,
+                "codigo_equipo": team_code,
                 "id_usuario": student_user_id,
-                "actualizado_en": "2024-01-01 00:00:00"
             })
 
             integrantes.append({
@@ -161,7 +162,6 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
             member_nrc.append({
                 "A": member_id_counter,
                 "B": OFFSET + nrc_k,
-                "actualizado_en": "2024-01-01 00:00:00"
             })
 
             videogames.append({
@@ -170,11 +170,11 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
                 "descripcion": f"Descripción{student_index}",
                 "id_estado_videojuego": 1,
                 "id_equipo": team_id,
-                "actualizado_en": "2024-01-01 00:00:00"
             })
 
             member_id_counter += 1
             student_code_counter += 1
+
 
     # -------------------------
     # 7. External teams
@@ -202,16 +202,15 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
         student_user_id = OFFSET + 5000 + k
         team_id = OFFSET + 6000 + k
 
-        team_code = f"EXT-MAT-{k:03d}"
+        team_code = f"N0-MAT-{k:03d}"
 
         teams.append({
             "id_equipo": team_id,
             "nombre_equipo": f"TeamExt{idx}",
             "id_edicion": 3,
             "externo": True,
-            "teamCode": team_code,
+            "codigo_equipo": team_code,
             "id_usuario": student_user_id,
-            "actualizado_en": "2024-01-01 00:00:00"
         })
 
         integrantes.append({
@@ -235,29 +234,28 @@ def generate_all(n_profes, m_jurors, t_internal, t_external, external_nrc):
             "descripcion": f"DescripciónExt{idx}",
             "id_estado_videojuego": 1,
             "id_equipo": team_id,
-            "actualizado_en": "2024-01-01 00:00:00"
         })
 
         member_id_counter += 1
         student_code_counter += 1
 
-    sql += bulk_insert("equipos", teams)
-    sql += bulk_insert("integrante", integrantes)
-    sql += bulk_insert("_MemberNRC", member_nrc)
-    sql += bulk_insert("videojuegos", videogames)
+    sql += bulk_insert("public.equipos", teams)
+    sql += bulk_insert("public.integrante", integrantes)
+    sql += bulk_insert("\"_MemberNRC\"", member_nrc)
+    sql += bulk_insert("public.videojuegos", videogames)
 
     return sql
-
 
 # ----------------------------------------------------------
 # WRITE TO FILE
 # ----------------------------------------------------------
 sql_output = generate_all(
     n_profes=4,
-    m_jurors=10,
-    t_internal=16,
-    t_external=6,
-    external_nrc=9999
+    m_jurors=71,
+    t_internal=96,
+    t_external=4,
+    external_nrc=1,
+    students_per_semester=[26, 29, 24, 17]  # must sum to t_internal
 )
 
 with open("output.sql", "w", encoding="utf-8") as f:
