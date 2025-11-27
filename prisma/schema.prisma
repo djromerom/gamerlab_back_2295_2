@@ -188,6 +188,7 @@ model Team {
   editionId        Int        @default(3) @map("id_edicion")
   isActive         Boolean    @default(true) @map("activo")
   isExternal       Boolean    @default(false) @map("externo")
+  tiebreakerScore  Int        @default(999) @map("puntaje_desempate")
   edition          Edition    @relation(fields: [editionId], references: [id])
   user             User       @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]   @relation("TeamMembers")

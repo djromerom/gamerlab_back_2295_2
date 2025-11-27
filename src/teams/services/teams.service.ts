@@ -326,4 +326,31 @@ export class TeamsService {
       throw new InternalServerErrorException(`Failed to delete team ${id}.`);
     }
   }
+
+  async updateTiebreakers(
+    updates: { teamId: number; tiebreakerScore: number }[],
+  ) {
+    try {
+      const updatePromises = updates.map((update) =>
+        this.prisma.team.update({
+          where: { id: update.teamId },
+          data: { tiebreakerScore: update.tiebreakerScore },
+        }),
+      );
+
+      await Promise.all(updatePromises);
+      this.logger.log(`Updated ${updates.length} tiebreaker scores.`);
+      return { success: true, updated: updates.length };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to update tiebreaker scores: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        'Failed to update tiebreaker scores.',
+      );
+    }
+  }
 }

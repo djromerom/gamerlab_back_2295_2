@@ -171,4 +171,13 @@ export class TeamsController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.teamsService.remove(id);
   }
+
+  @Post('tiebreaker')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
+  updateTiebreakers(
+    @Body() body: { updates: { teamId: number; tiebreakerScore: number }[] },
+  ) {
+    return this.teamsService.updateTiebreakers(body.updates);
+  }
 }
