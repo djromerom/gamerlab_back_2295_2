@@ -29,11 +29,4 @@ export class ResendCertEmailDto {
     ])
   @IsNotEmpty()
   typeOfEmail: CertEmailType;
-
-  @ApiProperty({
-    description: 'The certificate file to include in the email',
-    example: 'base64-encoded-certificate-string'
-  })
-  @IsOptional()
-  certificate?: string;
 }

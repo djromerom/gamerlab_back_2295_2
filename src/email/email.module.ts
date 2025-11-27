@@ -6,12 +6,14 @@ import { EmailController } from './email.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
+import { CertificatesModule } from 'src/certificates/certificates.module';
 
 @Module({
   imports: [
     PrismaModule,
     ConfigModule,
     HttpModule,
+    CertificatesModule,
   ],
   controllers: [EmailController],
   providers: [EmailService],
