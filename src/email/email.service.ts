@@ -401,19 +401,19 @@ export class EmailService {
       switch (typeOfEmail) {
         case 'PARTICIPATION_CERTIFICATE':
           template = this.EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE;
-          pdfBuffer = await this.certificatesService.generateParticipationCertificateHtml(teamId);
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 0);
           break;
         case '1ST_PLACE_CERTIFICATE':
           template = this.EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE;
-          pdfBuffer = await this.certificatesService.generateParticipationCertificateHtml(teamId);
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 1);
           break;
         case '2ND_PLACE_CERTIFICATE':
           template = this.EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE;
-          pdfBuffer = await this.certificatesService.generateParticipationCertificateHtml(teamId);
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 2);
           break;
         case '3RD_PLACE_CERTIFICATE':
           template = this.EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE;
-          pdfBuffer = await this.certificatesService.generateParticipationCertificateHtml(teamId);
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 3);
           break;
         default:
           this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);

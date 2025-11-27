@@ -8,10 +8,34 @@ import puppeteer from 'puppeteer';
 export class CertificatesService {
   constructor(private prisma: PrismaService) {}
 
-  async generateParticipationCertificateHtml(teamId: number) : Promise<Buffer> {
-    const templatePath = path.join(__dirname, '.', 'assets', 'certificate-printable.html');
+  async generateCertificateHtml(teamId: number, place: number) : Promise<Buffer> {
+    let templateName : string;
+    switch (place) {
+      case 1:
+        templateName = 'certificate-First.html';
+        break;
+      case 2:
+        templateName = 'certificate-Second.html';
+        break;
+      case 3:
+        templateName = 'certificate-Third.html';
+        break;
+      default:
+        templateName = 'certificate-printable.html'; // Participation certificate
+        break;
+    }
+
+    const templatePath = path.join(__dirname, '.', 'assets', 'certificate-First.html');
     let template = await fs.readFile(templatePath, 'utf8');
 
+    const certificateHtml = await this.adjustCertificateParameters(template, teamId);
+    const pdfBuffer = await this.convertHtmlToPdfBase64(certificateHtml);
+
+    return pdfBuffer;
+  }
+  
+
+  private async adjustCertificateParameters(template: string, teamId: number) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
       include: {
@@ -42,9 +66,7 @@ export class CertificatesService {
       return replacements[key] ?? '';
     });
 
-    const pdfBuffer = await this.convertHtmlToPdfBase64(certificateHtml);
-
-    return pdfBuffer;
+    return certificateHtml;
   }
 
   private async convertHtmlToPdfBase64(htmlContent: string): Promise<Buffer> {
