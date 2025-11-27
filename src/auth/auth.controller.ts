@@ -163,7 +163,7 @@ export class AuthController {
   @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
   @ApiConflictResponse({ description: 'User is already confirmed.' })
   async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendEmailOfType(body.email, 'VERIFICACION_EMAIL');
+    return await this.authService.resendAuthEmailOfType(body.email, 'VERIFICACION_EMAIL');
   }
 
   @Public()
@@ -182,7 +182,7 @@ export class AuthController {
   @ApiOkResponse({ description: 'Password reset email sent successfully.' })
   @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
   async sendResetPasswordEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendEmailOfType(
+    return await this.authService.resendAuthEmailOfType(
       body.email,
       'RESETEAR_CONTRASENA',
     );

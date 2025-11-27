@@ -14,18 +14,18 @@ import { Prisma, User } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
-import emailjs, { EmailJSResponseStatus } from '@emailjs/nodejs';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CacheService } from 'src/cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
-import { EmailType } from './types/email-type.type';
+import { AuthEmailType } from '../email/types/email-type.type';
 import { LoginType } from './types/login-type.type';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { EmailService } from '../email/email.service';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -33,13 +33,6 @@ const REFRESH_TOKEN_COOKIE = 'refresh-token';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-
-  // Mailer configuration
-  private EMAIL_PUBLIC_API_KEY: string;
-  private EMAIL_PRIVATE_API_KEY: string;
-  private EMAIL_SERVICE_ID: string;
-  private EMAIL_CONFIRMATION_TEMPLATE: string;
-  private EMAIL_RESET_PASSWORD_TEMPLATE: string;
 
   private confirmedStatusId: number;
   private pendingStatusId: number;
@@ -66,6 +59,7 @@ export class AuthService {
     private readonly cacheService: CacheService,
     private readonly jwtService: JwtService,
     private readonly httpService: HttpService,
+    private readonly emailService: EmailService,
   ) {}
 
   async onModuleInit() {
@@ -142,52 +136,7 @@ export class AuthService {
         `USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`,
       );
 
-      this.logger.log('Setting up EmailJS client');
-      const EMAIL_PUBLIC_API_KEY = this.configService.get<string>(
-        'EMAIL_PUBLIC_API_KEY',
-      );
-      const EMAIL_PRIVATE_API_KEY = this.configService.get<string>(
-        'EMAIL_PRIVATE_API_KEY',
-      );
-      const EMAIL_SERVICE_ID =
-        this.configService.get<string>('EMAIL_SERVICE_ID');
-      const EMAIL_CONFIRMATION_TEMPLATE = this.configService.get<string>(
-        'EMAIL_CONFIRMATION_TEMPLATE',
-      );
-      const EMAIL_RESET_PASSWORD_TEMPLATE = this.configService.get<string>(
-        'EMAIL_RESET_PASSWORD_TEMPLATE',
-      );
-
-      if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_PUBLIC_API_KEY' or 'EMAIL_PRIVATE_API_KEY' variables not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_SERVICE_ID)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_SERVICE_ID' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_CONFIRMATION_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_RESET_PASSWORD_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_RESET_PASSWORD_TEMPLATE' not found. Application might not function correctly`,
-        );
-
-      this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
-      this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY;
-      this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID;
-      this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE;
-      this.EMAIL_RESET_PASSWORD_TEMPLATE = EMAIL_RESET_PASSWORD_TEMPLATE;
-
-      this.logger.log('Initializing EmailJS with found EMAIL_API_KEY');
-      emailjs.init({
-        publicKey: this.EMAIL_PUBLIC_API_KEY,
-        privateKey: this.EMAIL_PRIVATE_API_KEY,
-      });
-      this.logger.log('EmailJS successfully initialized');
-
+      // Initialize Microsoft Entra ID configuration
       const tenantId = this.configService.get<string>('AZURE_TENANT_ID');
       const clientId = this.configService.get<string>('AZURE_CLIENT_ID');
       const clientSecret = this.configService.get<string>('AZURE_CLIENT_SECRET');
@@ -214,62 +163,47 @@ export class AuthService {
     }
   }
 
-  async resetTokenExpiration(userId: string, typeOfToken: EmailType): Promise<void> {
+  /**
+   * Resets token expiration for a user's verification or reset password token
+   */
+  async resetTokenExpiration(userId: string, typeOfToken: AuthEmailType): Promise<void> {
     try {
-      // Buscar el token de verificación para el usuario
+      // Find the appropriate token type
       const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
         ? this.verificationTokenId
         : this.resetPasswordTokenId;
+      
       const token = await this.prisma.verificationToken.findFirst({
         where: {
           userId: userId,
           tokenTypeId: tokenTypeId,
         },
       });
+      
       if (!token) {
         this.logger.warn(`No verification token found for this user`);
-        throw new NotFoundException(
-          'No verification token found for this user',
-        );
+        throw new NotFoundException('No verification token found for this user.');
       }
-      // Calcular nueva fecha de expiración (ahora + 1 día) en la zona horaria local
-      const now = new Date();
-      const newExpirationDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      // Formatear la fecha manualmente para evitar problemas con UTC
-      const year = newExpirationDate.getFullYear();
-      const month = String(newExpirationDate.getMonth() + 1).padStart(2, '0');
-      const day = String(newExpirationDate.getDate()).padStart(2, '0');
-      const hours = String(newExpirationDate.getHours()).padStart(2, '0');
-      const minutes = String(newExpirationDate.getMinutes()).padStart(2, '0');
-      const seconds = String(newExpirationDate.getSeconds()).padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.000`;
-      // Actualizar la fecha de expiración
+
+      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+        'REGISTRATION_TOKEN_EXPIRATION',
+        24,
+      );
+
+      const newExpiresAt = new Date(
+        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+      );
+
       await this.prisma.verificationToken.update({
         where: { id: token.id },
-        data: {
-          expiresAt: new Date(formattedDate),
-        },
+        data: { expiresAt: newExpiresAt },
       });
-      this.logger.log(
-        `Token expiration reset successfully for user ID: ${userId}. New expiration: ${formattedDate}`,
-      );
+
+      this.logger.log(`Token expiration reset for user ${userId}`);
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof Error) {
-        this.logger.error(
-          `Error resetting token expiration for user ${userId}: ${error.message}`,
-          error.stack,
-        );
-      } else {
-        this.logger.error(
-          `Unknown error resetting token expiration for user ${userId}`,
-        );
-      }
-      throw new InternalServerErrorException(
-        'Error resetting token expiration',
-      );
+      if (error instanceof NotFoundException) throw error;
+      this.logger.error(`Failed to reset token expiration: ${error instanceof Error ? error.message : String(error)}`);
+      throw new InternalServerErrorException('Failed to reset token expiration.');
     }
   }
 
@@ -537,27 +471,8 @@ export class AuthService {
   }
 
   // Helper method to send verification email
-  private async sendVerificationEmail(email: string, verificationToken: string): Promise<void> {
-    try {
-      this.logger.log(`Sending verification email for '${email}'`);
-
-      const REDIRECT_TO = this.configService.get<string>(
-        'FRONTEND_URL',
-        `http://localhost:5173`,
-      );
-
-      await this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
-        email: email,
-        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-      });
-
-      this.logger.log(`Verification email sent successfully to: ${email}`);
-    } catch (error) {
-      // Log email errors but don't fail the registration
-      this.logger.error(
-        `Failed to send verification email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+  private async sendVerificationEmail(email: string, verificationToken: string): Promise<{ message: string }> {
+    return this.emailService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL', verificationToken);
   }
 
   // done locally
@@ -989,155 +904,11 @@ export class AuthService {
    * @throws {InternalServerErrorException} If there is an error sending the email.
    */
   // done locally
-  async resendEmailOfType(
+  async resendAuthEmailOfType(
     email: string,
-    typeOfEmail: EmailType,
+    typeOfEmail: AuthEmailType,
   ): Promise<{ message: string }> {
-    this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
-
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { confirmationStatus: true },
-    });
-
-    if (!user) {
-      this.logger.error(`User with email ${email} not found in local DB.`);
-      throw new NotFoundException('The email address is not registered.');
-    }
-
-    if (
-      typeOfEmail === 'VERIFICACION_EMAIL' &&
-      user.confirmationStatus?.status === 'CONFIRMADO'
-    ) {
-      this.logger.warn(`User with email ${email} is already confirmed.`);
-      throw new ConflictException('The email has already been confirmed.');
-    }
-
-    try {
-      // Delete any existing token of said type for this user
-      const tokenTypeId =
-        typeOfEmail === 'VERIFICACION_EMAIL'
-          ? this.verificationTokenId
-          : this.resetPasswordTokenId;
-      await this.prisma.verificationToken.deleteMany({
-        where: {
-          userId: user.id,
-          tokenTypeId: tokenTypeId,
-        },
-      });
-
-      // Generate new verification token
-      const REDIRECT_TO = this.configService.get<string>(
-        'FRONTEND_URL',
-        `http://localhost:5173`,
-      );
-
-      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
-        'REGISTRATION_TOKEN_EXPIRATION',
-        24,
-      );
-
-      const verificationToken = randomUUID();
-      const expiresAt = new Date(
-        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
-      ); // 24 hours
-
-      // Create new verification token
-      await this.prisma.verificationToken.create({
-        data: {
-          token: verificationToken,
-          email: user.email,
-          userId: user.id,
-          tokenTypeId: tokenTypeId,
-          expiresAt: expiresAt,
-        },
-      });
-
-      // Determine the email template based on typeOfEmail
-      // Possible to add more types in the future
-      let template: string;
-      let templateParams: Record<string, unknown>;
-
-      if (typeOfEmail === 'VERIFICACION_EMAIL') {
-        template = this.EMAIL_CONFIRMATION_TEMPLATE;
-        templateParams = {
-          email: email,
-          confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-        };
-      } else if (typeOfEmail === 'RESETEAR_CONTRASENA') {
-        // Get user's display name (firstName or lastName/email as fallback)
-        const userName = user.firstName
-          ? user.firstName.trim()
-          : user.lastName || user.email.split('@')[0];
-
-        template = this.EMAIL_RESET_PASSWORD_TEMPLATE;
-        templateParams = {
-          email: email,
-          user_name: userName,
-          resetPasswordURL: `${REDIRECT_TO}/establecer-contrasena?token=${verificationToken}`,
-        };
-      } else {
-        this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
-        throw new BadRequestException('Invalid email type specified.');
-      }
-
-      // Send new verification email
-      this.sendEmailTemplate(template, templateParams);
-
-      this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
-      return { message: 'Correo reenviado con éxito' };
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ConflictException
-      ) {
-        throw error;
-      }
-
-      if (error instanceof Error) {
-        this.logger.error(
-          `Error resending ${typeOfEmail} email to ${email}: ${error.message}`,
-          error.stack,
-        );
-      }
-
-      throw new InternalServerErrorException('Error al reenviar el correo.');
-    }
-  }
-
-  /**
-   * Sends an email template to a given email.
-   * @param template The name of the template email that will be sent. Check `src/templates/email`
-   * @param email The email the template will be sent to.
-   * @param templateParams If the template has params, you can send them in this object
-   * @throws {InternalServerErrorException} If there is an error sending the email.
-   */
-  private async sendEmailTemplate(
-    template: string,
-    templateParams: Record<string, unknown>,
-  ) {
-    try {
-      this.logger.log(
-        `Attempting to send verification email to ${templateParams.email} via EmailJS.`,
-      );
-
-      await emailjs.send(this.EMAIL_SERVICE_ID, template, templateParams);
-
-      this.logger.log(`Verification email sent successfully via EmailJS`);
-    } catch (error) {
-      if (error instanceof EmailJSResponseStatus) {
-        this.logger.log(`EmailJS service failed: ${JSON.stringify(error)}`);
-        throw new InternalServerErrorException(
-          'An error ocurred while preparing the verification email',
-        );
-      }
-
-      this.logger.log(error);
-      if (error instanceof InternalServerErrorException) throw error;
-      throw new InternalServerErrorException(
-        'An error occurred while preparing the verification email.',
-      );
-    }
+    return this.emailService.resendAuthEmailOfType(email, typeOfEmail);
   }
 
   private setAuthCookies(

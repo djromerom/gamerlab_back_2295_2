@@ -237,7 +237,7 @@ async function main() {
     // Crear o buscar materia Colegios primero (necesaria para el NRC)
     let materiaColegios = await prisma.subject.findFirst({
       where: { 
-        code: 'COL',
+        abrevName: 'COL',
         isActive: true 
       }
     });
@@ -247,7 +247,7 @@ async function main() {
       materiaColegios = await prisma.subject.create({
         data: {
           name: 'Colegios',
-          code: 'COL-0000',
+          code: 'COL0000',
           abrevName: 'COL',
           semester: 0,
           isActive: true
