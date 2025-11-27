@@ -70,8 +70,17 @@ export class ReportsService {
     }
 
     return await Promise.all(videojuegos.map(async (v) => {
-      const firstMember = v.team.members[0];
-      const firstNRC = firstMember?.nrcs[0];
+      // Collect all NRC codes and subject names from all team members (some members can belong to multiple NRCs)
+      const memberNrcCodes = new Set<string>();
+      const memberSubjectNames = new Set<string>();
+      v.team.members.forEach((m: any) => {
+        (m.nrcs || []).forEach((n: any) => {
+          if (n && n.code !== undefined && n.code !== null) memberNrcCodes.add(String(n.code));
+          if (n && n.subject && n.subject.name) memberSubjectNames.add(n.subject.name);
+        });
+      });
+      const nrcList = Array.from(memberNrcCodes).sort().join(', ');
+      const materiaList = Array.from(memberSubjectNames).filter(Boolean).join(', ');
 
       // Calcular promedios y criterios
       const criterios: { [nombreCriterio: string]: number } = {};
@@ -139,8 +148,8 @@ export class ReportsService {
         teamName: v.team?.teamName ?? null,
         integrantes,
         semestre: computeSemestre(v.team),
-        materia: firstNRC?.subject.name ?? null,
-        nrc: firstNRC?.code ? String(firstNRC.code) : null,
+        materia: materiaList || null,
+        nrc: nrcList || null,
         promedio: finalPromedio,
         criterios,
         evaluacionesCompletadas: counts.completedCount,
@@ -502,9 +511,18 @@ async getJuradosData(): Promise<
     }
 
     return await Promise.all(videojuegos.map(async (v) => {
-      const firstMember = v.team.members[0];
-      const firstNRC = firstMember?.nrcs[0];
-      
+      // Collect all NRC codes and subject names from all team members
+      const memberNrcCodes = new Set<string>();
+      const memberSubjectNames = new Set<string>();
+      (v.team?.members || []).forEach((m: any) => {
+        (m.nrcs || []).forEach((n: any) => {
+          if (n && n.code !== undefined && n.code !== null) memberNrcCodes.add(String(n.code));
+          if (n && n.subject && n.subject.name) memberSubjectNames.add(n.subject.name);
+        });
+      });
+      const nrcList = Array.from(memberNrcCodes).sort().join(', ');
+      const materiaList = Array.from(memberSubjectNames).filter(Boolean).join(', ');
+
       // Calcular promedios y criterios
       const criterios: { [nombreCriterio: string]: number } = {};
       let totalScore = 0;
@@ -570,8 +588,8 @@ async getJuradosData(): Promise<
         teamName: v.team?.teamName ?? null,
         integrantes,
         semestre: computeSemestre(v.team),
-        materia: firstNRC?.subject.name ?? null,
-        nrc: firstNRC?.code ? String(firstNRC.code) : null,
+        materia: materiaList || null,
+        nrc: nrcList || null,
         promedio: finalPromedio,
         criterios,
         evaluacionesCompletadas: counts.completedCount,
