@@ -1,0 +1,5 @@
+export type CertEmailType =
+    'PARTICIPATION_CERTIFICATE'  |
+    '1ST_PLACE_CERTIFICATE'      |
+    '2ND_PLACE_CERTIFICATE'      |
+    '3RD_PLACE_CERTIFICATE'      ;

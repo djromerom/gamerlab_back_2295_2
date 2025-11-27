@@ -228,6 +228,89 @@ async function main() {
       console.log('👤 Admin user already exists, skipping creation...');
     }
 
+    // Crear o actualizar profesor, materia y NRC para colegios
+    console.log('🏫 Setting up Colegios professor, subject and NRC...');
+    
+    const profesorEmail = 'profesorcolegios@uninorte.edu.co';
+    const profesorId = 'a1b2c3d4-e5f6-4789-a012-345678901234';
+    
+    // Crear o buscar materia Colegios primero (necesaria para el NRC)
+    let materiaColegios = await prisma.subject.findFirst({
+      where: { 
+        abrevName: 'COL',
+        isActive: true 
+      }
+    });
+
+    if (!materiaColegios) {
+      console.log('📚 Creating subject "Colegios"...');
+      materiaColegios = await prisma.subject.create({
+        data: {
+          name: 'Colegios',
+          code: 'COL0000',
+          abrevName: 'COL',
+          semester: 0,
+          isActive: true
+        }
+      });
+      console.log('✅ Subject "Colegios" created successfully');
+    } else {
+      console.log('📚 Subject "Colegios" already exists, using existing...');
+    }
+    
+    // Crear o buscar profesor
+    let profesor = await prisma.user.findUnique({
+      where: { email: profesorEmail }
+    });
+
+    if (!profesor) {
+      console.log(`👨‍🏫 Creating professor ${profesorEmail}...`);
+      const password = configService.get<string>('PROFESOR_COLEGIOS_PASSWORD') || 'Pass1234';
+      const hashedPassword = await bcrypt.hash(password, 10);
+      profesor = await prisma.user.create({
+        data: {
+          id: profesorId,
+          email: profesorEmail,
+          firstName: 'Profesor',
+          lastName: 'Colegios',
+          roleId: 3, // Rol Profesor
+          confirmationStatusId: 1, // CONFIRMADO
+          isActive: true,
+          createdAt: new Date(),
+          lastSignInAt: new Date(),
+          authMethod: 'PASSWORD',
+          password: hashedPassword
+        }
+      });
+      console.log('✅ Professor created successfully');
+    } else {
+      console.log(`👨‍🏫 Professor ${profesorEmail} already exists, using existing...`);
+    }
+
+    // Crear o buscar NRC 9999 (asociado al profesor y la materia)
+    const nrcExistente = await prisma.nRC.findFirst({
+      where: {
+        code: 9999,
+        editionId: 3
+      }
+    });
+
+    if (!nrcExistente) {
+      console.log('🔢 Creating NRC 9999...');
+      await prisma.nRC.create({
+        data: {
+          code: 9999,
+          subjectId: materiaColegios.id, // Asociado a la materia
+          professorId: profesor.id, // Asociado al profesor
+          editionId: 3,
+          isActive: true
+        }
+      });
+      console.log('✅ NRC 9999 created successfully (associated with professor and subject)');
+    } else {
+      console.log('🔢 NRC 9999 already exists, skipping creation...');
+    }
+
     console.log('🎉 Seeding process completed successfully');
     
   } catch (error) {

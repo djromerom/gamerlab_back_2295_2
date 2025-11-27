@@ -22,6 +22,7 @@ import { AuthService } from 'src/auth/auth.service';
 @Injectable()
 export class TeamRepository implements ITeamRepository {
   private readonly logger = new Logger(TeamRepository.name);
+  private readonly PENDING_REVIEW_STATUS_ID = 2;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -143,9 +144,21 @@ export class TeamRepository implements ITeamRepository {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const finalUserId = await this.handleUser(tx, createTeamDto.members[0]);
-        const team = await this.createTeamRecord(tx, createTeamDto, finalUserId);
-        const members = await this.createMembers(tx, team.id, createTeamDto.members);
-        const videogame = await this.createVideogame(tx, team.id, createTeamDto.videogame);
+        const team = await this.createTeamRecord(
+          tx,
+          createTeamDto,
+          finalUserId,
+        );
+        const members = await this.createMembers(
+          tx,
+          team.id,
+          createTeamDto.members,
+        );
+        const videogame = await this.createVideogame(
+          tx,
+          team.id,
+          createTeamDto.videogame,
+        );
 
         return {
           team,
@@ -174,7 +187,9 @@ export class TeamRepository implements ITeamRepository {
       orderBy: orderBy,
       include: {
         videogame: true,
-        members: true,
+        members: {
+          orderBy: { id: 'asc' },
+        },
         user: {
           select: {
             id: true,
@@ -219,6 +234,7 @@ export class TeamRepository implements ITeamRepository {
                 include: { subject: true },
               },
             },
+            orderBy: { id: 'asc' },
           },
           videogame: true,
         },
@@ -261,6 +277,7 @@ export class TeamRepository implements ITeamRepository {
         videoUrl: true,
         repoUrl: true,
         additionalImages: true,
+        likes: true,
         videogameStatus: {
           select: {
             id: true,
@@ -315,13 +332,14 @@ export class TeamRepository implements ITeamRepository {
   async update(
     id: number,
     data: UpdateTeamDto,
+    isAdmin: boolean,
   ): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;
-  async update(id: number, data: any): Promise<Team>;
-  async update(id: number, data: any): Promise<any> {
+  async update(id: number, data: any, isAdmin: boolean): Promise<Team>;
+  async update(id: number, data: any, isAdmin: boolean): Promise<any> {
     if (
       data.teamName !== undefined ||
       data.isExternal !== undefined ||
@@ -331,6 +349,7 @@ export class TeamRepository implements ITeamRepository {
       // Complex update with members and videogame
       try {
         return await this.prisma.$transaction(async (tx) => {
+          this.logger.log(`Updating team ID: ${id} with data: ${JSON.stringify(data)}`);
           const teamData: UpdateTeamDto = {
             teamName: data.teamName,
             isExternal: data.isExternal,
@@ -346,6 +365,12 @@ export class TeamRepository implements ITeamRepository {
           const updatedVideogame = data.videogame
             ? await this.updateVideogame(tx, id, data.videogame)
             : null;
+          if (!isAdmin) {
+            await tx.videogame.update({
+              where: { teamId: id },
+              data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
+            });
+          }
           return {
             updatedTeam,
             updatedMembers,
@@ -353,10 +378,17 @@ export class TeamRepository implements ITeamRepository {
           };
         });
       } catch (err) {
+        this.logger.error('Error updating team:', err);
         handlePrismaError(err);
       }
     } else {
       // Simple update
+      if (!isAdmin) {
+        await this.prisma.videogame.update({
+          where: { teamId: id },
+          data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
+        });
+      }
       return this.prisma.team.update({
         where: { id },
         data,
@@ -367,6 +399,7 @@ export class TeamRepository implements ITeamRepository {
   async updateTeamInfo(
     teamId: number,
     updateTeamDto: UpdateTeamDto,
+    isAdmin: boolean,
   ): Promise<any> {
     const { teamName, videogame } = updateTeamDto;
 
@@ -398,7 +431,7 @@ export class TeamRepository implements ITeamRepository {
       // Actualizar información del videojuego si se proporciona
       if (videogame) {
         const videogameUpdateData: any = {};
-        
+
         if (videogame.vgName !== undefined) {
           videogameUpdateData.name = videogame.vgName;
         }
@@ -429,6 +462,13 @@ export class TeamRepository implements ITeamRepository {
           await tx.videogame.update({
             where: { teamId },
             data: videogameUpdateData,
+          });
+        }
+
+        if (!isAdmin) {
+          await tx.videogame.update({
+            where: { teamId: teamId },
+            data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
           });
         }
       }
@@ -624,6 +664,60 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
+  async addMember(
+    teamId: number,
+    memberDto: MemberDto,
+  ): Promise<Member | undefined> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const team = await tx.team.findUnique({ where: { id: teamId } });
+        if (!team)
+          throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+
+        const members = await this.createMembers(tx, teamId, [memberDto]);
+
+        return members[0];
+      });
+    } catch (err) {
+      handlePrismaError(err);
+    }
+  }
+
+  async deleteMember(
+    teamId: number,
+    memberId: number,
+  ): Promise<{ message: string; member: Member | null } | undefined> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const team = await tx.team.findUnique({ where: { id: teamId } });
+        if (!team)
+          throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+
+        const leader = await tx.user.findFirst({
+          where: { id: team.userId },
+        });
+
+        const member = await tx.member.findUnique({ where: { id: memberId } });
+        if (!member) {
+          throw new NotFoundException(`Miembro con ID ${memberId} no encontrado`);
+        }
+        if (member?.email === leader?.email) {
+          throw new BadRequestException(
+            'No se puede eliminar al líder del equipo',
+          );
+        }
+
+        await tx.member.delete({
+          where: { id: memberId },
+        });
+
+        return { message: 'Miembro eliminado exitosamente', member };
+      });
+    } catch (err) {
+      handlePrismaError(err);
+    }
+  }
+
   // Private helper methods
   private async handleUser(
     tx: Prisma.TransactionClient,
@@ -777,7 +871,7 @@ export class TeamRepository implements ITeamRepository {
       });
       if (checkIfExist)
         throw new ConflictException(
-          `El correo ${member.memberEmail} ya está registrado en otro registro`,
+          `El correo ${member.memberEmail} ya está registrado en un equipo`,
         );
 
       const nrcRecords = await tx.nRC.findMany({
@@ -906,7 +1000,7 @@ export class TeamRepository implements ITeamRepository {
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },
         data: {
-          email: isLeader ? isLeader.email : member.memberEmail,
+          email: member.memberEmail,
           firstName: member.memberFirstName,
           lastName: member.memberLastName,
           studentCode: member.studentCode,
@@ -918,6 +1012,29 @@ export class TeamRepository implements ITeamRepository {
             : undefined,
         },
       });
+      if (isLeader && member.memberEmail) {
+        if (member.memberEmail !== dbMember.email) {
+          const existingUser = await tx.user.findUnique({
+            where: { email: member.memberEmail },
+          });
+          
+          if (existingUser && existingUser.email !== dbMember.email) {
+            throw new ConflictException(
+              `El correo ${member.memberEmail} ya está en uso por otro usuario`,
+            );
+          }
+        }
+
+        await tx.user.update({
+          where: { email: dbMember.email },
+          data: {
+            firstName: member.memberFirstName,
+            lastName: member.memberLastName,
+            email: member.memberEmail,
+          },
+        });
+      }
+
       updatedMembers.push(updatedMember);
     }
     return updatedMembers;

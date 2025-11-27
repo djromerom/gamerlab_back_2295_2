@@ -1,1 +1,0 @@
-export type EmailType = 'VERIFICACION_EMAIL' | 'RESETEAR_CONTRASENA';

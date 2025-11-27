@@ -207,7 +207,7 @@ export class ProfessorsController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('DeleteProfessor')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Soft delete (deactivate) a professor' })
+  @ApiOperation({ summary: 'Delete a professor' })
   @ApiNoContentResponse({ description: 'Professor deactivated' })
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.professorsService.remove(id);

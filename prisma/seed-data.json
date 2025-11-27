@@ -509,6 +509,39 @@
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
+      },
+      {
+        "id": 52,
+        "name": "UPDATE_SETTINGS",
+        "description": "Permite actualizar la configuración actual del evento",
+        "createdAt": "2025-06-04T15:29:45.468Z",
+        "updatedAt": "2025-06-04T15:29:45.468Z",
+        "isActive": true 
+      }
+      ,
+      {
+        "id": 51,
+        "name": "READ_WEIGHT",
+        "description": "Permite leer la configuración de ponderado por edición",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 52,
+        "name": "MANAGE_WEIGHT",
+        "description": "Permite crear/editar la configuración de ponderado por edición",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 53,
+        "name": "SET_LIKES",
+        "description": "Permite definir la cantidad de likes de un juego",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1025,6 +1058,47 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 52,
+        "name": "UpdateSettings",
+        "description": "Update current event settings",
+        "url": null,
+        "method": "PATCH",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      }
+      ,
+      {
+        "id": 52,
+        "name": "GetWeight",
+        "description": "Obtener configuración de ponderado por edición (SettingsController.getWeight)",
+        "url": null,
+        "method": "GET",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 53,
+        "name": "ManageWeight",
+        "description": "Crear/editar configuración de ponderado por edición (SettingsController.create/update)",
+        "url": null,
+        "method": "POST",
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 54,
+        "name": "SetLikes",
+        "description": "Definir la cantidad de likes de un videojuego.",
+        "url": null,
+        "method": "PUT",
+        "createdAt": "2025-11-25T06:00:00.000Z",
+        "updatedAt": "2025-11-25T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1395,6 +1469,35 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 52,
+        "permissionId": 51,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      }
+      ,
+      {
+        "serviceId": 52,
+        "permissionId": 51,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 53,
+        "permissionId": 52,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 54,
+        "permissionId": 53,
+        "createdAt": "2025-11-14T06:00:00.000Z",
+        "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1481,6 +1584,20 @@
       {
         "roleId": 3,
         "permissionId": 9,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 13,
+        "createdAt": "2025-05-28T10:00:00.000Z",
+        "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 14,
         "createdAt": "2025-05-28T10:00:00.000Z",
         "updatedAt": "2025-06-04T15:29:52.745Z",
         "isActive": true
@@ -1722,8 +1839,8 @@
       {
         "id": 1,
         "editionId": 3,
-        "seniorPct": 60,
-        "juniorPct": 40,
+        "seniorPct": 40,
+        "juniorPct": 60,
         "createdAt": "2025-11-15T00:00:00.000Z",
         "updatedAt": "2025-11-15T00:00:00.000Z"
       }

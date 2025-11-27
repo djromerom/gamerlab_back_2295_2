@@ -18,8 +18,9 @@ import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Team, User } from '@prisma/client';
+import { Member, Team, User } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
+import { MemberDto } from '../dto/member.dto';
 
 @Injectable()
 export class TeamsService {
@@ -29,7 +30,7 @@ export class TeamsService {
     private readonly authService: AuthService,
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
   ) {}
 
   async findByTeamName(teamName: string): Promise<any> {
@@ -101,12 +102,14 @@ export class TeamsService {
     try {
       const result = await this.teamRepository.createTeam(createTeamDto);
 
-      this.logger.log(`Team created successfully for user: ${firstMember.memberEmail}`);
+      this.logger.log(
+        `Team created successfully for user: ${firstMember.memberEmail}`,
+      );
       return result;
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
       this.logger.error(
         `Transaction failed for team creation: ${errorMessage}`,
         error instanceof Error ? error.stack : undefined,
@@ -118,13 +121,15 @@ export class TeamsService {
           `Email ${firstMember.memberEmail} is already registered.`,
         );
       }
-      
+
       if (errorMessage.toLowerCase().includes('team already exists')) {
-        throw new ConflictException('A team with this information already exists.');
+        throw new ConflictException(
+          'A team with this information already exists.',
+        );
       }
 
       throw new InternalServerErrorException(
-        `Failed to create team: ${errorMessage}`
+        `Failed to create team: ${errorMessage}`,
       );
     }
   }
@@ -144,7 +149,7 @@ export class TeamsService {
       name: registerDto.name,
     };
 
-    return this.authService.registerUser(authRegisterPayload);
+    return await this.authService.registerUser(authRegisterPayload);
   }
 
   async findAll(sortByLikes: boolean) {
@@ -189,7 +194,7 @@ export class TeamsService {
         'You do not have permission to access this resource.',
       );
     }
-    return this.teamRepository.update(id, updateTeamDto);
+    return this.teamRepository.update(id, updateTeamDto, isAdmin);
   }
 
   async updateTeamInfo(
@@ -211,7 +216,7 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.updateTeamInfo(id, updateTeamDto);
+    return this.teamRepository.updateTeamInfo(id, updateTeamDto, isAdmin);
   }
 
   async updateMemberEmail(
@@ -293,6 +298,22 @@ export class TeamsService {
     return this.teamRepository.getTeamsWithLessThanThreeJurors();
   }
 
+  async getFinalScoreByVideogame(videogameId: number): Promise<any[] | null> {
+    if (!Number.isInteger(videogameId) || videogameId <= 0) {
+      throw new BadRequestException('Invalid videogame id');
+    }
+    const client: any = (this.prisma as any).teamFinalScore;
+    return client.findMany({ where: { videogameId } });
+  }
+
+  async getFinalScoreByTeam(teamId: number): Promise<any[] | null> {
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      throw new BadRequestException('Invalid team id');
+    }
+    const client: any = (this.prisma as any).teamFinalScore;
+    return client.findMany({ where: { teamId } });
+  }
+
   async findPaged(page: number, limit: number, sortByLikes: boolean) {
     return await this.teamRepository.findPaged(page, limit, sortByLikes);
   }
@@ -325,5 +346,13 @@ export class TeamsService {
       );
       throw new InternalServerErrorException(`Failed to delete team ${id}.`);
     }
+  }
+
+  async addMember(id: number, memberDto: MemberDto, user: User): Promise<Member | undefined> {
+    return await this.teamRepository.addMember(id, memberDto);
+  }
+
+  async deleteMember(teamId: number, memberId: number, user: User): Promise<{ message: string; member: Member | null } | undefined> {
+    return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }
