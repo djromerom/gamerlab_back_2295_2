@@ -155,7 +155,9 @@ export class TeamsController {
           editionId: 3,
           avgJunior: null,
           avgSenior: 5,
-          finalScore: 2
+          finalScore: 2,
+          teamName: "Team1",
+          logoUrl: "loguito"
         }
       ]
     }
