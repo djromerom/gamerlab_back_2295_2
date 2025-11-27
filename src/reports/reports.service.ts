@@ -18,6 +18,7 @@ export class ReportsService {
       criterios: { [nombreCriterio: string]: number };
       evaluacionesCompletadas?: number;
       totalJuradosAsignados?: number;
+      codigoEquipo?: string | null;
     }[]
   > {
     const videojuegos = await this.prisma.videogame.findMany({
@@ -149,6 +150,7 @@ export class ReportsService {
         avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
         juniorCount: counts.juniorCount,
         seniorCount: counts.seniorCount,
+        codigoEquipo: v.team.teamCode ?? null,
       };
     }));
   }
