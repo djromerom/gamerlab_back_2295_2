@@ -67,7 +67,7 @@ export class ReportsController {
       const worksheet = workbook.addWorksheet('Videojuegos');
 
       const columnDefinitions: Partial<ExcelJS.Column>[] = [ // Usar Partial<ExcelJS.Column> para mejor tipado
-        { header: 'Código del equipo', key: 'teamCode', width: 15 },
+        { header: 'TeamCode', key: 'teamCode', width: 15 },
         { header: 'Videojuego', key: 'nombre', width: 30 },
         { header: 'Equipo', key: 'teamName', width: 25 },
         { header: 'Integrantes', key: 'integrantes', width: 40 },
@@ -77,7 +77,7 @@ export class ReportsController {
         { header: 'Calificación Feria', key: 'promedio', width: 25 },
         { header: 'Calif. J. Junior', key: 'avgJunior', width: 12.5 },
         { header: 'Calif. J. Senior', key: 'avgSenior', width: 12.5 },
-        { header: 'Evaluaciones Completadas', key: 'evaluacionesCompletadas', width: 25 },
+        { header: 'Eval. Completas', key: 'evaluacionesCompletadas', width: 25 },
         { header: 'Jurados Asignados', key: 'totalJuradosAsignados', width: 25 },
         { header: 'Jurados Junior', key: 'juniorCount', width: 13 },
         { header: 'Jurados Senior', key: 'seniorCount', width: 13 },
@@ -108,7 +108,7 @@ export class ReportsController {
       const headerRow = worksheet.getRow(1);
       headerRow.eachCell((cell) => {
         cell.font = { bold: true } as any;
-        cell.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+        cell.alignment = { horizontal: 'left', vertical: 'middle' } as any;
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
@@ -159,14 +159,20 @@ export class ReportsController {
       });
 
       worksheet.columns.forEach((col, idx) => {
-        const calculated = Math.min(Math.max((maxLens[idx] ?? 0) + 1, 7), 40);
+        const calculated = Math.min(Math.max((maxLens[idx] ?? 0) + 1, 12), 40);
         col.width = calculated;
-        if (columnKeys[idx] === 'integrantes') {
+        if (columnKeys[idx] === 'integrantes' || columnKeys[idx] === 'TeamCode'|| columnKeys[idx] === 'equipo' || columnKeys[idx] === 'videojuego') {
           col.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' } as any;
         } else {
-          col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+          col.alignment = { horizontal: 'left', vertical: 'middle' } as any;
         }
       });
+
+      // add autofilter for the header row (so clients can filter columns)
+      worksheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: worksheet.columns.length },
+      } as any;
 
       // Configurar la respuesta
       res.setHeader(
