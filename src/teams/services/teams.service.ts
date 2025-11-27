@@ -41,6 +41,36 @@ export class TeamsService {
     return await this.teamRepository.findByVideogameName(videogameName);
   }
 
+  async findByTeamCodePrefix(prefix: string) {
+    if (!prefix || typeof prefix !== 'string') {
+      throw new BadRequestException('Invalid prefix');
+    }
+    const p = prefix.toUpperCase();
+    // Allow calls with or without the trailing dash (e.g. 'N1' or 'N1-')
+    const starts = p.endsWith('-') ? p : `${p}-`;
+    try {
+      return await this.prisma.team.findMany({ where: { teamCode: { startsWith: starts } } });
+    } catch (error) {
+      this.logger.error(`Error fetching teams by prefix ${prefix}: ${error}`);
+      throw new InternalServerErrorException('Failed to fetch teams by prefix');
+    }
+  }
+
+  async getFinalScoreByTeamCodePrefix(prefix: string): Promise<any[]> {
+    if (!prefix || typeof prefix !== 'string') {
+      throw new BadRequestException('Invalid prefix');
+    }
+    const p = prefix.toUpperCase();
+    const starts = p.endsWith('-') ? p : `${p}-`;
+    const client: any = (this.prisma as any).teamFinalScore;
+    try {
+      return await client.findMany({ where: { teamCode: { startsWith: starts } } });
+    } catch (error) {
+      this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
+      throw new InternalServerErrorException('Failed to fetch final scores by prefix');
+    }
+  }
+
   async validateEmails(validateEmailsDto: ValidateEmailsDto) {
     return await this.teamRepository.checkEmailsExist(validateEmailsDto.emails);
   }
