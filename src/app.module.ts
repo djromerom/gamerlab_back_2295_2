@@ -21,6 +21,7 @@ import { CacheModule } from './cache/cache.module';
 import { StudentsModule } from './students/students.module';
 import { UploadModule } from './upload/upload.module';
 import { SettingsModule } from './settings/settings.module';
+import { CertificatesModule } from './certificates/certificates.module';
 import { EmailModule } from './email/email.module';
 
 @Module({
@@ -44,6 +45,7 @@ import { EmailModule } from './email/email.module';
     StudentsModule,
     UploadModule,
     SettingsModule,
+    CertificatesModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

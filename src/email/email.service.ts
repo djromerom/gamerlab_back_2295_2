@@ -9,6 +9,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CertificatesService } from 'src/certificates/certificates.service';
 import { TeamEmailType } from './types/team-email.type';
 import { AuthEmailType } from './types/email-type.type';
 import { ConfigService } from '@nestjs/config';
@@ -41,6 +42,7 @@ export class EmailService {
   
   constructor(
     private readonly prisma: PrismaService,
+    private readonly certificatesService: CertificatesService,
     private readonly configService: ConfigService,
   ) {}
   
@@ -360,47 +362,71 @@ export class EmailService {
   async resendCertEmailOfType(
     email: string,
     typeOfEmail: CertEmailType,
-    certificate: string,
   ): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend ${typeOfEmail} certificate email to: ${email}`);
   
     try {
-      const emailExists = await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findUnique({
         where: { email },
       });
+
+      // Find the team that this user is a member of (by user id)
+      const team = user
+        ? await this.prisma.team.findFirst({
+        where: { user: { id: user.id  } },
+        select: { id: true },
+          })
+        : null;
+
+      const emailExists = user;
 
       if (!emailExists) {
         this.logger.error(`User with email ${email} not found in local DB.`);
         throw new NotFoundException('The email address is not registered.');
       }
-      
+
+      if (!team) {
+        this.logger.error(`User with email ${email} is not connected to any team.`);
+        throw new NotFoundException('The user is not connected to any team.');
+      }
+
+      const emails = await this.prisma.member.findMany({
+        where: { teamId: team.id },
+        select: { email: true },
+      }).then(members => members.map(member => member.email));
+
+      const teamId = team.id;
       let template: string;
-      let templateParams: Record<string, unknown> = { 
-        email,
-        certificate: certificate,
-      };
+      let pdfBuffer: Buffer;
       switch (typeOfEmail) {
         case 'PARTICIPATION_CERTIFICATE':
           template = this.EMAIL_PARTICIPATION_CERTIFICATE_TEMPLATE;
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 0);
           break;
         case '1ST_PLACE_CERTIFICATE':
           template = this.EMAIL_1ST_PLACE_CERTIFICATE_TEMPLATE;
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 1);
           break;
         case '2ND_PLACE_CERTIFICATE':
           template = this.EMAIL_2ND_PLACE_CERTIFICATE_TEMPLATE;
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 2);
           break;
         case '3RD_PLACE_CERTIFICATE':
           template = this.EMAIL_3RD_PLACE_CERTIFICATE_TEMPLATE;
+          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 3);
           break;
         default:
           this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);
           throw new BadRequestException('Invalid certificate email type specified.');
       }
-  
-      // Send the email
+
+      let templateParams: Record<string, unknown> = { 
+        email: emails.join(', '),
+        certificate: pdfBuffer.toString('base64'),
+      };
       await this.sendEmailTemplate(template, templateParams);
   
-      this.logger.log(`${typeOfEmail} certificate email resent successfully to: ${email}`);
+      this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent succesfully' };
     } catch (error) {
       if (

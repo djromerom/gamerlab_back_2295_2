@@ -54,11 +54,6 @@ export class EmailController {
   @ApiBadRequestResponse({ description: 'Invalid type of email provided' })
   @HttpCode(200)
   async resendCertificateEmail(@Body() resendEmailDto: ResendCertEmailDto) {
-    let certificate = resendEmailDto.certificate;
-    if (!certificate) {
-      // TODO: generate certificate if not provided
-      certificate = '';
-    }
-    return this.emailService.resendCertEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail, certificate);
+    return this.emailService.resendCertEmailOfType(resendEmailDto.email, resendEmailDto.typeOfEmail);
   }
 }

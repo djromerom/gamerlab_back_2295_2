@@ -4,8 +4,16 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": ["templates/**/*"],
-    "watchAssets": true
+    "assets": [
+      {
+        "include": "**/*.html",
+        "watchAssets": true
+      },
+      {
+        "include": "certificates/assets/**/*",
+        "outDir": "dist"
+      }
+    ]
   },
   "watchOptions": {
     "usePolling": true,
