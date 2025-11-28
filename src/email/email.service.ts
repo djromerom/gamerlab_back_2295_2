@@ -426,7 +426,7 @@ export class EmailService {
       };
       await this.sendEmailTemplate(template, templateParams);
   
-      this.logger.log(`${typeOfEmail} certificate email resent successfully to: ${email}`);
+      this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent succesfully' };
     } catch (error) {
       if (

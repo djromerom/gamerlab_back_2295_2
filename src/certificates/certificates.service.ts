@@ -25,7 +25,7 @@ export class CertificatesService {
         break;
     }
 
-    const templatePath = path.join(__dirname, '.', 'assets', 'certificate-First.html');
+    const templatePath = path.join(__dirname, '.', 'assets', templateName);
     let template = await fs.readFile(templatePath, 'utf8');
 
     const certificateHtml = await this.adjustCertificateParameters(template, teamId);
