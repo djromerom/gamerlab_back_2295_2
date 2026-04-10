@@ -23,16 +23,16 @@ export class SubjectsService {
           {
             OR: [
               { name: createSubjectDto.name },
-              { code: createSubjectDto.code }
-            ]
-          }
-        ]
+              { code: createSubjectDto.code },
+            ],
+          },
+        ],
       },
     });
 
     if (existingSubject) {
       let conflictFields = [];
-      
+
       if (existingSubject.name === createSubjectDto.name) {
         conflictFields.push('nombre');
       }
@@ -49,7 +49,7 @@ export class SubjectsService {
     return this.prisma.subject.create({
       data: {
         ...createSubjectDto,
-        isActive: true // Asegurar que se cree como activo
+        isActive: true, // Asegurar que se cree como activo
       },
     });
   }
@@ -105,11 +105,11 @@ export class SubjectsService {
     const subject = await this.prisma.subject.findUnique({
       where: { id },
     });
-    
+
     if (!subject) {
       throw new NotFoundException(`Materia con ID ${id} no encontrada.`);
     }
-    
+
     return subject;
   }
 
@@ -128,7 +128,7 @@ export class SubjectsService {
     // Verificar conflictos solo si se están actualizando name o code
     if (updateSubjectDto.name || updateSubjectDto.code) {
       const conflictConditions: Prisma.SubjectWhereInput[] = [];
-      
+
       if (updateSubjectDto.name) {
         conflictConditions.push({ name: updateSubjectDto.name });
       }
@@ -140,19 +140,25 @@ export class SubjectsService {
         where: {
           AND: [
             { id: { not: id } }, // Excluir el registro actual
-            { isActive: true },   // Solo verificar activos
-            { OR: conflictConditions }
-          ]
+            { isActive: true }, // Solo verificar activos
+            { OR: conflictConditions },
+          ],
         },
       });
 
       if (conflictingSubject) {
         let conflictFields = [];
-        
-        if (updateSubjectDto.name && conflictingSubject.name === updateSubjectDto.name) {
+
+        if (
+          updateSubjectDto.name &&
+          conflictingSubject.name === updateSubjectDto.name
+        ) {
           conflictFields.push('nombre');
         }
-        if (updateSubjectDto.code && conflictingSubject.code === updateSubjectDto.code) {
+        if (
+          updateSubjectDto.code &&
+          conflictingSubject.code === updateSubjectDto.code
+        ) {
           conflictFields.push('código');
         }
 
@@ -173,11 +179,11 @@ export class SubjectsService {
     const subject = await this.prisma.subject.findUnique({
       where: { id },
     });
-    
+
     if (!subject) {
       throw new NotFoundException(`Materia con ID ${id} no encontrada.`);
     }
-    
+
     if (!subject.isActive) {
       throw new ConflictException(`La materia con ID ${id} ya está inactiva.`);
     }

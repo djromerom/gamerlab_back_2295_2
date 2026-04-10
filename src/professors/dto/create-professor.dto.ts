@@ -13,8 +13,13 @@ export class CreateProfessorDto {
   @IsNotEmpty()
   lastName: string;
 
-  @ApiProperty({ example: 'john.doe@uninorte.edu.co', description: 'Professor email (will be normalized to lowercase)' })
-  @Transform(({ value }) => value && typeof value === 'string' ? value.toLowerCase() : value)
+  @ApiProperty({
+    example: 'john.doe@uninorte.edu.co',
+    description: 'Professor email (will be normalized to lowercase)',
+  })
+  @Transform(({ value }) =>
+    value && typeof value === 'string' ? value.toLowerCase() : value,
+  )
   @IsString()
   @IsNotEmpty()
   email: string;

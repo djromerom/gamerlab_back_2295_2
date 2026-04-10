@@ -13,4 +13,3 @@ export class AssignJurorToTeamDto {
   @IsNotEmpty({ message: 'El ID del equipo es obligatorio' })
   teamId: number;
 }
-

@@ -1,6 +1,10 @@
 /* eslint-disable prettier/prettier */
 // src/teams/services/recaptcha.service.ts
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { RecaptchaResponse } from '../interfaces/recaptcha-response.interface';
@@ -17,7 +21,9 @@ export class RecaptchaService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    const RECAPTCHA_SECRET_KEY = this.configService.get<string>('RECAPTCHA_SECRET_KEY');
+    const RECAPTCHA_SECRET_KEY = this.configService.get<string>(
+      'RECAPTCHA_SECRET_KEY',
+    );
 
     const RECAPTCHA_URL = this.configService.get<string>('RECAPTCHA_URL');
 
@@ -31,10 +37,14 @@ export class RecaptchaService {
         `Server configuration error: Missing required status 'reCAPTCHA'.`,
       );
     } else if (!RECAPTCHA_URL) {
-      this.logger.warn(`No 'RECAPTCHA_URL' variable was found in the environment. Using default url`);
+      this.logger.warn(
+        `No 'RECAPTCHA_URL' variable was found in the environment. Using default url`,
+      );
       this.verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
     } else if (!RECAPTCHA_SCORE) {
-      this.logger.warn(`No 'RECAPTCHA_SCORE' variable was found in the environment. Using '0.5' as default`);
+      this.logger.warn(
+        `No 'RECAPTCHA_SCORE' variable was found in the environment. Using '0.5' as default`,
+      );
       this.threshold = 0.5;
     }
 
@@ -54,22 +64,20 @@ export class RecaptchaService {
 
     try {
       const response = await firstValueFrom(
-        this.httpService.post<RecaptchaResponse>(
-          this.verifyUrl,
-          null,
-          {
-            params: {
-              secret: this.recaptchaSecret,
-              response: token,
-            },
+        this.httpService.post<RecaptchaResponse>(this.verifyUrl, null, {
+          params: {
+            secret: this.recaptchaSecret,
+            response: token,
           },
-        ),
+        }),
       );
 
       const data = response.data;
 
       if (!data.success) {
-        this.logger.warn(`reCAPTCHA verification failed: ${data['error-codes']?.join(', ')}`);
+        this.logger.warn(
+          `reCAPTCHA verification failed: ${data['error-codes']?.join(', ')}`,
+        );
         return false;
       }
 
@@ -79,13 +87,20 @@ export class RecaptchaService {
         return false;
       }
 
-      this.logger.log(`reCAPTCHA verification successful${data.score !== undefined ? ` with score: ${data.score}` : ''}`);
+      this.logger.log(
+        `reCAPTCHA verification successful${data.score !== undefined ? ` with score: ${data.score}` : ''}`,
+      );
       return true;
     } catch (error) {
       if (error instanceof Error) {
-        this.logger.error(`reCAPTCHA verification error: ${error.message}`, error.stack);
+        this.logger.error(
+          `reCAPTCHA verification error: ${error.message}`,
+          error.stack,
+        );
       } else {
-        this.logger.error(`reCAPTCHA verification error: ${JSON.stringify(error)}`);
+        this.logger.error(
+          `reCAPTCHA verification error: ${JSON.stringify(error)}`,
+        );
       }
       return false;
     }

@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, NotImplementedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  NotImplementedException,
+} from '@nestjs/common';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
 import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -65,9 +71,12 @@ export class VideogamesService {
     }
 
     return { videogameId, likes: videogame.likes };
-  }  
+  }
 
-  async toggleLike(videogameId: number, liked: boolean): Promise<{ liked: boolean; likeCount: number }> {
+  async toggleLike(
+    videogameId: number,
+    liked: boolean,
+  ): Promise<{ liked: boolean; likeCount: number }> {
     const videogame = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
       select: {
@@ -83,15 +92,25 @@ export class VideogamesService {
     }
 
     // Check if the game has videos or photos
-    const hasContent = videogame.videoUrl || (videogame.additionalImages && videogame.additionalImages.length > 0);
+    const hasContent =
+      videogame.videoUrl ||
+      (videogame.additionalImages && videogame.additionalImages.length > 0);
     const lacksContentAndLogo = !hasContent && !videogame.logoUrl;
 
     // Enforce like limit for games without content
-    if (lacksContentAndLogo && liked && videogame.likes >= this.MAX_LIKES_NO_CONTENT) {
-      throw new BadRequestException('This game cannot receive more than 10 likes without any video, photo, or logo.');
+    if (
+      lacksContentAndLogo &&
+      liked &&
+      videogame.likes >= this.MAX_LIKES_NO_CONTENT
+    ) {
+      throw new BadRequestException(
+        'This game cannot receive more than 10 likes without any video, photo, or logo.',
+      );
     }
     if (!hasContent && liked && videogame.likes >= this.MAX_LIKES_LOGO_ONLY) {
-      throw new BadRequestException('This game cannot receive more than 20 likes without videos or photos');
+      throw new BadRequestException(
+        'This game cannot receive more than 20 likes without videos or photos',
+      );
     }
 
     // Increment or decrement likes
@@ -133,10 +152,15 @@ export class VideogamesService {
         select: { likes: true },
       });
 
-      return { videogameId, likeCount: videogame.likes }; 
+      return { videogameId, likeCount: videogame.likes };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(
+          `Videogame with ID ${videogameId} not found`,
+        );
       }
       throw error;
     }

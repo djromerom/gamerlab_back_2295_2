@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EventConfiguration } from '@prisma/client';
 import { CreateWeightDto } from './dto/create-weight.dto';
@@ -11,14 +15,18 @@ export class SettingsService {
     // If no editionId is provided, resolve the latest edition ID internally
     let id = editionId;
     if (!id) {
-      const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
+      const latest = await this.prisma.edition.findFirst({
+        orderBy: { id: 'desc' },
+      });
       id = latest?.id ?? 1;
     }
     return this.prisma.weighting.findUnique({ where: { editionId: id } });
   }
 
   async getLatest() {
-    const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
+    const latest = await this.prisma.edition.findFirst({
+      orderBy: { id: 'desc' },
+    });
     const editionId = latest?.id ?? 1;
     return this.getByEdition(editionId);
   }
@@ -33,10 +41,14 @@ export class SettingsService {
       // Alternatively, you could normalize the values automatically:
       // dto.seniorPct = Math.round((dto.seniorPct / sum) * 100);
       // dto.juniorPct = 100 - dto.seniorPct;
-      throw new BadRequestException('The sum of seniorPct and juniorPct must equal 100');
+      throw new BadRequestException(
+        'The sum of seniorPct and juniorPct must equal 100',
+      );
     }
     // determine editionId: use provided one or fallback to latest edition
-    const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
+    const latest = await this.prisma.edition.findFirst({
+      orderBy: { id: 'desc' },
+    });
     const editionId = dto.editionId ?? latest?.id ?? 1;
 
     return this.prisma.weighting.upsert({

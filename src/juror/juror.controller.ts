@@ -25,7 +25,7 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { AssignJurorToTeamDto } from './dto/assign-juror-to-team.dto';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
-import { RequiredService } from '../auth/decorators/required-service.decorator';
+import { RequiredService } from '../auth/decorators/required-service.decorator'; // Por ejemplo este modulo podemos usarlo en UseGUard para indicar que requiere de este modulo o incluso en Required Service, pero no es estrictamente necesario, igual es buena practica
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
@@ -83,15 +83,18 @@ export class JurorController {
     description: 'No se encontraron equipos con formato de nivel válido',
     schema: {
       example: {
-        message: 'No se encontraron equipos con formato de nivel válido (N<número>-...)',
+        message:
+          'No se encontraron equipos con formato de nivel válido (N<número>-...)',
       },
     },
   })
   @ApiUnauthorizedResponse({ description: 'No autenticado' })
-  @ApiForbiddenResponse({ description: 'No tiene permisos para asignar jurados' })
+  @ApiForbiddenResponse({
+    description: 'No tiene permisos para asignar jurados',
+  })
   @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
   AsignEvaluations() {
-    return this.jurorService.asingEvaluations();
+    return this.jurorService.asingEvaluations(); //Esta porqueria la dejamos, pues el el endpoint del la asignacion automatica que mas tarde modificaremos
   }
 
   @Post()
@@ -105,7 +108,10 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('SendEmail')
   async resendConfirmation(@Body('email') email: string) {
-    return await this.authService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL');
+    return await this.authService.resendAuthEmailOfType(
+      email,
+      'VERIFICACION_EMAIL',
+    );
   }
 
   @Get('evaluators')
@@ -119,7 +125,23 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
   assignJurorToTeam(@Body() assignDto: AssignJurorToTeamDto) {
-    return this.jurorService.assignJurorToTeam(assignDto.jurorId, assignDto.teamId);
+    return this.jurorService.assignJurorToTeam(
+      assignDto.jurorId,
+      assignDto.teamId,
+    );
+  }
+
+  //Ahora aqui añadiremos un endpoint el cual sera GET, dado que su proposito es leer, luego le damos una
+  // una rruta a ese endpoint
+
+  @Get('available-for-team/:teamId') //:teamId indica que le pasaremos un parametro que sera una variable cuyo nombre es teamId
+  getAvailableForTeam(@Param('teamId') teamId: string) {
+    //Aqui van las instrucciones que ejecutara este metodo el cual se ejecutara cuando el backend invoque este endpoint, este metodo devuelve un JSON el cual corresponde a un diccionario con los datos que usara el frontend para poner en sus campos
+    return {
+      Queso: 1,
+      LOL: 2,
+      Plata: 5, //Un dicionaria se compone de atributos clave-valor, la clave aqui es "Plata" y su valor es 5, eso lo podemos obtener desde el front, a continuacion veremos...
+    };
   }
 
   @Delete('assignments/all')
@@ -140,7 +162,10 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
   removeJurorFromTeam(@Body() assignDto: AssignJurorToTeamDto) {
-    return this.jurorService.removeJurorFromTeam(assignDto.jurorId, assignDto.teamId);
+    return this.jurorService.removeJurorFromTeam(
+      assignDto.jurorId,
+      assignDto.teamId,
+    );
   }
 
   @Get()
@@ -156,7 +181,8 @@ export class JurorController {
   @Get('teams/:teamId/evaluation-stats')
   @ApiOperation({
     summary: 'Obtener estadísticas de evaluación de un equipo',
-    description: 'Devuelve la cantidad de jurados asignados a un equipo y cuántos de ellos ya han calificado el videojuego del equipo',
+    description:
+      'Devuelve la cantidad de jurados asignados a un equipo y cuántos de ellos ya han calificado el videojuego del equipo',
   })
   @ApiOkResponse({
     description: 'Estadísticas de evaluación del equipo',

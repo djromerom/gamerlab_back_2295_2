@@ -19,7 +19,7 @@ import { RequiredService } from 'src/auth/decorators/required-service.decorator'
 
 @Controller('students')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) { }
+  constructor(private readonly studentsService: StudentsService) {}
 
   @Get()
   @UseGuards(RolePermissionGuard)

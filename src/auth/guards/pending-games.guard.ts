@@ -1,15 +1,15 @@
 import {
-    Injectable,
-    CanActivate,
-    ExecutionContext,
-    ForbiddenException,
-    UnauthorizedException,
-  } from '@nestjs/common';
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { REQUIRED_SERVICE_KEY } from '../decorators/required-service.decorator';
 import { AppUser } from '../jwt.strategy';
-  
+
 @Injectable()
 export class PendingGamesGuard implements CanActivate {
   constructor(
@@ -28,16 +28,18 @@ export class PendingGamesGuard implements CanActivate {
     }
 
     const requiredServiceName =
-          this.reflector.get<string>(REQUIRED_SERVICE_KEY, context.getHandler()) ??
-          this.reflector.get<string>(REQUIRED_SERVICE_KEY, context.getClass());
-    
+      this.reflector.get<string>(REQUIRED_SERVICE_KEY, context.getHandler()) ??
+      this.reflector.get<string>(REQUIRED_SERVICE_KEY, context.getClass());
+
     const requiredService = this.reflector.get<string>(
       'requiredService',
       context.getHandler(),
     );
 
     if (!requiredService) {
-      throw new ForbiddenException('No se especificó un servicio requerido para esta ruta');
+      throw new ForbiddenException(
+        'No se especificó un servicio requerido para esta ruta',
+      );
     }
 
     const service = await this.prisma.service.findFirst({
@@ -45,19 +47,27 @@ export class PendingGamesGuard implements CanActivate {
     });
 
     if (!service) {
-      throw new ForbiddenException(`El servicio "${requiredService}" no está registrado o no está activo`);
+      throw new ForbiddenException(
+        `El servicio "${requiredService}" no está registrado o no está activo`,
+      );
     }
-    
+
     const hasPermission = await this.prisma.rolePermission.findFirst({
       where: {
         role: { id: user.roleId, isActive: true },
-        permission: { servicePermissions: { some: { serviceId: service.id, isActive: true } } },
+        permission: {
+          servicePermissions: {
+            some: { serviceId: service.id, isActive: true },
+          },
+        },
         isActive: true,
       },
     });
 
     if (!hasPermission) {
-      throw new ForbiddenException('No tienes permisos para acceder a este recurso');
+      throw new ForbiddenException(
+        'No tienes permisos para acceder a este recurso',
+      );
     }
 
     return true;

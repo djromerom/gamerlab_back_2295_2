@@ -1,5 +1,15 @@
-import { Injectable, BadRequestException, PayloadTooLargeException } from '@nestjs/common';
-import { BlobServiceClient, BlockBlobClient, BlobSASPermissions, StorageSharedKeyCredential, generateBlobSASQueryParameters } from '@azure/storage-blob';
+import {
+  Injectable,
+  BadRequestException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
+import {
+  BlobServiceClient,
+  BlockBlobClient,
+  BlobSASPermissions,
+  StorageSharedKeyCredential,
+  generateBlobSASQueryParameters,
+} from '@azure/storage-blob';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { Upload } from '@prisma/client';
@@ -23,11 +33,14 @@ export class AzureStorageService {
     // Validate file size (1MB limit)
     const maxSize = 1024 * 1024; // 1MB
     if (file.size > maxSize) {
-      throw new PayloadTooLargeException(`El archivo es demasiado grande (${Math.round(file.size / 1024 / 1024 * 100) / 100}MB). Tamaño máximo permitido: 1MB`);
+      throw new PayloadTooLargeException(
+        `El archivo es demasiado grande (${Math.round((file.size / 1024 / 1024) * 100) / 100}MB). Tamaño máximo permitido: 1MB`,
+      );
     }
 
     const blobName = `${Date.now()}-${path.basename(file.originalname)}`;
-    const blockBlobClient: BlockBlobClient = this.containerClient.getBlockBlobClient(blobName);
+    const blockBlobClient: BlockBlobClient =
+      this.containerClient.getBlockBlobClient(blobName);
 
     try {
       await blockBlobClient.uploadData(file.buffer, {
@@ -46,11 +59,15 @@ export class AzureStorageService {
     } catch (error: any) {
       // Handle Azure-specific errors
       if (error.statusCode === 413 || error.code === 'REQUEST_BODY_TOO_LARGE') {
-        throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage. Tamaño máximo permitido: 1MB');
+        throw new PayloadTooLargeException(
+          'El archivo es demasiado grande para Azure Storage. Tamaño máximo permitido: 1MB',
+        );
       }
-      
+
       if (error.statusCode === 400) {
-        throw new BadRequestException(`Error de Azure Storage: ${error.message || 'Solicitud inválida'}`);
+        throw new BadRequestException(
+          `Error de Azure Storage: ${error.message || 'Solicitud inválida'}`,
+        );
       }
 
       // Log and re-throw unexpected errors
@@ -61,8 +78,10 @@ export class AzureStorageService {
         fileName: file.originalname,
         fileSize: file.size,
       });
-      
-      throw new BadRequestException('Error interno al subir el archivo. Por favor, inténtelo de nuevo.');
+
+      throw new BadRequestException(
+        'Error interno al subir el archivo. Por favor, inténtelo de nuevo.',
+      );
     }
   }
 
@@ -71,20 +90,27 @@ export class AzureStorageService {
   }
 
   // Genera SAS de lectura por blob (dinámico)
-  async getReadSasUrlById(id: string, ttlSec: number = 900): Promise<{ url: string, expiresAt: string }> {
+  async getReadSasUrlById(
+    id: string,
+    ttlSec: number = 900,
+  ): Promise<{ url: string; expiresAt: string }> {
     const rec = await this.getById(id);
     if (!rec) throw new Error('Registro no encontrado');
 
     const accountName = process.env.AZURE_ACCOUNT_NAME;
-    const accountKey  = process.env.AZURE_ACCOUNT_KEY;
-    const container   = process.env.AZURE_CONTAINER || this.containerClient.containerName;
+    const accountKey = process.env.AZURE_ACCOUNT_KEY;
+    const container =
+      process.env.AZURE_CONTAINER || this.containerClient.containerName;
 
     if (!accountName || !accountKey) {
       throw new Error('Faltan AZURE_ACCOUNT_NAME o AZURE_ACCOUNT_KEY en .env');
     }
 
     const cred = new StorageSharedKeyCredential(accountName, accountKey);
-    const service = new BlobServiceClient(`https://${accountName}.blob.core.windows.net`, cred);
+    const service = new BlobServiceClient(
+      `https://${accountName}.blob.core.windows.net`,
+      cred,
+    );
     const containerClient = service.getContainerClient(container);
 
     const expiresOn = new Date(Date.now() + Math.max(60, ttlSec) * 1000);
@@ -111,10 +137,12 @@ export class AzureStorageService {
   }
 
   // Elimina blob y registro
-  async deleteById(id: string): Promise<{ id: string, deleted: boolean }> {
+  async deleteById(id: string): Promise<{ id: string; deleted: boolean }> {
     const rec = await this.getById(id);
     if (!rec) throw new Error('Registro no encontrado');
-    const blockClient: any = this.containerClient.getBlockBlobClient(rec.blobName);
+    const blockClient: any = this.containerClient.getBlockBlobClient(
+      rec.blobName,
+    );
     await blockClient.deleteIfExists();
     await this.prisma.upload.delete({ where: { id } });
     return { id, deleted: true };

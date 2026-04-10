@@ -23,7 +23,7 @@ import { RequiredService } from 'src/auth/decorators/required-service.decorator'
 
 @Controller('nrcs')
 export class NrcsController {
-  constructor(private readonly nrcService: NrcsService) { }
+  constructor(private readonly nrcService: NrcsService) {}
 
   @Get()
   @UseGuards(RolePermissionGuard)

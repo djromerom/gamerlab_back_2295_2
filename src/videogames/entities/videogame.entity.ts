@@ -1,1 +1,1 @@
-export class Videogame { }
+export class Videogame {}

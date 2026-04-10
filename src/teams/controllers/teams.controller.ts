@@ -13,7 +13,15 @@ import {
   Optional,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiBody, ApiExtraModels, getSchemaPath, ApiOperation, ApiOkResponse, ApiTags, ApiParam } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiExtraModels,
+  getSchemaPath,
+  ApiOperation,
+  ApiOkResponse,
+  ApiTags,
+  ApiParam,
+} from '@nestjs/swagger';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
@@ -104,12 +112,14 @@ export class TeamsController {
           editionId: 3,
           avgJunior: null,
           avgSenior: 5,
-          finalScore: 2
-        }
-      ]
-    }
+          finalScore: 2,
+        },
+      ],
+    },
   })
-  getFinalScoreByVideogame(@Param('videogameId', ParseIntPipe) videogameId: number) {
+  getFinalScoreByVideogame(
+    @Param('videogameId', ParseIntPipe) videogameId: number,
+  ) {
     return this.teamsService.getFinalScoreByVideogame(videogameId);
   }
 
@@ -129,10 +139,10 @@ export class TeamsController {
           editionId: 3,
           avgJunior: null,
           avgSenior: 5,
-          finalScore: 2
-        }
-      ]
-    }
+          finalScore: 2,
+        },
+      ],
+    },
   })
   getFinalScoreByTeam(@Param('teamId', ParseIntPipe) teamId: number) {
     return this.teamsService.getFinalScoreByTeam(teamId);
@@ -140,10 +150,19 @@ export class TeamsController {
 
   @Public()
   @Get('final-score/by-n/:n')
-  @ApiOperation({ summary: 'Get final scores for teams filtered by teamCode prefix (e.g., N1, N0, N2)' })
-  @ApiParam({ name: 'n', required: true, description: "Team code prefix to filter by (N0..N4). Example: 'N1' or 'N1-'" })
+  @ApiOperation({
+    summary:
+      'Get final scores for teams filtered by teamCode prefix (e.g., N1, N0, N2)',
+  })
+  @ApiParam({
+    name: 'n',
+    required: true,
+    description:
+      "Team code prefix to filter by (N0..N4). Example: 'N1' or 'N1-'",
+  })
   @ApiOkResponse({
-    description: 'Array of TeamFinalScore rows whose teamCode starts with the given prefix',
+    description:
+      'Array of TeamFinalScore rows whose teamCode starts with the given prefix',
     schema: {
       example: [
         {
@@ -156,11 +175,11 @@ export class TeamsController {
           avgJunior: null,
           avgSenior: 5,
           finalScore: 2,
-          teamName: "Team1",
-          logoUrl: "loguito"
-        }
-      ]
-    }
+          teamName: 'Team1',
+          logoUrl: 'loguito',
+        },
+      ],
+    },
   })
   getFinalScoresByN(@Param('n') n: string) {
     return this.teamsService.getFinalScoreByTeamCodePrefix(n);

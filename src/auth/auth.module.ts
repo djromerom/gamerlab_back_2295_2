@@ -10,7 +10,7 @@ import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
-    PassportModule, 
+    PassportModule,
     CacheModule,
     HttpModule,
     EmailModule,
@@ -23,4 +23,4 @@ import { EmailModule } from '../email/email.module';
   exports: [AuthService, JwtStrategy],
   controllers: [AuthController],
 })
-export class AuthModule { }
+export class AuthModule {}

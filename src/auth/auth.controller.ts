@@ -43,7 +43,7 @@ import {
 class AuthTokensDoc {
   message: string;
   access: string;
-  refresh: string
+  refresh: string;
 }
 
 @ApiTags('Authentication')
@@ -77,15 +77,15 @@ export class AuthController {
       },
     },
   })
-  @ApiCreatedResponse({ 
-    description: 'Successful login', 
+  @ApiCreatedResponse({
+    description: 'Successful login',
     schema: {
       example: {
         message: 'Login successful',
         access: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-      }
-    }
+        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      },
+    },
   })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   @ApiBadRequestResponse({ description: 'Invalid data format' })
@@ -110,10 +110,14 @@ export class AuthController {
     name: 'code',
     description: 'Authorization code from Microsoft',
     type: String,
-    required: true
+    required: true,
   })
-  @ApiOkResponse({ description: 'Authentication successful, redirects to frontend' })
-  @ApiUnauthorizedResponse({ description: 'Authentication failed, redirects to error page' })
+  @ApiOkResponse({
+    description: 'Authentication successful, redirects to frontend',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication failed, redirects to error page',
+  })
   async callback(@Query('code') code: string, @Res() res: Response) {
     return this.authService.handleMicrosoftCallback(code, res);
   }
@@ -127,15 +131,15 @@ export class AuthController {
       'Requires a valid refresh token in the request cookies to issue new access and refresh tokens.',
   })
   @ApiBearerAuth('refresh')
-  @ApiCreatedResponse({ 
-    description: 'Refresh successful', 
+  @ApiCreatedResponse({
+    description: 'Refresh successful',
     type: AuthTokensDoc,
     schema: {
       example: {
         access: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-      }
-    }
+        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      },
+    },
   })
   @ApiUnauthorizedResponse({ description: 'Refresh token invalid or missing' })
   async refresh(
@@ -160,10 +164,15 @@ export class AuthController {
     },
   })
   @ApiOkResponse({ description: 'Confirmation email sent successfully.' })
-  @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
+  @ApiNotFoundResponse({
+    description: 'User with the provided email does not exist.',
+  })
   @ApiConflictResponse({ description: 'User is already confirmed.' })
   async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendAuthEmailOfType(body.email, 'VERIFICACION_EMAIL');
+    return await this.authService.resendAuthEmailOfType(
+      body.email,
+      'VERIFICACION_EMAIL',
+    );
   }
 
   @Public()
@@ -180,7 +189,9 @@ export class AuthController {
     },
   })
   @ApiOkResponse({ description: 'Password reset email sent successfully.' })
-  @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
+  @ApiNotFoundResponse({
+    description: 'User with the provided email does not exist.',
+  })
   async sendResetPasswordEmail(@Body() body: ResendConfirmationDto) {
     return await this.authService.resendAuthEmailOfType(
       body.email,
@@ -197,7 +208,10 @@ export class AuthController {
     examples: {
       example1: {
         summary: 'Set New Password',
-        value: { token: 'd8bccad1-0faa-40c0-a8a3-6e6962090c69', password: 'NewPass1234' },
+        value: {
+          token: 'd8bccad1-0faa-40c0-a8a3-6e6962090c69',
+          password: 'NewPass1234',
+        },
       },
     },
   })
@@ -209,11 +223,19 @@ export class AuthController {
         examples: {
           invalidTokenOrPassword: {
             summary: 'Invalid token or password format',
-            value: { statusCode: 400, message: 'Invalid token or password format', error: 'Bad Request' },
+            value: {
+              statusCode: 400,
+              message: 'Invalid token or password format',
+              error: 'Bad Request',
+            },
           },
           tokenExpired: {
             summary: 'Token has expired',
-            value: { statusCode: 400, message: 'Token has expired', error: 'Bad Request' },
+            value: {
+              statusCode: 400,
+              message: 'Token has expired',
+              error: 'Bad Request',
+            },
           },
         },
       },
@@ -229,43 +251,45 @@ export class AuthController {
 
   @Public()
   @Get('verify-token')
-  @ApiOperation({ summary: 'Verify token validity (Default type: Verification)' })
+  @ApiOperation({
+    summary: 'Verify token validity (Default type: Verification)',
+  })
   @HttpCode(HttpStatus.OK)
   @ApiQuery({
     name: 'token',
     description: 'The token to verify',
     type: String,
     required: true,
-    example: 'd8bccad1-0faa-40c0-a8a3-6e6962090c69'
+    example: 'd8bccad1-0faa-40c0-a8a3-6e6962090c69',
   })
   @ApiQuery({
     name: 'type',
     description: 'Type of token to verify',
     enum: ['VERIFICACION_EMAIL', 'RESETEAR_CONTRASENA'],
     required: false,
-    example: 'VERIFICACION_EMAIL'
+    example: 'VERIFICACION_EMAIL',
   })
-  @ApiOkResponse({ 
-    description: 'Token is valid', 
-    schema: { 
-      example: { 
-        isValid: true, 
+  @ApiOkResponse({
+    description: 'Token is valid',
+    schema: {
+      example: {
+        isValid: true,
         message: 'Token is valid.',
         email: 'user@example.com',
         userId: 'abc-123',
-        type: 'VERIFICACION_EMAIL'
-      } 
-    } 
+        type: 'VERIFICACION_EMAIL',
+      },
+    },
   })
-  @ApiBadRequestResponse({ 
+  @ApiBadRequestResponse({
     description: 'Invalid token, expired token, or wrong token type',
     schema: {
-      example: { 
-        message: 'Invalid or expired link.', 
-        error: 'Bad Request', 
-        statusCode: 400 
-      }
-    }
+      example: {
+        message: 'Invalid or expired link.',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    },
   })
   async verifyTokenGet(@Query() query: VerifyTokenDto) {
     const { token, type } = query;
@@ -276,23 +300,23 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: 'Logout user' })
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ 
+  @ApiOkResponse({
     description: 'Logout successful',
     schema: {
       example: {
-        message: 'Logout successful'
-      }
-    }
+        message: 'Logout successful',
+      },
+    },
   })
-  @ApiInternalServerErrorResponse({ 
+  @ApiInternalServerErrorResponse({
     description: 'Server error during logout process',
     schema: {
       example: {
         message: 'Failed to clear authentication cookies',
         error: 'Internal Server Error',
-        statusCode: 500
-      }
-    }
+        statusCode: 500,
+      },
+    },
   })
   async logout(@Res({ passthrough: true }) res: Response) {
     return this.authService.logout(res);
@@ -307,7 +331,10 @@ export class AuthController {
     examples: {
       example1: {
         summary: 'Reset Token Expiration',
-        value: { userId: '0588fbb6-534f-4e85-a37f-ca090b9a3059', typeOfToken: 'VERIFICACION_EMAIL' },
+        value: {
+          userId: '0588fbb6-534f-4e85-a37f-ca090b9a3059',
+          typeOfToken: 'VERIFICACION_EMAIL',
+        },
       },
     },
   })
@@ -340,13 +367,13 @@ export class AuthController {
         lastSignInAt: '2025-01-10T00:00:00.000Z',
         role: {
           id: 2,
-          name: 'Estudiante'
+          name: 'Estudiante',
         },
         confirmationStatus: {
-          status: 'CONFIRMADO'
-        }
+          status: 'CONFIRMADO',
+        },
       },
-    }
+    },
   })
   @ApiNotFoundResponse({ description: 'User profile not found' })
   @ApiUnauthorizedResponse({ description: 'No access token provided' })

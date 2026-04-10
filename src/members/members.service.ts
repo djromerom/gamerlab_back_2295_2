@@ -1,17 +1,24 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class MembersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   async create(teamId: number, createMemberDto: CreateMemberDto) {
     // Validar que el equipo exista
     const team = await this.prisma.team.findUnique({
       where: { id: teamId, isActive: true },
     });
-    if (!team) throw new NotFoundException('The provided team was not found or is inactive');
+    if (!team)
+      throw new NotFoundException(
+        'The provided team was not found or is inactive',
+      );
 
     // TODO: Change member email validation. This is not enough
     if (!createMemberDto.email.endsWith('@uni.edu')) {
