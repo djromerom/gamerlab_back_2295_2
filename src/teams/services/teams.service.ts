@@ -49,7 +49,9 @@ export class TeamsService {
     // Allow calls with or without the trailing dash (e.g. 'N1' or 'N1-')
     const starts = p.endsWith('-') ? p : `${p}-`;
     try {
-      return await this.prisma.team.findMany({ where: { teamCode: { startsWith: starts } } });
+      return await this.prisma.team.findMany({
+        where: { teamCode: { startsWith: starts } },
+      });
     } catch (error) {
       this.logger.error(`Error fetching teams by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch teams by prefix');
@@ -64,45 +66,68 @@ export class TeamsService {
     const starts = p.endsWith('-') ? p : `${p}-`;
     const client: any = (this.prisma as any).teamFinalScore;
     try {
-      const rows: any[] = await client.findMany({ where: { teamCode: { startsWith: starts } } });
+      const rows: any[] = await client.findMany({
+        where: { teamCode: { startsWith: starts } },
+      });
 
       // If view doesn't include teamName or logoUrl, enrich rows from teams and videogames tables
-      const missingTeamName = rows.some(r => r.teamName === undefined || r.teamName === null);
-      const missingLogo = rows.some(r => r.logoUrl === undefined || r.logoUrl === null);
+      const missingTeamName = rows.some(
+        (r) => r.teamName === undefined || r.teamName === null,
+      );
+      const missingLogo = rows.some(
+        (r) => r.logoUrl === undefined || r.logoUrl === null,
+      );
 
       if (!missingTeamName && !missingLogo) return rows;
 
-      const teamIds = Array.from(new Set(rows.map(r => Number(r.teamId)).filter(Boolean)));
-      const videogameIds = Array.from(new Set(rows.map(r => Number(r.videogameId)).filter(Boolean)));
+      const teamIds = Array.from(
+        new Set(rows.map((r) => Number(r.teamId)).filter(Boolean)),
+      );
+      const videogameIds = Array.from(
+        new Set(rows.map((r) => Number(r.videogameId)).filter(Boolean)),
+      );
 
       const teamsMap = new Map<number, any>();
       if (teamIds.length > 0) {
-        const teams = await this.prisma.team.findMany({ where: { id: { in: teamIds } }, select: { id: true, teamName: true, teamCode: true } });
-        teams.forEach(t => teamsMap.set(t.id, t));
+        const teams = await this.prisma.team.findMany({
+          where: { id: { in: teamIds } },
+          select: { id: true, teamName: true, teamCode: true },
+        });
+        teams.forEach((t) => teamsMap.set(t.id, t));
       }
 
       const vgsMap = new Map<number, any>();
       if (videogameIds.length > 0) {
-        const vgs = await this.prisma.videogame.findMany({ where: { id: { in: videogameIds } }, select: { id: true, logoUrl: true } });
-        vgs.forEach(v => vgsMap.set(v.id, v));
+        const vgs = await this.prisma.videogame.findMany({
+          where: { id: { in: videogameIds } },
+          select: { id: true, logoUrl: true },
+        });
+        vgs.forEach((v) => vgsMap.set(v.id, v));
       }
 
       // Map and fill missing fields
-      return rows.map(r => {
+      return rows.map((r) => {
         const rr = { ...r };
         if ((rr.teamName === undefined || rr.teamName === null) && rr.teamId) {
           const t = teamsMap.get(Number(rr.teamId));
           if (t) rr.teamName = t.teamName ?? t.teamCode ?? null;
         }
-        if ((rr.logoUrl === undefined || rr.logoUrl === null) && rr.videogameId) {
+        if (
+          (rr.logoUrl === undefined || rr.logoUrl === null) &&
+          rr.videogameId
+        ) {
           const vg = vgsMap.get(Number(rr.videogameId));
           if (vg) rr.logoUrl = vg.logoUrl ?? null;
         }
         return rr;
       });
     } catch (error) {
-      this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
-      throw new InternalServerErrorException('Failed to fetch final scores by prefix');
+      this.logger.error(
+        `Error fetching final scores by prefix ${prefix}: ${error}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to fetch final scores by prefix',
+      );
     }
   }
 
@@ -413,11 +438,19 @@ export class TeamsService {
     }
   }
 
-  async addMember(id: number, memberDto: MemberDto, user: User): Promise<Member | undefined> {
+  async addMember(
+    id: number,
+    memberDto: MemberDto,
+    user: User,
+  ): Promise<Member | undefined> {
     return await this.teamRepository.addMember(id, memberDto);
   }
 
-  async deleteMember(teamId: number, memberId: number, user: User): Promise<{ message: string; member: Member | null } | undefined> {
+  async deleteMember(
+    teamId: number,
+    memberId: number,
+    user: User,
+  ): Promise<{ message: string; member: Member | null } | undefined> {
     return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }

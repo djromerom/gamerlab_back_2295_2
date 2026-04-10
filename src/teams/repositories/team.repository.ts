@@ -27,7 +27,7 @@ export class TeamRepository implements ITeamRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
-  ) { }
+  ) {}
 
   async findByTeamName(teamName: string): Promise<boolean> {
     const team = await this.prisma.team.findFirst({
@@ -173,7 +173,7 @@ export class TeamRepository implements ITeamRepository {
 
   async findAll(sortByLikes = false): Promise<Team[]> {
     const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
-      { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
+      { videogame: { videogameStatusId: 'asc' } }, // confirmed teams always first
     ];
 
     if (sortByLikes) {
@@ -213,7 +213,7 @@ export class TeamRepository implements ITeamRepository {
     const itemsPerPage = Math.max(limit, 1);
 
     const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
-      { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
+      { videogame: { videogameStatusId: 'asc' } }, // confirmed teams always first
     ];
 
     if (sortByLikes) {
@@ -349,7 +349,9 @@ export class TeamRepository implements ITeamRepository {
       // Complex update with members and videogame
       try {
         return await this.prisma.$transaction(async (tx) => {
-          this.logger.log(`Updating team ID: ${id} with data: ${JSON.stringify(data)}`);
+          this.logger.log(
+            `Updating team ID: ${id} with data: ${JSON.stringify(data)}`,
+          );
           const teamData: UpdateTeamDto = {
             teamName: data.teamName,
             isExternal: data.isExternal,
@@ -539,7 +541,9 @@ export class TeamRepository implements ITeamRepository {
         }
 
         if (!teamToDelete.user) {
-          throw new NotFoundException(`User associated with team ${id} not found`);
+          throw new NotFoundException(
+            `User associated with team ${id} not found`,
+          );
         }
 
         // Delete the team (cascade delete videogames and members)
@@ -699,7 +703,9 @@ export class TeamRepository implements ITeamRepository {
 
         const member = await tx.member.findUnique({ where: { id: memberId } });
         if (!member) {
-          throw new NotFoundException(`Miembro con ID ${memberId} no encontrado`);
+          throw new NotFoundException(
+            `Miembro con ID ${memberId} no encontrado`,
+          );
         }
         if (member?.email === leader?.email) {
           throw new BadRequestException(
@@ -979,8 +985,8 @@ export class TeamRepository implements ITeamRepository {
 
       const existingEmail = member.memberEmail
         ? await tx.member.findUnique({
-          where: { email: member.memberEmail },
-        })
+            where: { email: member.memberEmail },
+          })
         : null;
 
       if (existingEmail)
@@ -1006,9 +1012,9 @@ export class TeamRepository implements ITeamRepository {
           studentCode: member.studentCode,
           nrcs: member.nrc
             ? {
-              set: [],
-              connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
-            }
+                set: [],
+                connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+              }
             : undefined,
         },
       });

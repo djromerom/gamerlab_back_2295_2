@@ -33,7 +33,7 @@ export class VideogameResponseDto {
   @IsOptional()
   nrc?: string;
 
-  @Type(() => String) 
+  @Type(() => String)
   @IsString()
   @IsOptional()
   subject?: string;

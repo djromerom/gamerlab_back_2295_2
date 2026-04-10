@@ -7,21 +7,12 @@ import { TeamsController } from './controllers/teams.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { TeamRepository } from './repositories/team.repository';
-import { RecaptchaService } from './services/recaptcha.service'
+import { RecaptchaService } from './services/recaptcha.service';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [
-    PrismaModule, 
-    AuthModule, 
-    HttpModule,
-    ConfigModule
-  ],
+  imports: [PrismaModule, AuthModule, HttpModule, ConfigModule],
   controllers: [TeamsController],
-  providers: [
-    TeamsService,
-    TeamRepository,
-    RecaptchaService
-  ],
+  providers: [TeamsService, TeamRepository, RecaptchaService],
 })
 export class TeamsModule {}

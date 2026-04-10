@@ -19,10 +19,7 @@ const ACCESS_TOKEN_COOKIE = 'access-token';
 export type AppUser = User & { user?: JwtPayload };
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(
-  Strategy,
-  'jwt',
-) {
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   private readonly logger = new Logger(JwtStrategy.name);
 
   public constructor(
@@ -32,7 +29,9 @@ export class JwtStrategy extends PassportStrategy(
     const jwtSecret = configService.get<string>('JWT_SECRET');
 
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET is not defined. JWT strategy cannot be initialized.');
+      throw new Error(
+        'JWT_SECRET is not defined. JWT strategy cannot be initialized.',
+      );
     }
 
     super({
@@ -68,7 +67,9 @@ export class JwtStrategy extends PassportStrategy(
 
     let user: User | null = null;
     try {
-      this.logger.debug(`VALIDATE - Calling syncLocalUser for user: ${payload.sub}`);
+      this.logger.debug(
+        `VALIDATE - Calling syncLocalUser for user: ${payload.sub}`,
+      );
       user = await this.authService.syncLocalUser(payload);
       this.logger.debug(`VALIDATE - syncLocalUser returned successfully`);
     } catch (error: unknown) {

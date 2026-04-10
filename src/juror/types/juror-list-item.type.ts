@@ -10,4 +10,3 @@ export class JurorListItem {
   unevaluatedCount: number;
   unevaluatedGameNames: string[];
 }
-

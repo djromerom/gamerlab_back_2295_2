@@ -4,8 +4,7 @@ import { Cache } from '@nestjs/cache-manager';
 
 @Injectable()
 export class CacheService {
-
-  constructor(@Inject(CACHE_MANAGER) private readonly cache: Cache) { }
+  constructor(@Inject(CACHE_MANAGER) private readonly cache: Cache) {}
 
   async get(key: string): Promise<any> {
     return await this.cache.get(key);
@@ -18,5 +17,4 @@ export class CacheService {
   async delete(key: string): Promise<void> {
     await this.cache.del(key);
   }
-
 }

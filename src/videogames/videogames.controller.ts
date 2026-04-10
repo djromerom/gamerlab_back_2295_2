@@ -44,10 +44,7 @@ export class VideogamesController {
 
   @Public()
   @Post(':id/toggle-like/:liked')
-  toggleLike(
-    @Param('id') videogameId: string,
-    @Param('liked') liked: boolean,
-  ) {
+  toggleLike(@Param('id') videogameId: string, @Param('liked') liked: boolean) {
     return this.videogamesService.toggleLike(+videogameId, liked);
   }
 

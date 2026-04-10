@@ -1,15 +1,32 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Query,
+  Res,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Public } from 'src/auth/decorators/public.decorator';
 import * as ExcelJS from 'exceljs';
-import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiQuery,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 
 @ApiTags('reports')
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) { }
+  constructor(private readonly reportsService: ReportsService) {}
 
   @Public()
   @UseInterceptors(CacheInterceptor)
@@ -50,8 +67,17 @@ export class ReportsController {
 
   @Get('exportExcel')
   @ApiOperation({ summary: 'Export videogame report to Excel' })
-  @ApiQuery({ name: 'materia', required: false, description: 'Subject name to filter' })
-  @ApiQuery({ name: 'nrc', required: false, description: 'NRC code to filter', type: Number })
+  @ApiQuery({
+    name: 'materia',
+    required: false,
+    description: 'Subject name to filter',
+  })
+  @ApiQuery({
+    name: 'nrc',
+    required: false,
+    description: 'NRC code to filter',
+    type: Number,
+  })
   @ApiOkResponse({ description: 'Excel file with the report' })
   async exportToExcel(
     @Res() res: Response,
@@ -60,13 +86,17 @@ export class ReportsController {
   ) {
     try {
       // Obtener los datos filtrados
-      const data = await this.reportsService.getVideogamesDataFilter(materia, nrc);
+      const data = await this.reportsService.getVideogamesDataFilter(
+        materia,
+        nrc,
+      );
 
       // Crear el libro de Excel
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Videojuegos');
 
-      const columnDefinitions: Partial<ExcelJS.Column>[] = [ // Usar Partial<ExcelJS.Column> para mejor tipado
+      const columnDefinitions: Partial<ExcelJS.Column>[] = [
+        // Usar Partial<ExcelJS.Column> para mejor tipado
         { header: 'TeamCode', key: 'teamCode', width: 15 },
         { header: 'Videojuego', key: 'nombre', width: 30 },
         { header: 'Equipo', key: 'teamName', width: 25 },
@@ -77,30 +107,42 @@ export class ReportsController {
         { header: 'Calificación Feria', key: 'promedio', width: 25 },
         { header: 'Calif. J. Junior', key: 'avgJunior', width: 12.5 },
         { header: 'Calif. J. Senior', key: 'avgSenior', width: 12.5 },
-        { header: 'Eval. Completas', key: 'evaluacionesCompletadas', width: 25 },
-        { header: 'Jurados Asignados', key: 'totalJuradosAsignados', width: 25 },
+        {
+          header: 'Eval. Completas',
+          key: 'evaluacionesCompletadas',
+          width: 25,
+        },
+        {
+          header: 'Jurados Asignados',
+          key: 'totalJuradosAsignados',
+          width: 25,
+        },
         { header: 'Jurados Junior', key: 'juniorCount', width: 13 },
         { header: 'Jurados Senior', key: 'seniorCount', width: 13 },
       ];
 
       // Agregar criterios como columnas dinámicas
       const criteriosHeaders = new Set<string>();
-      data.forEach(item => {
-        if (item.criterios && typeof item.criterios === 'object') { // Añadir verificación
-          Object.keys(item.criterios).forEach(criterio => {
+      data.forEach((item) => {
+        if (item.criterios && typeof item.criterios === 'object') {
+          // Añadir verificación
+          Object.keys(item.criterios).forEach((criterio) => {
             criteriosHeaders.add(criterio);
           });
         }
       });
 
       // Añadir columnas de criterios
-      Array.from(criteriosHeaders).sort().forEach(criterio => { // sort() para orden consistente
-        columnDefinitions.push({
-          header: criterio,
-          key: `criterio_${criterio.replace(/\s+/g, '_')}`, // Reemplazar espacios en la key por guion bajo
-          width: 15
+      Array.from(criteriosHeaders)
+        .sort()
+        .forEach((criterio) => {
+          // sort() para orden consistente
+          columnDefinitions.push({
+            header: criterio,
+            key: `criterio_${criterio.replace(/\s+/g, '_')}`, // Reemplazar espacios en la key por guion bajo
+            width: 15,
+          });
         });
-      });
 
       worksheet.columns = columnDefinitions;
 
@@ -117,8 +159,9 @@ export class ReportsController {
       });
 
       // Agregar datos
-      data.forEach(item => {
-        const rowData: any = { // Usar 'any' o un tipo más específico si defines todas las keys
+      data.forEach((item) => {
+        const rowData: any = {
+          // Usar 'any' o un tipo más específico si defines todas las keys
           teamCode: item.teamCode ?? '',
           nombre: item.nombre,
           teamName: item.teamName ?? '',
@@ -135,7 +178,8 @@ export class ReportsController {
           seniorCount: (item as any).seniorCount ?? 0,
         };
 
-        if (item.criterios && typeof item.criterios === 'object') { // Añadir verificación
+        if (item.criterios && typeof item.criterios === 'object') {
+          // Añadir verificación
           Object.entries(item.criterios).forEach(([criterioNombre, valor]) => {
             // Asegúrate que la key aquí coincida con la generada para las columnas de criterios
             rowData[`criterio_${criterioNombre.replace(/\s+/g, '_')}`] = valor;
@@ -145,7 +189,7 @@ export class ReportsController {
       });
 
       // Auto-size and align columns according to content (compute max lens)
-      const columnKeys = columnDefinitions.map(c => String(c.key ?? ''));
+      const columnKeys = columnDefinitions.map((c) => String(c.key ?? ''));
       const maxLens: number[] = columnKeys.map((k, i) => {
         const headerText = String(columnDefinitions[i].header ?? '');
         return headerText.length;
@@ -154,15 +198,25 @@ export class ReportsController {
       worksheet.eachRow((row) => {
         row.eachCell((cell, colNumber) => {
           const v = String(cell.value ?? '');
-          if (v.length > (maxLens[colNumber - 1] ?? 0)) maxLens[colNumber - 1] = v.length;
+          if (v.length > (maxLens[colNumber - 1] ?? 0))
+            maxLens[colNumber - 1] = v.length;
         });
       });
 
       worksheet.columns.forEach((col, idx) => {
         const calculated = Math.min(Math.max((maxLens[idx] ?? 0) + 1, 12), 40);
         col.width = calculated;
-        if (columnKeys[idx] === 'integrantes' || columnKeys[idx] === 'TeamCode'|| columnKeys[idx] === 'equipo' || columnKeys[idx] === 'videojuego') {
-          col.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' } as any;
+        if (
+          columnKeys[idx] === 'integrantes' ||
+          columnKeys[idx] === 'TeamCode' ||
+          columnKeys[idx] === 'equipo' ||
+          columnKeys[idx] === 'videojuego'
+        ) {
+          col.alignment = {
+            wrapText: true,
+            vertical: 'top',
+            horizontal: 'left',
+          } as any;
         } else {
           col.alignment = { horizontal: 'left', vertical: 'middle' } as any;
         }
@@ -177,17 +231,18 @@ export class ReportsController {
       // Configurar la respuesta
       res.setHeader(
         'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename=reporte_videojuegos.xlsx'
+        'attachment; filename=reporte_videojuegos.xlsx',
       );
 
       // Enviar el archivo
       await workbook.xlsx.write(res);
 
-      if (!res.writableEnded) { // Verifica si el stream ya ha sido cerrado
+      if (!res.writableEnded) {
+        // Verifica si el stream ya ha sido cerrado
         res.end();
       }
     } catch (error) {
@@ -205,9 +260,7 @@ export class ReportsController {
   @Get('exportJurados')
   @ApiOperation({ summary: 'Export jurors report to Excel' })
   @ApiOkResponse({ description: 'Excel file with jurors and their status' })
-  async exportJurados(
-    @Res() res: Response,
-  ) {
+  async exportJurados(@Res() res: Response) {
     try {
       const data = await this.reportsService.getJuradosData();
 
@@ -239,16 +292,27 @@ export class ReportsController {
       // Sort jurors: pending first, then confirmed/active, then others
       const statusOrder = (s?: string) => {
         const st = (s ?? '').toLowerCase();
-        if (st.includes('pend') || st.includes('pending') || st.includes('pendiente')) return 0;
-        if (st.includes('confirm') || st.includes('activo') || st.includes('active') || st.includes('confirmed')) return 1;
+        if (
+          st.includes('pend') ||
+          st.includes('pending') ||
+          st.includes('pendiente')
+        )
+          return 0;
+        if (
+          st.includes('confirm') ||
+          st.includes('activo') ||
+          st.includes('active') ||
+          st.includes('confirmed')
+        )
+          return 1;
         return 2;
       };
       data.sort((a, b) => statusOrder(a.estado) - statusOrder(b.estado));
 
-      data.forEach(item => {
+      data.forEach((item) => {
         const asignados = item.videojuegosAsignados || [];
         const revisados = item.videojuegosCompletos || [];
-        const pendientes = asignados.filter(a => !revisados.includes(a));
+        const pendientes = asignados.filter((a) => !revisados.includes(a));
 
         worksheet.addRow({
           nombre: item.nombre,
@@ -260,11 +324,14 @@ export class ReportsController {
       });
 
       // Auto-size
-      const maxLens: number[] = columns.map(c => String(c.header ?? '').length);
+      const maxLens: number[] = columns.map(
+        (c) => String(c.header ?? '').length,
+      );
       worksheet.eachRow((row) => {
         row.eachCell((cell, colNumber) => {
           const v = String(cell.value ?? '');
-          if (v.length > (maxLens[colNumber - 1] ?? 0)) maxLens[colNumber - 1] = v.length;
+          if (v.length > (maxLens[colNumber - 1] ?? 0))
+            maxLens[colNumber - 1] = v.length;
         });
       });
       // add autofilter for the header row
@@ -279,14 +346,19 @@ export class ReportsController {
         const key = String(columns[idx].key);
         if (key === 'estado') {
           col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
-        } 
+        }
       });
-      res.setHeader('Content-Disposition', 'attachment; filename=reporte_jurados.xlsx');
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename=reporte_jurados.xlsx',
+      );
       await workbook.xlsx.write(res);
       if (!res.writableEnded) res.end();
     } catch (error) {
       console.error('Error exportJurados:', error);
-      if (!res.headersSent) res.status(500).send('Error al generar el reporte de jurados'); else if (!res.writableEnded) res.end();
+      if (!res.headersSent)
+        res.status(500).send('Error al generar el reporte de jurados');
+      else if (!res.writableEnded) res.end();
     }
   }
 }

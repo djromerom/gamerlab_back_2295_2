@@ -5,7 +5,7 @@ import { MembersController } from './members.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [PrismaModule],  // Para usar Prisma
+  imports: [PrismaModule], // Para usar Prisma
   controllers: [MembersController],
   providers: [MembersService],
 })

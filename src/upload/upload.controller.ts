@@ -1,7 +1,27 @@
-import { Controller, Get, Param, Post, UploadedFile, UseInterceptors, Query, Delete, BadRequestException, PayloadTooLargeException, UseFilters } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+  Query,
+  Delete,
+  BadRequestException,
+  PayloadTooLargeException,
+  UseFilters,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AzureStorageService } from './azure-storage.service';
-import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator'; // Add this import
 import { MulterExceptionFilter } from './multer-exception.filter';
 
@@ -13,7 +33,10 @@ export class UploadController {
   @Public()
   @Post()
   @UseFilters(MulterExceptionFilter)
-  @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
+  @ApiOperation({
+    summary:
+      'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'Archivo a subir (campo: file)',
@@ -36,9 +59,9 @@ export class UploadController {
         mimetype: 'image/png',
         size: 123456,
         isPublic: false,
-        createdAt: '2025-10-23T13:45:00.000Z'
-      }
-    }
+        createdAt: '2025-10-23T13:45:00.000Z',
+      },
+    },
   })
   @ApiResponse({
     status: 413,
@@ -47,9 +70,9 @@ export class UploadController {
       example: {
         statusCode: 413,
         message: 'El archivo es demasiado grande. Tamaño máximo permitido: 1MB',
-        error: 'Payload Too Large'
-      }
-    }
+        error: 'Payload Too Large',
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -58,23 +81,35 @@ export class UploadController {
       example: {
         statusCode: 400,
         message: 'No se proporcionó ningún archivo',
-        error: 'Bad Request'
-      }
-    }
+        error: 'Bad Request',
+      },
+    },
   })
-  @UseInterceptors(FileInterceptor('file', {
-    limits: {
-      fileSize: 1024 * 1024, // 1MB limit
-    },
-    fileFilter: (req, file, callback) => {
-      // Optional: Add file type validation
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(file.mimetype)) {
-        return callback(new BadRequestException('Tipo de archivo no permitido. Solo se permiten imágenes (JPEG, PNG, GIF, WebP)'), false);
-      }
-      callback(null, true);
-    },
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 1024 * 1024, // 1MB limit
+      },
+      fileFilter: (req, file, callback) => {
+        // Optional: Add file type validation
+        const allowedTypes = [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+        ];
+        if (!allowedTypes.includes(file.mimetype)) {
+          return callback(
+            new BadRequestException(
+              'Tipo de archivo no permitido. Solo se permiten imágenes (JPEG, PNG, GIF, WebP)',
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+    }),
+  )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     // Validate file exists
     if (!file) {
@@ -84,7 +119,9 @@ export class UploadController {
     // Additional size check (backup to multer config)
     const maxSize = 1024 * 1024; // 1MB
     if (file.size > maxSize) {
-      throw new PayloadTooLargeException('El archivo es demasiado grande. Tamaño máximo permitido: 1MB');
+      throw new PayloadTooLargeException(
+        'El archivo es demasiado grande. Tamaño máximo permitido: 1MB',
+      );
     }
 
     try {
@@ -93,22 +130,31 @@ export class UploadController {
     } catch (error: any) {
       // Handle Azure-specific errors
       if (error.code === 'REQUEST_BODY_TOO_LARGE' || error.statusCode === 413) {
-        throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage');
+        throw new PayloadTooLargeException(
+          'El archivo es demasiado grande para Azure Storage',
+        );
       }
-      
+
       // Handle other Azure errors
       if (error.statusCode === 400) {
-        throw new BadRequestException(`Error de Azure Storage: ${error.message || 'Solicitud inválida'}`);
+        throw new BadRequestException(
+          `Error de Azure Storage: ${error.message || 'Solicitud inválida'}`,
+        );
       }
 
       // Re-throw NestJS exceptions (from service)
-      if (error instanceof PayloadTooLargeException || error instanceof BadRequestException) {
+      if (
+        error instanceof PayloadTooLargeException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
 
       // Log unknown errors and re-throw
       console.error('Azure Storage Error:', error);
-      throw new BadRequestException('Error al subir el archivo. Por favor, inténtelo de nuevo.');
+      throw new BadRequestException(
+        'Error al subir el archivo. Por favor, inténtelo de nuevo.',
+      );
     }
   }
 
@@ -122,19 +168,42 @@ export class UploadController {
 
   @Public()
   @Get(':id/url')
-  @ApiOperation({ summary: 'Generar URL temporal (SAS) de lectura para el blob' })
+  @ApiOperation({
+    summary: 'Generar URL temporal (SAS) de lectura para el blob',
+  })
   @ApiParam({ name: 'id', description: 'UUID del registro en Postgres' })
-  @ApiQuery({ name: 'ttl', required: false, description: 'Tiempo de vida del SAS en segundos (min 60, por defecto 3 años)' })
-  @ApiResponse({ status: 200, description: 'URL temporal generada', schema: { example: { url: 'https://.../blob.png?sv=...&sp=r&sig=...', expiresAt: '2025-10-23T15:30:00.000Z' } } })
+  @ApiQuery({
+    name: 'ttl',
+    required: false,
+    description:
+      'Tiempo de vida del SAS en segundos (min 60, por defecto 3 años)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'URL temporal generada',
+    schema: {
+      example: {
+        url: 'https://.../blob.png?sv=...&sp=r&sig=...',
+        expiresAt: '2025-10-23T15:30:00.000Z',
+      },
+    },
+  })
   async getSignedUrl(@Param('id') id: string, @Query('ttl') ttl?: string) {
     const ttlSec = Number(ttl) || 100000000;
     return this.azureService.getReadSasUrlById(id, ttlSec);
   }
 
   @Post(':id/public')
-  @ApiOperation({ summary: 'Marcar/Desmarcar un blob como público (flag en BD, no guarda SAS)' })
+  @ApiOperation({
+    summary:
+      'Marcar/Desmarcar un blob como público (flag en BD, no guarda SAS)',
+  })
   @ApiParam({ name: 'id', description: 'UUID del registro' })
-  @ApiQuery({ name: 'value', required: false, description: 'true/false (por defecto true)' })
+  @ApiQuery({
+    name: 'value',
+    required: false,
+    description: 'true/false (por defecto true)',
+  })
   async markPublic(@Param('id') id: string, @Query('value') value?: string) {
     const isPublic = value === 'false' ? false : true;
     return this.azureService.markPublic(id, isPublic);
@@ -143,7 +212,11 @@ export class UploadController {
   @Delete(':id')
   @ApiOperation({ summary: 'Eliminar blob en Azure y registro en la BD' })
   @ApiParam({ name: 'id', description: 'UUID del registro' })
-  @ApiResponse({ status: 200, description: 'Eliminado', schema: { example: { id: 'uuid', deleted: true } } })
+  @ApiResponse({
+    status: 200,
+    description: 'Eliminado',
+    schema: { example: { id: 'uuid', deleted: true } },
+  })
   async delete(@Param('id') id: string) {
     return this.azureService.deleteById(id);
   }

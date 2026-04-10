@@ -5,14 +5,15 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
 import { ForbiddenException } from '@nestjs/common';
 
-
 @Injectable()
 export class VideogamesService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
     if (!config?.evaluationsOpen) {
-      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
+      throw new ForbiddenException(
+        'Las evaluaciones no están habilitadas en este momento.',
+      );
     }
   }
 
@@ -26,33 +27,72 @@ export class VideogamesService {
     // Construir filtros de búsqueda de manera más eficiente
     const searchConditions: Prisma.VideogameWhereInput['OR'] = [
       { name: { contains: normalizedSearch, mode: 'insensitive' } },
-      { team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } } },
+      {
+        team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } },
+      },
       {
         team: {
           members: {
             some: {
               OR: [
-                { firstName: { contains: normalizedSearch, mode: 'insensitive' } },
-                { lastName: { contains: normalizedSearch, mode: 'insensitive' } }
-              ]
-            }
-          }
-        }
+                {
+                  firstName: {
+                    contains: normalizedSearch,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  lastName: { contains: normalizedSearch, mode: 'insensitive' },
+                },
+              ],
+            },
+          },
+        },
       },
     ];
 
     // Solo agregar búsqueda numérica si el término es un número
     if (numericSearch !== null) {
       searchConditions.push(
-        { team: { members: { some: { nrcs: { some: { code: numericSearch } } } } } },
-        { team: { members: { some: { nrcs: { some: { subject: { code: { contains: normalizedSearch, mode: 'insensitive' } } } } } } } }
+        {
+          team: {
+            members: { some: { nrcs: { some: { code: numericSearch } } } },
+          },
+        },
+        {
+          team: {
+            members: {
+              some: {
+                nrcs: {
+                  some: {
+                    subject: {
+                      code: { contains: normalizedSearch, mode: 'insensitive' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       );
     }
 
     // Agregar búsqueda por materia siempre
-    searchConditions.push(
-      { team: { members: { some: { nrcs: { some: { subject: { name: { contains: normalizedSearch, mode: 'insensitive' } } } } } } } }
-    );
+    searchConditions.push({
+      team: {
+        members: {
+          some: {
+            nrcs: {
+              some: {
+                subject: {
+                  name: { contains: normalizedSearch, mode: 'insensitive' },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
     // Consulta única optimizada con todas las condiciones
     const videogames = await this.prisma.videogame.findMany({
@@ -62,21 +102,21 @@ export class VideogamesService {
           {
             NOT: {
               evaluations: {
-                some: { jurorId }
-              }
-            }
+                some: { jurorId },
+              },
+            },
           },
           // Solo juegos de equipos asignados al jurado
           {
             team: {
               assignedJurors: {
-                some: { id: jurorId }
-              }
-            }
+                some: { id: jurorId },
+              },
+            },
           },
           // Aplicar filtros de búsqueda
-          normalizedSearch ? { OR: searchConditions } : {}
-        ]
+          normalizedSearch ? { OR: searchConditions } : {},
+        ],
       },
       select: {
         id: true,
@@ -95,8 +135,8 @@ export class VideogamesService {
                     code: true,
                     subject: {
                       select: {
-                        name: true
-                      }
+                        name: true,
+                      },
                     },
                   },
                   take: 1, // Optimización: solo tomar el primer NRC para subject/materia
@@ -116,8 +156,8 @@ export class VideogamesService {
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
 
-      videogame.team?.members?.forEach(member => {
-        member.nrcs?.forEach(nrc => {
+      videogame.team?.members?.forEach((member) => {
+        member.nrcs?.forEach((nrc) => {
           nrcCodes.add(nrc.code);
           if (firstSubject === 'Sin materia' && nrc.subject?.name) {
             firstSubject = nrc.subject.name;
@@ -131,9 +171,10 @@ export class VideogamesService {
         equipo: videogame.team?.teamName || 'Sin equipo',
         materia: firstSubject,
         nrc: Array.from(nrcCodes).join(', ') || 'Sin NRC',
-        participantes: videogame.team?.members?.map(member =>
-          `${member.firstName} ${member.lastName}`
-        ) || [],
+        participantes:
+          videogame.team?.members?.map(
+            (member) => `${member.firstName} ${member.lastName}`,
+          ) || [],
         imagen: videogame.logoUrl ?? undefined,
         descripcion: videogame.description || 'Sin descripción',
         isEvaluated: false,
@@ -144,7 +185,6 @@ export class VideogamesService {
   }
 
   async getPendingVideogames(
-
     jurorId: string,
     limit: number,
     page: number,
@@ -159,19 +199,19 @@ export class VideogamesService {
         {
           NOT: {
             evaluations: {
-              some: { jurorId }
-            }
-          }
+              some: { jurorId },
+            },
+          },
         },
         // Solo juegos de equipos asignados
         {
           team: {
             assignedJurors: {
-              some: { id: jurorId }
-            }
-          }
-        }
-      ]
+              some: { id: jurorId },
+            },
+          },
+        },
+      ],
     };
 
     // Ejecutar consultas en paralelo para mejor rendimiento
@@ -197,8 +237,8 @@ export class VideogamesService {
                       code: true,
                       subject: {
                         select: {
-                          name: true
-                        }
+                          name: true,
+                        },
                       },
                     },
                     take: 1, // Optimización: solo el primer NRC para subject
@@ -210,8 +250,8 @@ export class VideogamesService {
         },
         // Agregar ordenamiento para resultados consistentes
         orderBy: {
-          registrationDate: 'desc'
-        }
+          registrationDate: 'desc',
+        },
       }),
       this.prisma.videogame.count({ where: baseWhere }),
     ]);
@@ -224,8 +264,8 @@ export class VideogamesService {
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
 
-      videogame.team?.members?.forEach(member => {
-        member.nrcs?.forEach(nrc => {
+      videogame.team?.members?.forEach((member) => {
+        member.nrcs?.forEach((nrc) => {
           nrcCodes.add(nrc.code);
           if (firstSubject === 'Sin materia' && nrc.subject?.name) {
             firstSubject = nrc.subject.name;
@@ -239,9 +279,10 @@ export class VideogamesService {
         logoUrl: videogame.logoUrl ?? undefined,
         description: videogame.description || 'Sin descripción',
         teamName: videogame.team?.teamName || 'Sin equipo',
-        members: videogame.team?.members?.map(member => ({
-          fullName: `${member.firstName} ${member.lastName}`,
-        })) || [],
+        members:
+          videogame.team?.members?.map((member) => ({
+            fullName: `${member.firstName} ${member.lastName}`,
+          })) || [],
         nrc: Array.from(nrcCodes).join(', ') || 'Sin NRC',
         subject: firstSubject,
       };
@@ -268,19 +309,19 @@ export class VideogamesService {
           {
             NOT: {
               evaluations: {
-                some: { jurorId }
-              }
-            }
+                some: { jurorId },
+              },
+            },
           },
           {
             team: {
               assignedJurors: {
-                some: { id: jurorId }
-              }
-            }
-          }
-        ]
-      }
+                some: { id: jurorId },
+              },
+            },
+          },
+        ],
+      },
     });
   }
 
@@ -298,13 +339,17 @@ export class VideogamesService {
 
     const searchConditions: Prisma.VideogameWhereInput['OR'] = [
       { name: { contains: normalizedSearch, mode: 'insensitive' } },
-      { team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } } },
+      {
+        team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } },
+      },
     ];
 
     if (numericSearch !== null) {
-      searchConditions.push(
-        { team: { members: { some: { nrcs: { some: { code: numericSearch } } } } } }
-      );
+      searchConditions.push({
+        team: {
+          members: { some: { nrcs: { some: { code: numericSearch } } } },
+        },
+      });
     }
 
     const videogames = await this.prisma.videogame.findMany({
@@ -313,19 +358,19 @@ export class VideogamesService {
           {
             NOT: {
               evaluations: {
-                some: { jurorId }
-              }
-            }
+                some: { jurorId },
+              },
+            },
           },
           {
             team: {
               assignedJurors: {
-                some: { id: jurorId }
-              }
-            }
+                some: { id: jurorId },
+              },
+            },
           },
-          { OR: searchConditions }
-        ]
+          { OR: searchConditions },
+        ],
       },
       select: {
         id: true,
@@ -339,7 +384,7 @@ export class VideogamesService {
       take: 10, // Límite más bajo para búsqueda rápida
     });
 
-    const data = videogames.map(videogame => ({
+    const data = videogames.map((videogame) => ({
       id: videogame.id,
       name: videogame.name,
       teamName: videogame.team?.teamName || 'Sin equipo',

@@ -12,7 +12,9 @@ export class CreateJurorDto {
   @IsNotEmpty()
   lastName: string;
 
-  @Transform(({ value }) => value && typeof value === 'string' ? value.toLowerCase() : value)
+  @Transform(({ value }) =>
+    value && typeof value === 'string' ? value.toLowerCase() : value,
+  )
   @IsNotEmpty()
   @IsEmail()
   @IsString()
