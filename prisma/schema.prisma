@@ -237,10 +237,23 @@ model Videogame {
   additionalImages  String[]        @default([]) @map("imagenes_adicionales")
   likes             Int             @default(0) @map("likes")
   evaluations       Evaluation[]
+  likedBy           VideogameLike[] 
   team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
 
   @@map("videojuegos")
+}
+
+model VideogameLike {
+  id          Int      @id @default(autoincrement())
+  videogameId Int      @map("id_videojuego")
+  visitorId   String   @map("visitor_id") @db.VarChar(128)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([videogameId, visitorId])
+  @@map("videogame_likes")
 }
 
 model Evaluation {

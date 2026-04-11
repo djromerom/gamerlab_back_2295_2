@@ -18,9 +18,9 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
-    // STRICT MODE 
     "strict": true,
     "noEmitOnError": true,
     "strictPropertyInitialization": false,
+    "types": ["node", "jest"]
   }
 }

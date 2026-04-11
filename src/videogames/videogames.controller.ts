@@ -24,7 +24,7 @@ export class VideogamesController {
   create(@Body() createVideogameDto: CreateVideogameDto) {
     return this.videogamesService.create(createVideogameDto);
   }
-  //ruta publica
+
   @Public()
   @Get()
   findAll() {
@@ -42,13 +42,22 @@ export class VideogamesController {
     return this.videogamesService.getLikes(+id);
   }
 
+  /**
+   * CHANGED: Route is now POST :id/toggle-like (no :liked param).
+   * The client sends { visitorId } in the body.
+   * The server determines like/unlike based on DB state — never trusts the client.
+   *
+   * Before: POST /videogames/1/toggle-like/true  ← client controlled the action
+   * After:  POST /videogames/1/toggle-like        ← server controls the action
+   *         Body: { "visitorId": "uuid-or-fingerprint" }
+   */
   @Public()
-  @Post(':id/toggle-like/:liked')
+  @Post(':id/toggle-like')
   toggleLike(
     @Param('id') videogameId: string,
-    @Param('liked') liked: boolean,
+    @Body('visitorId') visitorId: string,
   ) {
-    return this.videogamesService.toggleLike(+videogameId, liked);
+    return this.videogamesService.toggleLike(+videogameId, visitorId);
   }
 
   @Put(':id/likes')
