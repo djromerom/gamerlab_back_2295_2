@@ -10,7 +10,7 @@ import {
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuthService } from 'src/auth/auth.service'; //En este video aprenderemos a conectar el back con el front como unos capos, vamos
+import { AuthService } from 'src/auth/auth.service';
 import { Prisma, User, Role } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
@@ -325,11 +325,6 @@ export class JurorService {
       return parseInt(match[1], 10);
     }
     return null;
-  }
-
-  //Listo, ahora crearemos un metodo de prueba y luego de eso lo implementaremos en el endpoint el cual sera llamada por el front
-  async getAvailableForTeam(TeamId: number) {
-    console.log('Testing'); //Este es un metodo de prueba, ahora seguiremos, Ahora vamos al controlador de este feature
   }
 
   async getTeams() {
@@ -1415,5 +1410,392 @@ export class JurorService {
         'Error al obtener estadísticas de evaluación del equipo',
       );
     }
+  }
+
+  // NUEVO: Jurados disponibles para asignar a un equipo
+  async getAvailableForTeam(teamId: number) {
+    // 1. Buscar el equipo con sus jurados ya asignados
+    const dict_to_search_team = {
+      where: { id: teamId },
+      include: {
+        assignedJurors: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: { select: { name: true } },
+          },
+        },
+      },
+    };
+    const team = await this.prisma.team.findUnique(dict_to_search_team);
+
+    if (!team || !team.isActive) {
+      throw new NotFoundException('Equipo no encontrado');
+    }
+
+    //2. Extraer el nivel del equipo (ej: "N2-AYP-05" - Nivel 2)
+    const teamLevel = this.extractLevelFromTeamCode(team.teamCode);
+
+    if (teamLevel === null) {
+      throw new BadRequestException(
+        'El equipo no tiene un codigo de nivel valido',
+      );
+    }
+
+    // 3. Decidir que rol puede evaluar este equpipo:
+    //   Nivel 0 (Colegios): solo profesores
+    //   Nivel 1-4 (Universitarios) - jurados y profesores (senior)
+    const roleIdToQuery =
+      teamLevel === 0 ? this.professorRoleId : this.jurorRoleId;
+
+    // 4. Ahora traemos TODOS los usuarios con ese rol
+    const dict_to_search_users = {
+      where: { isActive: true, roleId: roleIdToQuery },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: { select: { name: true } },
+        teamsToEvaluate: {
+          //Equipos ya asignados
+          where: { isActive: true },
+          select: { id: true },
+        },
+      },
+    };
+    const allEvaluators = await this.prisma.user.findMany(dict_to_search_users);
+
+    // 5. Separar los que ya estan asignados de los que estan disponibles
+    const assignedIds = new Set(team.assignedJurors.map((j) => j.id));
+
+    const available = allEvaluators
+      .filter((e) => !assignedIds.has(e.id))
+      .map((e) => ({
+        id: e.id,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        email: e.email,
+        type: e.role.name, // "Jurado" o "Profesor"
+        currentLoad: e.teamsToEvaluate.length, // Cuántos equipos ya tiene
+      }))
+      .sort((a, b) => a.currentLoad - b.currentLoad); // Menos carga primero
+
+    return {
+      teamId: team.id,
+      teamName: team.teamName,
+      teamLevel,
+      currentlyAssigned: team.assignedJurors.map((j) => ({
+        id: j.id,
+        firstName: j.firstName,
+        lastName: j.lastName,
+        email: j.email,
+        type: j.role.name,
+      })),
+      available,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // AUTO-ASSIGN JURORS  —  Round-Robin limpio, sin rondas correctivas
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Asigna automáticamente evaluadores a todos los equipos confirmados.
+   *
+   * Reglas:
+   *  - Profesores (Senior) → evalúan N0 y N1-N4.
+   *  - Jurados   (Junior)  → evalúan solo N1-N4.
+   *  - Cada equipo recibe entre 3 y 4 evaluadores.
+   *  - Cada evaluador no debería superar 6 equipos asignados.
+   *  - Jurados priorizan equipos de su mismo nivel; si faltan, usan el más cercano.
+   *
+   * El algoritmo es un Round-Robin puro:
+   *  un único puntero circular por pool de evaluadores,
+   *  sin rondas de redistribución correctivas.
+   */
+  async autoAssignJurors(): Promise<{
+    message: string;
+    resumen: string[];
+    advertencias: string[];
+  }> {
+    // ── PASO 1: Cargar datos en exactamente 2 queries ─────────────────────────
+    //
+    // ¿Por qué 2 y no más?
+    // Si hiciéramos una query de equipos y luego una query por evaluador para
+    // saber su carga actual, tendríamos N+1 queries (uno por evaluador).
+    // En cambio, traemos TODOS los datos de golpe y todo el cálculo ocurre
+    // en memoria con Maps de O(1).
+
+    const [allTeams, allEvaluators] = await Promise.all([
+      // ── Query 1: Equipos activos con videojuego confirmado ──────────────────
+      // Solo necesitamos id y teamCode para agrupar por nivel.
+      // No pedimos assignedJurors porque vamos a SOBREESCRIBIR las asignaciones.
+      this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          videogame: { videogameStatusId: this.confirmedStatusId },
+        },
+        select: { id: true, teamCode: true, teamName: true },
+      }),
+
+      // ── Query 2: Todos los evaluadores (jurados + profesores) activos ───────
+      // Pedimos teamsToEvaluate para saber la carga ANTES de esta asignación.
+      this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
+          NOT: { email: 'profesorcolegios@uninorte.edu.co' }, // excluir el especial
+        },
+        select: {
+          id: true,
+          roleId: true,
+          firstName: true,
+          lastName: true,
+          teamsToEvaluate: { where: { isActive: true }, select: { id: true } },
+        },
+      }),
+    ]);
+
+    if (allTeams.length === 0) {
+      throw new BadRequestException(
+        'No hay equipos confirmados y activos para asignar.',
+      );
+    }
+
+    // ── PASO 2: Construir estructuras en memoria ──────────────────────────────
+    //
+    // teamsByLevel: Map<nivel, { id, teamCode, teamName }[]>
+    //   Agrupa los equipos según el número de nivel que se extrae de su teamCode.
+    //
+    // assignmentMap: Map<teamId, Set<evaluadorId>>
+    //   El "estado futuro" de asignaciones. Al final lo volcaremos a la DB.
+    //   Usamos Set para deduplicar (el mismo evaluador no puede repetirse en un equipo).
+    //
+    // loadMap: Map<evaluadorId, número>
+    //   Carga ACTUAL de cada evaluador (cuántos equipos ya tiene antes de esta run).
+    //   El Round-Robin lo usará para elegir al siguiente con menor carga.
+
+    const teamsByLevel = new Map<number, (typeof allTeams)[number][]>();
+    const assignmentMap = new Map<number, Set<string>>(); // teamId → Set<evaluadorId>
+    const advertencias: string[] = [];
+
+    for (const team of allTeams) {
+      const level = this.extractLevelFromTeamCode(team.teamCode);
+      if (level === null) {
+        advertencias.push(
+          `Equipo "${team.teamName}" (código: "${team.teamCode}") tiene formato inválido y fue omitido.`,
+        );
+        continue;
+      }
+      if (!teamsByLevel.has(level)) teamsByLevel.set(level, []);
+      teamsByLevel.get(level)!.push(team);
+      assignmentMap.set(team.id, new Set<string>());
+    }
+
+    // Separar evaluadores por tipo y calcular su carga inicial
+    const professors = allEvaluators.filter(
+      (e) => e.roleId === this.professorRoleId,
+    );
+    const jurors = allEvaluators.filter((e) => e.roleId === this.jurorRoleId);
+
+    // loadMap: arrancamos con la carga que ya tenían antes de esta asignación
+    const loadMap = new Map<string, number>();
+    for (const ev of allEvaluators) {
+      loadMap.set(ev.id, ev.teamsToEvaluate.length);
+    }
+
+    // ── PASO 3: Round-Robin auxiliar ─────────────────────────────────────────
+    //
+    // roundRobinAssign recibe:
+    //   - teams: lista de equipos a los que asignar
+    //   - pool: lista de evaluadores disponibles (ordenada de menor a mayor carga)
+    //   - minPerTeam / maxPerTeam: rango de evaluadores por equipo
+    //   - maxLoad: máximo de equipos que puede tener un evaluador
+    //
+    // Internamente mantiene un puntero `ptr` que avanza circularmente.
+    // Si un evaluador ya superó maxLoad, se salta. Si todos están llenos, para.
+
+    const roundRobinAssign = (
+      teams: (typeof allTeams)[number][],
+      pool: typeof allEvaluators,
+      minPerTeam: number,
+      maxPerTeam: number,
+      maxLoad: number,
+    ): void => {
+      if (pool.length === 0) return;
+
+      // Ordenar el pool de menor a mayor carga inicial para distribuir justo
+      const sorted = [...pool].sort(
+        (a, b) => (loadMap.get(a.id) ?? 0) - (loadMap.get(b.id) ?? 0),
+      );
+
+      let ptr = 0; // puntero circular
+
+      for (const team of teams) {
+        const current = assignmentMap.get(team.id)!;
+        let assigned = current.size;
+        let skipped = 0; // guard: si todos los del pool están llenos, parar
+
+        while (assigned < minPerTeam) {
+          if (skipped >= sorted.length) {
+            // Todos los evaluadores del pool llegaron al límite
+            advertencias.push(
+              `Equipo "${team.teamName}": no se pudo alcanzar ${minPerTeam} evaluadores (pool agotado).`,
+            );
+            break;
+          }
+
+          const ev = sorted[ptr % sorted.length];
+          ptr++;
+
+          const load = loadMap.get(ev.id) ?? 0;
+          if (load >= maxLoad || current.has(ev.id)) {
+            skipped++;
+            continue;
+          }
+
+          current.add(ev.id);
+          loadMap.set(ev.id, load + 1);
+          assigned++;
+          skipped = 0; // reiniciar el guard porque avanzamos
+
+          // Si aún caben más (hasta maxPerTeam), intentamos agregar uno más
+          // pero sin bloquear: solo si el siguiente del pool tiene carga razonable
+          if (assigned < maxPerTeam) {
+            const next = sorted[ptr % sorted.length];
+            const nextLoad = loadMap.get(next.id) ?? 0;
+            if (!current.has(next.id) && nextLoad < maxLoad) {
+              current.add(next.id);
+              loadMap.set(next.id, nextLoad + 1);
+              ptr++;
+              assigned++;
+            }
+          }
+        }
+      }
+    };
+
+    // ── PASO 4: Distribuir Profesores a TODOS los niveles ────────────────────
+    //
+    // Los Profesores son "Senior": evalúan colegios (N0) y universitarios (N1-N4).
+    // Los distribuimos en todos los niveles con Round-Robin global (un solo pool).
+
+    const allLevelsSorted = Array.from(teamsByLevel.keys()).sort(
+      (a, b) => a - b,
+    );
+
+    for (const level of allLevelsSorted) {
+      const teams = teamsByLevel.get(level)!;
+      roundRobinAssign(teams, professors, 1, 2, 6);
+      // min=1 Senior por equipo, max=2, carga máx=6
+    }
+
+    // ── PASO 5: Distribuir Jurados solo a equipos N1-N4 ──────────────────────
+    //
+    // Los Jurados son "Junior": NO evalúan N0.
+    // Prioridad: mismo nivel primero.
+    // "Mismo nivel" significa que ya evalúan equipos de ese nivel
+    // O que aún no tienen ningún equipo asignado (neutros).
+    //
+    // Si no hay suficientes jurados del mismo nivel, usamos los más cercanos
+    // (nivel más próximo al objetivo, sin cruzar N0).
+
+    const universityLevels = allLevelsSorted.filter((l) => l > 0);
+
+    for (const level of universityLevels) {
+      const teams = teamsByLevel.get(level)!;
+
+      // Clasificar jurados: "propios del nivel" vs "disponibles de otras franjas"
+      // Un jurado es "propio" si no tiene ninguna asignación aún,
+      // o si ya está asignado a equipos de ESTE mismo nivel.
+      const ownJurors = jurors.filter((j) => {
+        const currentTeamIds = new Set(j.teamsToEvaluate.map((t) => t.id));
+        // Sin asignaciones previas → neutro, puede ir a cualquier nivel
+        if (currentTeamIds.size === 0) return true;
+        // Ya asignado a equipos de este nivel → es "propio"
+        return allTeams
+          .filter((t) => currentTeamIds.has(t.id))
+          .some((t) => this.extractLevelFromTeamCode(t.teamCode) === level);
+      });
+
+      // Si los propios son insuficientes, añadimos los restantes ordenados
+      // por proximidad de nivel (los del nivel más cercano primero)
+      const spilloverJurors = jurors
+        .filter((j) => !ownJurors.includes(j))
+        .sort((a, b) => {
+          // Estimar el nivel que ya manejan por la carga actual
+          // (heurística: usamos su carga para aproximar cercanía)
+          const loadA = loadMap.get(a.id) ?? 0;
+          const loadB = loadMap.get(b.id) ?? 0;
+          return loadA - loadB;
+        });
+
+      const poolForLevel = [...ownJurors, ...spilloverJurors];
+      roundRobinAssign(teams, poolForLevel, 2, 3, 6);
+      // min=2 Jurados por equipo (sumado a los Senior ya asignados el total queda ≥3)
+    }
+
+    // ── PASO 6: Validar que cada equipo tenga entre 3 y 4 evaluadores ─────────
+    for (const [teamId, evaluadoresSet] of assignmentMap.entries()) {
+      const team = allTeams.find((t) => t.id === teamId);
+      const total = evaluadoresSet.size;
+      if (total < 3) {
+        advertencias.push(
+          `Equipo "${team?.teamName}" quedó con solo ${total} evaluador(es) asignado(s).`,
+        );
+      }
+    }
+
+    // ── PASO 7: Persistir en la DB ────────────────────────────────────────────
+    //
+    // Hacemos UN UPDATE por equipo, todos dentro de una transacción.
+    // `assignedJurors: { set: [...] }` REEMPLAZA la lista actual de jurados,
+    // lo que es idempotente: si se llama dos veces, el resultado es el mismo.
+
+    const updates = Array.from(assignmentMap.entries()).map(([teamId, ids]) =>
+      this.prisma.team.update({
+        where: { id: teamId },
+        data: {
+          assignedJurors: {
+            set: Array.from(ids).map((id) => ({ id })),
+          },
+        },
+      }),
+    );
+
+    await this.prisma.$transaction(updates);
+
+    this.logger.log(
+      `autoAssignJurors completado: ${updates.length} equipos actualizados.`,
+    );
+
+    // ── PASO 8: Construir resumen legible ─────────────────────────────────────
+    const resumen: string[] = [];
+
+    for (const level of allLevelsSorted) {
+      const teams = teamsByLevel.get(level)!;
+      const counts = teams.map((t) => assignmentMap.get(t.id)!.size);
+      const minC = Math.min(...counts);
+      const maxC = Math.max(...counts);
+      const avg = (counts.reduce((a, b) => a + b, 0) / counts.length).toFixed(
+        1,
+      );
+      const label = level === 0 ? 'Colegios (N0)' : `Universitarios N${level}`;
+      resumen.push(
+        minC === maxC
+          ? `${label}: ${teams.length} equipos × ${minC} evaluadores c/u`
+          : `${label}: ${teams.length} equipos, ${minC}-${maxC} evaluadores (promedio: ${avg})`,
+      );
+    }
+
+    return {
+      message: 'Asignación automática completada correctamente.',
+      resumen,
+      advertencias,
+    };
   }
 }
