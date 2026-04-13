@@ -38,7 +38,7 @@ export class EmailService {
     private readonly prisma: PrismaService,
     private readonly certificatesService: CertificatesService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   /**
    * INICIALIZACIÓN DEL MÓDULO (Ejecutado por NestJS al arrancar el servidor)

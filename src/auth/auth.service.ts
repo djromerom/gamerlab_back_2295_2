@@ -961,48 +961,49 @@ export class AuthService {
     access_token: string,
     refresh_token: string,
   ) {
-    const secure = this.configService.get<string>('NODE_ENV') !== 'development';
-    const accessTokenMaxAge =
-      this.configService.get<number>('ACCESS_TOKEN_EXPIRATION_MINUTES', 15) *
-      1000 *
-      60; // So if 15 minutes -> 15*60*1000 = 900.000 seconds
-    const refreshTokenMaxAge =
-      this.configService.get<number>('REFRESH_TOKEN_EXPIRATION_DAYS', 7) *
-      1000 *
-      60 *
-      60 *
-      24; // So if 7 days -> 1000*(60^2)*24*7 = 604.800.000 seconds
+    // Parse environment variables safely, falling back to defaults if empty
+    const envAccess = this.configService.get<string>(
+      'ACCESS_TOKEN_EXPIRATION_MINUTES',
+    );
+    const envRefresh = this.configService.get<string>(
+      'REFRESH_TOKEN_EXPIRATION_DAYS',
+    );
+
+    const accessMin = envAccess ? parseInt(envAccess, 10) : 15;
+    const refreshDays = envRefresh ? parseInt(envRefresh, 10) : 7;
+
+    const accessTokenMaxAge = accessMin * 1000 * 60;
+    const refreshTokenMaxAge = refreshDays * 1000 * 60 * 60 * 24;
 
     res.cookie(ACCESS_TOKEN_COOKIE, access_token, {
       httpOnly: true,
-      secure: secure,
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: accessTokenMaxAge,
       path: '/',
     });
 
     res.cookie(REFRESH_TOKEN_COOKIE, refresh_token, {
       httpOnly: true,
-      secure: secure,
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: refreshTokenMaxAge,
-      path: '/auth/refresh',
+      path: '/',
     });
   }
 
   private clearAuthCookies(res: Response) {
-    const secure = this.configService.get<string>('NODE_ENV') !== 'development';
     res.clearCookie(ACCESS_TOKEN_COOKIE, {
       httpOnly: true,
-      secure: secure,
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       path: '/',
     });
     res.clearCookie(REFRESH_TOKEN_COOKIE, {
       httpOnly: true,
-      secure: secure,
-      sameSite: 'lax',
-      path: '/auth/refresh',
+      secure: true,
+      sameSite: 'none',
+      path: '/',
     });
   }
 

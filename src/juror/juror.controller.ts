@@ -94,7 +94,7 @@ export class JurorController {
   })
   @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
   AsignEvaluations() {
-    return this.jurorService.asingEvaluations(); //Esta porqueria la dejamos, pues el el endpoint del la asignacion automatica que mas tarde modificaremos
+    return this.jurorService.autoAssignJurors();
   }
 
   @Post()
@@ -129,19 +129,6 @@ export class JurorController {
       assignDto.jurorId,
       assignDto.teamId,
     );
-  }
-
-  //Ahora aqui añadiremos un endpoint el cual sera GET, dado que su proposito es leer, luego le damos una
-  // una rruta a ese endpoint
-
-  @Get('available-for-team/:teamId') //:teamId indica que le pasaremos un parametro que sera una variable cuyo nombre es teamId
-  getAvailableForTeam(@Param('teamId') teamId: string) {
-    //Aqui van las instrucciones que ejecutara este metodo el cual se ejecutara cuando el backend invoque este endpoint, este metodo devuelve un JSON el cual corresponde a un diccionario con los datos que usara el frontend para poner en sus campos
-    return {
-      Queso: 1,
-      LOL: 2,
-      Plata: 5, //Un dicionaria se compone de atributos clave-valor, la clave aqui es "Plata" y su valor es 5, eso lo podemos obtener desde el front, a continuacion veremos...
-    };
   }
 
   @Delete('assignments/all')
