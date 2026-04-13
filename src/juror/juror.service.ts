@@ -10,7 +10,7 @@ import {
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuthService } from 'src/auth/auth.service';
+import { AuthService } from 'src/auth/auth.service'; //En este video aprenderemos a conectar el back con el front como unos capos, vamos
 import { Prisma, User, Role } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';

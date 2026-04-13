@@ -10,15 +10,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CertificatesService } from 'src/certificates/certificates.service';
-import { TeamEmailType } from './types/team-email.type';
-import { AuthEmailType } from './types/email-type.type';
+import { TeamEmailType, TEAM_EMAIL_CONFIG } from './types/team-email.type';
+import { AuthEmailType, AUTH_EMAIL_CONFIG } from './types/email-type.type';
 import { ConfigService } from '@nestjs/config';
 import { EmailClient } from '@azure/communication-email';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as handlebars from 'handlebars';
 import { randomUUID } from 'node:crypto';
-import { CertEmailType } from './types/cert-email.type';
+import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 
 @Injectable()
 export class EmailService {
@@ -184,51 +184,43 @@ export class EmailService {
         verificationToken = token;
       }
 
-      // Determine the email template based on typeOfEmail
-      let templateName: string;
-      let subject: string;
-      let templateParams: Record<string, unknown>;
+      /*
+      * Leer la configuración del tipo de correo
+      * (template, subject) 
+      * Proviene de ./types/email-type.type.ts
+      */
+      const authConfig = AUTH_EMAIL_CONFIG[typeOfEmail];
+      if (!authConfig) {
+        this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
+        throw new BadRequestException('Invalid email type specified.');
+      }
 
+      const { template: templateName, subject } = authConfig;
+
+      let templateParams: Record<string, unknown>;
       if (typeOfEmail === 'VERIFICACION_EMAIL') {
-        templateName = 'verification'; // Coincide con nuestro archivo verification.hbs
-        subject = 'Verifica tu cuenta en Gamerlab';
         templateParams = {
-          email: email,
+          email,
           confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
         };
-      } else if (typeOfEmail === 'RESETEAR_CONTRASENA') {
-        templateName = 'reset_password';
-        subject = 'Restablece tu contraseña - Gamerlab';
+      } else {
         const userName = user.firstName
           ? user.firstName.trim()
           : user.lastName || user.email.split('@')[0];
         templateParams = {
-          email: email,
+          email,
           user_name: userName,
           resetPasswordURL: `${REDIRECT_TO}/establecer-contrasena?token=${verificationToken}`,
         };
-      } else {
-        this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
-        throw new BadRequestException('Invalid email type specified.');
       }
 
       // Send new verification email usando nuestro gestor de Handlebars+ACS
       await this.sendEmail(email, subject, templateName, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
-      return { message: 'Email resent succesfully' };
+      return { message: 'Email resent successfully' };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ConflictException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      this.logger.error(
-        `Failed to resend ${typeOfEmail} email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException('Failed to resend email.');
+      this.handleResendError(error, typeOfEmail, email, { rethrow: [ConflictException] });
     }
   }
 
@@ -237,7 +229,6 @@ export class EmailService {
    *
    * Usado para notificar al equipo que su videojuego fue aprobado o rechazado,
    * o cuando hay un update en la info del juego.
-   * IMPORTANTE: Actualmente desconectado de ACS. Debes migrar los switch cases interiores.
    */
   async resendTeamEmailOfType(
     email: string,
@@ -256,31 +247,26 @@ export class EmailService {
         throw new NotFoundException('The email address is not registered.');
       }
 
-      let templateName: string;
-      let subject: string;
+      const teamConfig = TEAM_EMAIL_CONFIG[typeOfEmail];
+      if (!teamConfig) {
+        this.logger.error(`Invalid team email type specified: ${typeOfEmail}`);
+        throw new BadRequestException('Invalid team email type specified.');
+      }
+
+      /*
+      * Leer la configuración del tipo de correo
+      * (template, subject) 
+      * Proviene de ./types/team-email.type.ts
+      */
+      const { template: templateName, subject } = teamConfig;
       let templateParams: Record<string, unknown> = { email };
 
-      switch (typeOfEmail) {
-        case 'UPDATE_VIDEOGAME_INFO':
-          templateName = 'update_videogame_info';
-          subject = 'Actualización de Videojuego - Gamerlab';
-          break;
-        case 'VIDEOGAME_APPROVED':
-          templateName = 'videogame_approved';
-          subject = '¡Videojuego Aprobado! - Gamerlab';
-          const videogame = await this.prisma.videogame.findFirst({
-            where: { team: { members: { some: { email } } } },
-            select: { name: true },
-          });
-          templateParams['videogameName'] = videogame?.name || '';
-          break;
-        case 'VIDEOGAME_REJECTED':
-          templateName = 'videogame_rejected';
-          subject = 'Estado de Videojuego: Rechazado - Gamerlab';
-          break;
-        default:
-          this.logger.error(`Invalid team email type specified: ${typeOfEmail}`);
-          throw new BadRequestException('Invalid team email type specified.');
+      if (typeOfEmail === 'VIDEOGAME_APPROVED') {
+        const videogame = await this.prisma.videogame.findFirst({
+          where: { team: { members: { some: { email } } } },
+          select: { name: true },
+        });
+        templateParams['videogameName'] = videogame?.name || '';
       }
 
       if (params) {
@@ -291,18 +277,9 @@ export class EmailService {
       await this.sendEmail(email, subject, templateName, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
-      return { message: 'Email resent succesfully' };
+      return { message: 'Email resent successfully' };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      this.logger.error(
-        `Failed to resend ${typeOfEmail} email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException('Failed to resend email.');
+      this.handleResendError(error, typeOfEmail, email);
     }
   }
 
@@ -326,20 +303,18 @@ export class EmailService {
         where: { email },
       });
 
-      // Find the team that this user is a member of (by user id)
-      const team = user
-        ? await this.prisma.team.findFirst({
-            where: { user: { id: user.id } },
-            select: { id: true },
-          })
-        : null;
-
-      const emailExists = user;
-
-      if (!emailExists) {
+      if (!user) {
         this.logger.error(`User with email ${email} not found in local DB.`);
         throw new NotFoundException('The email address is not registered.');
       }
+
+      // Find the team that this user is a member of (by user id)
+      const team = user
+        ? await this.prisma.team.findFirst({
+          where: { user: { id: user.id } },
+          select: { id: true },
+        })
+        : null;
 
       if (!team) {
         this.logger.error(
@@ -356,36 +331,20 @@ export class EmailService {
         .then((members) => members.map((member) => member.email));
 
       const teamId = team.id;
-      
-      let templateName: string;
-      let subject: string;
-      let pdfBuffer: Buffer;
 
-      switch (typeOfEmail) {
-        case 'PARTICIPATION_CERTIFICATE':
-          templateName = 'participation_certificate';
-          subject = 'Tu Certificado de Participación - Gamerlab';
-          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 0);
-          break;
-        case '1ST_PLACE_CERTIFICATE':
-          templateName = '1st_place_certificate';
-          subject = '¡Felicidades! Ganadores del 1er Lugar - Gamerlab';
-          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 1);
-          break;
-        case '2ND_PLACE_CERTIFICATE':
-          templateName = '2nd_place_certificate';
-          subject = '¡Felicidades! Ganadores del 2do Lugar - Gamerlab';
-          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 2);
-          break;
-        case '3RD_PLACE_CERTIFICATE':
-          templateName = '3rd_place_certificate';
-          subject = '¡Felicidades! Ganadores del 3er Lugar - Gamerlab';
-          pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, 3);
-          break;
-        default:
-          this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);
-          throw new BadRequestException('Invalid certificate email type specified.');
+      /*
+      * Leer la configuración del tipo de correo
+      * (template, subject, certIndex) 
+      * Proviene de ./types/cert-email.type.ts
+      */
+      const certConfig = CERT_EMAIL_CONFIG[typeOfEmail];
+      if (!certConfig) {
+        this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);
+        throw new BadRequestException('Invalid certificate email type specified.');
       }
+
+      const { template: templateName, subject, certIndex } = certConfig;
+      const pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, certIndex);
 
       const attachments = [{
         name: `${typeOfEmail}.pdf`,
@@ -401,18 +360,9 @@ export class EmailService {
       await this.sendEmail(email, subject, templateName, templateParams, attachments);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
-      return { message: 'Email resent succesfully' };
+      return { message: 'Email resent successfully' };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      this.logger.error(
-        `Failed to resend ${typeOfEmail} certificate email to ${email}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException('Failed to resend email.');
+      this.handleResendError(error, typeOfEmail, email, { isCert: true });
     }
   }
   /**
@@ -496,10 +446,39 @@ export class EmailService {
         );
       }
     } catch (error) {
-      this.logger.error(`Excepción capturada enviando correo vía ACS:`, error);
+      this.logger.error(
+        `Excepción capturada enviando correo vía ACS: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new InternalServerErrorException(
         'Desvío capturado en el envio local/externo de correos.',
       );
     }
+  }
+
+  /**
+   * Helper privado para manejar errores de reenvío de forma uniforme.
+   * Re-lanza excepciones conocidas (rethrowClasses).
+   * Para el resto, loggea y lanza InternalServerErrorException.
+   */
+  private handleResendError(
+    error: unknown,
+    typeOfEmail: string,
+    email: string,
+    options: { isCert?: boolean; rethrow?: (new (...args: any[]) => any)[] } = {},
+  ): never {
+    const rethrowClasses = [
+      NotFoundException,
+      BadRequestException,
+      ...(options.rethrow ?? []),
+    ];
+    if (rethrowClasses.some((Ex) => error instanceof Ex)) throw error as Error;
+
+    const label = options.isCert ? 'certificate email' : 'email';
+    this.logger.error(
+      `Failed to resend ${typeOfEmail} ${label} to ${email}: ${error instanceof Error ? error.message : String(error)}`,
+      error instanceof Error ? error.stack : undefined,
+    );
+    throw new InternalServerErrorException('Failed to resend email.');
   }
 }
