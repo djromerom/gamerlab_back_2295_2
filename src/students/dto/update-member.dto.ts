@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsArray } from "class-validator";
+import { IsNotEmpty, IsArray } from 'class-validator';
 export class UpdateMemberDto {
   @IsNotEmpty({ message: 'You must provide the current list of nrcs' })
   @IsArray()

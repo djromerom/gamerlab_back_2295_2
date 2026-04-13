@@ -1,4 +1,10 @@
-import { IsString, IsInt, IsArray, IsOptional, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsInt,
+  IsArray,
+  IsOptional,
+  IsNumber,
+} from 'class-validator';
 
 export class VideogameResponseDto {
   @IsInt()

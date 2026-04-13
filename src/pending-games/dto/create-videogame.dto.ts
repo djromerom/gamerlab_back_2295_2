@@ -1,4 +1,10 @@
-import { IsInt, IsString, IsOptional, IsBoolean, IsNotEmpty } from 'class-validator';
+import {
+  IsInt,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNotEmpty,
+} from 'class-validator';
 
 export class CreateVideogameDto {
   @IsInt()

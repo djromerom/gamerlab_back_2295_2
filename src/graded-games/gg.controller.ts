@@ -10,7 +10,7 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 @Controller('graded-games')
 @UseGuards(RolePermissionGuard)
 export class GradedGamesController {
-  constructor(private readonly GradedGamesService: GradedGamesService) { }
+  constructor(private readonly GradedGamesService: GradedGamesService) {}
 
   @Get()
   @RequiredService('PendingGamesService')
@@ -36,7 +36,8 @@ export class GradedGamesController {
   async getGradedVideogamesCount(
     @GetUser('id') jurorId: string,
   ): Promise<{ count: number }> {
-    const count = await this.GradedGamesService.getGradedVideogamesCount(jurorId);
+    const count =
+      await this.GradedGamesService.getGradedVideogamesCount(jurorId);
     return { count };
   }
 

@@ -8,5 +8,5 @@ export interface PaginatedResult<T> {
     itemsPerPage: number;
     totalPages: number;
     totalWeight?: number;
-  }
+  };
 }

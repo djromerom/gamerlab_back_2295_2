@@ -1,7 +1,12 @@
-import { IsString, IsNotEmpty, MinLength, Matches, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  Matches,
+  IsUUID,
+} from 'class-validator';
 
 export class SetPasswordDto {
-
   @IsNotEmpty()
   @IsUUID()
   token: string;

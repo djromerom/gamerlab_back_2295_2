@@ -4,10 +4,8 @@ import { CacheModule as Cache } from '@nestjs/cache-manager';
 
 @Global()
 @Module({
-  imports: [
-    Cache.register({ isGlobal: true }),
-  ],
+  imports: [Cache.register({ isGlobal: true })],
   providers: [CacheService],
-  exports: [CacheService]
+  exports: [CacheService],
 })
-export class CacheModule { }
+export class CacheModule {}

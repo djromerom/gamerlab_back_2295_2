@@ -10,7 +10,7 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 @Controller('pending-games')
 @UseGuards(RolePermissionGuard)
 export class VideogamesController {
-  constructor(private readonly videogamesService: VideogamesService) { }
+  constructor(private readonly videogamesService: VideogamesService) {}
 
   @Get()
   @RequiredService('PendingGamesService')
@@ -36,7 +36,8 @@ export class VideogamesController {
   async getPendingVideogamesCount(
     @GetUser('id') jurorId: string,
   ): Promise<{ count: number }> {
-    const count = await this.videogamesService.getPendingVideogamesCount(jurorId);
+    const count =
+      await this.videogamesService.getPendingVideogamesCount(jurorId);
     return { count };
   }
 

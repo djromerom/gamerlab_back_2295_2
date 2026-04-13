@@ -8,7 +8,8 @@ export class ResendConfirmationDto {
 
   @IsOptional()
   @Matches(/^(VERIFICACION_EMAIL|RESETEAR_CONTRASENA)$/, {
-    message: 'typeOfToken must be either VERIFICACION_EMAIL or RESETEAR_CONTRASENA',
+    message:
+      'typeOfToken must be either VERIFICACION_EMAIL or RESETEAR_CONTRASENA',
   })
   typeOfToken?: AuthEmailType;
 }

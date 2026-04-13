@@ -1,5 +1,14 @@
 // src/teams/dto/videogame.dto.ts
-import { IsString, IsNotEmpty, MaxLength, IsOptional, IsUrl, ValidateIf, IsArray, ArrayMaxSize } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  IsOptional,
+  IsUrl,
+  ValidateIf,
+  IsArray,
+  ArrayMaxSize,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class VideogameDto {
@@ -34,13 +43,24 @@ export class VideogameDto {
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       // Si viene como string separado por comas, convertir a array
-      return value.split(',').map(url => url.trim()).filter(url => url.length > 0);
+      return value
+        .split(',')
+        .map((url) => url.trim())
+        .filter((url) => url.length > 0);
     }
     // Si ya es un array, retornarlo tal cual
     return value;
   })
-  @IsArray({ message: 'Las imágenes adicionales deben ser un array o un string de URLs separadas por comas' })
-  @ArrayMaxSize(5, { message: 'Se permite un máximo de 5 imágenes adicionales' })
-  @IsUrl({}, { each: true, message: 'Cada imagen adicional debe ser una URL válida' })
+  @IsArray({
+    message:
+      'Las imágenes adicionales deben ser un array o un string de URLs separadas por comas',
+  })
+  @ArrayMaxSize(5, {
+    message: 'Se permite un máximo de 5 imágenes adicionales',
+  })
+  @IsUrl(
+    {},
+    { each: true, message: 'Cada imagen adicional debe ser una URL válida' },
+  )
   additionalImages?: string[];
 }

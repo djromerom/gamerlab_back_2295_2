@@ -5,14 +5,15 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
 import { ForbiddenException } from '@nestjs/common';
 
-
 @Injectable()
 export class GradedGamesService {
   constructor(private readonly prisma: PrismaService) {}
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
     if (!config?.evaluationsOpen) {
-      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
+      throw new ForbiddenException(
+        'Las evaluaciones no están habilitadas en este momento.',
+      );
     }
   }
 
@@ -34,26 +35,61 @@ export class GradedGamesService {
     });
 
     const evaluatedIds = evaluations.map((e) => e.videogameId);
-    const scoresMap = new Map(evaluations.map((e) => [e.videogameId, e.totalScore]));
-    const commentsMap = new Map(evaluations.map((e) => [e.videogameId, e.comments]));
+    const scoresMap = new Map(
+      evaluations.map((e) => [e.videogameId, e.totalScore]),
+    );
+    const commentsMap = new Map(
+      evaluations.map((e) => [e.videogameId, e.comments]),
+    );
 
     // Filtros de búsqueda
     const searchConditions: Prisma.VideogameWhereInput['OR'] = [
       { name: { contains: normalizedSearch, mode: 'insensitive' } },
-      { team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } } },
-      { team: { members: { some: {
-        OR: [
-          { firstName: { contains: normalizedSearch, mode: 'insensitive' } },
-          { lastName: { contains: normalizedSearch, mode: 'insensitive' } }
-        ]
-      }}}},
-      { team: { members: { some: { nrcs: { some: { subject: { name: { contains: normalizedSearch, mode: 'insensitive' } } } } } } } }
+      {
+        team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } },
+      },
+      {
+        team: {
+          members: {
+            some: {
+              OR: [
+                {
+                  firstName: {
+                    contains: normalizedSearch,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  lastName: { contains: normalizedSearch, mode: 'insensitive' },
+                },
+              ],
+            },
+          },
+        },
+      },
+      {
+        team: {
+          members: {
+            some: {
+              nrcs: {
+                some: {
+                  subject: {
+                    name: { contains: normalizedSearch, mode: 'insensitive' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     ];
 
     if (numericSearch !== null) {
-      searchConditions.push(
-        { team: { members: { some: { nrcs: { some: { code: numericSearch } } } } } }
-      );
+      searchConditions.push({
+        team: {
+          members: { some: { nrcs: { some: { code: numericSearch } } } },
+        },
+      });
     }
 
     const videogames = await this.prisma.videogame.findMany({
@@ -92,8 +128,8 @@ export class GradedGamesService {
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
 
-      videogame.team?.members?.forEach(member => {
-        member.nrcs?.forEach(nrc => {
+      videogame.team?.members?.forEach((member) => {
+        member.nrcs?.forEach((nrc) => {
           nrcCodes.add(nrc.code);
           if (firstSubject === 'Sin materia' && nrc.subject?.name) {
             firstSubject = nrc.subject.name;
@@ -107,9 +143,10 @@ export class GradedGamesService {
         logoUrl: videogame.logoUrl ?? undefined,
         description: videogame.description || 'Sin descripción',
         teamName: videogame.team?.teamName || 'Sin equipo',
-        members: videogame.team?.members?.map(member => ({
-          fullName: `${member.firstName} ${member.lastName}`,
-        })) || [],
+        members:
+          videogame.team?.members?.map((member) => ({
+            fullName: `${member.firstName} ${member.lastName}`,
+          })) || [],
         nrc: Array.from(nrcCodes).join(', ') || 'Sin NRC',
         subject: firstSubject,
         totalScore: scoresMap.get(videogame.id) || 0,
@@ -138,8 +175,12 @@ export class GradedGamesService {
     });
 
     const evaluatedIds = evaluations.map((e) => e.videogameId);
-    const scoresMap = new Map(evaluations.map((e) => [e.videogameId, e.totalScore]));
-    const commentsMap = new Map(evaluations.map((e) => [e.videogameId, e.comments]));
+    const scoresMap = new Map(
+      evaluations.map((e) => [e.videogameId, e.totalScore]),
+    );
+    const commentsMap = new Map(
+      evaluations.map((e) => [e.videogameId, e.comments]),
+    );
 
     const offset = (page - 1) * limit;
 
@@ -180,7 +221,9 @@ export class GradedGamesService {
     const data = videogames.map((videogame) => {
       const uniqueNrcs = Array.from(
         new Set(
-          videogame.team?.members?.flatMap((member) => member.nrcs?.map((nrc) => nrc.code) || []),
+          videogame.team?.members?.flatMap(
+            (member) => member.nrcs?.map((nrc) => nrc.code) || [],
+          ),
         ),
       );
       return {
@@ -189,11 +232,14 @@ export class GradedGamesService {
         logoUrl: videogame.logoUrl ?? undefined,
         description: videogame.description || 'Sin descripción',
         teamName: videogame.team?.teamName || 'Sin equipo',
-        members: videogame.team?.members?.map((member) => ({
-          fullName: `${member.firstName} ${member.lastName}`,
-        })) || [],
+        members:
+          videogame.team?.members?.map((member) => ({
+            fullName: `${member.firstName} ${member.lastName}`,
+          })) || [],
         nrc: uniqueNrcs.join(', ') || 'Sin NRC',
-        subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
+        subject:
+          videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name ||
+          'Sin materia',
         totalScore: scoresMap.get(videogame.id) || 0,
         comments: commentsMap.get(videogame.id) || 'Sin comentarios',
         isEvaluated: true,
@@ -238,7 +284,9 @@ export class GradedGamesService {
 
     const searchConditions: Prisma.VideogameWhereInput['OR'] = [
       { name: { contains: normalizedSearch, mode: 'insensitive' } },
-      { team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } } },
+      {
+        team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } },
+      },
     ];
 
     const videogames = await this.prisma.videogame.findMany({
@@ -258,7 +306,7 @@ export class GradedGamesService {
       take: 10,
     });
 
-    const data = videogames.map(videogame => ({
+    const data = videogames.map((videogame) => ({
       id: videogame.id,
       name: videogame.name,
       teamName: videogame.team?.teamName || 'Sin equipo',

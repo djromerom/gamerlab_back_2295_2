@@ -9,12 +9,7 @@ import { HttpModule } from '@nestjs/axios';
 import { CertificatesModule } from 'src/certificates/certificates.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    ConfigModule,
-    HttpModule,
-    CertificatesModule,
-  ],
+  imports: [PrismaModule, ConfigModule, HttpModule, CertificatesModule],
   controllers: [EmailController],
   providers: [EmailService],
   exports: [EmailService],
