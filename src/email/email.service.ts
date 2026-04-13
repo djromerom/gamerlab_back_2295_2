@@ -303,6 +303,11 @@ export class EmailService {
         where: { email },
       });
 
+      if (!user) {
+        this.logger.error(`User with email ${email} not found in local DB.`);
+        throw new NotFoundException('The email address is not registered.');
+      }
+
       // Find the team that this user is a member of (by user id)
       const team = user
         ? await this.prisma.team.findFirst({
@@ -310,11 +315,6 @@ export class EmailService {
           select: { id: true },
         })
         : null;
-
-      if (!user) {
-        this.logger.error(`User with email ${email} not found in local DB.`);
-        throw new NotFoundException('The email address is not registered.');
-      }
 
       if (!team) {
         this.logger.error(
@@ -446,7 +446,10 @@ export class EmailService {
         );
       }
     } catch (error) {
-      this.logger.error(`Excepción capturada enviando correo vía ACS:`, error);
+      this.logger.error(
+        `Excepción capturada enviando correo vía ACS: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new InternalServerErrorException(
         'Desvío capturado en el envio local/externo de correos.',
       );
@@ -473,8 +476,8 @@ export class EmailService {
 
     const label = options.isCert ? 'certificate email' : 'email';
     this.logger.error(
-      `Failed to resend ${typeOfEmail} ${label} to ${email}: ${error instanceof Error ? error.message : String(error)
-      }`,
+      `Failed to resend ${typeOfEmail} ${label} to ${email}: ${error instanceof Error ? error.message : String(error)}`,
+      error instanceof Error ? error.stack : undefined,
     );
     throw new InternalServerErrorException('Failed to resend email.');
   }
