@@ -27,7 +27,7 @@ export class TeamRepository implements ITeamRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
-  ) {}
+  ) { }
 
   async findByTeamName(teamName: string): Promise<boolean> {
     const team = await this.prisma.team.findFirst({
@@ -951,7 +951,7 @@ export class TeamRepository implements ITeamRepository {
         logoUrl: data.logoUrl,
         repoUrl: data.repoUrl,
         videoUrl: data.videoUrl,
-        additionalImages: data.additionalImages || [],
+        additionalImages: data.additionalImages,
         videogameStatusId: data.videogameStatusId,
       },
     });
@@ -979,8 +979,8 @@ export class TeamRepository implements ITeamRepository {
 
       const existingEmail = member.memberEmail
         ? await tx.member.findUnique({
-            where: { email: member.memberEmail },
-          })
+          where: { email: member.memberEmail },
+        })
         : null;
 
       if (existingEmail)
@@ -1006,9 +1006,9 @@ export class TeamRepository implements ITeamRepository {
           studentCode: member.studentCode,
           nrcs: member.nrc
             ? {
-                set: [],
-                connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
-              }
+              set: [],
+              connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+            }
             : undefined,
         },
       });
@@ -1017,7 +1017,7 @@ export class TeamRepository implements ITeamRepository {
           const existingUser = await tx.user.findUnique({
             where: { email: member.memberEmail },
           });
-          
+
           if (existingUser && existingUser.email !== dbMember.email) {
             throw new ConflictException(
               `El correo ${member.memberEmail} ya está en uso por otro usuario`,
