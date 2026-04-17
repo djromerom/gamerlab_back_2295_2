@@ -1,10 +1,17 @@
 name: back-test
 on:
   pull_request:
-    branches:
-      - dev
+    branches: [ dev , main ]
   
   workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch target (dev or main)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - main
 
 jobs:
 
@@ -21,12 +28,28 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Get branch tag
+        id: get-branch
+        run: |
+            BRANCH="${{ github.event_name == 'workflow_dispatch' && inputs.target_branch || github.base_ref }}"
+            echo "branch: $BRANCH"
+            echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: post dinamic env value
+        id: dinamic-env
+        run: |
+          IMAGE_TAG=$(echo "$BRANCH_IMAGE_TAGS" | jq -r ".\"${{ steps.get-branch.outputs.branch }}\".tag")
+          
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+        env:
+          BRANCH_IMAGE_TAGS: ${{ secrets.BRANCH_IMAGE_TAGS }}
+            
       - name: Creation of the SHA tag 
         uses: docker/metadata-action@v5
         id: sha-tag
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
-          tags: type=sha,prefix=sha-,suffix=-api_dev
+          tags: type=sha,prefix=sha-,suffix=-${{  steps.dinamic-env.outputs.image_tag  }}
 
       - name: Build and push base image
         uses: docker/build-push-action@v6
