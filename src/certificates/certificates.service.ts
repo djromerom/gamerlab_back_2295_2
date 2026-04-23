@@ -6,10 +6,10 @@ import puppeteer from 'puppeteer';
 
 @Injectable()
 export class CertificatesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async generateCertificateHtml(teamId: number, place: number) : Promise<Buffer> {
-    let templateName : string;
+  async generateCertificateHtml(teamId: number, place: number): Promise<Buffer> {
+    let templateName: string;
     switch (place) {
       case 1:
         templateName = 'certificate-First.html';
@@ -33,7 +33,7 @@ export class CertificatesService {
 
     return pdfBuffer;
   }
-  
+
 
   private async adjustCertificateParameters(template: string, teamId: number) {
     const team = await this.prisma.team.findUnique({
@@ -70,7 +70,10 @@ export class CertificatesService {
   }
 
   private async convertHtmlToPdfBase64(htmlContent: string): Promise<Buffer> {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
     const pdf = await page.pdf({ format: 'A4', printBackground: true });
