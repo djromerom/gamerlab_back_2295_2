@@ -24,8 +24,10 @@ import { JurorService } from './juror.service';
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { AssignJurorToTeamDto } from './dto/assign-juror-to-team.dto';
+import { ReassignJurorAssignmentDto } from './dto/reassign-juror-assignment.dto';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
+import { GetUser } from '../auth/decorators/get-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
@@ -37,7 +39,7 @@ export class JurorController {
   constructor(
     private readonly jurorService: JurorService,
     private readonly authService: AuthService,
-  ) {}
+  ) { }
 
   @Get('evaluations-assignment')
   @UseGuards(RolePermissionGuard)
@@ -118,29 +120,61 @@ export class JurorController {
   @Post('assignments')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  assignJurorToTeam(@Body() assignDto: AssignJurorToTeamDto) {
-    return this.jurorService.assignJurorToTeam(assignDto.jurorId, assignDto.teamId);
+  assignJurorToTeam(
+    @Body() assignDto: AssignJurorToTeamDto,
+    @GetUser('id') actorUserId: string,
+  ) {
+    return this.jurorService.assignJurorToTeam(
+      assignDto.jurorId,
+      assignDto.teamId,
+      actorUserId,
+    );
+  }
+
+  @Patch('assignments/reassign')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('AssignJurors')
+  reassignJurorOnTeam(
+    @Body() dto: ReassignJurorAssignmentDto,
+    @GetUser('id') actorUserId: string,
+  ) {
+    return this.jurorService.reassignJurorOnTeam(
+      dto.currentJurorId,
+      dto.newJurorId,
+      dto.teamId,
+      actorUserId,
+    );
   }
 
   @Delete('assignments/all')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  removeAllJurorAssignments() {
-    return this.jurorService.removeAllJurorAssignments();
+  removeAllJurorAssignments(@GetUser('id') actorUserId: string) {
+    return this.jurorService.removeAllJurorAssignments(actorUserId);
   }
 
   @Delete(':id/assignments')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  removeAllAssignmentsFromJuror(@Param('id') id: string) {
-    return this.jurorService.removeAllAssignmentsFromJuror(id);
+  removeAllAssignmentsFromJuror(
+    @Param('id') id: string,
+    @GetUser('id') actorUserId: string,
+  ) {
+    return this.jurorService.removeAllAssignmentsFromJuror(id, actorUserId);
   }
 
   @Delete('assignments')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  removeJurorFromTeam(@Body() assignDto: AssignJurorToTeamDto) {
-    return this.jurorService.removeJurorFromTeam(assignDto.jurorId, assignDto.teamId);
+  removeJurorFromTeam(
+    @Body() assignDto: AssignJurorToTeamDto,
+    @GetUser('id') actorUserId: string,
+  ) {
+    return this.jurorService.removeJurorFromTeam(
+      assignDto.jurorId,
+      assignDto.teamId,
+      actorUserId,
+    );
   }
 
   @Get()

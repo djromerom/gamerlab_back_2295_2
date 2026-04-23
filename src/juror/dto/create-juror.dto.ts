@@ -1,20 +1,24 @@
-import { Transform } from 'class-transformer';
-import { IsString, IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MaxLength, Matches } from 'class-validator';
 
 export class CreateJurorDto {
-  @MaxLength(50)
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres' })
+  @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s'-]+$/, {
+    message: 'El nombre solo puede contener letras y espacios',
+  })
   firstName: string;
 
-  @MaxLength(50)
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El apellido es obligatorio' })
+  @MaxLength(100, { message: 'El apellido no puede superar los 100 caracteres' })
+  @Matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s'-]+$/, {
+    message: 'El apellido solo puede contener letras y espacios',
+  })
   lastName: string;
 
-  @Transform(({ value }) => value && typeof value === 'string' ? value.toLowerCase() : value)
-  @IsNotEmpty()
-  @IsEmail()
-  @IsString()
+  @IsEmail({}, { message: 'El correo electrónico no es válido' })
+  @IsNotEmpty({ message: 'El correo electrónico es obligatorio' })
+  @MaxLength(150, { message: 'El correo no puede superar los 150 caracteres' })
   email: string;
 }
