@@ -36,16 +36,16 @@ model Edition {
 }
 
 model EventConfiguration {
-  id              Int       @id @default(autoincrement())
-  editionId       Int       @map("id_edicion") @default(3) @unique
-  startDate       DateTime  @map("fecha_inicio")
-  endDate         DateTime  @map("fecha_fin")
-  evaluationsOpen Boolean   @default(false) @map("evaluaciones_abiertas")
-  showRanking     Boolean   @default(false) @map("mostrar_ranking")
-  showEvaluations Boolean   @default(false) @map("mostrar_evaluaciones")
-  createdAt       DateTime  @default(now()) @map("creado_en")
-  updatedAt       DateTime  @updatedAt @map("actualizado_en")
-  edition         Edition   @relation(fields: [editionId], references: [id])
+  id              Int      @id @default(autoincrement())
+  editionId       Int      @unique @default(3) @map("id_edicion")
+  startDate       DateTime @map("fecha_inicio")
+  endDate         DateTime @map("fecha_fin")
+  evaluationsOpen Boolean  @default(false) @map("evaluaciones_abiertas")
+  showRanking     Boolean  @default(false) @map("mostrar_ranking")
+  showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
+  createdAt       DateTime @default(now()) @map("creado_en")
+  updatedAt       DateTime @updatedAt @map("actualizado_en")
+  edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
 }
@@ -237,10 +237,23 @@ model Videogame {
   additionalImages  String[]        @default([]) @map("imagenes_adicionales")
   likes             Int             @default(0) @map("likes")
   evaluations       Evaluation[]
+  likedBy           VideogameLike[]
   team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
 
   @@map("videojuegos")
+}
+
+model VideogameLike {
+  id          Int      @id @default(autoincrement())
+  videogameId Int      @map("id_videojuego")
+  visitorId   String   @map("visitor_id") @db.VarChar(128)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([videogameId, visitorId])
+  @@map("videogame_likes")
 }
 
 model Evaluation {
