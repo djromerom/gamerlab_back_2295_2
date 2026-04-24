@@ -20,6 +20,7 @@ jobs:
     
     outputs:
       tag-name: ${{  steps.sha-tag.outputs.tags  }}
+      branch: ${{  steps.get-branch.outputs.branch  }}
       
     steps:
             
@@ -70,17 +71,12 @@ jobs:
       - name: Resolve environment
         id: resolve_env
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BRANCH="${{ inputs.target_branch }}"
-          else
-            BRANCH="${{ github.base_ref }}"
-          fi
+          BRANCH="${{  needs.docker-image.outputs.branch  }}"
           if [ "$BRANCH" = "main" ]; then
             ENVIRONMENT="production"
           else
             ENVIRONMENT="preview"
           fi
-          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
           echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
 
       - name: Dispatch_send
@@ -92,6 +88,7 @@ jobs:
           client-payload: |
             {
               "tag": "${{  needs.docker-image.outputs.tag-name  }}",
+              "branch": "${{  needs.docker-image.outputs.branch  }}"
               "environment": ${{  steps.resolve_env.outputs.environment  }}
             }
     
