@@ -30,8 +30,8 @@
     "db:reset": "npm run prisma:migrate:reset && npm run prisma:seed"
   },
   "dependencies": {
+    "@azure/communication-email": "^1.1.0",
     "@azure/storage-blob": "^12.29.1",
-    "@emailjs/nodejs": "^5.0.2",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
