@@ -53,19 +53,12 @@ jobs:
         env:
           BRANCH_IMAGE_TAGS: ${{ secrets.BRANCH_IMAGE_TAGS }}
 
-      - name: Creation of the SHA tag 
-        uses: docker/metadata-action@v5
-        id: sha-tag
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
-          tags: type=raw,value=${{ steps.resolve-tag.outputs.tag }}
-
       - name: Build and push base image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile 
-          tags: ${{ steps.sha-tag.outputs.tags }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:${{ steps.resolve-tag.outputs.tag }}
           push: true
           no-cache: true
     
