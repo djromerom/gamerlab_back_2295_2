@@ -14,16 +14,12 @@ on:
           - main
 
 jobs:
-
   docker-image:
     runs-on: ubuntu-latest
-    
     outputs:
       tag-name: ${{  steps.sha-tag.outputs.tags  }}
       branch: ${{  steps.get-branch.outputs.branch  }}
-      
     steps:
-            
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -64,31 +60,34 @@ jobs:
           push: true
           no-cache: true
     
-  dispatch:
-    runs-on: ubuntu-latest
+  test-dispatch:
     needs: docker-image
+    if: needs.docker-image.outputs.branch == 'dev'
+    runs-on: ubuntu-latest
     steps:
-      - name: Resolve environment
-        id: resolve_env
-        run: |
-          BRANCH="${{  needs.docker-image.outputs.branch  }}"
-          if [ "$BRANCH" = "main" ]; then
-            ENVIRONMENT="production"
-          else
-            ENVIRONMENT="preview"
-          fi
-          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
-
       - name: Dispatch_send
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{  secrets.DEPLOY_PAT  }}
           repository: ${{  secrets.REPO_DISPATCH_TARGET  }}
-          event-type: image-published
+          event-type: test-image-published
           client-payload: |
             {
-              "tag": "${{  needs.docker-image.outputs.tag-name  }}",
-              "branch": "${{  needs.docker-image.outputs.branch  }}"
-              "environment": ${{  steps.resolve_env.outputs.environment  }}
+              "tag": "${{  needs.docker-image.outputs.tag-name  }}"
             }
-    
+            
+  prod-dispatch:
+    needs: docker-image
+    if: needs.docker-image.outputs.branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch_send
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{  secrets.DEPLOY_PAT  }}
+          repository: ${{  secrets.REPO_DISPATCH_TARGET  }}
+          event-type: prod-image-published
+          client-payload: |
+            {
+              "tag": "${{  needs.docker-image.outputs.tag-name  }}"
+            }
