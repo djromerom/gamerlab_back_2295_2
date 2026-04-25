@@ -17,8 +17,8 @@ jobs:
   docker-image:
     runs-on: ubuntu-latest
     outputs:
-      tag-name: ${{  steps.sha-tag.outputs.tags  }}
-      branch: ${{  steps.get-branch.outputs.branch  }}
+      tag-name: ${{  steps.resolve-tag.outputs.tag  }}
+      branch: ${{  steps.resolve-tag.outputs.branch  }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,27 +29,36 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Get branch tag
-        id: get-branch
+      - name: Resolve deploy tag
+        id: resolve-tag
         run: |
-            BRANCH="${{ github.event_name == 'workflow_dispatch' && inputs.target_branch || github.base_ref }}"
-            echo "branch: $BRANCH"
-            echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          BRANCH="${{ github.event_name == 'workflow_dispatch' && inputs.target_branch || github.base_ref }}"
+          if [ -z "$BRANCH" ]; then
+            echo "ERROR: branch could not be resolved"
+            exit 1
+          fi
+          echo "Resolved branch: $BRANCH"
+          
+          IMAGE_SUFFIX=$(echo "$BRANCH_IMAGE_TAGS" | jq -r ".\"$BRANCH\".tag")
+          if [ "$IMAGE_SUFFIX" = "null" ] || [ -z "$IMAGE_SUFFIX" ]; then
+            echo "ERROR: No image suffix configured for branch '$BRANCH'"
+            exit 1
+          fi
+          TAG="sha-${GITHUB_SHA::7}-${IMAGE_SUFFIX}"
+          echo "Resolved image tag: $TAG"
 
-      - name: post dinamic env value
-        id: dinamic-env
-        run: |
-          IMAGE_TAG=$(echo "$BRANCH_IMAGE_TAGS" | jq -r ".\"${{ steps.get-branch.outputs.branch }}\".tag")
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
         env:
           BRANCH_IMAGE_TAGS: ${{ secrets.BRANCH_IMAGE_TAGS }}
-            
+
       - name: Creation of the SHA tag 
         uses: docker/metadata-action@v5
         id: sha-tag
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
-          tags: type=sha,prefix=sha-,suffix=-${{  steps.dinamic-env.outputs.image_tag  }}
+          tags: type=raw,value=${{ steps.resolve-tag.outputs.tag }}
 
       - name: Build and push base image
         uses: docker/build-push-action@v6
