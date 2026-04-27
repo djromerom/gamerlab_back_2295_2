@@ -24,6 +24,9 @@ import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
+  // TODO: reemplazar por feature de fechas por edición
+  private readonly EVENT_DATE = '27 de noviembre';
+
   private emailClient: EmailClient | null = null;
   private senderAddress: string = '';
 
@@ -200,15 +203,14 @@ export class EmailService {
       let templateParams: Record<string, unknown>;
       if (typeOfEmail === 'VERIFICACION_EMAIL') {
         templateParams = {
-          email,
           confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
+          eventDate: this.EVENT_DATE,
         };
       } else {
         const userName = user.firstName
           ? user.firstName.trim()
           : user.lastName || user.email.split('@')[0];
         templateParams = {
-          email,
           user_name: userName,
           resetPasswordURL: `${REDIRECT_TO}/establecer-contrasena?token=${verificationToken}`,
         };
@@ -267,6 +269,7 @@ export class EmailService {
           select: { name: true },
         });
         templateParams['videogameName'] = videogame?.name || '';
+        templateParams['eventDate'] = this.EVENT_DATE;
       }
 
       if (params) {

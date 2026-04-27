@@ -1,109 +1,152 @@
 <!DOCTYPE html>
-<html>
-
-<head>
-    <meta charset="utf-8">
-    <title>Videojuego Rechazado - Gamerlab</title>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Arkad | Tu videojuego fue rechazado.</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #0f111a;
-            margin: 0;
-            padding: 0;
+      body {
+        font-family: 'Poppins', Arial, sans-serif;
+        background-color: #f9f9fb;
+        color: #333;
+        padding: 24px 8px;
+        margin: 0;
+      }
+      .container {
+        background-color: #fff;
+        border-radius: 16px;
+        padding: 40px 30px;
+        max-width: 600px;
+        margin: auto;
+        box-shadow: 0 4px 20px rgba(102, 68, 255, 0.1);
+        border: 1px solid #e5e5e5;
+        transition: all 0.3s ease;
+        animation: fadeIn 0.8s ease-in-out;
+      }
+      .logo {
+        width: 120px;
+        display: block;
+        margin: 0 auto 20px;
+      }
+      .title {
+        text-align: center;
+        color: #5a3aff;
+        font-size: 1.8em;
+        margin-top: 10px;
+        letter-spacing: 0.5px;
+      }
+      p {
+        line-height: 1.6;
+        text-align: center;
+        font-size: 1.05em;
+        color: #444;
+      }
+      strong {
+        color: #5a3aff;
+      }
+      .button {
+        display: inline-block;
+        padding: 12px 18px;
+        margin: 18px auto;
+        background-color: #7a42ff;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 25px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        font-size: 1em;
+      }
+      .button:hover {
+        transform: scale(1.04);
+        box-shadow: 0 0 25px rgba(142, 45, 226, 0.5);
+      }
+      .footer {
+        font-size: 0.85em;
+        color: #777;
+        text-align: center;
+        margin-top: 35px;
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+      }
+      a:visited {
+        color: inherit;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
         }
-
-        .wrapper {
-            padding: 40px 20px;
-            text-align: center;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
-
+      }
+      @media (max-width: 600px) {
         .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #1a1d2d;
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            text-align: left;
-            position: relative;
-            overflow: hidden;
-            border: 1px solid #2d3148;
+          padding: 10vw 2vw;
+          max-width: 98vw;
         }
-
-        .container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, #ef4444, #f87171, #b91c1c);
+        .logo {
+          width: 80px;
         }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
         .title {
-            color: #fee2e2;
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            margin: 0;
+          font-size: 1.1em;
         }
-
-        .subtitle {
-            color: #94a3b8;
-            font-size: 16px;
-            margin-top: 5px;
+        p {
+          font-size: 0.95em;
+          color: #444;
+          text-decoration: none;
         }
-
-        .content {
-            color: #cbd5e1;
-            font-size: 16px;
-            line-height: 1.7;
+        .button {
+          padding: 10px 10vw;
+          font-size: 0.95em;
         }
-
-        .content strong {
-            color: #f8fafc;
-            font-weight: 600;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            border-top: 1px solid #2d3148;
-            padding-top: 20px;
-            font-size: 14px;
-            color: #64748b;
-        }
+      }
     </style>
-</head>
+  </head>
 
-<body>
-    <div class="wrapper">
-        <div class="container">
-            <div class="header">
-                <div class="title">Actualización de Estado</div>
-                <div class="subtitle">Comité Evaluador Gamerlab</div>
-            </div>
-            <div class="content">
-                <p>Estimado equipo (<strong>{{email}}</strong>),</p>
-                <p>Te escribimos de parte del comité evaluador de Gamerlab para notificarte un status respecto a la
-                    revisión de tu videojuego.</p>
-                <p>Lamentablemente, el videojuego no ha superado los requerimientos de validación técnica o los
-                    criterios mínimos requeridos para ser admitido dentro de la muestra competitiva actual del torneo.
-                </p>
-                <p>Sabemos el arduo esfuerzo que ponen detrás de cada línea de código. Te animamos a revisar
-                    exhaustivamente los lineamientos y aplicar las correcciones pertinentes.</p>
-                <p>Estamos ansiosos por ver su progreso en las siguientes revisiones. ¡No se rindan!</p>
-            </div>
-            <div class="footer">
-                <p>© Gamerlab. Todos los derechos reservados.</p>
-            </div>
-        </div>
+  <body>
+    <div class="container">
+      <img
+        src="https://gamerlab.blob.core.windows.net/gamer-storage-container/1761518831579-Arkad_circle_email_png-01.png?sv=2025-11-05&se=2030-10-26T04%3A20%3A32Z&sr=b&sp=r&sig=OLbpHQRtTkjePpHmkSKgPi4pXq2oeZdubRc8p8akIOk%3D"
+        alt="Logo Arkad"
+        class="logo"
+      />
+
+      <h2 class="title">Tu videojuego no fue aprobado.</h2>
+
+      <p>
+        Hemos rechazado tu videojuego por la siguiente razón:<br />
+        <strong>{{rejectionReason}}</strong><br />
+        Una vez actualices la información de tu juego, pasará a revisión de nuevo.<br />
+        Recuerda que tu juego debe ser aprobado para poder ser calificado por los jueces.
+      </p>
+
+      <p style="text-align: center;">
+        <a
+          href="https://arkad.openlab.uninorte.edu.co/editar-equipo"
+          class="button"
+          style="
+            background-color: #7a42ff;
+            color: #ffffff !important;
+            text-decoration: none !important;
+            display: inline-block;
+            padding: 16px 36px;
+            margin: 25px auto;
+            border-radius: 30px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+          "
+        >
+          Ver mi juego
+        </a>
+      </p>
+
+      <p class="footer">© 2025 Arkad · Todos los derechos reservados</p>
     </div>
-</body>
-
+  </body>
 </html>
