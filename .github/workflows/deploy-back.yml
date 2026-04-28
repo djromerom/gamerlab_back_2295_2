@@ -37,7 +37,7 @@ jobs:
         id: resolve-tag
         run: |
           set -euo pipefail
-          BRANCH="${{ github.event_name == 'workflow_dispatch' && inputs.target_branch || github.base_ref }}"
+          BRANCH="${{ github.event_name == 'workflow_dispatch' && inputs.target_branch || github.ref_name }}"
           if [ -z "$BRANCH" ]; then
             echo "ERROR: branch could not be resolved"
             exit 1
