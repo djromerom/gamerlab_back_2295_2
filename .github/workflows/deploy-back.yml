@@ -1,8 +1,11 @@
-name: back-test
+name: Deploy-back
 on:
-  pull_request:
+  # Trigger the workflow on pushes to dev and main branches
+  # By default, dev and main branches are protected, so only approved PRs can trigger the workflow.
+  push:
     branches: [ dev , main ]
   
+  # Allow manual triggering of the workflow with a specified target branch (dev or main)
   workflow_dispatch:
     inputs:
       target_branch:
@@ -14,6 +17,7 @@ on:
           - main
 
 jobs:
+  # Job to build and push the Docker image, tagged based on the branch and commit SHA
   docker-image:
     runs-on: ubuntu-latest
     outputs:
@@ -62,6 +66,7 @@ jobs:
           push: true
           no-cache: true
     
+  # Conditional jobs to dispatch repository events for test deployments (dev branch) 
   test-dispatch:
     needs: docker-image
     if: needs.docker-image.outputs.branch == 'dev'
@@ -78,6 +83,7 @@ jobs:
               "tag": "${{  needs.docker-image.outputs.tag-name  }}"
             }
             
+  # Conditional job to dispatch repository events for production deployments (main branch)
   prod-dispatch:
     needs: docker-image
     if: needs.docker-image.outputs.branch == 'main'
