@@ -1,39 +1,34 @@
 import {
-  BadRequestException,
   ConflictException,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { JurorService } from './juror.service';
 
-describe('JurorService - manual assignment module', () => {
+describe('JurorService', () => {
   let service: JurorService;
 
   const prismaMock = {
-    user: {
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-      findMany: jest.fn(),
-      delete: jest.fn(),
-    },
     role: {
       findFirst: jest.fn(),
     },
     videogameStatus: {
       findUnique: jest.fn(),
     },
-    team: {
+    user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
+    },
+    team: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
     evaluation: {
       findMany: jest.fn(),
       count: jest.fn(),
-    },
-    jurorAssignmentAuditLog: {
-      create: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -47,55 +42,31 @@ describe('JurorService - manual assignment module', () => {
     create: jest.fn(),
   };
 
-  const seniorProfessor = {
-    id: 'a1b2c3d4-e5f6-4789-a012-345678901234',
-    isActive: true,
-    roleId: 3,
-    jurorCategory: 'SENIOR',
-    role: { name: 'Profesor' },
-  };
+  const jurorRoleId = 4;
+  const professorRoleId = 3;
+  const confirmedStatusId = 1;
 
-  const juniorJuror = {
-    id: 'c3d4e5f6-a7b8-4012-c345-567890123456',
+  const baseJuror = {
+    id: 'juror-1',
+    email: 'jurado.test@uninorte.edu.co',
+    firstName: 'Jurado',
+    lastName: 'Prueba',
+    roleId: jurorRoleId,
+    confirmationStatusId: confirmedStatusId,
+    lastSignInAt: null,
     isActive: true,
-    roleId: 4,
-    jurorCategory: 'JUNIOR',
-    role: { name: 'Jurado' },
-  };
-
-  const seniorJuror = {
-    id: 'd4e5f6a7-b8c9-4123-d456-678901234567',
-    isActive: true,
-    roleId: 4,
-    jurorCategory: 'SENIOR',
-    role: { name: 'Jurado' },
-  };
-
-  const colegioTeam = {
-    id: 1,
-    isActive: true,
-    teamCode: 'N0-COL-01',
-    teamName: 'Team Colegios Demo',
-    videogame: { id: 1, name: 'Game Colegios Demo' },
-    assignedJurors: [],
-  };
-
-  const updatedTeamResponse = {
-    id: 1,
-    teamName: 'Team Colegios Demo',
-    videogame: { id: 1, name: 'Game Colegios Demo' },
-    assignedJurors: [
-      {
-        id: seniorProfessor.id,
-        firstName: 'Profesor',
-        lastName: 'Colegios',
-        email: 'profesorcolegios@uninorte.edu.co',
-      },
-    ],
   };
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
+
+    prismaMock.$transaction.mockImplementation(async (arg: any) => {
+      if (Array.isArray(arg)) {
+        return Promise.all(arg);
+      }
+
+      return arg(prismaMock);
+    });
 
     service = new JurorService(
       authMock as any,
@@ -103,277 +74,586 @@ describe('JurorService - manual assignment module', () => {
       auditMock as any,
     );
 
-    (service as any).jurorRoleId = 4;
-    (service as any).professorRoleId = 3;
-    (service as any).confirmedStatusId = 1;
+    (service as any).jurorRoleId = jurorRoleId;
+    (service as any).professorRoleId = professorRoleId;
+    (service as any).confirmedStatusId = confirmedStatusId;
+  });
 
-    (service as any).validateEvaluatorCategoryForLevel = jest.fn(
-      (evaluator: any, teamLevel: number) => {
-        if (evaluator.roleId === 3 && teamLevel !== 0) {
-          throw new BadRequestException(
-            'Los profesores solo pueden ser asignados a equipos de nivel 0 (colegios)',
-          );
-        }
+  describe('onModuleInit', () => {
+    it('debe inicializar los IDs de rol Jurado, Profesor y estado CONFIRMADO', async () => {
+      prismaMock.role.findFirst
+        .mockResolvedValueOnce({
+          id: jurorRoleId,
+          name: 'Jurado',
+          isActive: true,
+        })
+        .mockResolvedValueOnce({
+          id: professorRoleId,
+          name: 'Profesor',
+          isActive: true,
+        });
 
-        if (evaluator.roleId === 4) {
-          if (!evaluator.jurorCategory) {
-            throw new BadRequestException(
-              'El jurado no tiene categoría asignada (JUNIOR/SENIOR)',
-            );
-          }
+      prismaMock.videogameStatus.findUnique.mockResolvedValueOnce({
+        id: confirmedStatusId,
+        status: 'CONFIRMADO',
+        isActive: true,
+      });
 
-          if (teamLevel === 0 && evaluator.jurorCategory === 'JUNIOR') {
-            throw new BadRequestException(
-              'Los jurados JUNIOR no pueden ser asignados a colegios (nivel 0)',
-            );
-          }
-        }
-      },
-    );
+      await service.onModuleInit();
 
-    (service as any).getEvaluatorLabel = jest.fn((evaluator: any) => {
-      if (evaluator.roleId === 3) return 'profesor';
-      if (evaluator.roleId === 4 && evaluator.jurorCategory) {
-        return `jurado ${String(evaluator.jurorCategory).toLowerCase()}`;
-      }
-      return 'evaluador';
+      expect((service as any).jurorRoleId).toBe(jurorRoleId);
+      expect((service as any).professorRoleId).toBe(professorRoleId);
+      expect((service as any).confirmedStatusId).toBe(confirmedStatusId);
+      expect(prismaMock.role.findFirst).toHaveBeenCalledTimes(2);
+      expect(prismaMock.videogameStatus.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it('debe lanzar InternalServerErrorException si no existe el rol Jurado', async () => {
+      prismaMock.role.findFirst.mockResolvedValueOnce(null);
+
+      await expect(service.onModuleInit()).rejects.toThrow(
+        InternalServerErrorException,
+      );
+    });
+
+    it('debe lanzar InternalServerErrorException si no existe el rol Profesor', async () => {
+      prismaMock.role.findFirst
+        .mockResolvedValueOnce({
+          id: jurorRoleId,
+          name: 'Jurado',
+          isActive: true,
+        })
+        .mockResolvedValueOnce(null);
+
+      await expect(service.onModuleInit()).rejects.toThrow(
+        InternalServerErrorException,
+      );
+    });
+
+    it('debe lanzar InternalServerErrorException si no existe estado CONFIRMADO', async () => {
+      prismaMock.role.findFirst
+        .mockResolvedValueOnce({
+          id: jurorRoleId,
+          name: 'Jurado',
+          isActive: true,
+        })
+        .mockResolvedValueOnce({
+          id: professorRoleId,
+          name: 'Profesor',
+          isActive: true,
+        });
+
+      prismaMock.videogameStatus.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.onModuleInit()).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
-  it('debe asignar un SENIOR a colegios y registrar auditoría ASSIGN', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce(seniorProfessor);
-    prismaMock.team.findUnique.mockResolvedValueOnce(colegioTeam);
-    prismaMock.team.findMany.mockResolvedValueOnce([]);
-    prismaMock.$transaction.mockImplementation(async (cb: any) => {
-      const tx = {
-        $executeRaw: jest.fn().mockResolvedValue(1),
-        team: {
-          findUnique: jest.fn().mockResolvedValue(updatedTeamResponse),
-        },
-      };
-      return cb(tx);
-    });
-    auditMock.create.mockResolvedValueOnce({ id: 1, action: 'ASSIGN' });
+  describe('create', () => {
+    it('debe crear un jurado, actualizar sus datos y devolver JurorListItem', async () => {
+      authMock.registerUser.mockResolvedValueOnce({
+        id: baseJuror.id,
+        email: baseJuror.email,
+      });
 
-    const result = await service.assignJurorToTeam(
-      seniorProfessor.id,
-      1,
-      'actor-admin-id',
-    );
+      prismaMock.user.update.mockResolvedValueOnce(baseJuror);
 
-    expect(result.message).toContain('Jurado asignado correctamente');
-    expect(auditMock.create).toHaveBeenCalled();
-    console.log('✅ ASSIGN ok:', result.message);
-  });
-
-  it('debe bloquear un JUNIOR en colegios', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce(juniorJuror);
-    prismaMock.team.findUnique.mockResolvedValueOnce(colegioTeam);
-
-    await expect(
-      service.assignJurorToTeam(juniorJuror.id, 1, 'actor-admin-id'),
-    ).rejects.toThrow(
-      'Los jurados JUNIOR no pueden ser asignados a colegios (nivel 0)',
-    );
-
-    console.log('✅ JUNIOR bloqueado correctamente en colegios');
-  });
-
-  it('debe bloquear asignación duplicada', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce(seniorProfessor);
-    prismaMock.team.findUnique.mockResolvedValueOnce({
-      ...colegioTeam,
-      assignedJurors: [{ id: seniorProfessor.id }],
-    });
-
-    await expect(
-      service.assignJurorToTeam(seniorProfessor.id, 1, 'actor-admin-id'),
-    ).rejects.toThrow(ConflictException);
-
-    console.log('✅ duplicado bloqueado correctamente');
-  });
-
-  it('debe desasignar evaluador y registrar auditoría UNASSIGN', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce(seniorProfessor);
-    prismaMock.team.findUnique.mockResolvedValueOnce({
-      ...colegioTeam,
-      assignedJurors: [{ id: seniorProfessor.id }],
-    });
-
-    prismaMock.$transaction.mockImplementation(async (cb: any) => {
-      const tx = {
-        team: {
-          update: jest.fn().mockResolvedValue({}),
-          findUnique: jest.fn().mockResolvedValue({
+      prismaMock.evaluation.findMany.mockResolvedValueOnce([
+        {
+          videogame: {
             id: 1,
-            teamName: 'Team Colegios Demo',
-            videogame: { id: 1, name: 'Game Colegios Demo' },
-            assignedJurors: [],
-          }),
+            name: 'Juego Evaluado',
+          },
         },
-      };
-      return cb(tx);
+      ]);
+
+      prismaMock.team.findMany.mockResolvedValueOnce([
+        {
+          videogame: {
+            id: 1,
+            name: 'Juego Evaluado',
+          },
+        },
+        {
+          videogame: {
+            id: 2,
+            name: 'Juego Pendiente',
+          },
+        },
+      ]);
+
+      const result = await service.create({
+        firstName: 'Jurado',
+        lastName: 'Prueba',
+        email: baseJuror.email,
+      });
+
+      expect(authMock.registerUser).toHaveBeenCalledWith({
+        email: baseJuror.email,
+      });
+
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: {
+          id: baseJuror.id,
+        },
+        data: {
+          firstName: 'Jurado',
+          lastName: 'Prueba',
+          roleId: jurorRoleId,
+          isActive: true,
+        },
+      });
+
+      expect(result).toEqual({
+        id: baseJuror.id,
+        firstName: baseJuror.firstName,
+        lastName: baseJuror.lastName,
+        email: baseJuror.email,
+        confirmationStatusId: baseJuror.confirmationStatusId,
+        lastSignInAt: baseJuror.lastSignInAt,
+        evaluatedCount: 1,
+        evaluatedGameNames: ['Juego Evaluado'],
+        unevaluatedCount: 1,
+        unevaluatedGameNames: ['Juego Pendiente'],
+      });
     });
 
-    auditMock.create.mockResolvedValueOnce({ id: 2, action: 'UNASSIGN' });
+    it('debe lanzar InternalServerErrorException si registerUser no devuelve id', async () => {
+      authMock.registerUser.mockResolvedValueOnce({
+        email: baseJuror.email,
+      });
 
-    const result = await service.removeJurorFromTeam(
-      seniorProfessor.id,
-      1,
-      'actor-admin-id',
-    );
+      await expect(
+        service.create({
+          firstName: 'Jurado',
+          lastName: 'Prueba',
+          email: baseJuror.email,
+        }),
+      ).rejects.toThrow(InternalServerErrorException);
+    });
 
-    expect(result.message).toContain('desasignado correctamente');
-    expect(auditMock.create).toHaveBeenCalled();
-    console.log('✅ UNASSIGN ok:', result.message);
+    it('debe lanzar InternalServerErrorException si falla la actualización del usuario', async () => {
+      authMock.registerUser.mockResolvedValueOnce({
+        id: baseJuror.id,
+        email: baseJuror.email,
+      });
+
+      prismaMock.user.update.mockRejectedValueOnce(
+        new Error('Database update error'),
+      );
+
+      await expect(
+        service.create({
+          firstName: 'Jurado',
+          lastName: 'Prueba',
+          email: baseJuror.email,
+        }),
+      ).rejects.toThrow(InternalServerErrorException);
+    });
   });
 
-  it('debe reasignar evaluador y registrar auditoría REASSIGN', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+  describe('findAll', () => {
+    it('debe listar jurados paginados con juegos evaluados y pendientes', async () => {
+      const userWithEvaluations = {
+        ...baseJuror,
+        evaluationsSubmitted: [
+          {
+            videogame: {
+              id: 1,
+              name: 'Juego Evaluado',
+            },
+          },
+        ],
+      };
 
-    prismaMock.team.findUnique.mockResolvedValueOnce({
-      ...colegioTeam,
-      assignedJurors: [{ id: seniorProfessor.id, roleId: 3 }],
-      videogame: { id: 1, name: 'Game Colegios Demo' },
+      prismaMock.user.findMany.mockResolvedValueOnce([userWithEvaluations]);
+      prismaMock.user.count.mockResolvedValueOnce(1);
+      prismaMock.team.findMany.mockResolvedValueOnce([
+        {
+          videogame: {
+            id: 1,
+            name: 'Juego Evaluado',
+          },
+          assignedJurors: [
+            {
+              id: baseJuror.id,
+            },
+          ],
+        },
+        {
+          videogame: {
+            id: 2,
+            name: 'Juego Pendiente',
+          },
+          assignedJurors: [
+            {
+              id: baseJuror.id,
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.findAll(false, 10, 1);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe(baseJuror.id);
+      expect(result.data[0].evaluatedGameNames).toEqual(['Juego Evaluado']);
+      expect(result.data[0].unevaluatedGameNames).toEqual(['Juego Pendiente']);
+
+      expect(result.metadata).toEqual({
+        totalItems: 1,
+        itemsOnCurrentPage: 1,
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalPages: 1,
+      });
+    });
+  });
+
+  describe('findOne', () => {
+    it('debe devolver un jurado activo por id', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
+
+      const result = await service.findOne(baseJuror.id);
+
+      expect(result).toEqual(baseJuror);
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+        where: {
+          id: baseJuror.id,
+        },
+      });
     });
 
-    prismaMock.team.findMany.mockResolvedValueOnce([]);
+    it('debe lanzar NotFoundException si el usuario no existe', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
 
-    prismaMock.$transaction.mockImplementation(async (cb: any) => {
-      const tx = {
-        team: {
-          update: jest.fn().mockResolvedValue({}),
-          findUnique: jest.fn().mockResolvedValue({
+      await expect(service.findOne('no-existe')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe lanzar NotFoundException si el usuario no es jurado', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        roleId: professorRoleId,
+      });
+
+      await expect(service.findOne(baseJuror.id)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe lanzar NotFoundException si el jurado está inactivo', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        isActive: false,
+      });
+
+      await expect(service.findOne(baseJuror.id)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('update', () => {
+    it('debe actualizar un jurado e invalidar caché', async () => {
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(baseJuror)
+        .mockResolvedValueOnce(null);
+
+      const updatedJuror = {
+        ...baseJuror,
+        firstName: 'Jurado Actualizado',
+        email: 'jurado.actualizado@uninorte.edu.co',
+      };
+
+      prismaMock.user.update.mockResolvedValueOnce(updatedJuror);
+
+      prismaMock.evaluation.findMany.mockResolvedValueOnce([]);
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.update(baseJuror.id, {
+        firstName: 'Jurado Actualizado',
+        email: 'jurado.actualizado@uninorte.edu.co',
+      });
+
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: {
+          id: baseJuror.id,
+        },
+        data: {
+          firstName: 'Jurado Actualizado',
+          email: 'jurado.actualizado@uninorte.edu.co',
+        },
+      });
+
+      expect(authMock.invalidateUserProfileCache).toHaveBeenCalledWith(
+        baseJuror.id,
+      );
+
+      expect(result.firstName).toBe('Jurado Actualizado');
+      expect(result.email).toBe('jurado.actualizado@uninorte.edu.co');
+    });
+
+    it('debe lanzar ConflictException si el correo ya pertenece a otro usuario', async () => {
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce(baseJuror)
+        .mockResolvedValueOnce({
+          id: 'otro-user-id',
+          email: 'repetido@uninorte.edu.co',
+        });
+
+      await expect(
+        service.update(baseJuror.id, {
+          email: 'repetido@uninorte.edu.co',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('debe eliminar un jurado e invalidar caché', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
+      prismaMock.user.delete.mockResolvedValueOnce(baseJuror);
+
+      const result = await service.remove(baseJuror.id);
+
+      expect(authMock.invalidateUserProfileCache).toHaveBeenCalledWith(
+        baseJuror.id,
+      );
+
+      expect(prismaMock.user.delete).toHaveBeenCalledWith({
+        where: {
+          id: baseJuror.id,
+        },
+      });
+
+      expect(result).toEqual(baseJuror);
+    });
+  });
+
+  describe('getEvaluatorsWithTeams', () => {
+    it('debe agrupar jurados con sus equipos asignados', async () => {
+      prismaMock.team.findMany.mockResolvedValueOnce([
+        {
+          id: 1,
+          teamName: 'Equipo AYP Dev',
+          videogame: {
             id: 1,
-            teamName: 'Team Colegios Demo',
-            videogame: { id: 1, name: 'Game Colegios Demo' },
-            assignedJurors: [
-              {
-                id: seniorJuror.id,
-                firstName: 'Jurado',
-                lastName: 'Senior 1',
-                email: 'juradosenior1@uninorte.edu.co',
+            name: 'Juego AYP',
+          },
+          assignedJurors: [
+            {
+              id: baseJuror.id,
+              firstName: baseJuror.firstName,
+              lastName: baseJuror.lastName,
+              email: baseJuror.email,
+              role: {
+                name: 'Jurado',
               },
-            ],
-          }),
+            },
+          ],
         },
-      };
-      return cb(tx);
+        {
+          id: 2,
+          teamName: 'Equipo AYP2 Dev',
+          videogame: {
+            id: 2,
+            name: 'Juego AYP2',
+          },
+          assignedJurors: [
+            {
+              id: baseJuror.id,
+              firstName: baseJuror.firstName,
+              lastName: baseJuror.lastName,
+              email: baseJuror.email,
+              role: {
+                name: 'Jurado',
+              },
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.getEvaluatorsWithTeams();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        id: baseJuror.id,
+        nombre: 'Jurado Prueba',
+        tipo: 'Jurado',
+        email: baseJuror.email,
+        equiposAsignados: [
+          {
+            id: 1,
+            nombre: 'Equipo AYP Dev',
+            videojuego: 'Juego AYP',
+          },
+          {
+            id: 2,
+            nombre: 'Equipo AYP2 Dev',
+            videojuego: 'Juego AYP2',
+          },
+        ],
+        cantidadEquipos: 2,
+      });
     });
-
-    auditMock.create.mockResolvedValueOnce({ id: 3, action: 'REASSIGN' });
-
-    const result = await service.reassignJurorOnTeam(
-      seniorProfessor.id,
-      seniorJuror.id,
-      1,
-      'actor-admin-id',
-    );
-
-    expect(result.message).toContain('reasignado correctamente');
-    expect(auditMock.create).toHaveBeenCalled();
-    console.log('✅ REASSIGN ok:', result.message);
   });
 
-  it('debe eliminar todas las asignaciones y registrar UNASSIGN_ALL', async () => {
-    prismaMock.team.findMany.mockResolvedValueOnce([
-      {
+  describe('getTeamsAssignedToJuror', () => {
+    it('debe devolver los equipos asignados a un jurado', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        role: {
+          name: 'Jurado',
+        },
+      });
+
+      prismaMock.team.findMany.mockResolvedValueOnce([
+        {
+          id: 1,
+          teamName: 'Equipo AYP Dev',
+          videogame: {
+            id: 1,
+            name: 'Juego AYP',
+            description: 'Videojuego AYP dev',
+          },
+          user: {
+            id: 'leader-1',
+            firstName: 'Líder',
+            lastName: 'Equipo',
+            email: 'lider@uninorte.edu.co',
+          },
+          assignedJurors: [
+            {
+              id: baseJuror.id,
+              firstName: baseJuror.firstName,
+              lastName: baseJuror.lastName,
+              email: baseJuror.email,
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.getTeamsAssignedToJuror(baseJuror.id);
+
+      expect(result).toEqual([
+        {
+          id: 1,
+          nombre: 'Equipo AYP Dev',
+          videojuego: {
+            id: 1,
+            nombre: 'Juego AYP',
+            descripcion: 'Videojuego AYP dev',
+          },
+          lider: {
+            id: 'leader-1',
+            nombre: 'Líder Equipo',
+            email: 'lider@uninorte.edu.co',
+          },
+          juradosAsignados: [
+            {
+              id: baseJuror.id,
+              nombre: 'Jurado Prueba',
+              email: baseJuror.email,
+            },
+          ],
+          cantidadJurados: 1,
+        },
+      ]);
+    });
+
+    it('debe lanzar NotFoundException si el jurado no existe o está inactivo', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getTeamsAssignedToJuror('no-existe'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar error si el usuario no es jurado', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        roleId: professorRoleId,
+        role: {
+          name: 'Profesor',
+        },
+      });
+
+      await expect(
+        service.getTeamsAssignedToJuror(baseJuror.id),
+      ).rejects.toThrow('El usuario no es un jurado');
+    });
+  });
+
+  describe('getTeamEvaluationStats', () => {
+    it('debe devolver cantidad de jurados asignados y jurados que evaluaron', async () => {
+      prismaMock.team.findUnique.mockResolvedValueOnce({
         id: 1,
-        assignedJurors: [{ id: seniorProfessor.id }],
-      },
-    ]);
-
-    prismaMock.$transaction.mockImplementation(async (cb: any) => {
-      const tx = {
-        team: {
-          update: jest.fn().mockResolvedValue({}),
+        videogame: {
+          id: 10,
         },
-      };
-      return cb(tx);
-    });
+        assignedJurors: [
+          {
+            id: 'juror-1',
+          },
+          {
+            id: 'juror-2',
+          },
+        ],
+      });
 
-    auditMock.create.mockResolvedValueOnce({ id: 4, action: 'UNASSIGN_ALL' });
+      prismaMock.evaluation.count.mockResolvedValueOnce(1);
 
-    const result = await service.removeAllJurorAssignments('actor-admin-id');
+      const result = await service.getTeamEvaluationStats(1);
 
-    expect(result.asignacionesEliminadas).toBe(1);
-    expect(auditMock.create).toHaveBeenCalled();
-    console.log('✅ UNASSIGN_ALL ok:', result);
-  });
+      expect(result).toEqual({
+        totalJurorsAssigned: 2,
+        jurorsWhoEvaluated: 1,
+      });
 
-  it('debe eliminar todas las asignaciones de un evaluador y registrar UNASSIGN_ALL_FROM_EVALUATOR', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce({
-      id: seniorProfessor.id,
-      isActive: true,
-      roleId: 3,
-      firstName: 'Profesor',
-      lastName: 'Colegios',
-      email: 'profesorcolegios@uninorte.edu.co',
-      teamsToEvaluate: [{ id: 1 }],
-      role: { name: 'Profesor' },
-    });
-
-    prismaMock.$transaction.mockImplementation(async (cb: any) => {
-      const tx = {
-        team: {
-          update: jest.fn().mockResolvedValue({}),
+      expect(prismaMock.evaluation.count).toHaveBeenCalledWith({
+        where: {
+          videogameId: 10,
+          jurorId: {
+            in: ['juror-1', 'juror-2'],
+          },
+          isActive: true,
         },
-      };
-      return cb(tx);
+      });
     });
 
-    auditMock.create.mockResolvedValueOnce({
-      id: 5,
-      action: 'UNASSIGN_ALL_FROM_EVALUATOR',
+    it('debe devolver 0 evaluaciones si el equipo no tiene videojuego', async () => {
+      prismaMock.team.findUnique.mockResolvedValueOnce({
+        id: 1,
+        videogame: null,
+        assignedJurors: [
+          {
+            id: 'juror-1',
+          },
+        ],
+      });
+
+      const result = await service.getTeamEvaluationStats(1);
+
+      expect(result).toEqual({
+        totalJurorsAssigned: 1,
+        jurorsWhoEvaluated: 0,
+      });
+
+      expect(prismaMock.evaluation.count).not.toHaveBeenCalled();
     });
 
-    const result = await service.removeAllAssignmentsFromJuror(
-      seniorProfessor.id,
-      'actor-admin-id',
-    );
+    it('debe lanzar NotFoundException si el equipo no existe', async () => {
+      prismaMock.team.findUnique.mockResolvedValueOnce(null);
 
-    expect(result.asignacionesEliminadas).toBe(1);
-    expect(auditMock.create).toHaveBeenCalled();
-    console.log('✅ UNASSIGN_ALL_FROM_EVALUATOR ok:', result);
-  });
-
-  it('debe devolver 0 si removeAllJurorAssignments no encuentra asignaciones', async () => {
-    prismaMock.team.findMany.mockResolvedValueOnce([]);
-
-    const result = await service.removeAllJurorAssignments('actor-admin-id');
-
-    expect(result.asignacionesEliminadas).toBe(0);
-    console.log('✅ removeAllJurorAssignments sin datos ok');
-  });
-
-  it('debe devolver 0 si removeAllAssignmentsFromJuror no encuentra equipos', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce({
-      id: seniorProfessor.id,
-      isActive: true,
-      roleId: 3,
-      firstName: 'Profesor',
-      lastName: 'Colegios',
-      email: 'profesorcolegios@uninorte.edu.co',
-      teamsToEvaluate: [],
-      role: { name: 'Profesor' },
+      await expect(service.getTeamEvaluationStats(999)).rejects.toThrow(
+        NotFoundException,
+      );
     });
-
-    const result = await service.removeAllAssignmentsFromJuror(
-      seniorProfessor.id,
-      'actor-admin-id',
-    );
-
-    expect(result.asignacionesEliminadas).toBe(0);
-    console.log('✅ removeAllAssignmentsFromJuror sin datos ok');
-  });
-
-  it('debe lanzar NotFound si el evaluador no existe al desasignar', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce(null);
-
-    await expect(
-      service.removeJurorFromTeam('no-existe', 1, 'actor-admin-id'),
-    ).rejects.toThrow(NotFoundException);
-
-    console.log('✅ NotFound en removeJurorFromTeam ok');
   });
 });
