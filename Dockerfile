@@ -42,9 +42,14 @@ WORKDIR /usr/src/app
 
 # Copiar solo lo necesario
 COPY --from=builder /usr/src/app/dist ./dist
+
 COPY --from=builder /usr/src/app/package.json ./
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+
+# Templates y certificados
+COPY --from=builder /usr/src/app/src/email/templates ./dist/src/email/templates
+COPY --from=builder /usr/src/app/src/certificates/assets ./dist/src/certificates/assets
 
 # Copiar directorio de prisma para las migraciones Y el archivo de seeding
 COPY --from=builder /usr/src/app/prisma ./prisma
