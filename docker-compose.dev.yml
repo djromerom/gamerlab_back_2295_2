@@ -81,7 +81,6 @@ services:
       - node_modules_dev:/usr/src/app/node_modules
     command: >
       sh -c "
-        set -e &&
         echo 'Installing Chromium for Puppeteer...' &&
         apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont &&
         echo 'Installing dependencies...' &&

@@ -7,18 +7,21 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CertificatesService } from 'src/certificates/certificates.service';
 import { TeamEmailType, TEAM_EMAIL_CONFIG } from './types/team-email.type';
 import { AuthEmailType, AUTH_EMAIL_CONFIG } from './types/email-type.type';
 import { ConfigService } from '@nestjs/config';
-import { EmailClient } from '@azure/communication-email';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as handlebars from 'handlebars';
 import { randomUUID } from 'node:crypto';
 import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
+
+import { EmailClient } from '@azure/communication-email';
+import { RestError } from '@azure/core-rest-pipeline';
 
 @Injectable()
 export class EmailService {
@@ -391,18 +394,22 @@ export class EmailService {
   ): Promise<void> {
     try {
       this.logger.log(
-        `[EmailService] Compilando plantilla local: ${templateName}.hbs`,
+        `Compilando plantilla local: ${templateName}.hbs`,
       );
 
       // PASO 1: Ubicación Física del diseño.
-      // Construimos de forma absoluta la ruta a nuestra carpeta local `src/email/templates/`.
+      // __dirname apunta al directorio del archivo en ejecución:
+      //   - dev (ts-node):  .../src/email  → src/email/templates/<name>.hbs
+      //   - prod (node):    .../dist/src/email → dist/src/email/templates/<name>.hbs
+      // La configuración en nest-cli.json garantiza que los .hbs estén en 
+      // dist/src/email/templates/ tras cualquier build o start:dev.
       const tplPath = path.join(
-        process.cwd(),
-        'src/email/templates',
+        __dirname,
+        'templates',
         `${templateName}.hbs`,
       );
 
-      // Cerciórate de que el archivo existe en disco para no mandar un mail vacío o quebrar la API.
+      // Verificar que el archivo existe en disco para no mandar un mail vacío o quebrar la API.
       if (!fs.existsSync(tplPath)) {
         throw new InternalServerErrorException(
           `No se encontró el diseño en: ${tplPath}`,
@@ -439,9 +446,20 @@ export class EmailService {
 
         // Poller de larga duración: ACS toma el pedido y esperamos hasta que termine su cola nativa.
         const poller = await this.emailClient.beginSend(message);
-        await poller.pollUntilDone();
+        const result = await poller.pollUntilDone();
 
-        this.logger.log(`✅ ¡Éxito! Correo disparado vía Azure ACS.`);
+        // Verificación de que el correo se envió correctamente
+        if (!result || result.status !== 'Succeeded') {
+          this.logger.error(
+            `[ACS] Envío no exitoso: ${result?.status}`,
+          );
+
+          throw new ServiceUnavailableException(
+            `ACS terminó con estado: ${result?.status ?? 'unknown'}`,
+          );
+        }
+
+        this.logger.log(`✅ Correo disparado vía Azure ACS.`);
       } else {
         // En ambiente DEV pre-llaves, esto "imita" el éxito para no frenar tu QA Local.
         this.logger.warn(
@@ -449,12 +467,46 @@ export class EmailService {
         );
       }
     } catch (error) {
+
+      // Timeouts y cancelaciones del poller de ACS (ej. red lenta, ACS no responde a tiempo)
+      // No se reintenta: el riesgo de duplicar un correo supera el beneficio.
+      const isTimeout =
+        (error instanceof Error && error.name === 'AbortError') ||
+        (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT') ||
+        (error instanceof RestError && (
+          error.code === 'REQUEST_SEND_ERROR' ||
+          error.statusCode === 408 ||
+          error.statusCode === 504
+        ));
+
+      if (isTimeout) {
+
+      }
+
+      // RestErrors de ACS
+      if (error instanceof RestError) {
+
+        if (error.code === 'ETIMEDOUT') {
+          this.logger.warn(`[ACS] Timeout al enviar correo a ${to}.`, error.stack);
+          throw new ServiceUnavailableException('El servicio de correo provocó un timeout. Intenta de nuevo en unos instantes.');
+        }
+
+        this.logger.error(`Error de ACS con codigo ${error.code}`, error.stack);
+        throw new ServiceUnavailableException(`Fallo en ACS: ${error.code ?? 'unknown'}`);
+      }
+
+      // Re-throw
+      if (error instanceof ServiceUnavailableException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
+
+      // Errores inesperados
       this.logger.error(
-        `Excepción capturada enviando correo vía ACS: ${error instanceof Error ? error.message : String(error)}`,
+        `Error inesperado enviando correo: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
-        'Desvío capturado en el envio local/externo de correos.',
+        'Error inesperado enviando correo',
       );
     }
   }
