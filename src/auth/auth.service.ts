@@ -17,7 +17,7 @@ import { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { CacheService } from 'src/cache/cache.service';
+import { CacheService } from '../cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
 import { AuthEmailType } from '../email/types/email-type.type';
 import { LoginType } from './types/login-type.type';
@@ -60,7 +60,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly httpService: HttpService,
     private readonly emailService: EmailService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     this.logger.log(

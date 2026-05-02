@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configService : ConfigService = app.get(ConfigService);
+  const configService: ConfigService = app.get(ConfigService);
   app.use(cookieParser());
 
   app.useGlobalPipes(new ValidationPipe({
@@ -39,7 +39,7 @@ async function bootstrap() {
         'refresh',
       )
       .build();
-      
+
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
   }
