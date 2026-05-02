@@ -25,7 +25,7 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { AssignJurorToTeamDto } from './dto/assign-juror-to-team.dto';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
-import { RequiredService } from '../auth/decorators/required-service.decorator'; // Por ejemplo este modulo podemos usarlo en UseGUard para indicar que requiere de este modulo o incluso en Required Service, pero no es estrictamente necesario, igual es buena practica
+import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
@@ -83,18 +83,15 @@ export class JurorController {
     description: 'No se encontraron equipos con formato de nivel válido',
     schema: {
       example: {
-        message:
-          'No se encontraron equipos con formato de nivel válido (N<número>-...)',
+        message: 'No se encontraron equipos con formato de nivel válido (N<número>-...)',
       },
     },
   })
   @ApiUnauthorizedResponse({ description: 'No autenticado' })
-  @ApiForbiddenResponse({
-    description: 'No tiene permisos para asignar jurados',
-  })
+  @ApiForbiddenResponse({ description: 'No tiene permisos para asignar jurados' })
   @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
   AsignEvaluations() {
-    return this.jurorService.autoAssignJurors();
+    return this.jurorService.asingEvaluations();
   }
 
   @Post()
@@ -108,10 +105,7 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('SendEmail')
   async resendConfirmation(@Body('email') email: string) {
-    return await this.authService.resendAuthEmailOfType(
-      email,
-      'VERIFICACION_EMAIL',
-    );
+    return await this.authService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL');
   }
 
   @Get('evaluators')
@@ -125,10 +119,7 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
   assignJurorToTeam(@Body() assignDto: AssignJurorToTeamDto) {
-    return this.jurorService.assignJurorToTeam(
-      assignDto.jurorId,
-      assignDto.teamId,
-    );
+    return this.jurorService.assignJurorToTeam(assignDto.jurorId, assignDto.teamId);
   }
 
   @Delete('assignments/all')
@@ -149,10 +140,7 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
   removeJurorFromTeam(@Body() assignDto: AssignJurorToTeamDto) {
-    return this.jurorService.removeJurorFromTeam(
-      assignDto.jurorId,
-      assignDto.teamId,
-    );
+    return this.jurorService.removeJurorFromTeam(assignDto.jurorId, assignDto.teamId);
   }
 
   @Get()
@@ -168,8 +156,7 @@ export class JurorController {
   @Get('teams/:teamId/evaluation-stats')
   @ApiOperation({
     summary: 'Obtener estadísticas de evaluación de un equipo',
-    description:
-      'Devuelve la cantidad de jurados asignados a un equipo y cuántos de ellos ya han calificado el videojuego del equipo',
+    description: 'Devuelve la cantidad de jurados asignados a un equipo y cuántos de ellos ya han calificado el videojuego del equipo',
   })
   @ApiOkResponse({
     description: 'Estadísticas de evaluación del equipo',

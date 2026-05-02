@@ -139,21 +139,20 @@ export class AuthService {
       // Initialize Microsoft Entra ID configuration
       const tenantId = this.configService.get<string>('AZURE_TENANT_ID');
       const clientId = this.configService.get<string>('AZURE_CLIENT_ID');
-      const clientSecret = this.configService.get<string>(
-        'AZURE_CLIENT_SECRET',
-      );
+      const clientSecret = this.configService.get<string>('AZURE_CLIENT_SECRET');
       const redirectUri = this.configService.get<string>('REDIRECT_URI');
 
       if (!tenantId || !clientId || !clientSecret || !redirectUri) {
         throw new InternalServerErrorException(
           `FATAL: Configuration error during onModuleInit - Microsoft Entra ID variables not found. Application might not function correctly`,
-        );
+        )
       }
 
       this.tenantId = tenantId;
       this.clientId = clientId;
       this.clientSecret = clientSecret;
       this.redirectUri = redirectUri;
+
     } catch (error) {
       if (error instanceof Error)
         this.logger.error(
@@ -167,29 +166,23 @@ export class AuthService {
   /**
    * Resets token expiration for a user's verification or reset password token
    */
-  async resetTokenExpiration(
-    userId: string,
-    typeOfToken: AuthEmailType,
-  ): Promise<void> {
+  async resetTokenExpiration(userId: string, typeOfToken: AuthEmailType): Promise<void> {
     try {
       // Find the appropriate token type
-      const tokenTypeId =
-        typeOfToken === 'VERIFICACION_EMAIL'
-          ? this.verificationTokenId
-          : this.resetPasswordTokenId;
-
+      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
+        ? this.verificationTokenId
+        : this.resetPasswordTokenId;
+      
       const token = await this.prisma.verificationToken.findFirst({
         where: {
           userId: userId,
           tokenTypeId: tokenTypeId,
         },
       });
-
+      
       if (!token) {
         this.logger.warn(`No verification token found for this user`);
-        throw new NotFoundException(
-          'No verification token found for this user.',
-        );
+        throw new NotFoundException('No verification token found for this user.');
       }
 
       const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
@@ -209,12 +202,8 @@ export class AuthService {
       this.logger.log(`Token expiration reset for user ${userId}`);
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
-      this.logger.error(
-        `Failed to reset token expiration: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        'Failed to reset token expiration.',
-      );
+      this.logger.error(`Failed to reset token expiration: ${error instanceof Error ? error.message : String(error)}`);
+      throw new InternalServerErrorException('Failed to reset token expiration.');
     }
   }
 
@@ -265,7 +254,7 @@ export class AuthService {
           password: hashedPassword,
           confirmationStatusId: this.confirmedStatusId,
           isActive: true,
-          authMethod: 'PASSWORD',
+          authMethod: 'PASSWORD'
         },
       });
 
@@ -349,18 +338,14 @@ export class AuthService {
       this.logger.warn(
         `Token expired: ${tokenString.substring(0, 8)}... for user ${storedToken.userId}`,
       );
-      throw new BadRequestException(
-        'This link has expired. Please request a new one.',
-      );
+      throw new BadRequestException('This link has expired. Please request a new one.');
     }
 
     if (expectedTokenType && storedToken.type.type !== expectedTokenType) {
       this.logger.warn(
         `Token type mismatch for ${tokenString.substring(0, 8)}... Expected ${expectedTokenType}, got ${storedToken.type.type}`,
       );
-      throw new BadRequestException(
-        'This link cannot be used for this purpose.',
-      );
+      throw new BadRequestException('This link cannot be used for this purpose.');
     }
 
     this.logger.log(
@@ -410,7 +395,7 @@ export class AuthService {
   // Private method with the actual user registration logic
   private async registerUserInternal(
     registerDto: RegisterDto,
-    tx: Prisma.TransactionClient,
+    tx: Prisma.TransactionClient
   ): Promise<User> {
     try {
       // Check if user already exists within transaction
@@ -470,10 +455,9 @@ export class AuthService {
         this.sendVerificationEmail(registerDto.email, verificationToken);
       });
 
-      this.logger.log(
-        `User registered successfully within transaction: ${user.email}`,
-      );
+      this.logger.log(`User registered successfully within transaction: ${user.email}`);
       return user;
+
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -487,23 +471,12 @@ export class AuthService {
   }
 
   // Helper method to send verification email
-  private async sendVerificationEmail(
-    email: string,
-    verificationToken: string,
-  ): Promise<{ message: string }> {
-    return this.emailService.resendAuthEmailOfType(
-      email,
-      'VERIFICACION_EMAIL',
-      verificationToken,
-    );
+  private async sendVerificationEmail(email: string, verificationToken: string): Promise<{ message: string }> {
+    return this.emailService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL', verificationToken);
   }
 
   // done locally
-  async login(
-    loginDto: LoginDto,
-    logintType: LoginType,
-    res: Response,
-  ): Promise<{ message: string; access: string; refresh: string }> {
+  async login(loginDto: LoginDto, logintType: LoginType, res: Response): Promise<{ message: string, access: string; refresh: string }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
 
     // Find user in local database
@@ -554,8 +527,7 @@ export class AuthService {
         );
         throw new UnauthorizedException('Invalid credentials.');
       }
-    } else {
-      // loginType == 'ENTRA_ID'
+    } else { // loginType == 'ENTRA_ID'
       if (user.authMethod !== 'ENTRA_ID') {
         this.logger.warn(
           `Login attempt failed: User ${loginDto.email} does not use Entra ID authentication`,
@@ -571,10 +543,7 @@ export class AuthService {
       }
 
       // Additional validation: verify the Microsoft OID matches if provided in loginDto
-      if (
-        loginDto.microsoftOid &&
-        user.microsoftOid !== loginDto.microsoftOid
-      ) {
+      if (loginDto.microsoftOid && user.microsoftOid !== loginDto.microsoftOid) {
         this.logger.warn(
           `Login attempt failed: Microsoft account mismatch for user: ${loginDto.email}`,
         );
@@ -604,11 +573,7 @@ export class AuthService {
 
     this.updateLastSignIn(loginDto.email);
 
-    return {
-      message: 'Login successful',
-      access: accessToken,
-      refresh: refreshToken,
-    };
+    return { message: 'Login successful', access: accessToken, refresh: refreshToken };
   }
 
   async updateLastSignIn(emailUser: string) {
@@ -665,7 +630,7 @@ export class AuthService {
     const response = await firstValueFrom(
       this.httpService.post(tokenEndpoint, data.toString(), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      }),
+      })
     );
 
     return response.data;
@@ -679,14 +644,14 @@ export class AuthService {
    * @returns The result of the login process. 201 if succesful.
    */
   async handleMicrosoftCallback(code: string, res: Response) {
-    try {
+    try{
       // Exchange code for Microsoft tokens and extract user info
       const microsoftTokens = await this.exchangeCodeForToken(code);
       const userInfo = this.parseIdToken(microsoftTokens.id_token);
-
+      
       // Check if user exists
       const user = await this.prisma.user.findUnique({
-        where: { email: userInfo.email },
+        where: { email: userInfo.email }
       });
 
       if (!user) {
@@ -702,7 +667,7 @@ export class AuthService {
             microsoftOid: userInfo.oid,
             isActive: true,
             confirmationStatusId: this.confirmedStatusId,
-          },
+          }
         });
         await this.prisma.verificationToken.deleteMany({
           where: {
@@ -710,16 +675,12 @@ export class AuthService {
             tokenTypeId: this.verificationTokenId,
           },
         });
-        this.logger.log(
-          `First-time Entra ID setup completed for user: ${user.email}`,
-        );
+        this.logger.log(`First-time Entra ID setup completed for user: ${user.email}`);
       }
 
       // Use existing login method with Entra ID
       await this.login(
-        { email: userInfo.email, microsoftOid: userInfo.oid },
-        'ENTRA_ID',
-        res,
+        { email: userInfo.email, microsoftOid: userInfo.oid }, 'ENTRA_ID', res
       );
 
       // Successful login - redirect to frontend
@@ -730,8 +691,7 @@ export class AuthService {
       return res.redirect(`${REDIRECT_TO}/inicio`);
     } catch (error) {
       // Log the error details
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error('Microsoft authentication failed:', {
         error: errorMessage,
@@ -740,10 +700,7 @@ export class AuthService {
       });
 
       // Redirect to error page with specific error info
-      const errorType =
-        error instanceof UnauthorizedException
-          ? 'unauthorized'
-          : 'server_error';
+      const errorType = error instanceof UnauthorizedException ? 'unauthorized' : 'server_error';
       const REDIRECT_TO = this.configService.get<string>(
         'FRONTEND_URL',
         `http://localhost:5173`,
@@ -758,9 +715,7 @@ export class AuthService {
    * @returns An object containing the user's OID, email, and name
    */
   private parseIdToken(idToken: string) {
-    const payload = JSON.parse(
-      Buffer.from(idToken.split('.')[1], 'base64').toString(),
-    );
+    const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
     return {
       oid: payload.oid,
       email: payload.email || payload.unique_name || payload.preferred_username,
@@ -961,49 +916,48 @@ export class AuthService {
     access_token: string,
     refresh_token: string,
   ) {
-    // Parse environment variables safely, falling back to defaults if empty
-    const envAccess = this.configService.get<string>(
-      'ACCESS_TOKEN_EXPIRATION_MINUTES',
-    );
-    const envRefresh = this.configService.get<string>(
-      'REFRESH_TOKEN_EXPIRATION_DAYS',
-    );
-
-    const accessMin = envAccess ? parseInt(envAccess, 10) : 15;
-    const refreshDays = envRefresh ? parseInt(envRefresh, 10) : 7;
-
-    const accessTokenMaxAge = accessMin * 1000 * 60;
-    const refreshTokenMaxAge = refreshDays * 1000 * 60 * 60 * 24;
+    const secure = this.configService.get<string>('NODE_ENV') !== 'development';
+    const accessTokenMaxAge =
+      this.configService.get<number>('ACCESS_TOKEN_EXPIRATION_MINUTES', 15) *
+      1000 *
+      60; // So if 15 minutes -> 15*60*1000 = 900.000 seconds
+    const refreshTokenMaxAge =
+      this.configService.get<number>('REFRESH_TOKEN_EXPIRATION_DAYS', 7) *
+      1000 *
+      60 *
+      60 *
+      24; // So if 7 days -> 1000*(60^2)*24*7 = 604.800.000 seconds
 
     res.cookie(ACCESS_TOKEN_COOKIE, access_token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: secure,
+      sameSite: 'lax',
       maxAge: accessTokenMaxAge,
       path: '/',
     });
 
     res.cookie(REFRESH_TOKEN_COOKIE, refresh_token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: secure,
+      sameSite: 'lax',
       maxAge: refreshTokenMaxAge,
-      path: '/',
+      path: '/auth/refresh',
     });
   }
 
   private clearAuthCookies(res: Response) {
+    const secure = this.configService.get<string>('NODE_ENV') !== 'development';
     res.clearCookie(ACCESS_TOKEN_COOKIE, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: secure,
+      sameSite: 'lax',
       path: '/',
     });
     res.clearCookie(REFRESH_TOKEN_COOKIE, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
+      secure: secure,
+      sameSite: 'lax',
+      path: '/auth/refresh',
     });
   }
 
