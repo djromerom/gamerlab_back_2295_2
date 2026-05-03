@@ -9,12 +9,16 @@ import {
 import { CreateVideogameDto } from './dto/create-videogame.dto';
 import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { VideogamesGateway } from './videogames.gateway';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class VideogamesService {
   private readonly logger = new Logger(VideogamesService.name);
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private gateway: VideogamesGateway,
+  ) {}
 
   private readonly MAX_LIKES_LOGO_ONLY = 20;
   private readonly MAX_LIKES_NO_CONTENT = 10;
@@ -139,7 +143,9 @@ export class VideogamesService {
         where: { videogameId_userId: { videogameId, userId } },
       });
 
-      return { liked: false, likeCount: currentLikes - 1 };
+      const newCount = currentLikes - 1;
+      this.gateway.emitLikesUpdate(videogameId, newCount);
+      return { liked: false, likeCount: newCount };
     }
 
     // ── LIKE ──────────────────────────────────────────────────────────────
@@ -167,7 +173,9 @@ export class VideogamesService {
         data: { videogameId, userId },
       });
 
-      return { liked: true, likeCount: currentLikes + 1 };
+      const newCount = currentLikes + 1;
+      this.gateway.emitLikesUpdate(videogameId, newCount);
+      return { liked: true, likeCount: newCount };
     } catch (error) {
       // Two simultaneous requests passed findUnique check — DB unique constraint wins
       if (
