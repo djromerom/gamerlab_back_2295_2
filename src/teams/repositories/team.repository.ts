@@ -177,7 +177,7 @@ export class TeamRepository implements ITeamRepository {
     ];
 
     if (sortByLikes) {
-      orderBy.push({ videogame: { likes: 'desc' } });
+      orderBy.push({ videogame: { likedBy: { _count: 'desc' } } });
       orderBy.push({ registrationDate: 'asc' });
     } else {
       orderBy.push({ id: 'asc' });
@@ -186,7 +186,13 @@ export class TeamRepository implements ITeamRepository {
     return this.prisma.team.findMany({
       orderBy: orderBy,
       include: {
-        videogame: true,
+        videogame: {
+          include: {
+            _count: {
+              select: { likedBy: true }
+            }
+          }
+        },
         members: {
           orderBy: { id: 'asc' },
         },
@@ -217,7 +223,7 @@ export class TeamRepository implements ITeamRepository {
     ];
 
     if (sortByLikes) {
-      orderBy.push({ videogame: { likes: 'desc' } });
+      orderBy.push({ videogame: { likedBy: { _count: 'desc' } } });
       orderBy.push({ registrationDate: 'asc' });
     } else {
       orderBy.push({ id: 'asc' });
@@ -236,7 +242,13 @@ export class TeamRepository implements ITeamRepository {
             },
             orderBy: { id: 'asc' },
           },
-          videogame: true,
+          videogame: {
+            include: {
+              _count: {
+                select: { likedBy: true }
+              }
+            }
+          },
         },
       }),
       this.prisma.team.count(),
@@ -277,7 +289,9 @@ export class TeamRepository implements ITeamRepository {
         videoUrl: true,
         repoUrl: true,
         additionalImages: true,
-        likes: true,
+        _count: {
+          select: { likedBy: true },
+        },
         videogameStatus: {
           select: {
             id: true,
