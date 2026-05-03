@@ -173,6 +173,7 @@ model User {
   confirmationStatus   ConfirmationStatus @relation(fields: [confirmationStatusId], references: [id])
   role                 Role               @relation(fields: [roleId], references: [id])
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
+  likedVideogames      VideogameLike[]
 
   @@map("usuarios")
 }
@@ -235,7 +236,6 @@ model Videogame {
   repoUrl           String?         @map("repo_url")
   videoUrl          String?         @map("video_url")
   additionalImages  String[]        @default([]) @map("imagenes_adicionales")
-  likes             Int             @default(0) @map("likes")
   evaluations       Evaluation[]
   likedBy           VideogameLike[]
   team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -247,12 +247,13 @@ model Videogame {
 model VideogameLike {
   id          Int      @id @default(autoincrement())
   videogameId Int      @map("id_videojuego")
-  visitorId   String   @map("visitor_id") @db.VarChar(128)
+  userId      String   @map("user_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
   videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([videogameId, visitorId])
+  @@unique([videogameId, userId])
   @@map("videogame_likes")
 }
 
