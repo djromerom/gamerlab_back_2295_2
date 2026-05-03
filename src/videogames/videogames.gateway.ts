@@ -3,12 +3,16 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
-  cors: { origin: '*' }, // public data — no restriction on origin
+  cors: {
+    origin: true, // Coherente con app.enableCors() en main.ts
+    credentials: true,
+  },
 })
 export class VideogamesGateway
   implements OnGatewayConnection, OnGatewayDisconnect {
@@ -25,14 +29,26 @@ export class VideogamesGateway
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
+  @SubscribeMessage('subscribe:likes')
+  handleSubscribeLikes(client: Socket) {
+    client.join('likes_room');
+    this.logger.debug(`Client ${client.id} joined likes_room`);
+  }
+
+  @SubscribeMessage('unsubscribe:likes')
+  handleUnsubscribeLikes(client: Socket) {
+    client.leave('likes_room');
+    this.logger.debug(`Client ${client.id} left likes_room`);
+  }
+
   /**
-   * Emits the new like count of a video game to all connected clients.
+   * Emits the new like count of a video game to clients in the 'likes_room'.
    * Called by VideogamesService after each toggle.
    */
   emitLikesUpdate(videogameId: number, likeCount: number): void {
-    this.server.emit('likes:updated', { videogameId, likeCount });
+    this.server.to('likes_room').emit('likes:updated', { videogameId, likeCount });
     this.logger.debug(
-      `likes:updated → videogameId=${videogameId} likeCount=${likeCount}`,
+      `likes:updated (to likes_room) → videogameId=${videogameId} likeCount=${likeCount}`,
     );
   }
 }
