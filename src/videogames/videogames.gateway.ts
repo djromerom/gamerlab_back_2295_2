@@ -45,8 +45,8 @@ export class VideogamesGateway
    * Emits the new like count of a video game to clients in the 'likes_room'.
    * Called by VideogamesService after each toggle.
    */
-  emitLikesUpdate(videogameId: number, likeCount: number): void {
-    this.server.to('likes_room').emit('likes:updated', { videogameId, likeCount });
+  emitLikesUpdate(videogameId: number, likeCount: number, triggerUserId?: string, liked?: boolean): void {
+    this.server.to('likes_room').emit('likes:updated', { videogameId, likeCount, triggerUserId, liked });
     this.logger.debug(
       `likes:updated (to likes_room) → videogameId=${videogameId} likeCount=${likeCount}`,
     );

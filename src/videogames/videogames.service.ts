@@ -144,7 +144,7 @@ export class VideogamesService {
       });
 
       const newCount = currentLikes - 1;
-      this.gateway.emitLikesUpdate(videogameId, newCount);
+      this.gateway.emitLikesUpdate(videogameId, newCount, userId, false);
       return { liked: false, likeCount: newCount };
     }
 
@@ -174,7 +174,7 @@ export class VideogamesService {
       });
 
       const newCount = currentLikes + 1;
-      this.gateway.emitLikesUpdate(videogameId, newCount);
+      this.gateway.emitLikesUpdate(videogameId, newCount, userId, true);
       return { liked: true, likeCount: newCount };
     } catch (error) {
       // Two simultaneous requests passed findUnique check — DB unique constraint wins
