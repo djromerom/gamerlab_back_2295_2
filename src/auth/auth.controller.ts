@@ -11,6 +11,7 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
@@ -141,8 +142,16 @@ export class AuthController {
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
+    @Query('silent') silent?: string,
   ) {
-    return this.authService.refresh(req, res);
+    try {
+      return await this.authService.refresh(req, res);
+    } catch (error) {
+      if (silent === 'true' && error instanceof UnauthorizedException) {
+        return { accessToken: null, message: 'No session' };
+      }
+      throw error;
+    }
   }
 
   // Resend confirmation email
