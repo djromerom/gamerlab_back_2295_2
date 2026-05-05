@@ -941,7 +941,17 @@ export class AuthService {
       secure: secure,
       sameSite: 'lax',
       maxAge: refreshTokenMaxAge,
+      path: '/auth/refresh',
+    });
+
+    // Destruir activamente cualquier refresh token que se haya guardado por error en la raíz '/'
+    res.cookie(REFRESH_TOKEN_COOKIE, '', {
+      httpOnly: true,
+      secure: secure,
+      sameSite: 'lax',
       path: '/',
+      expires: new Date(0),
+      maxAge: 0,
     });
   }
 
@@ -955,6 +965,15 @@ export class AuthService {
       expires: new Date(0),
       maxAge: 0,
     });
+    res.cookie(REFRESH_TOKEN_COOKIE, '', {
+      httpOnly: true,
+      secure: secure,
+      sameSite: 'lax',
+      path: '/auth/refresh',
+      expires: new Date(0),
+      maxAge: 0,
+    });
+    // Limpiar también en '/' por si quedó alguna huella
     res.cookie(REFRESH_TOKEN_COOKIE, '', {
       httpOnly: true,
       secure: secure,

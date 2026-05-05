@@ -50,7 +50,7 @@ class AuthTokensDoc {
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   // Login
   @Public()
@@ -78,8 +78,8 @@ export class AuthController {
       },
     },
   })
-  @ApiCreatedResponse({ 
-    description: 'Successful login', 
+  @ApiCreatedResponse({
+    description: 'Successful login',
     schema: {
       example: {
         message: 'Login successful',
@@ -128,8 +128,8 @@ export class AuthController {
       'Requires a valid refresh token in the request cookies to issue new access and refresh tokens.',
   })
   @ApiBearerAuth('refresh')
-  @ApiCreatedResponse({ 
-    description: 'Refresh successful', 
+  @ApiCreatedResponse({
+    description: 'Refresh successful',
     type: AuthTokensDoc,
     schema: {
       example: {
@@ -254,25 +254,25 @@ export class AuthController {
     required: false,
     example: 'VERIFICACION_EMAIL'
   })
-  @ApiOkResponse({ 
-    description: 'Token is valid', 
-    schema: { 
-      example: { 
-        isValid: true, 
+  @ApiOkResponse({
+    description: 'Token is valid',
+    schema: {
+      example: {
+        isValid: true,
         message: 'Token is valid.',
         email: 'user@example.com',
         userId: 'abc-123',
         type: 'VERIFICACION_EMAIL'
-      } 
-    } 
+      }
+    }
   })
-  @ApiBadRequestResponse({ 
+  @ApiBadRequestResponse({
     description: 'Invalid token, expired token, or wrong token type',
     schema: {
-      example: { 
-        message: 'Invalid or expired link.', 
-        error: 'Bad Request', 
-        statusCode: 400 
+      example: {
+        message: 'Invalid or expired link.',
+        error: 'Bad Request',
+        statusCode: 400
       }
     }
   })
@@ -285,7 +285,7 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: 'Logout user' })
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ 
+  @ApiOkResponse({
     description: 'Logout successful',
     schema: {
       example: {
@@ -293,7 +293,7 @@ export class AuthController {
       }
     }
   })
-  @ApiInternalServerErrorResponse({ 
+  @ApiInternalServerErrorResponse({
     description: 'Server error during logout process',
     schema: {
       example: {
