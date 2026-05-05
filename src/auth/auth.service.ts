@@ -60,7 +60,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly httpService: HttpService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     this.logger.log(
@@ -169,17 +169,17 @@ export class AuthService {
   async resetTokenExpiration(userId: string, typeOfToken: AuthEmailType): Promise<void> {
     try {
       // Find the appropriate token type
-      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL'
+      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
         ? this.verificationTokenId
         : this.resetPasswordTokenId;
-
+      
       const token = await this.prisma.verificationToken.findFirst({
         where: {
           userId: userId,
           tokenTypeId: tokenTypeId,
         },
       });
-
+      
       if (!token) {
         this.logger.warn(`No verification token found for this user`);
         throw new NotFoundException('No verification token found for this user.');
@@ -644,11 +644,11 @@ export class AuthService {
    * @returns The result of the login process. 201 if succesful.
    */
   async handleMicrosoftCallback(code: string, res: Response) {
-    try {
+    try{
       // Exchange code for Microsoft tokens and extract user info
       const microsoftTokens = await this.exchangeCodeForToken(code);
       const userInfo = this.parseIdToken(microsoftTokens.id_token);
-
+      
       // Check if user exists
       const user = await this.prisma.user.findUnique({
         where: { email: userInfo.email }
@@ -941,27 +941,23 @@ export class AuthService {
       secure: secure,
       sameSite: 'lax',
       maxAge: refreshTokenMaxAge,
-      path: '/',
+      path: '/auth/refresh',
     });
   }
 
   private clearAuthCookies(res: Response) {
     const secure = this.configService.get<string>('NODE_ENV') !== 'development';
-    res.cookie(ACCESS_TOKEN_COOKIE, '', {
+    res.clearCookie(ACCESS_TOKEN_COOKIE, {
       httpOnly: true,
       secure: secure,
       sameSite: 'lax',
       path: '/',
-      expires: new Date(0),
-      maxAge: 0,
     });
-    res.cookie(REFRESH_TOKEN_COOKIE, '', {
+    res.clearCookie(REFRESH_TOKEN_COOKIE, {
       httpOnly: true,
       secure: secure,
       sameSite: 'lax',
-      path: '/',
-      expires: new Date(0),
-      maxAge: 0,
+      path: '/auth/refresh',
     });
   }
 
