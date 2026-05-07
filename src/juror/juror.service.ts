@@ -2293,7 +2293,7 @@ export class JurorService {
       this.logger.log(
         `Obtenidos ${teams.length} equipos confirmados y activos para asignación ` +
         `(${teamsWithEvaluators} con evaluadores asignados, ${teamsWithoutEvaluators} sin evaluadores). ` +
-        `Distribución por nivel: ${levelSummary || 'N/A'}`
+        `Distribución por nivel: ${levelSummary || 'N/A'}`,
       );
       
       return teams;
@@ -2368,10 +2368,12 @@ export class JurorService {
     }
   }
 
+  // [MODIFICADO]: Profesores (Senior) pueden evaluar cualquier nivel
+  // [ANTES]: Profesores estaban restringidos a nivel 0 únicamente
   /**
-   * Filtra evaluadores que solo pueden ser asignados al nivel especificado
-   * - Profesores: solo nivel 0
-   * - Jurados: solo niveles > 0, y del mismo nivel
+   * Filtra evaluadores que pueden ser asignados al nivel especificado
+   * - Profesores (Senior): pueden evaluar cualquier nivel (N0-N4)
+   * - Jurados (Junior): solo niveles > 0, y del mismo nivel
    */
   async filterEvaluatorsByLevel(
     evaluators: Map<string, number>,
@@ -2438,12 +2440,9 @@ export class JurorService {
       const assignedLevels = evaluatorLevels.get(evaluatorId) || new Set<number>();
       
       if (isProfessors) {
-        // Profesores: solo pueden tener asignaciones de nivel 0
-        const hasNonZeroLevel = Array.from(assignedLevels).some(l => l !== 0);
-        if (!hasNonZeroLevel) {
-          // Puede ser asignado a nivel 0
-          filtered.set(evaluatorId, load);
-        }
+        // [MODIFICADO]: Profesores (Senior) pueden evaluar cualquier nivel
+        // [ANTES]: Solo podían tener asignaciones de nivel 0
+        filtered.set(evaluatorId, load);
       } else {
         // Jurados: no pueden tener asignaciones de nivel 0, y solo del mismo nivel
         const hasLevelZero = assignedLevels.has(0);
@@ -2579,19 +2578,20 @@ export class JurorService {
         );
       }
 
+      // [MODIFICADO]: Profesores (Senior) pueden evaluar CUALQUIER nivel, no solo N0
+      // [ANTES]: Profesores estaban restringidos a nivel 0 únicamente
       // Validar reglas de asignación por rol
-      if (juror.roleId === this.professorRoleId) {
-        // Profesores solo pueden ser asignados a nivel 0
-        if (teamLevel !== 0) {
-          throw new BadRequestException('Los profesores solo pueden ser asignados a equipos de nivel 0 (colegios)');
-        }
-      } else if (juror.roleId === this.jurorRoleId) {
-        // Jurados NO pueden ser asignados a nivel 0
+      if (juror.roleId === this.jurorRoleId) {
+        // Jurados (Junior) NO pueden ser asignados a nivel 0 (colegios)
         if (teamLevel === 0) {
-          throw new BadRequestException('Los jurados no pueden ser asignados a equipos de nivel 0 (colegios). Solo los profesores pueden evaluar colegios.');
+          throw new BadRequestException(
+            'Los jurados (Junior) no pueden ser asignados a equipos de nivel 0 (colegios). Solo los profesores (Senior) pueden evaluar colegios.',
+          );
         }
-      } else {
-        throw new BadRequestException('El usuario debe ser un jurado o un profesor');
+      } else if (juror.roleId !== this.professorRoleId) {
+        throw new BadRequestException(
+          'El usuario debe ser un jurado o un profesor',
+        );
       }
 
       // Verificar que el jurado no esté ya asignado
@@ -2614,8 +2614,11 @@ export class JurorService {
         },
       });
 
-      if (existingTeams.length > 0) {
-        // Verificar que todos los equipos existentes sean del mismo nivel
+      // [MODIFICADO]: Solo Jurados (Junior) tienen restricción de mismo nivel y de N0
+      // [ANTES]: Tanto profesores como jurados estaban restringidos a un solo nivel,
+      //          y profesores estaban restringidos a N0 únicamente
+      // [ELIMINADO]: Restricción de profesores a solo nivel 0 y restricción de mismo nivel para profesores
+      if (juror.roleId === this.jurorRoleId && existingTeams.length > 0) {
         for (const existingTeam of existingTeams) {
           const existingLevel = this.extractLevelFromTeamCode(existingTeam.teamCode);
           if (existingLevel === null) {
@@ -2624,34 +2627,16 @@ export class JurorService {
             );
             continue;
           }
-          if (existingLevel !== teamLevel) {
-            const evaluatorType = juror.roleId === this.professorRoleId ? 'profesor' : 'jurado';
-            throw new BadRequestException(
-              `El ${evaluatorType} ya está asignado a equipos de nivel ${existingLevel}. Solo puede evaluar equipos del mismo nivel.`,
-            );
-          }
-        }
-      }
-      
-      // Verificar que si es profesor, no tenga asignaciones de niveles > 0
-      if (juror.roleId === this.professorRoleId) {
-        for (const existingTeam of existingTeams) {
-          const existingLevel = this.extractLevelFromTeamCode(existingTeam.teamCode);
-          if (existingLevel !== null && existingLevel !== 0) {
-            throw new BadRequestException(
-              'Los profesores solo pueden ser asignados a equipos de nivel 0 (colegios)',
-            );
-          }
-        }
-      }
-      
-      // Verificar que si es jurado, no tenga asignaciones de nivel 0
-      if (juror.roleId === this.jurorRoleId) {
-        for (const existingTeam of existingTeams) {
-          const existingLevel = this.extractLevelFromTeamCode(existingTeam.teamCode);
+          // Jurados (Junior) no pueden tener asignaciones de nivel 0
           if (existingLevel === 0) {
             throw new BadRequestException(
-              'Los jurados no pueden ser asignados a equipos de nivel 0 (colegios)',
+              'Los jurados (Junior) no pueden ser asignados a equipos de nivel 0 (colegios)',
+            );
+          }
+          // Jurados (Junior) deben evaluar equipos del mismo nivel
+          if (existingLevel !== teamLevel) {
+            throw new BadRequestException(
+              `El jurado ya está asignado a equipos de nivel ${existingLevel}. Solo puede evaluar equipos del mismo nivel.`,
             );
           }
         }
@@ -2737,6 +2722,7 @@ export class JurorService {
           user: {
             select: {
               id: true,
+
               firstName: true,
               lastName: true,
               email: true,
@@ -2846,11 +2832,13 @@ export class JurorService {
       return teams.map(team => ({
         id: team.id,
         nombre: team.teamName,
-        videojuego: team.videogame ? {
-          id: team.videogame.id,
-          nombre: team.videogame.name,
-          descripcion: team.videogame.description,
-        } : null,
+        videojuego: team.videogame
+          ? {
+            id: team.videogame.id,
+            nombre: team.videogame.name,
+            descripcion: team.videogame.description,
+          }
+          : null,
         lider: {
           id: team.user.id,
           nombre: `${team.user.firstName} ${team.user.lastName}`,
@@ -3198,4 +3186,392 @@ export class JurorService {
     }
   }
 
+  // NUEVO: Jurados disponibles para asignar a un equipo
+  async getAvailableForTeam(teamId: number) {
+    // 1. Buscar el equipo con sus jurados ya asignados
+    const dict_to_search_team = {
+      where: { id: teamId },
+      include: {
+        assignedJurors: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: { select: { name: true } },
+          },
+        },
+      },
+    };
+    const team = await this.prisma.team.findUnique(dict_to_search_team);
+
+    if (!team || !team.isActive) {
+      throw new NotFoundException('Equipo no encontrado');
+    }
+
+    //2. Extraer el nivel del equipo (ej: "N2-AYP-05" - Nivel 2)
+    const teamLevel = this.extractLevelFromTeamCode(team.teamCode);
+
+    if (teamLevel === null) {
+      throw new BadRequestException(
+        'El equipo no tiene un codigo de nivel valido',
+      );
+    }
+
+    // [MODIFICADO]: Para universitarios (N1-N4), se muestran ambos roles disponibles
+    // [ANTES]: Solo se mostraba un rol (Jurados para universitarios, Profesores para colegios)
+    // 3. Decidir qué roles pueden evaluar este equipo:
+    //   Nivel 0 (Colegios): solo profesores (Senior)
+    //   Nivel 1-4 (Universitarios): jurados (Junior) + profesores (Senior)
+    const roleFilter =
+      teamLevel === 0
+        ? { roleId: this.professorRoleId }
+        : { OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }] };
+
+    // 4. Ahora traemos TODOS los usuarios con los roles correspondientes
+    const dict_to_search_users = {
+      where: { isActive: true, ...roleFilter },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: { select: { name: true } },
+        teamsToEvaluate: {
+          //Equipos ya asignados
+          where: { isActive: true },
+          select: { id: true },
+        },
+      },
+    };
+    const allEvaluators = await this.prisma.user.findMany(dict_to_search_users);
+
+    // 5. Separar los que ya estan asignados de los que estan disponibles
+    const assignedIds = new Set(team.assignedJurors.map((j) => j.id));
+
+    const available = allEvaluators
+      .filter((e) => !assignedIds.has(e.id))
+      .map((e) => ({
+        id: e.id,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        email: e.email,
+        type: e.role.name, // "Jurado" o "Profesor"
+        currentLoad: e.teamsToEvaluate.length, // Cuántos equipos ya tiene
+      }))
+      .sort((a, b) => a.currentLoad - b.currentLoad); // Menos carga primero
+
+    return {
+      teamId: team.id,
+      teamName: team.teamName,
+      teamLevel,
+      currentlyAssigned: team.assignedJurors.map((j) => ({
+        id: j.id,
+        firstName: j.firstName,
+        lastName: j.lastName,
+        email: j.email,
+        type: j.role.name,
+      })),
+      available,
+    };
+  }
+
+  // [MODIFICACIÓN]: Reescritura completa del método autoAssignJurors
+  // [AUTOR]: IA  |  [FECHA]: 2026-05-01
+  // ─────────────────────────────────────────────────────────────────────────────
+  // AUTO-ASSIGN JURORS  —  Asignación por rondas con balanceo de carga
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Asigna automáticamente evaluadores a todos los equipos confirmados.
+   *
+   * Reglas de negocio actualizadas:
+   *  - Límite ESTRICTO de carga: Máximo 6 equipos por evaluador.
+   *  - Profesores (Senior, roleId=3) → evalúan N0 y N1-N4.
+   *  - Jurados (Junior, roleId=4)  → solo evalúan N1-N4.
+   *  - N0 (Colegios) → SOLO Profesores.
+   *  - N1-N4 (Universidades) → Intentan tener 1 Profesor y 2 Jurados.
+   *  - Objetivo por equipo: Exactamente 3 evaluadores.
+   *  - Equidad: Se usan rondas para que todos crezcan parejo.
+   *  - Se respetan las asignaciones manuales previas (no se sobreescriben ciegamente).
+   */
+  async autoAssignJurors(): Promise<{
+    message: string;
+    resumen: string[];
+    advertencias: string[];
+  }> {
+    const TARGET_PER_TEAM = 3;
+    const MAX_LOAD = 6;
+    const advertencias: string[] = [];
+
+    // ── PASO 1: Cargar datos, INCLUYENDO asignaciones actuales ───────────────
+    const [allTeams, allEvaluators] = await Promise.all([
+      this.prisma.team.findMany({
+        where: {
+          isActive: true,
+          videogame: { videogameStatusId: this.confirmedStatusId },
+        },
+        select: {
+          id: true,
+          teamCode: true,
+          teamName: true,
+          // Traemos a los jurados ya asignados para respetarlos
+          assignedJurors: { select: { id: true } },
+        },
+      }),
+      this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
+          NOT: { email: 'profesorcolegios@uninorte.edu.co' },
+        },
+        select: {
+          id: true,
+          roleId: true,
+          firstName: true,
+          lastName: true,
+          // Traemos la carga actual según base de datos real
+          teamsToEvaluate: { where: { isActive: true }, select: { id: true } },
+        },
+      }),
+    ]);
+
+    if (allTeams.length === 0) {
+      throw new BadRequestException(
+        'No hay equipos confirmados y activos para asignar.',
+      );
+    }
+
+    // ── PASO 2: Construir estructuras de memoria respetando estado previo ────
+    const teamsByLevel = new Map<number, (typeof allTeams)[number][]>();
+    const assignmentMap = new Map<number, Set<string>>(); // teamId → evaluadorIds
+    const loadMap = new Map<string, number>(); // evaluadorId → carga
+    const evaluatorLevels = new Map<string, Set<number>>(); // evaluadorId → niveles evaluados
+
+    // Inicializar mapas para evaluadores
+    for (const ev of allEvaluators) {
+      // Tomamos la carga real desde la DB (por si evalúan equipos inactivos o manuales)
+      loadMap.set(ev.id, ev.teamsToEvaluate.length);
+      evaluatorLevels.set(ev.id, new Set());
+    }
+
+    // Clasificar equipos y registrar asignaciones previas
+    for (const team of allTeams) {
+      const level = this.extractLevelFromTeamCode(team.teamCode);
+      if (level === null) {
+        advertencias.push(
+          `Equipo "${team.teamName}" (código: "${team.teamCode}") tiene formato inválido y fue omitido.`,
+        );
+        continue;
+      }
+      if (!teamsByLevel.has(level)) teamsByLevel.set(level, []);
+      teamsByLevel.get(level)!.push(team);
+
+      const assignedSet = new Set<string>();
+      for (const j of team.assignedJurors) {
+        assignedSet.add(j.id);
+        // Si el jurado existe en la lista de evaluadores elegibles, marcamos su nivel
+        if (evaluatorLevels.has(j.id)) {
+          evaluatorLevels.get(j.id)!.add(level);
+        }
+      }
+      assignmentMap.set(team.id, assignedSet);
+    }
+
+    if (assignmentMap.size === 0) {
+      throw new BadRequestException(
+        'No se encontraron equipos con formato de nivel válido (N<número>-...).',
+      );
+    }
+
+    const professors = allEvaluators.filter((e) => e.roleId === this.professorRoleId);
+    const jurors = allEvaluators.filter((e) => e.roleId === this.jurorRoleId);
+    const allLevels = Array.from(teamsByLevel.keys()).sort((a, b) => a - b);
+
+    this.logger.log(
+      `autoAssignJurors: ${allTeams.length} equipos, ${professors.length} profesores, ${jurors.length} jurados. Límite: ${MAX_LOAD}.`,
+    );
+
+    // ── PASO 3: Función auxiliar para asignar por rondas ─────────────────────
+    // Esto garantiza crecimiento equitativo (todos crecen a 1, luego a 2, luego a 3).
+    const assignRounds = (
+      teams: (typeof allTeams)[number][],
+      pool: typeof allEvaluators,
+      level: number,
+      maxPerTeamForThisStep: number,
+    ) => {
+      if (pool.length === 0 || teams.length === 0) return;
+
+      // Hacemos iteraciones incrementando el objetivo para que sea realmente equitativo.
+      // Primero aseguramos que todos tengan 1, luego que todos tengan 2, etc.
+      for (let targetSize = 1; targetSize <= maxPerTeamForThisStep; targetSize++) {
+        for (const team of teams) {
+          const current = assignmentMap.get(team.id)!;
+          if (current.size >= targetSize) continue;
+
+          // Filtrar pool: que no esté asignado, y que su carga sea ESTRICTAMENTE menor a MAX_LOAD
+          const available = pool
+            .filter((ev) => !current.has(ev.id) && (loadMap.get(ev.id) ?? 0) < MAX_LOAD)
+            .sort((a, b) => {
+              const levelsA = evaluatorLevels.get(a.id)!;
+              const levelsB = evaluatorLevels.get(b.id)!;
+
+              const loadA = loadMap.get(a.id) ?? 0;
+              const loadB = loadMap.get(b.id) ?? 0;
+
+              // Prioridad 1: menor carga (balanceo estrictamente equitativo entre evaluadores)
+              if (loadA !== loadB) {
+                return loadA - loadB;
+              }
+
+              // Prioridad 2: ya está evaluando este nivel o no evalúa nada aún
+              const inLevelA = levelsA.has(level) || levelsA.size === 0;
+              const inLevelB = levelsB.has(level) || levelsB.size === 0;
+              if (inLevelA && !inLevelB) return -1;
+              if (!inLevelA && inLevelB) return 1;
+
+              return 0;
+            });
+
+          if (available.length > 0) {
+            const chosen = available[0]; // El mejor candidato según el orden
+            current.add(chosen.id);
+            loadMap.set(chosen.id, (loadMap.get(chosen.id) ?? 0) + 1);
+            evaluatorLevels.get(chosen.id)!.add(level);
+          }
+        }
+      }
+    };
+
+    // ── PASO 4: Asignar Colegios (N0) - SOLO PROFESORES ──────────────────────
+    if (teamsByLevel.has(0)) {
+      const colegioTeams = teamsByLevel.get(0)!;
+      assignRounds(colegioTeams, professors, 0, TARGET_PER_TEAM);
+    }
+
+    // ── PASO 5: Asignar Universitarios (N1-N4) ───────────────────────────────
+    const universityLevels = allLevels.filter((l) => l > 0);
+
+    // 5.1: Intentar dar al menos UN Profesor a cada equipo universitario
+    for (const level of universityLevels) {
+      const teams = teamsByLevel.get(level)!;
+      for (const team of teams) {
+        const current = assignmentMap.get(team.id)!;
+        if (current.size >= TARGET_PER_TEAM) continue;
+
+        // Verificar si ya tiene un profesor asignado
+        const hasProfessor = Array.from(current).some((id) =>
+          professors.some((p) => p.id === id),
+        );
+
+        if (!hasProfessor) {
+          // Intentar darle el profesor con menor carga (límite estricto < MAX_LOAD)
+          const availableProfs = professors
+            .filter((p) => !current.has(p.id) && (loadMap.get(p.id) ?? 0) < MAX_LOAD)
+            .sort((a, b) => (loadMap.get(a.id) ?? 0) - (loadMap.get(b.id) ?? 0));
+
+          if (availableProfs.length > 0) {
+            const chosen = availableProfs[0];
+            current.add(chosen.id);
+            loadMap.set(chosen.id, (loadMap.get(chosen.id) ?? 0) + 1);
+            evaluatorLevels.get(chosen.id)!.add(level);
+          }
+        }
+      }
+    }
+
+    // 5.2: Rellenar equitativamente el resto (hasta 3) con Jurados Junior
+    for (const level of universityLevels) {
+      const teams = teamsByLevel.get(level)!;
+      // Los jurados intentan completar lo que falta (ya sea que tengan profesor o no)
+      assignRounds(teams, jurors, level, TARGET_PER_TEAM);
+    }
+
+    // ── PASO 6: Fase Final de Rescate ────────────────────────────────────────
+    // Si aún faltan jurados para N1-N4 y hay profesores libres, se usan profesores.
+    // Si faltan para N0 y hay profesores libres, se completa (ya cubierto en assignRounds, 
+    // pero repetimos por si se liberó espacio o fue por fases).
+    for (const level of allLevels) {
+      const teams = teamsByLevel.get(level)!;
+      const pool = level === 0 ? professors : [...jurors, ...professors];
+      assignRounds(teams, pool, level, TARGET_PER_TEAM);
+    }
+
+    // ── PASO 7: Validaciones y Advertencias ──────────────────────────────────
+    for (const [teamId, evaluatorsSet] of assignmentMap.entries()) {
+      const team = allTeams.find((t) => t.id === teamId);
+      const total = evaluatorsSet.size;
+
+      if (total > TARGET_PER_TEAM) {
+        // En caso de que asignaciones manuales previas ya superaran el target
+        advertencias.push(`Equipo "${team?.teamName}" tiene ${total} evaluadores (supera el objetivo de ${TARGET_PER_TEAM} por asignación manual previa).`);
+      } else if (total < TARGET_PER_TEAM) {
+        advertencias.push(`Equipo "${team?.teamName}" quedó con ${total} evaluador(es) debido al límite estricto de ${MAX_LOAD} equipos por jurado.`);
+      }
+    }
+
+    for (const [evId, load] of loadMap.entries()) {
+      if (load > MAX_LOAD) {
+        const ev = allEvaluators.find((e) => e.id === evId);
+        if (ev) {
+          advertencias.push(`Evaluador "${ev.firstName} ${ev.lastName}" tiene ${load} equipos (sobrepasó el límite por asignaciones manuales previas).`);
+        }
+      }
+    }
+
+    // ── PASO 8: Persistir en la Base de Datos ────────────────────────────────
+    const updates = Array.from(assignmentMap.entries()).map(([teamId, ids]) =>
+      this.prisma.team.update({
+        where: { id: teamId },
+        data: {
+          assignedJurors: {
+            // El set respetará las asignaciones manuales antiguas que recolectamos 
+            // en el Paso 2 y guardará las nuevas.
+            set: Array.from(ids).map((id) => ({ id })),
+          },
+        },
+      }),
+    );
+
+    await this.prisma.$transaction(updates);
+
+    this.logger.log(
+      `autoAssignJurors completado: ${updates.length} equipos actualizados.`,
+    );
+
+    // ── PASO 9: Construir resumen legible ────────────────────────────────────
+    const resumen: string[] = [];
+
+    for (const level of allLevels) {
+      const teams = teamsByLevel.get(level)!;
+      const counts = teams.map((t) => assignmentMap.get(t.id)!.size);
+      const minC = Math.min(...counts);
+      const maxC = Math.max(...counts);
+      const avg = (counts.reduce((a, b) => a + b, 0) / counts.length).toFixed(1);
+      const label = level === 0 ? 'Colegios (N0)' : `Universitarios N${level}`;
+      resumen.push(
+        minC === maxC
+          ? `${label}: ${teams.length} equipos × ${minC} evaluadores c/u`
+          : `${label}: ${teams.length} equipos, ${minC}-${maxC} evaluadores (promedio: ${avg})`,
+      );
+    }
+
+    const loadValues = Array.from(loadMap.values()).filter((l) => l > 0);
+    if (loadValues.length > 0) {
+      const avgLoad = (
+        loadValues.reduce((a, b) => a + b, 0) / loadValues.length
+      ).toFixed(1);
+      const maxLoadVal = Math.max(...loadValues);
+      resumen.push(
+        `Carga de evaluadores: promedio ${avgLoad}, máximo ${maxLoadVal} equipos (${loadValues.length} evaluadores activos)`,
+      );
+    }
+
+    return {
+      message: 'Asignación automática completada correctamente respetando los límites.',
+      resumen,
+      advertencias,
+    };
+  }
 }

@@ -37,55 +37,53 @@ export class JurorController {
   constructor(
     private readonly jurorService: JurorService,
     private readonly authService: AuthService,
-  ) {}
+  ) { }
 
+  // [MODIFICADO]: Documentación Swagger actualizada con mapeo correcto Senior/Junior
+  // [ANTES]: La documentación indicaba reglas incorrectas sobre roles
   @Get('evaluations-assignment')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
   @ApiOperation({
-    summary: 'Asignar evaluaciones automáticamente',
+    summary: 'Asignar evaluadores automáticamente a equipos',
     description: `
-      Asigna automáticamente jurados a cada equipo confirmado, agrupando por nivel.
-      Los jurados se distribuyen equitativamente entre los equipos del mismo nivel.
+      Asigna automáticamente evaluadores a cada equipo confirmado, agrupando por nivel.
       
-      **Reglas de asignación:**
-      - Los jurados solo pueden evaluar equipos del mismo nivel
-      - El nivel se extrae del código del equipo (formato: N<número>-...)
-      - Ejemplos de códigos válidos: N0-COLEGIOS-01, N1-AYP-06, N2-AYP2-05, N3-DATOS-08, N4-DATOS2-20
-      - Se distribuyen equitativamente los jurados disponibles entre los equipos del mismo nivel
-      - El número de jurados por equipo se calcula automáticamente: total_jurados / total_equipos
-      - Si hay sobrantes, se distribuyen equitativamente entre los primeros equipos
+      **Mapeo de roles:**
+      - Profesores = Senior → pueden evaluar TODOS los niveles (N0-N4)
+      - Jurados = Junior → solo pueden evaluar niveles universitarios (N1-N4)
+      
+      **Reglas de asignación (obligatorias):**
+      - Los equipos de colegios (N0) SOLO pueden ser evaluados por Profesores (Senior)
+      - Los equipos universitarios (N1-N4) pueden ser evaluados por Profesores (Senior) y Jurados (Junior)
+      
+      **Criterios de mejor esfuerzo:**
+      - Cada equipo recibe exactamente 3 evaluadores (si es posible)
+      - Cada evaluador no debería tener más de 5 equipos asignados (si es posible)
+      - Los evaluadores califican equipos del mismo nivel/semestre (si es posible)
+      - Si no hay suficientes del mismo nivel, se usan niveles cercanos
       
       **Niveles:**
-      - N0: Colegios
-      - N1: AYP1
-      - N2: AYP2
-      - N3: DATOS 1, POO
-      - N4: DATOS 2
+      - N0: Colegios (solo Senior/Profesores)
+      - N1-N4: Universitarios (Senior + Junior)
     `,
   })
   @ApiOkResponse({
     description: 'Evaluaciones asignadas correctamente',
     schema: {
       example: {
-        message: 'Evaluaciones asignadas correctamente',
-        details: [
-          'Nivel 0: 2 equipos asignados con 2 jurados cada uno',
-          'Nivel 1: 5 equipos asignados (2-3 jurados por equipo, promedio: 2.4)',
-          'Nivel 2: 3 equipos asignados con 3 jurados cada uno',
-          'Nivel 3: 4 equipos asignados (1-2 jurados por equipo, promedio: 1.5)',
-          'Nivel 4: 2 equipos asignados con 2 jurados cada uno',
+        message: 'Asignación automática completada correctamente.',
+        resumen: [
+          'Colegios (N0): 2 equipos × 3 evaluadores c/u',
+          'Universitarios N1: 5 equipos, 2-3 evaluadores (promedio: 2.8)',
+          'Carga de evaluadores: promedio 3.2, máximo 5 equipos (12 evaluadores activos)',
         ],
+        advertencias: [],
       },
     },
   })
   @ApiBadRequestResponse({
     description: 'No se encontraron equipos con formato de nivel válido',
-    schema: {
-      example: {
-        message: 'No se encontraron equipos con formato de nivel válido (N<número>-...)',
-      },
-    },
   })
   @ApiUnauthorizedResponse({ description: 'No autenticado' })
   @ApiForbiddenResponse({ description: 'No tiene permisos para asignar jurados' })
