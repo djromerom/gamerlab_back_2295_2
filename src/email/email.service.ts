@@ -28,7 +28,7 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
   // TODO: reemplazar por feature de fechas por edición
-  private readonly EVENT_DATE = '27 de noviembre';
+  private readonly EVENT_DATE = '28 de mayo';
 
   private emailClient: EmailClient | null = null;
   private senderAddress: string = '';
@@ -88,8 +88,7 @@ export class EmailService {
 
       if (
         acsConnectionString &&
-        acsSenderAddress &&
-        acsSenderAddress !== 'Donotreply@<domain>.azurecomm.net'
+        acsSenderAddress
       ) {
         this.emailClient = new EmailClient(acsConnectionString);
         this.senderAddress = acsSenderAddress;

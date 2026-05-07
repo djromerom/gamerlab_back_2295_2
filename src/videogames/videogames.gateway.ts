@@ -10,7 +10,10 @@ import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
   cors: {
-    origin: true, // Coherente con app.enableCors() en main.ts
+    origin: [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173'
+    ],
     credentials: true,
   },
 })
