@@ -767,7 +767,7 @@ export class ProfessorsService {
     };
   }
 
-  
+
 
   /**
    * Generate and send a single Excel workbook containing grading templates
@@ -859,10 +859,10 @@ export class ProfessorsService {
         // Build a subject code of up to 4 chars: up to 3 letters (initials) plus
         // an optional trailing digit if the subject includes one (e.g. 1 or 2).
         const words = (subjectName.match(/[A-Za-z0-9]+/g) || [subjectName]);
-  const allInitials = words.map((w) => w[0]).join('').toUpperCase();
-  // use normalizedName (which already converts roman numerals to digits)
-  const digitMatch = (normalizedName.match(/(\d+)/g) || []).pop();
-  const digit = digitMatch ? digitMatch.trim().charAt(0) : '';
+        const allInitials = words.map((w) => w[0]).join('').toUpperCase();
+        // use normalizedName (which already converts roman numerals to digits)
+        const digitMatch = (normalizedName.match(/(\d+)/g) || []).pop();
+        const digit = digitMatch ? digitMatch.trim().charAt(0) : '';
         const letters = allInitials.substring(0, 3);
         prefix = (letters + (digit ? digit : '')).substring(0, 4) || subjectName.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
       }
@@ -1144,7 +1144,7 @@ export class ProfessorsService {
         this.logger.warn(`addGroupRows get docente/feria score error: ${(err as any)?.message}`);
       }
 
-        if (final) {
+      if (final) {
         // include junior juror average (avg_junior from view) before docente score
         let juniorScore = '';
         try {
@@ -1215,7 +1215,7 @@ export class ProfessorsService {
     });
   }
 
-    
+
 
   /**
    * Process an uploaded Excel file containing senior juror grades.
@@ -1241,8 +1241,8 @@ export class ProfessorsService {
     }
 
     const workbook = new ExcelJS.Workbook();
-  // ExcelJS can accept the buffer; cast to any to avoid TS incompatibilities in this dev flow
-  await (workbook.xlsx as any).load(file.buffer as any);
+    // ExcelJS can accept the buffer; cast to any to avoid TS incompatibilities in this dev flow
+    await (workbook.xlsx as any).load(file.buffer as any);
 
     // determine editionId (use latest or fallback to 1)
     const latestEdition = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
@@ -1256,7 +1256,7 @@ export class ProfessorsService {
     };
 
     for (const sheet of workbook.worksheets) {
-  // optional: validate sheet name structure here (initials of the subject - NRC)
+      // optional: validate sheet name structure here (initials of the subject - NRC)
       const headerRow = sheet.getRow(1);
       const headerMap: Record<string, number> = {};
       headerRow.eachCell((cell, colNumber) => {

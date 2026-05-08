@@ -167,6 +167,8 @@ model User {
   password             String?            @map("contrasena")
   authMethod           AuthMethod?        @map("metodo_auth")
   microsoftOid         String?            @map("microsoft_oid")
+  jurorCategory        JurorCategory?     @map("categoria_jurado")
+  jurorType            JurorType?         @map("tipo_jurado")
   createdTeam          Team?              @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
   managedNrcs          NRC[]              @relation("ProfessorNRC")
@@ -175,6 +177,8 @@ model User {
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
   likedVideogames      VideogameLike[]
 
+  @@index([jurorCategory])
+  @@index([jurorType])
   @@map("usuarios")
 }
 
@@ -274,6 +278,24 @@ model Evaluation {
 
   @@unique([jurorId, videogameId], name: "jurado_videojuego_unique")
   @@map("evaluacion")
+}
+
+model JurorAssignmentAuditLog {
+  id               Int                          @id @default(autoincrement())
+  action           ManualJurorAssignmentAction
+  actorUserId      String                       @map("actor_user_id")
+  teamId           Int?                         @map("team_id")
+  jurorId          String?                      @map("juror_id")
+  previousJurorId  String?                      @map("previous_juror_id")
+  newJurorId       String?                      @map("new_juror_id")
+  notes            String?                      @db.Text
+  createdAt        DateTime                     @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([teamId])
+  @@index([jurorId])
+  @@index([createdAt])
+  @@map("juror_assignment_audit_logs")
 }
 
 model Subject {
@@ -422,4 +444,23 @@ view TeamFinalScore {
 enum AuthMethod {
   PASSWORD
   ENTRA_ID
+}
+
+
+enum JurorCategory {
+  JUNIOR
+  SENIOR
+}
+
+enum JurorType {
+  OFFICIAL
+  BACKUP
+}
+
+enum ManualJurorAssignmentAction {
+  ASSIGN
+  UNASSIGN
+  REASSIGN
+  UNASSIGN_ALL
+  UNASSIGN_ALL_FROM_EVALUATOR
 }
