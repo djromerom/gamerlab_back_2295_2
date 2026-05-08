@@ -42,7 +42,6 @@ export class RecaptchaService {
   }
 
   async verify(token: string): Promise<boolean> {
-    console.log(token)
     if (!this.recaptchaSecret) {
       this.logger.warn('reCAPTCHA verification skipped: Missing secret key');
       return process.env.NODE_ENV === 'development'; // En desarrollo permite pasar, en producción no

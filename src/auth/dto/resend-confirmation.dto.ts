@@ -1,10 +1,14 @@
-import { IsEmail, IsNotEmpty, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { AuthEmailType } from '../../email/types/email-type.type';
 
 export class ResendConfirmationDto {
   @IsEmail()
   @IsNotEmpty()
-  @Matches(/^[\w.-]+@uninorte\.edu\.co$/, {
-    message: 'Email must be a valid @uninorte.edu.co address',
-  })
   email: string;
+
+  @IsOptional()
+  @Matches(/^(VERIFICACION_EMAIL|RESETEAR_CONTRASENA)$/, {
+    message: 'typeOfToken must be either VERIFICACION_EMAIL or RESETEAR_CONTRASENA',
+  })
+  typeOfToken?: AuthEmailType;
 }

@@ -1,54 +1,77 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["views"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Edition {
-  id          Int          @id @default(autoincrement()) @map("id_edicion")
-  semester    String       @unique @map("semestre")
-  isActive    Boolean      @default(false) @map("activo")
-  createdAt   DateTime     @default(now()) @map("creado_en")
-  updatedAt   DateTime     @updatedAt @map("actualizado_en")
-  teams       Team[]
-  evaluations Evaluation[]
+  id                 Int                 @id @default(autoincrement()) @map("id_edicion")
+  semester           String              @unique @map("semestre")
+  isActive           Boolean             @default(false) @map("activo")
+  createdAt          DateTime            @default(now()) @map("creado_en")
+  updatedAt          DateTime            @updatedAt @map("actualizado_en")
+  title              String?             @map("titulo") @db.VarChar(100)
+  year               Int?                @map("año")
+  semesterName       String?             @map("nombre_semestre") @db.VarChar(50)
+  name               String?             @map("nombre") @db.VarChar(100)
+  date               String?             @map("fecha") @db.VarChar(50)
+  description        String?             @map("descripcion")
+  description2       String?             @map("descripcion2")
+  highlightedGames   String?             @map("juegos_destacados")
+  alt                String?             @map("alt") @db.VarChar(100)
+  eventConfiguration EventConfiguration?
+  educationalFocuses EducationalFocus[]
+  teams              Team[]
+  evaluations        Evaluation[]
+  nrcs               NRC[]
+  podiums            Podium[]
+  weighting          Weighting?
+  testimonials       Testimonial[]
 
   @@map("ediciones")
 }
 
 model EventConfiguration {
   id              Int      @id @default(autoincrement())
+  editionId       Int      @unique @default(3) @map("id_edicion")
+  startDate       DateTime @map("fecha_inicio")
+  endDate         DateTime @map("fecha_fin")
   evaluationsOpen Boolean  @default(false) @map("evaluaciones_abiertas")
+  showRanking     Boolean  @default(false) @map("mostrar_ranking")
+  showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   createdAt       DateTime @default(now()) @map("creado_en")
   updatedAt       DateTime @updatedAt @map("actualizado_en")
+  edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
 }
 
 model TokenType {
-  id                 Int      @id @default(autoincrement())
-  type               String   @unique @map("tipo")
-  isActive           Boolean  @default(true) @map("activo")
-  createdAt          DateTime @default(now()) @map("creado_en")
-  updatedAt          DateTime @updatedAt @map("actualizado_en")
+  id                 Int                 @id @default(autoincrement())
+  type               String              @unique @map("tipo")
+  isActive           Boolean             @default(true) @map("activo")
+  createdAt          DateTime            @default(now()) @map("creado_en")
+  updatedAt          DateTime            @updatedAt @map("actualizado_en")
   verificationTokens VerificationToken[]
+
   @@map("tipo_token")
 }
 
 model VerificationToken {
-  id          String   @id @default(uuid())
-  token       String   @unique
+  id          String    @id @default(uuid())
+  token       String    @unique
   email       String
-  userId      String   @map("user_id")
-  tokenTypeId Int      @map("tipo_id")
+  userId      String    @map("user_id")
+  tokenTypeId Int       @map("tipo_id")
+  expiresAt   DateTime  @map("expira_en")
+  createdAt   DateTime  @default(now()) @map("creado_en")
+  updatedAt   DateTime  @updatedAt @map("actualizado_en")
   type        TokenType @relation(fields: [tokenTypeId], references: [id])
-  expiresAt   DateTime @map("expira_en")
-  createdAt   DateTime @default(now()) @map("creado_en")
-  updatedAt   DateTime @updatedAt @map("actualizado_en")
+
   @@index([email, tokenTypeId])
   @@map("token_verificacion")
 }
@@ -139,15 +162,23 @@ model User {
   createdAt            DateTime           @default(now()) @map("creado_en")
   updatedAt            DateTime           @updatedAt @map("actualizado_en")
   lastSignInAt         DateTime           @default(now()) @map("ultimoInicioSesion")
-  lastName             String             @db.VarChar(50)
   firstName            String             @db.VarChar(50)
+  lastName             String             @db.VarChar(50)
+  password             String?            @map("contrasena")
+  authMethod           AuthMethod?        @map("metodo_auth")
+  microsoftOid         String?            @map("microsoft_oid")
+  jurorCategory        JurorCategory?     @map("categoria_jurado")
+  jurorType            JurorType?         @map("tipo_jurado")
   createdTeam          Team?              @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
   managedNrcs          NRC[]              @relation("ProfessorNRC")
   confirmationStatus   ConfirmationStatus @relation(fields: [confirmationStatusId], references: [id])
   role                 Role               @relation(fields: [roleId], references: [id])
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
+  likedVideogames      VideogameLike[]
 
+  @@index([jurorCategory])
+  @@index([jurorType])
   @@map("usuarios")
 }
 
@@ -156,15 +187,17 @@ model Team {
   teamName         String     @unique @map("nombre_equipo") @db.VarChar(50)
   registrationDate DateTime   @default(now()) @map("fecha_registro")
   userId           String     @unique @map("id_usuario")
-  editionId        Int        @default(1) @map("id_edicion")
+  editionId        Int        @default(3) @map("id_edicion")
   isActive         Boolean    @default(true) @map("activo")
-  confirmId        Int        @default(2) @map("id_estado_confirmacion")
+  isExternal       Boolean    @default(false) @map("externo")
+  teamCode         String     @map("codigo_equipo") @db.VarChar(10)
   edition          Edition    @relation(fields: [editionId], references: [id])
   user             User       @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]   @relation("TeamMembers")
   videogame        Videogame?
   assignedJurors   User[]     @relation("JurorTeamAssignment")
 
+  @@unique([teamCode, editionId])
   @@map("equipos")
 }
 
@@ -178,7 +211,7 @@ model Member {
   isActive    Boolean  @default(true) @map("activo")
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   createdAt   DateTime @default(now()) @map("creado_en")
-  team        Team     @relation("TeamMembers", fields: [teamId], references: [id])
+  team        Team     @relation("TeamMembers", fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nrcs        NRC[]    @relation("MemberNRC")
 
   @@map("integrante")
@@ -186,7 +219,7 @@ model Member {
 
 model VideogameStatus {
   id         Int         @id @default(autoincrement()) @map("id_estado")
-  status     String      @map("estado") @db.VarChar(30)
+  status     String      @unique @map("estado") @db.VarChar(30)
   isActive   Boolean     @default(true) @map("activo")
   updatedAt  DateTime    @updatedAt @map("actualizado_en")
   createdAt  DateTime    @default(now()) @map("creado_en")
@@ -204,11 +237,28 @@ model Videogame {
   videogameStatusId Int             @default(2) @map("id_estado_videojuego")
   teamId            Int             @unique @map("id_equipo")
   isActive          Boolean         @default(true) @map("activo")
+  repoUrl           String?         @map("repo_url")
+  videoUrl          String?         @map("video_url")
+  additionalImages  String[]        @default([]) @map("imagenes_adicionales")
   evaluations       Evaluation[]
-  team              Team            @relation(fields: [teamId], references: [id])
+  likedBy           VideogameLike[]
+  team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
 
   @@map("videojuegos")
+}
+
+model VideogameLike {
+  id          Int      @id @default(autoincrement())
+  videogameId Int      @map("id_videojuego")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([videogameId, userId])
+  @@map("videogame_likes")
 }
 
 model Evaluation {
@@ -218,15 +268,34 @@ model Evaluation {
   totalScore  Float?             @map("puntaje_total")
   jurorId     String             @map("id_jurado")
   videogameId Int                @map("id_videojuego")
-  editionId   Int                @map("id_edicion")
+  editionId   Int                @default(3) @map("id_edicion")
   isActive    Boolean            @default(true) @map("activo")
+  isSenior    Boolean            @default(false) @map("es_jurado_senior")
   details     EvaluationDetail[]
   Edition     Edition            @relation(fields: [editionId], references: [id])
   juror       User               @relation("JurorEvaluations", fields: [jurorId], references: [id])
-  videogame   Videogame          @relation(fields: [videogameId], references: [id])
+  videogame   Videogame          @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([jurorId, videogameId], name: "jurado_videojuego_unique")
   @@map("evaluacion")
+}
+
+model JurorAssignmentAuditLog {
+  id               Int                          @id @default(autoincrement())
+  action           ManualJurorAssignmentAction
+  actorUserId      String                       @map("actor_user_id")
+  teamId           Int?                         @map("team_id")
+  jurorId          String?                      @map("juror_id")
+  previousJurorId  String?                      @map("previous_juror_id")
+  newJurorId       String?                      @map("new_juror_id")
+  notes            String?                      @db.Text
+  createdAt        DateTime                     @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([teamId])
+  @@index([jurorId])
+  @@index([createdAt])
+  @@map("juror_assignment_audit_logs")
 }
 
 model Subject {
@@ -237,6 +306,7 @@ model Subject {
   isActive  Boolean  @default(true) @map("activo")
   updatedAt DateTime @updatedAt @map("actualizado_en")
   createdAt DateTime @default(now()) @map("creado_en")
+  abrevName String   @default("IST") @map("abreviacion") @db.Char(3)
   nrcs      NRC[]
 
   @@map("materia")
@@ -250,6 +320,8 @@ model NRC {
   isActive    Boolean  @default(true) @map("activo")
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   createdAt   DateTime @default(now()) @map("creado_en")
+  editionId   Int      @default(3) @map("id_edicion")
+  edition     Edition  @relation(fields: [editionId], references: [id])
   subject     Subject  @relation(fields: [subjectId], references: [id])
   professor   User     @relation("ProfessorNRC", fields: [professorId], references: [id])
   members     Member[] @relation("MemberNRC")
@@ -279,8 +351,116 @@ model EvaluationDetail {
   updatedAt    DateTime   @updatedAt @map("actualizado_en")
   createdAt    DateTime   @default(now()) @map("creado_en")
   criterion    Criterion  @relation(fields: [criterionId], references: [id])
-  evaluation   Evaluation @relation(fields: [evaluationId], references: [id])
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([evaluationId, criterionId], name: "evaluacion_criterio_unique")
   @@map("detalle_evaluacion")
+}
+
+model Weighting {
+  id        Int      @id @default(autoincrement())
+  editionId Int      @unique @map("id_edicion")
+  seniorPct Float    @map("senior_pct")
+  juniorPct Float    @map("junior_pct")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+  edition   Edition  @relation(fields: [editionId], references: [id])
+
+  @@map("ponderado")
+}
+
+model Upload {
+  id        String   @id @default(uuid())
+  blobName  String
+  filename  String
+  mimetype  String
+  size      Int
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("archivos_subidos")
+}
+
+model Podium {
+  id        Int      @id @default(autoincrement()) @map("id_podio")
+  editionId Int      @map("id_edicion")
+  position  Int      @map("puesto")
+  teamName  String   @map("equipo") @db.VarChar(100)
+  gameName  String   @map("juego") @db.VarChar(100)
+  score     Float    @map("puntuacion")
+  isActive  Boolean  @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+  edition   Edition  @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, position], name: "podio_criterio_unique")
+  @@map("podio")
+}
+
+model EducationalFocus {
+  id          Int      @id @default(autoincrement()) @map("id_enfoque")
+  editionId   Int      @map("id_edicion")
+  title       String   @map("titulo") @db.VarChar(100)
+  description String?  @map("descripcion")
+  isActive    Boolean  @default(true) @map("activo")
+  createdAt   DateTime @default(now()) @map("creado_en")
+  updatedAt   DateTime @updatedAt @map("actualizado_en")
+  edition     Edition  @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, title], name: "enfoque_educativo_criterio_unique")
+  @@map("enfoque_educativo")
+}
+
+model Testimonial {
+  id        Int      @id @default(autoincrement()) @map("id_testimonio")
+  editionId Int      @map("id_edicion")
+  name      String   @map("nombre") @db.VarChar(100)
+  role      String   @map("rol") @db.VarChar(100)
+  quote     String   @map("cita")
+  isActive  Boolean  @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+  edition   Edition  @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, name], name: "testimonio_criterio_unique")
+  @@map("testimonio")
+}
+
+view TeamFinalScore {
+  teamId        Int     @map("team_id")
+  teamCode      String? @map("team_code")
+  isExternal    Boolean @map("is_external")
+  videogameId   Int     @map("videogame_id")
+  videogameName String? @map("videogame_name")
+  editionId     Int     @map("edition_id")
+  avgJunior     Float?  @map("avg_junior")
+  avgSenior     Float?  @map("avg_senior")
+  finalScore    Float?  @map("final_score")
+
+  @@unique([teamId, videogameId, editionId])
+  @@map("vw_team_final_scores")
+}
+
+enum AuthMethod {
+  PASSWORD
+  ENTRA_ID
+}
+
+
+enum JurorCategory {
+  JUNIOR
+  SENIOR
+}
+
+enum JurorType {
+  OFFICIAL
+  BACKUP
+}
+
+enum ManualJurorAssignmentAction {
+  ASSIGN
+  UNASSIGN
+  REASSIGN
+  UNASSIGN_ALL
+  UNASSIGN_ALL_FROM_EVALUATOR
 }

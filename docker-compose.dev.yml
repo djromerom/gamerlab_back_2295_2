@@ -1,0 +1,97 @@
+# Docker Compose para desarrollo
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: arkad_db_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: arkad_db
+      POSTGRES_USER: arkad_user
+      POSTGRES_PASSWORD: arkad_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arkad_user -d arkad_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate-and-seed-dev:
+    image: node:20-alpine
+    container_name: arkad_migrator_dev
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /usr/src/app
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    command: >
+      sh -c "
+        set -e &&
+        echo 'Installing dependencies...' &&
+        npm install &&
+        echo 'Generating Prisma client...' &&
+        npx prisma generate &&
+        echo 'Running database migrations...' &&
+        npx prisma migrate deploy &&
+        echo 'Database migrations completed' &&
+        echo 'Running database seeding...' &&
+        npx ts-node seed.ts &&
+        echo 'Database seeding completed'
+      "
+    restart: "no"
+
+  app-dev:
+    image: node:20-alpine
+    container_name: arkad_app_dev
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate-and-seed-dev:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    working_dir: /usr/src/app
+    env_file: .env
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://arkad_user:arkad_password@db:5432/arkad_db
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=1000
+      - WATCHPACK_POLLING=true
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+    volumes:
+      - .:/usr/src/app
+      - node_modules_dev:/usr/src/app/node_modules
+    command: >
+      sh -c "
+        echo 'Installing Chromium for Puppeteer...' &&
+        apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont &&
+        echo 'Installing dependencies...' &&
+        npm install &&
+        echo 'Generating Prisma client...' &&
+        npx prisma generate &&
+        echo 'Starting development server with watch mode...' &&
+        npm run start:dev
+      "
+    restart: unless-stopped
+
+volumes:
+  postgres_dev_data:
+  node_modules_dev:

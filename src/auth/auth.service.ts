@@ -10,24 +10,22 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { User, ConfirmationStatus } from '@prisma/client';
-import { SUPABASE_CLIENT } from './auth.constants';
-import path from 'node:path';
-import { readFileSync } from 'node:fs';
-import {
-  SupabaseClient,
-  AuthError,
-  User as UserSupabase,
-} from '@supabase/supabase-js';
+import { Prisma, User } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
-import emailjs, { EmailJSResponseStatus } from '@emailjs/nodejs';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { CacheService } from 'src/cache/cache.service';
+import { CacheService } from '../cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
+import { AuthEmailType } from '../email/types/email-type.type';
+import { LoginType } from './types/login-type.type';
+import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import { EmailService } from '../email/email.service';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -36,19 +34,20 @@ const REFRESH_TOKEN_COOKIE = 'refresh-token';
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  // Mailer configuration
-  private EMAIL_PUBLIC_API_KEY: string;
-  private EMAIL_PRIVATE_API_KEY: string;
-  private EMAIL_SERVICE_ID: string;
-  private EMAIL_CONFIRMATION_TEMPLATE: string;
-
   private confirmedStatusId: number;
   private pendingStatusId: number;
   private verificationTokenId: number;
+  private resetPasswordTokenId: number;
+
+  private tenantId: string;
+  private clientId: string;
+  private clientSecret: string;
+  private redirectUri: string;
 
   private readonly CONFIRMED_STATUS_NAME = 'CONFIRMADO';
   private readonly PENDING_STATUS_NAME = 'PENDIENTE';
   private readonly VERIFICATION_TOKEN_NAME = 'VERIFICACION_EMAIL';
+  private readonly RESET_PASSWORD_TOKEN_NAME = 'RESETEAR_CONTRASENA';
 
   // Cache
   private readonly USER_PROFILE_CACHE_PREFIX = 'user_profile:';
@@ -58,7 +57,9 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
-    @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
+    private readonly jwtService: JwtService,
+    private readonly httpService: HttpService,
+    private readonly emailService: EmailService,
   ) { }
 
   async onModuleInit() {
@@ -101,6 +102,9 @@ export class AuthService {
       const verificationToken = await this.prisma.tokenType.findUnique({
         where: { type: this.VERIFICATION_TOKEN_NAME },
       });
+      const resetPasswordToken = await this.prisma.tokenType.findUnique({
+        where: { type: this.RESET_PASSWORD_TOKEN_NAME },
+      });
 
       if (!verificationToken) {
         this.logger.error(
@@ -111,7 +115,17 @@ export class AuthService {
         );
       }
 
+      if (!resetPasswordToken) {
+        this.logger.error(
+          `FATAL: Configuration Error during onModuleInit - Token type '${this.RESET_PASSWORD_TOKEN_NAME}' not found. Application might not function correctly.`,
+        );
+        throw new InternalServerErrorException(
+          `Server configuration error: Missing required Token type '${this.RESET_PASSWORD_TOKEN_NAME}'.`,
+        );
+      }
+
       this.verificationTokenId = verificationToken.id;
+      this.resetPasswordTokenId = resetPasswordToken.id;
 
       this.logger.log('Setting USER_PROFILE_CACHE_TTL');
       this.USER_PROFILE_CACHE_TTL =
@@ -122,43 +136,23 @@ export class AuthService {
         `USER_PROFILE_CACHE_TTL set to ${this.USER_PROFILE_CACHE_TTL} seconds`,
       );
 
-      this.logger.log('Setting up EmailJS client');
-      const EMAIL_PUBLIC_API_KEY = this.configService.get<string>(
-        'EMAIL_PUBLIC_API_KEY',
-      );
-      const EMAIL_PRIVATE_API_KEY = this.configService.get<string>(
-        'EMAIL_PRIVATE_API_KEY',
-      );
-      const EMAIL_SERVICE_ID =
-        this.configService.get<string>('EMAIL_SERVICE_ID');
-      const EMAIL_CONFIRMATION_TEMPLATE = this.configService.get<string>(
-        'EMAIL_CONFIRMATION_TEMPLATE',
-      );
+      // Initialize Microsoft Entra ID configuration
+      const tenantId = this.configService.get<string>('AZURE_TENANT_ID');
+      const clientId = this.configService.get<string>('AZURE_CLIENT_ID');
+      const clientSecret = this.configService.get<string>('AZURE_CLIENT_SECRET');
+      const redirectUri = this.configService.get<string>('REDIRECT_URI');
 
-      if (!EMAIL_PUBLIC_API_KEY || !EMAIL_PRIVATE_API_KEY)
+      if (!tenantId || !clientId || !clientSecret || !redirectUri) {
         throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_PUBLIC_API_KEY' or 'EMAIL_PRIVATE_API_KEY' variables not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_SERVICE_ID)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_SERVICE_ID' not found. Application might not function correctly`,
-        );
-      else if (!EMAIL_CONFIRMATION_TEMPLATE)
-        throw new InternalServerErrorException(
-          `FATAL: Configuration error during onModuleInit - 'EMAIL_CONFIRMATION_TEMPLATE' not found. Application might not function correctly`,
-        );
+          `FATAL: Configuration error during onModuleInit - Microsoft Entra ID variables not found. Application might not function correctly`,
+        )
+      }
 
-      this.EMAIL_PUBLIC_API_KEY = EMAIL_PUBLIC_API_KEY;
-      this.EMAIL_PRIVATE_API_KEY = EMAIL_PRIVATE_API_KEY;
-      this.EMAIL_SERVICE_ID = EMAIL_SERVICE_ID;
-      this.EMAIL_CONFIRMATION_TEMPLATE = EMAIL_CONFIRMATION_TEMPLATE;
+      this.tenantId = tenantId;
+      this.clientId = clientId;
+      this.clientSecret = clientSecret;
+      this.redirectUri = redirectUri;
 
-      this.logger.log('Initializing EmailJS with found EMAIL_API_KEY');
-      emailjs.init({
-        publicKey: this.EMAIL_PUBLIC_API_KEY,
-        privateKey: this.EMAIL_PRIVATE_API_KEY,
-      });
-      this.logger.log('EmailJS successfully initialized');
     } catch (error) {
       if (error instanceof Error)
         this.logger.error(
@@ -169,6 +163,51 @@ export class AuthService {
     }
   }
 
+  /**
+   * Resets token expiration for a user's verification or reset password token
+   */
+  async resetTokenExpiration(userId: string, typeOfToken: AuthEmailType): Promise<void> {
+    try {
+      // Find the appropriate token type
+      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL'
+        ? this.verificationTokenId
+        : this.resetPasswordTokenId;
+
+      const token = await this.prisma.verificationToken.findFirst({
+        where: {
+          userId: userId,
+          tokenTypeId: tokenTypeId,
+        },
+      });
+
+      if (!token) {
+        this.logger.warn(`No verification token found for this user`);
+        throw new NotFoundException('No verification token found for this user.');
+      }
+
+      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+        'REGISTRATION_TOKEN_EXPIRATION',
+        24,
+      );
+
+      const newExpiresAt = new Date(
+        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+      );
+
+      await this.prisma.verificationToken.update({
+        where: { id: token.id },
+        data: { expiresAt: newExpiresAt },
+      });
+
+      this.logger.log(`Token expiration reset for user ${userId}`);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.error(`Failed to reset token expiration: ${error instanceof Error ? error.message : String(error)}`);
+      throw new InternalServerErrorException('Failed to reset token expiration.');
+    }
+  }
+
+  // done locally
   async setUserPassword(token: string, newPassword: string): Promise<void> {
     this.logger.log(
       `Attempting to set password using token: ${token ? token.substring(0, 8) + '...' : 'UNDEFINED'}`,
@@ -204,26 +243,26 @@ export class AuthService {
     );
 
     try {
-      const { data, error: adminUpdateError } =
-        await this.supabase.auth.admin.updateUserById(userId, {
-          password: newPassword,
-          email_confirm: true,
-        });
+      // Hash the password locally
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-      if (adminUpdateError) {
-        this.logger.error(
-          `Supabase admin updateUserById error for user ${userId}: ${adminUpdateError.message}`,
-          adminUpdateError,
-        );
-        throw new InternalServerErrorException(
-          `There was an error updating the password: ${adminUpdateError.message}`,
-        );
-      }
+      // Update the user's password in our local database
+      const updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          password: hashedPassword,
+          confirmationStatusId: this.confirmedStatusId,
+          isActive: true,
+          authMethod: 'PASSWORD'
+        },
+      });
 
-      if (!data?.user) {
+      if (!updatedUser) {
         this.logger.warn(
-          `Supabase admin updateUserById for user ${userId} completed but returned no user data.`,
+          `Local user update for user ${userId} failed - user not found.`,
         );
+        throw new NotFoundException('User not found.');
       }
 
       this.logger.log(
@@ -292,32 +331,28 @@ export class AuthService {
 
     if (!storedToken) {
       this.logger.warn(`Token not found: ${tokenString.substring(0, 8)}...`);
-      return { isValid: false, message: 'Invalid or expired link.' };
+      throw new BadRequestException('Invalid link.');
     }
 
     if (new Date() > storedToken.expiresAt) {
       this.logger.warn(
         `Token expired: ${tokenString.substring(0, 8)}... for user ${storedToken.userId}`,
       );
-      return {
-        isValid: false,
-        message: 'This link has expired. Please request a new one.',
-      };
+      throw new BadRequestException('This link has expired. Please request a new one.');
     }
 
     if (expectedTokenType && storedToken.type.type !== expectedTokenType) {
       this.logger.warn(
         `Token type mismatch for ${tokenString.substring(0, 8)}... Expected ${expectedTokenType}, got ${storedToken.type.type}`,
       );
-      return {
-        isValid: false,
-        message: 'This link cannot be used for this purpose.',
-      };
+      throw new BadRequestException('This link cannot be used for this purpose.');
     }
 
     this.logger.log(
       `Token ${tokenString.substring(0, 8)}... is valid for user ${storedToken.userId}`,
     );
+
+    // Only return success object for valid tokens
     return {
       isValid: true,
       message: 'Token is valid.',
@@ -327,64 +362,22 @@ export class AuthService {
     };
   }
 
-  async registerUser(registerDto: RegisterDto): Promise<UserSupabase> {
+  // done locally
+  async registerUser(registerDto: RegisterDto): Promise<User> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
-    let user: UserSupabase;
     try {
-      const { data, error } = await this.supabase.auth.signUp({
-        email: registerDto.email,
-        password: randomUUID(),
+      const { user, verificationToken } = await this.prisma.$transaction(async (tx) => {
+        return this.registerUserTransaction(registerDto, tx);
       });
 
-      if (error) {
-        this.handleSupabaseError(error, 'signUp');
-      }
-
-      if (!data?.user) {
-        this.logger.error('Supabase signUp returned no user data.');
-        throw new InternalServerErrorException(
-          'Registration failed: Incomplete data from auth provider.',
-        );
-      }
-
-      this.logger.log(
-        `Supabase registration successful for: ${registerDto.email}`,
-      );
-
-      user = data.user;
-
-      this.logger.log(`Sending verification email for '${registerDto.email}'`);
-
-      const REDIRECT_TO = this.configService.get<string>(
-        'FRONTEND_URL',
-        `http://localhost:5173`,
-      );
-
-      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
-        'REGISTRATION_TOKEN_EXPIRATION',
-        24,
-      );
-
-      const verificationToken = randomUUID();
-      const expiresAt = new Date(
-        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
-      ); //24 hours
-
-      await this.prisma.verificationToken.create({
-        data: {
-          token: verificationToken,
-          email: user.email!,
-          userId: user.id,
-          tokenTypeId: this.verificationTokenId,
-          expiresAt: expiresAt,
-        },
+      // Transaction is fully committed at this point — $transaction only returns after commit
+      // Safe to send the verification email now.
+      setImmediate(() => {
+        this.sendVerificationEmail(registerDto.email, verificationToken);
       });
 
-      this.sendEmailTemplate(this.EMAIL_CONFIRMATION_TEMPLATE, {
-        email: registerDto.email,
-        confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-      });
+      return user;
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -396,100 +389,194 @@ export class AuthService {
 
       if (error instanceof Error) {
         this.logger.error(
-          `Unexpected error during Supabase registration: ${error.message}`,
+          `Unexpected error during local registration: ${error.message}`,
           error.stack,
         );
         throw new InternalServerErrorException(
           'An unexpected error occurred during registration.',
         );
       }
+      throw error;
     }
-
-    return user!;
   }
 
-  async login(loginDto: LoginDto, res: Response): Promise<{ message: string }> {
-    this.logger.log(`Attempting login for user: ${loginDto.email}`);
-    let supabaseSessionData;
+  // Private method with the actual user registration logic
+  private async registerUserTransaction(
+    registerDto: RegisterDto,
+    tx: Prisma.TransactionClient
+  ): Promise<{ user: User; verificationToken: string }> {
     try {
-      const { data, error } = await this.supabase.auth.signInWithPassword({
-        email: loginDto.email,
-        password: loginDto.password,
+      // Check if user already exists within transaction
+      const existingUser = await tx.user.findUnique({
+        where: { email: registerDto.email },
       });
 
-      if (error) {
-        this.handleSupabaseError(error, 'signInWithPassword');
-      }
-      if (!data?.session || !data?.user) {
-        this.logger.error(
-          'Supabase signInWithPassword returned no session or user data.',
+      if (existingUser) {
+        this.logger.warn(
+          `Registration attempt for existing email: ${registerDto.email}`,
         );
-        throw new InternalServerErrorException(
-          'Login failed: Incomplete data from auth provider.',
-        );
+        throw new ConflictException('A user with that email already exists');
       }
 
-      supabaseSessionData = data;
-      this.logger.log(`Supabase login successful for: ${loginDto.email}`);
-    } catch (error) {
-      if (
-        error instanceof UnauthorizedException ||
-        error instanceof InternalServerErrorException
-      ) {
-        throw error;
-      }
+      // Create user within transaction
+      const userId = randomUUID();
+      const user = await tx.user.create({
+        data: {
+          id: userId,
+          email: registerDto.email,
+          firstName: '',
+          lastName: '',
+          roleId: 2, // Default role ID (student)
+          confirmationStatusId: this.pendingStatusId,
+          isActive: false, // User starts inactive until email is confirmed
+          createdAt: new Date(),
+        },
+      });
 
-      if (error instanceof Error) {
-        this.logger.error(
-          `Unexpected error during Supabase login: ${error.message}`,
-          error.stack,
-        );
-        throw new InternalServerErrorException(
-          'An unexpected error occurred during login.',
-        );
-      }
-    }
-
-    const supabaseUserForSync = {
-      sub: supabaseSessionData!.user.id,
-      email: supabaseSessionData!.user.email,
-    };
-
-    let localUser: User;
-    try {
-      localUser = await this.syncSupabaseUser(supabaseUserForSync);
-      this.logger.log(`Local user sync successful for: ${localUser.email}`);
-    } catch (error) {
-      // If sync fails (e.g., user not found locally, DB error, or became inactive), we don't proceed.
-      await this.supabase.auth.signOut(); // Sign out the potentially just signed-in Supabase session
-      if (
-        error instanceof InternalServerErrorException ||
-        error instanceof UnauthorizedException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        'Login failed due to user profile inconsistency.',
+      this.logger.log(
+        `Local user created successfully for: ${registerDto.email}`,
       );
-    }
 
-    const { access_token, refresh_token } = supabaseSessionData!.session;
-    if (!access_token || !refresh_token) {
+      // Create verification token within transaction
+      const verificationToken = randomUUID();
+      const TOKEN_EXPIRATION_TIME = this.configService.get<number>(
+        'REGISTRATION_TOKEN_EXPIRATION',
+        24,
+      );
+      const expiresAt = new Date(
+        Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
+      ); // 24 hours
+
+      await tx.verificationToken.create({
+        data: {
+          id: randomUUID(),
+          token: verificationToken,
+          email: user.email,
+          userId: user.id,
+          tokenTypeId: this.verificationTokenId,
+          expiresAt: expiresAt,
+        },
+      });
+
+      this.logger.log(`User registered successfully within transaction: ${user.email}`);
+      return { user, verificationToken };
+
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+
       this.logger.error(
-        'Supabase session data missing access or refresh token.',
+        `Error registering user within transaction: ${error instanceof Error ? error.message : String(error)}`,
       );
-      await this.supabase.auth.signOut();
-      throw new InternalServerErrorException(
-        'Login failed: Incomplete token data from auth provider.',
+      throw error;
+    }
+  }
+
+  // Helper method to send verification email
+  private async sendVerificationEmail(email: string, verificationToken: string): Promise<{ message: string }> {
+    return this.emailService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL', verificationToken);
+  }
+
+  // done locally
+  async login(loginDto: LoginDto, logintType: LoginType, res: Response): Promise<{ message: string, access: string; refresh: string }> {
+    this.logger.log(`Attempting login for user: ${loginDto.email}`);
+
+    // Find user in local database
+    const user = await this.prisma.user.findUnique({
+      where: { email: loginDto.email },
+      include: {
+        confirmationStatus: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      this.logger.warn(
+        `Login attempt failed: User not found for email: ${loginDto.email}`,
       );
+      throw new UnauthorizedException('Invalid credentials.');
     }
 
-    this.setAuthCookies(res, access_token, refresh_token);
-    this.logger.log(`Auth cookies set for user: ${localUser.email}`);
+    if (logintType === 'PASSWORD') {
+      if (user.authMethod !== 'PASSWORD') {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} does not use password authentication`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      if (!user.password) {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} has no password set`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      if (!loginDto.password) {
+        this.logger.warn(
+          `Login attempt failed: No password provided for user: ${loginDto.email}`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+      // Verify password using bcrypt
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        user.password,
+      );
+      if (!isPasswordValid) {
+        this.logger.warn(
+          `Login attempt failed: Invalid password for user: ${loginDto.email}`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+    } else { // loginType == 'ENTRA_ID'
+      if (user.authMethod !== 'ENTRA_ID') {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} does not use Entra ID authentication`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      if (!user.microsoftOid) {
+        this.logger.warn(
+          `Login attempt failed: User ${loginDto.email} has no Microsoft account linked`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      // Additional validation: verify the Microsoft OID matches if provided in loginDto
+      if (loginDto.microsoftOid && user.microsoftOid !== loginDto.microsoftOid) {
+        this.logger.warn(
+          `Login attempt failed: Microsoft account mismatch for user: ${loginDto.email}`,
+        );
+        throw new UnauthorizedException('Invalid credentials.');
+      }
+
+      this.logger.log('Entra ID login validation passed');
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      this.logger.warn(
+        `Login attempt failed: User ${loginDto.email} is inactive`,
+      );
+      throw new UnauthorizedException('User account is currently inactive.');
+    }
+
+    // Generate JWT tokens
+    const payload = { sub: user.id, email: user.email };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    this.setAuthCookies(res, accessToken, refreshToken);
+    this.logger.log(
+      `Local authentication successful for user: ${loginDto.email}`,
+    );
 
     this.updateLastSignIn(loginDto.email);
 
-    return { message: 'Login successful' };
+    return { message: 'Login successful', access: accessToken, refresh: refreshToken };
   }
 
   async updateLastSignIn(emailUser: string) {
@@ -509,52 +596,189 @@ export class AuthService {
     return updatedUser; // O lo que quieras retornar
   }
 
+  // This function gets the Authorize URL for Outlook login based on Microsoft Entra ID credentials
+  getAuthorizeUrl() {
+    const params = new URLSearchParams({
+      client_id: this.clientId,
+      response_type: 'code',
+      redirect_uri: this.redirectUri,
+      response_mode: 'query',
+      scope: 'openid profile email',
+      state: 'xyz123',
+      prompt: 'select_account',
+    });
+    return `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
+  }
+
+  /**
+   * When a user chooses to sign in with Microsoft Entra ID,
+   * they get redirected to Microsoft's authorization endpoint. After they authenticate there,
+   * Microsoft redirects back to our callback URL with an authorization code.
+   * This function exchanges that code for tokens from Microsoft.
+   * @param code The authorization code received from Microsoft
+   * @returns The token response from Microsoft, including id_token and access_token
+   */
+  async exchangeCodeForToken(code: string) {
+    const tokenEndpoint = `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/token`;
+
+    const data = new URLSearchParams({
+      client_id: this.clientId,
+      scope: 'openid profile email',
+      code,
+      redirect_uri: this.redirectUri,
+      grant_type: 'authorization_code',
+      client_secret: this.clientSecret,
+    });
+
+    const response = await firstValueFrom(
+      this.httpService.post(tokenEndpoint, data.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      })
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Handles the Microsoft Entra ID callback after user authentication.
+   * If the user exists, logs them in.
+   * @param code The authorization code received from Microsoft
+   * @param res The Express response object to set cookies
+   * @returns The result of the login process. 201 if succesful.
+   */
+  async handleMicrosoftCallback(code: string, res: Response) {
+    try {
+      // Exchange code for Microsoft tokens and extract user info
+      const microsoftTokens = await this.exchangeCodeForToken(code);
+      const userInfo = this.parseIdToken(microsoftTokens.id_token);
+
+      // Check if user exists
+      const user = await this.prisma.user.findUnique({
+        where: { email: userInfo.email }
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User does not exist.');
+      }
+
+      // Handle first-time setup (if authMethod is null)
+      if (user.authMethod === null) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            authMethod: 'ENTRA_ID',
+            microsoftOid: userInfo.oid,
+            isActive: true,
+            confirmationStatusId: this.confirmedStatusId,
+          }
+        });
+        await this.prisma.verificationToken.deleteMany({
+          where: {
+            userId: user.id,
+            tokenTypeId: this.verificationTokenId,
+          },
+        });
+        this.logger.log(`First-time Entra ID setup completed for user: ${user.email}`);
+      }
+
+      // Use existing login method with Entra ID
+      await this.login(
+        { email: userInfo.email, microsoftOid: userInfo.oid }, 'ENTRA_ID', res
+      );
+
+      // Successful login - redirect to frontend
+      const REDIRECT_TO = this.configService.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:5173',
+      );
+      return res.redirect(`${REDIRECT_TO}/inicio`);
+    } catch (error) {
+      // Log the error details
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error('Microsoft authentication failed:', {
+        error: errorMessage,
+        stack: errorStack,
+        code: code ? 'provided' : 'missing',
+      });
+
+      // Redirect to error page with specific error info
+      const errorType = error instanceof UnauthorizedException ? 'unauthorized' : 'server_error';
+      const REDIRECT_TO = this.configService.get<string>(
+        'FRONTEND_URL',
+        `http://localhost:5173`,
+      );
+      return res.redirect(`${REDIRECT_TO}/auth-error?error=${errorType}`);
+    }
+  }
+
+  /**
+   * Parses the ID token received from Microsoft to extract user information.
+   * @param idToken The ID token JWT string
+   * @returns An object containing the user's OID, email, and name
+   */
+  private parseIdToken(idToken: string) {
+    const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
+    return {
+      oid: payload.oid,
+      email: payload.email || payload.unique_name || payload.preferred_username,
+      name: payload.name,
+    };
+  }
+
   /**
    * Refreshes the session using the refresh token from cookies.
    */
-  async refresh(req: Request, res: Response): Promise<{ message: string }> {
+  // done locally
+  async refresh(
+    req: Request,
+    res: Response,
+  ): Promise<{ message: string; accessToken: string }> {
     const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (!refreshToken) {
       this.logger.warn('Refresh attempt without refresh token cookie.');
+      this.logger.warn(`Available cookies: ${JSON.stringify(req.cookies)}`);
       throw new UnauthorizedException('Missing refresh token.');
     }
 
-    this.logger.log('Attempting to refresh session using refresh token.');
+    this.logger.log('Attempting to refresh session using local JWT.');
+
     try {
-      const { data, error } = await this.supabase.auth.refreshSession({
-        refresh_token: refreshToken,
+      // Verify the refresh token using our local JWT service
+      const payload = this.jwtService.verify(refreshToken);
+
+      if (!payload || !payload.sub || !payload.email) {
+        this.logger.warn('Invalid refresh token payload');
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid refresh token.');
+      }
+
+      // Check if user still exists and is active
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
       });
 
-      if (error) {
-        this.logger.warn(`Supabase refreshSession failed: ${error.message}`);
-        // If refresh fails (e.g., token expired/invalid), we clear cookies and require login
-        this.clearAuthCookies(res);
-        throw new UnauthorizedException('Invalid or expired refresh token.');
-      }
-
-      if (!data?.session) {
-        this.logger.error('Supabase refreshSession returned no session data.');
-        this.clearAuthCookies(res);
-        throw new InternalServerErrorException(
-          'Session refresh failed: Incomplete data from auth provider.',
-        );
-      }
-
-      const { access_token, refresh_token: new_refresh_token } = data.session;
-
-      if (!access_token || !new_refresh_token) {
-        this.logger.error(
-          'Refreshed session data missing access or refresh token.',
+      if (!user || !user.isActive) {
+        this.logger.warn(
+          `Refresh token user ${payload.email} not found or inactive`,
         );
         this.clearAuthCookies(res);
-        throw new InternalServerErrorException(
-          'Session refresh failed: Incomplete token data from auth provider.',
-        );
+        throw new UnauthorizedException('User account is no longer active.');
       }
 
-      // We set the new tokens in cookies
-      this.setAuthCookies(res, access_token, new_refresh_token);
-      this.logger.log('Session refreshed successfully.');
+      // Generate new tokens
+      const newPayload = { sub: user.id, email: user.email };
+      const newAccessToken = this.jwtService.sign(newPayload, {
+        expiresIn: '15m',
+      });
+      const newRefreshToken = this.jwtService.sign(newPayload, {
+        expiresIn: '7d',
+      });
+
+      this.setAuthCookies(res, newAccessToken, newRefreshToken);
+      this.logger.log(`Session refreshed successfully for user: ${user.email}`);
+
+      return { message: 'Session refreshed', accessToken: newAccessToken };
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -563,160 +787,81 @@ export class AuthService {
         throw error;
       }
 
-      if (error instanceof Error) {
-        this.logger.error(
-          `Unexpected error during session refresh: ${error.message}`,
-          error.stack,
-        );
-        this.clearAuthCookies(res); // When unexpected errors occurs we clear the cookies
-        throw new InternalServerErrorException(
-          'An unexpected error occurred during session refresh.',
-        );
-      }
+      this.logger.error(
+        `Error during session refresh: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      this.clearAuthCookies(res);
+      throw new UnauthorizedException('Invalid or expired refresh token.');
     }
-    return { message: 'Session refreshed' };
   }
 
   /**
    * Logs the user out by clearing auth cookies.
    */
+  // done locally
   async logout(res: Response): Promise<{ message: string }> {
     this.logger.log('Attempting to logout user.');
-    try {
-      const { error } = await this.supabase.auth.signOut();
-      if (error) {
-        this.logger.warn(
-          `Supabase signOut failed during logout: ${error.message}`,
-        );
-      }
-    } catch (e) {
-      if (e instanceof Error)
-        this.logger.warn(`Error calling Supabase signOut: ${e.message}`);
-    }
 
     this.clearAuthCookies(res);
-    this.logger.log('Auth cookies cleared.');
+    this.logger.log('Local logout successful - auth cookies cleared.');
+
     return { message: 'Logout successful' };
   }
 
   /**
-   * Finds an existing user by Supabase ID. If the user was previously invited
-   * (inactive/pending), it activates them upon this first successful login post-confirmation.
-   * @param supabaseUser The user object derived from validated Supabase data (needs at least sub, email)
-   * @returns The corresponding user from the local database (potentially activated)
-   * @throws {InternalServerErrorException} If required statuses are missing in DB or if local user record is unexpectedly missing.
-   * @throws {UnauthorizedException} If the found user is marked as inactive AFTER potential activation.
+   * Validates and syncs a local JWT user with the database.
+   * @param jwtPayload The decoded JWT payload from our local tokens
+   * @returns The corresponding user from the local database with role permissions
+   * @throws {NotFoundException} If user is not found in local database
+   * @throws {UnauthorizedException} If user is inactive
    */
-  async syncSupabaseUser(supabaseUser: JwtPayload): Promise<User> {
-    const supabaseId = supabaseUser?.sub;
-    const userEmail = supabaseUser?.email;
+  async syncLocalUser(jwtPayload: JwtPayload): Promise<User> {
+    this.logger.debug(`Syncing local user with ID: ${jwtPayload.sub}`);
 
-    if (!supabaseId || !userEmail) {
-      this.logger.error(
-        'syncSupabaseUser called with incomplete Supabase user data.',
-        { sub: supabaseId, email: userEmail },
-      );
-      throw new BadRequestException(
-        'Invalid user data received for synchronization.',
-      );
-    }
+    const cacheKey = this.getUserProfileCacheKey(jwtPayload.sub);
 
-    const cacheKey = this.getUserProfileCacheKey(supabaseId);
-
-    const cachedUser: User = await this.cacheService.get(cacheKey);
+    // Try cache first
+    const cachedUser = await this.cacheService.get(cacheKey);
     if (cachedUser) {
       if (!cachedUser.isActive) {
         this.logger.warn(
-          `Cached user ${cachedUser.email} (ID: ${cachedUser.id}) is inactive. Access denied. Re-validating with DB.`,
+          `Cached user ${cachedUser.email} (ID: ${cachedUser.id}) is inactive. Access denied.`,
         );
         await this.cacheService.delete(cacheKey);
-        throw new UnauthorizedException(
-          'User account is currently inactive (checked from cache).',
-        );
+        throw new UnauthorizedException('User account is currently inactive.');
       }
-      this.logger.log(
-        `Cache hit for user: ${userEmail} (Supabase ID: ${supabaseId})`,
-      );
+      this.logger.debug(`Local user ${jwtPayload.sub} found in cache`);
       return cachedUser;
     }
 
-    this.logger.log(
-      `Cache miss. Syncing local user from DB: ${userEmail} (Supabase ID: ${supabaseId})`,
-    );
+    // Find user in local database with full role/permissions data
+    const user = await this.prisma.user.findUnique({
+      where: { id: jwtPayload.sub },
+      include: {
+        role: true,
+        confirmationStatus: true,
+      },
+    });
 
-    let user: User | null;
-    try {
-      user = await this.prisma.user.findUnique({
-        where: { id: supabaseId },
-      });
-
-      // Here we handle the case when the user is not found in our internal `Usuarios` table
-      if (!user) {
-        // This is critical because Supabase authenticated the user, but they don't exist locally.
-        // This indicates a failure in the preceding registration or invitation process.
-        this.logger.error(
-          `CRITICAL: No local user record found for validated Supabase user ${userEmail} (ID: ${supabaseId}). Check registration/invite process flow.`,
-        );
-        throw new NotFoundException(`User profile for ${userEmail} not found.`);
-      }
-
-      // If for some reason the user needs activation
-      if (
-        !user.isActive && // User is currently inactive
-        user.confirmationStatusId === this.pendingStatusId // And has the 'PENDIENTE' status
-      ) {
-        this.logger.log(
-          `Activating previously pending user: ${user.email} (ID: ${user.id})`,
-        );
-        user = await this.prisma.user.update({
-          where: { id: supabaseId },
-          data: {
-            isActive: true,
-            confirmationStatusId: this.confirmedStatusId,
-          },
-        });
-        this.logger.log(`User ${user.email} successfully activated.`);
-      } else {
-        this.logger.log(
-          `User ${user.email} found in local DB. Active: ${user.isActive}, Status ID: ${user.confirmationStatusId}. Does not require activation.`,
-        );
-      }
-
-      if (!user.isActive) {
-        this.logger.warn(
-          `User ${user.email} (ID: ${user.id}) is inactive in the local database AFTER synchronization/activation check. Access denied.`,
-        );
-        throw new UnauthorizedException('User account is currently inactive.');
-      }
-
-      this.logger.log(
-        `Local user sync successful: ${user.email} (Active: ${user.isActive})`,
-      );
-
-      await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
-      this.logger.log(`User ${user.email} synced and cached successfully.`);
-    } catch (error) {
-      if (
-        error instanceof InternalServerErrorException ||
-        error instanceof UnauthorizedException ||
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      ) {
-        throw error;
-      }
-
-      if (error instanceof Error) {
-        this.logger.error(
-          `Unexpected error during user synchronization for ${userEmail} (ID: ${supabaseId}): ${error.message}`,
-          error.stack,
-        );
-        throw new InternalServerErrorException(
-          'An error occurred while synchronizing user profile.',
-        );
-      }
+    if (!user) {
+      this.logger.warn(`Local user ${jwtPayload.sub} not found in database`);
+      throw new NotFoundException('User not found in local database');
     }
 
-    return user!;
+    if (!user.isActive) {
+      this.logger.warn(
+        `Local user ${jwtPayload.sub} (${user.email}) is inactive`,
+      );
+      throw new UnauthorizedException('User account is inactive');
+    }
+
+    // Cache the user profile
+    await this.cacheService.set(cacheKey, user, this.USER_PROFILE_CACHE_TTL);
+    this.logger.debug(
+      `Local user ${user.email} synced and cached successfully`,
+    );
+
+    return user;
   }
 
   /**
@@ -725,8 +870,15 @@ export class AuthService {
   async getMyProfile(userId: string): Promise<Partial<User>> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        role: { select: { name: true, description: true } },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        createdAt: true,
+        lastSignInAt: true,
+        role: { select: { id: true, name: true } },
         confirmationStatus: { select: { status: true } },
       },
     });
@@ -738,16 +890,13 @@ export class AuthService {
       throw new NotFoundException('User profile not found.');
     }
 
-    const { roleId, confirmationStatusId, ...profileData } = user;
-    return profileData;
+    return user;
   }
 
-  async invalidateUserProfileCache(supabaseId: string): Promise<void> {
-    const cacheKey = this.getUserProfileCacheKey(supabaseId);
+  async invalidateUserProfileCache(userId: string): Promise<void> {
+    const cacheKey = this.getUserProfileCacheKey(userId);
     await this.cacheService.delete(cacheKey);
-    this.logger.log(
-      `User profile cache invalidated for Supabase ID: ${supabaseId}`,
-    );
+    this.logger.log(`User profile cache invalidated for user ID: ${userId}`);
   }
 
   /**
@@ -757,92 +906,12 @@ export class AuthService {
    * @throws {ConflictException} If the user is already confirmed.
    * @throws {InternalServerErrorException} If there is an error sending the email.
    */
-  async resendConfirmationEmail(email: string) {
-    this.logger.log(`Attempting to resend confirmation email to: ${email}`);
-
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { confirmationStatus: true },
-    });
-
-    if (!user) {
-      this.logger.error(`User with email ${email} not found in local DB.`);
-      throw new NotFoundException('The email address is not registered.');
-    }
-
-    if (user.confirmationStatus?.status === 'CONFIRMADO') {
-      this.logger.warn(`User with email ${email} is already confirmed.`);
-      throw new ConflictException('The email has already been confirmed.');
-    }
-
-    try {
-      const result = await this.supabase.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: 'http://localhost:5173/verificar-cuenta',
-        },
-      });
-      const { error } = result;
-      if (error) {
-        this.logger.log(error);
-        if (error.message.includes('User not found')) {
-          throw new NotFoundException(
-            'El correo electrónico no está registrado.',
-          );
-        }
-        if (error.message.includes('User already confirmed')) {
-          throw new BadRequestException(
-            'El correo electrónico ya está confirmado.',
-          );
-        }
-        throw new InternalServerErrorException(
-          'Error al reenviar el correo de confirmación.',
-        );
-      }
-      this.logger.log(`Confirmation email resent successfully to: ${email}`);
-      return { message: 'Correo reenviado con éxito' };
-    } catch (err) {
-      this.logger.error(`Unhandled error: ${err}`);
-      throw new InternalServerErrorException(
-        'Error al reenviar el correo de confirmación.',
-      );
-    }
-  }
-
-  /**
-   * Sends an email template to a given email.
-   * @param template The name of the template email that will be sent. Check `src/templates/email`
-   * @param email The email the template will be sent to.
-   * @param templateParams If the template has params, you can send them in this object
-   * @throws {InternalServerErrorException} If there is an error sending the email.
-   */
-  private async sendEmailTemplate(
-    template: string,
-    templateParams: Record<string, unknown>,
-  ) {
-    try {
-      this.logger.log(
-        `Attempting to send verification email to ${templateParams.email} via EmailJS.`,
-      );
-
-      await emailjs.send(this.EMAIL_SERVICE_ID, template, templateParams);
-
-      this.logger.log(`Verification email sent successfully via EmailJS`);
-    } catch (error) {
-      if (error instanceof EmailJSResponseStatus) {
-        this.logger.log(`EmailJS service failed: ${JSON.stringify(error)}`);
-        throw new InternalServerErrorException(
-          'An error ocurred while preparing the verification email',
-        );
-      }
-
-      this.logger.log(error);
-      if (error instanceof InternalServerErrorException) throw error;
-      throw new InternalServerErrorException(
-        'An error occurred while preparing the verification email.',
-      );
-    }
+  // done locally
+  async resendAuthEmailOfType(
+    email: string,
+    typeOfEmail: AuthEmailType,
+  ): Promise<{ message: string }> {
+    return this.emailService.resendAuthEmailOfType(email, typeOfEmail);
   }
 
   private setAuthCookies(
@@ -895,32 +964,7 @@ export class AuthService {
     });
   }
 
-  private handleSupabaseError(error: AuthError, context: string): never {
-    this.logger.error(
-      `Supabase Error Object in ${context}: ${JSON.stringify(error, null, 2)}`,
-    );
-
-    if (error.code === 'user_already_exists')
-      throw new ConflictException('A user with that email already exists');
-
-    if (
-      error.status === 400 ||
-      (error.message && error.message.includes('Invalid login credentials'))
-    ) {
-      throw new UnauthorizedException('Invalid credentials.');
-    }
-    if (error.message && error.message.includes('JSON at position')) {
-      throw new InternalServerErrorException(
-        `Authentication service failed: Invalid response received from Supabase (${context}). Check Supabase Auth logs for details.`,
-      );
-    }
-
-    throw new InternalServerErrorException(
-      `Authentication service failed: ${context}`,
-    );
-  }
-
-  private getUserProfileCacheKey(supabaseId: string): string {
-    return `${this.USER_PROFILE_CACHE_PREFIX}${supabaseId}`;
+  private getUserProfileCacheKey(userId: string): string {
+    return `${this.USER_PROFILE_CACHE_PREFIX}${userId}`;
   }
 }

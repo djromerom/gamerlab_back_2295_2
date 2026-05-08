@@ -18,6 +18,7 @@ export class ReportsService {
       criterios: { [nombreCriterio: string]: number };
       evaluacionesCompletadas?: number;
       totalJuradosAsignados?: number;
+      codigoEquipo?: string | null;
     }[]
   > {
     const videojuegos = await this.prisma.videogame.findMany({
@@ -52,9 +53,34 @@ export class ReportsService {
       },
     });
 
-    return videojuegos.map((v) => {
-      const firstMember = v.team.members[0];
-      const firstNRC = firstMember?.nrcs[0];
+    // Batch fetch final-score rows and evaluation counts to avoid N+1 queries
+    const vgIds = videojuegos.map((v) => v.id);
+    const finalRows = await this.prisma.teamFinalScore.findMany({ where: { videogameId: { in: vgIds } as any } });
+    const finalMap = new Map<number, any>();
+    finalRows.forEach((r: any) => finalMap.set(Number(r.videogameId), r));
+
+    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, isSenior: true, totalScore: true } });
+    const countsMap = new Map<number, { juniorCount: number; seniorCount: number; completedCount: number }>();
+    vgIds.forEach((id) => countsMap.set(Number(id), { juniorCount: 0, seniorCount: 0, completedCount: 0 }));
+    for (const e of evals) {
+      const id = Number((e as any).videogameId);
+      const entry = countsMap.get(id)!;
+      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) entry.completedCount++;
+      if ((e as any).isSenior) entry.seniorCount++; else entry.juniorCount++;
+    }
+
+    return await Promise.all(videojuegos.map(async (v) => {
+      // Collect all NRC codes and subject names from all team members (some members can belong to multiple NRCs)
+      const memberNrcCodes = new Set<string>();
+      const memberSubjectNames = new Set<string>();
+      v.team.members.forEach((m: any) => {
+        (m.nrcs || []).forEach((n: any) => {
+          if (n && n.code !== undefined && n.code !== null) memberNrcCodes.add(String(n.code));
+          if (n && n.subject && n.subject.name) memberSubjectNames.add(n.subject.name);
+        });
+      });
+      const nrcList = Array.from(memberNrcCodes).sort().join(', ');
+      const materiaList = Array.from(memberSubjectNames).filter(Boolean).join(', ');
 
       // Calcular promedios y criterios
       const criterios: { [nombreCriterio: string]: number } = {};
@@ -84,22 +110,58 @@ export class ReportsService {
         }
       }
 
-      const promedio = evaluacionesCompletadas > 0
+      const promedioCalc = evaluacionesCompletadas > 0
         ? totalScore / evaluacionesCompletadas
         : 0;
+
+      const finalRow = finalMap.get(Number(v.id));
+      const fsVal = finalRow ? (finalRow.finalScore ?? finalRow.final_score ?? null) : null;
+      const avgJuniorVal = finalRow ? (finalRow.avgJunior ?? finalRow.avg_junior ?? finalRow.avgjunior ?? null) : null;
+      const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
+      const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
+
+      const counts = countsMap.get(Number(v.id)) ?? { juniorCount: 0, seniorCount: 0, completedCount: evaluacionesCompletadas };
+
+      // build integrantes (members list)
+      const integrantes = v.team.members.map(m => `${m.firstName} ${m.lastName}`).join(', ');
+
+      // compute semestre from teamCode
+      const computeSemestre = (team: any): string => {
+        if (!team) return '';
+        if ((team as any)?.isExternal) return 'Externos';
+        const rawCode: string = (team as any)?.teamCode ?? '';
+        const prefix = rawCode.slice(0, 2).toUpperCase(); // N1, N2, N3, N4
+        switch (prefix) {
+          case 'N1': return '1';
+          case 'N2': return '2';
+          case 'N3': return '3';
+          case 'N4': return '4';
+          default: return '';
+        }
+      };
 
       return {
         id: v.id,
         nombre: v.name,
         logoUrl: v.logoUrl ?? null,
-        materia: firstNRC?.subject.name ?? null,
-        nrc: firstNRC?.code ? String(firstNRC.code) : null,
-        promedio,
+        teamCode: v.team?.teamCode ?? null,
+        teamName: v.team?.teamName ?? null,
+        integrantes,
+        semestre: computeSemestre(v.team),
+        materia: materiaList || null,
+        nrc: nrcList || null,
+        promedio: finalPromedio,
         criterios,
-        evaluacionesCompletadas,
+        evaluacionesCompletadas: counts.completedCount,
         totalJuradosAsignados: v.team.assignedJurors.length,
+        finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
+        avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
+        avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
+        juniorCount: counts.juniorCount,
+        seniorCount: counts.seniorCount,
+        codigoEquipo: v.team.teamCode ?? null,
       };
-    });
+    }));
   }
 
   async getSubjects(): Promise<{ id: number; name: string }[]> {
@@ -187,19 +249,14 @@ async getNrcWithSubjectNameAndAverage(): Promise<
         },
       },
     },
-    orderBy: { // Opcional: ordenar
-      code: 'asc'
-    }
+    orderBy: {
+      code: 'asc',
+    },
   });
 
-  // Si no hay NRCs activos, retornar un array vacío
-  if (!todosLosNrcsActivos.length) {
-    return [];
-  }
+  if (!todosLosNrcsActivos.length) return [];
 
-  // 2. Calcular los promedios de videojuegos para los NRCs que SÍ tienen videojuegos evaluados
-  //    (Esta parte de la lógica es similar a la anterior, pero la guardaremos en un Map)
-
+  // 2. Obtener videojuegos y sus evaluaciones para calcular promedios por NRC
   const videojuegosConInfo = await this.prisma.videogame.findMany({
     where: { isActive: true },
     include: {
@@ -210,7 +267,7 @@ async getNrcWithSubjectNameAndAverage(): Promise<
             include: {
               nrcs: {
                 where: { isActive: true },
-                select: { id: true }, // Solo necesitamos el ID del NRC aquí para agrupar
+                select: { id: true },
               },
             },
           },
@@ -223,7 +280,6 @@ async getNrcWithSubjectNameAndAverage(): Promise<
     },
   });
 
-  // Mapa para almacenar temporalmente la suma de promedios y el conteo de videojuegos por nrcId
   const promediosAgregadosPorNrc = new Map<number, { sum: number; count: number }>();
 
   videojuegosConInfo.forEach((vj) => {
@@ -237,15 +293,13 @@ async getNrcWithSubjectNameAndAverage(): Promise<
     });
     const promedioEsteVideojuego = numEvaluacionesVideojuego > 0
       ? sumaScoresVideojuego / numEvaluacionesVideojuego
-      : null; // Usamos null si no hay promedio, para filtrarlo luego si es necesario
+      : null;
 
-    if (promedioEsteVideojuego === null) {
-      return; // No consideramos videojuegos sin promedio para el cálculo del NRC
-    }
+    if (promedioEsteVideojuego === null) return;
 
     const nrcsDelVideojuego = new Set<number>();
     vj.team.members.forEach(member => {
-      member.nrcs.forEach(nrc => { // nrc aquí solo tiene 'id' por el select
+      member.nrcs.forEach(nrc => {
         if (!nrcsDelVideojuego.has(nrc.id)) {
           if (!promediosAgregadosPorNrc.has(nrc.id)) {
             promediosAgregadosPorNrc.set(nrc.id, { sum: 0, count: 0 });
@@ -259,15 +313,12 @@ async getNrcWithSubjectNameAndAverage(): Promise<
     });
   });
 
-  // 3. Combinar la lista completa de NRCs con los promedios calculados
   const resultado = todosLosNrcsActivos.map(nrcBase => {
     const datosPromedio = promediosAgregadosPorNrc.get(nrcBase.id);
     let promedioxNRC: number | undefined = undefined;
-
     if (datosPromedio && datosPromedio.count > 0) {
       promedioxNRC = datosPromedio.sum / datosPromedio.count;
     }
-
     return {
       id: nrcBase.id,
       codigo: nrcBase.code,
@@ -276,7 +327,7 @@ async getNrcWithSubjectNameAndAverage(): Promise<
     };
   });
 
-  return resultado; // Ya está ordenado si se añadió orderBy en la primera query
+  return resultado;
 }
 
 async getJuradosData(): Promise<
@@ -286,6 +337,7 @@ async getJuradosData(): Promise<
     correo?: string;
     videojuegosAsignados: string[];
     videojuegosCompletos: string[];
+    estado?: string;
   }[]
 > {
   // 1. Obtener todos los usuarios que tienen el rol de "Jurado"
@@ -303,6 +355,10 @@ async getJuradosData(): Promise<
       firstName: true, // Usamos 'firstName' como el nombre principal del jurado
       lastName: true, // Usamos 'lastName' como el apellido del jurado
       email: true,
+      isActive: true,
+      confirmationStatus: {
+        select: { status: true }
+      },
       // Para videojuegosAsignados: User -> teamsToEvaluate (Team[]) -> videogame (Videogame)
       teamsToEvaluate: {
         where: {
@@ -361,6 +417,7 @@ async getJuradosData(): Promise<
       id: user.id,
       nombre: nombreCompleto || "Nombre no disponible", // Fallback si 'firstName' es null
       correo: user.email, // 'email' es requerido en tu modelo User, así que debería estar
+      estado: user.isActive ? (user.confirmationStatus?.status ?? 'Activo') : 'Inactivo',
       videojuegosAsignados: uniqueAsignados,
       videojuegosCompletos: uniqueCompletos,
     };
@@ -369,13 +426,17 @@ async getJuradosData(): Promise<
   return resultado;
 }
 
-async getVideogamesDataFilter(
+  async getVideogamesDataFilter(
     materia?: string,
     nrc?: number
   ): Promise<{
     id: number | string;
     nombre: string;
     logoUrl?: string | null;
+    teamCode?: string | null;
+    teamName?: string | null;
+    integrantes?: string;
+    semestre?: string;
     materia?: string | null;
     nrc?: number | string | null;
     promedio: number;
@@ -433,10 +494,35 @@ async getVideogamesDataFilter(
       },
     });
   
-    return videojuegos.map((v) => {
-      const firstMember = v.team.members[0];
-      const firstNRC = firstMember?.nrcs[0];
-      
+    // Batch fetch final-score rows and evaluation counts to avoid N+1 queries
+    const vgIds = videojuegos.map((v) => v.id);
+    const finalRows = await this.prisma.teamFinalScore.findMany({ where: { videogameId: { in: vgIds } as any } });
+    const finalMap = new Map<number, any>();
+    finalRows.forEach((r: any) => finalMap.set(Number(r.videogameId), r));
+
+    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, isSenior: true, totalScore: true } });
+    const countsMap = new Map<number, { juniorCount: number; seniorCount: number; completedCount: number }>();
+    vgIds.forEach((id) => countsMap.set(Number(id), { juniorCount: 0, seniorCount: 0, completedCount: 0 }));
+    for (const e of evals) {
+      const id = Number((e as any).videogameId);
+      const entry = countsMap.get(id)!;
+      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) entry.completedCount++;
+      if ((e as any).isSenior) entry.seniorCount++; else entry.juniorCount++;
+    }
+
+    return await Promise.all(videojuegos.map(async (v) => {
+      // Collect all NRC codes and subject names from all team members
+      const memberNrcCodes = new Set<string>();
+      const memberSubjectNames = new Set<string>();
+      (v.team?.members || []).forEach((m: any) => {
+        (m.nrcs || []).forEach((n: any) => {
+          if (n && n.code !== undefined && n.code !== null) memberNrcCodes.add(String(n.code));
+          if (n && n.subject && n.subject.name) memberSubjectNames.add(n.subject.name);
+        });
+      });
+      const nrcList = Array.from(memberNrcCodes).sort().join(', ');
+      const materiaList = Array.from(memberSubjectNames).filter(Boolean).join(', ');
+
       // Calcular promedios y criterios
       const criterios: { [nombreCriterio: string]: number } = {};
       let totalScore = 0;
@@ -464,22 +550,57 @@ async getVideogamesDataFilter(
         }
       }
   
-      const promedio = evaluacionesCompletadas > 0 
+      const promedioCalc = evaluacionesCompletadas > 0 
         ? totalScore / evaluacionesCompletadas 
         : 0;
+
+      const finalRow = finalMap.get(Number(v.id));
+      const fsVal = finalRow ? (finalRow.finalScore ?? finalRow.final_score ?? null) : null;
+      const avgJuniorVal = finalRow ? (finalRow.avgJunior ?? finalRow.avg_junior ?? finalRow.avgjunior ?? null) : null;
+      const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
+      const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
+
+      const counts = countsMap.get(Number(v.id)) ?? { juniorCount: 0, seniorCount: 0, completedCount: evaluacionesCompletadas };
   
+      // build integrantes (members list)
+      const integrantes = (v.team?.members || []).map(m => `${m.firstName} ${m.lastName}`).join(', ');
+
+      // compute semestre from teamCode
+      const computeSemestre = (team: any): string => {
+        if (!team) return '';
+        if ((team as any)?.isExternal) return 'Externo';
+        const rawCode: string = (team as any)?.teamCode ?? '';
+        const prefix = rawCode.slice(0, 2).toUpperCase(); // N1, N2, N3, N4
+        switch (prefix) {
+          case 'N1': return '1';
+          case 'N2': return '2';
+          case 'N3': return '3';
+          case 'N4': return '4';
+          default: return '';
+        }
+      };
+
       return {
         id: v.id,
         nombre: v.name,
         logoUrl: v.logoUrl ?? null,
-        materia: firstNRC?.subject.name ?? null,
-        nrc: firstNRC?.code ? String(firstNRC.code) : null,
-        promedio,
+        teamCode: v.team?.teamCode ?? null,
+        teamName: v.team?.teamName ?? null,
+        integrantes,
+        semestre: computeSemestre(v.team),
+        materia: materiaList || null,
+        nrc: nrcList || null,
+        promedio: finalPromedio,
         criterios,
-        evaluacionesCompletadas,
+        evaluacionesCompletadas: counts.completedCount,
         totalJuradosAsignados: v.team.assignedJurors.length,
+        finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
+        avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
+        avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
+        juniorCount: counts.juniorCount,
+        seniorCount: counts.seniorCount,
       };
-    });
+    }));
   }
   
 }

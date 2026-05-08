@@ -5,7 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
-import { SupabaseAuthGuard } from './auth/guards/supabase-auth.guard';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
 import { PendingGamesModule } from './pending-games/pg.module';
@@ -19,12 +19,17 @@ import { EvaluationModule } from './evaluation/evaluation.module';
 import { ReportsModule } from './reports/reports.module';
 import { CacheModule } from './cache/cache.module';
 import { StudentsModule } from './students/students.module';
+import { UploadModule } from './upload/upload.module';
+import { SettingsModule } from './settings/settings.module';
+import { CertificatesModule } from './certificates/certificates.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    EmailModule,
     SubjectsModule,
     NrcsModule,
     PendingGamesModule,
@@ -38,8 +43,11 @@ import { StudentsModule } from './students/students.module';
     EvaluationModule,
     CacheModule,
     StudentsModule,
+    UploadModule,
+    SettingsModule,
+    CertificatesModule,
   ],
   controllers: [AppController],
-  providers: [AppService, { provide: APP_GUARD, useClass: SupabaseAuthGuard }],
+  providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
 })
-export class AppModule { }
+export class AppModule {}

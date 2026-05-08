@@ -1,4 +1,9 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateMemberDto } from './create-member.dto';
+import { IsNumber, IsOptional } from 'class-validator';
+import { MemberDto } from 'src/teams/dto/member.dto';
 
-export class UpdateMemberDto extends PartialType(CreateMemberDto) {}
+export class UpdateMemberDto extends PartialType(MemberDto) {
+  @IsNumber()
+  @IsOptional()
+  id?: number;
+}

@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 // src/teams/controllers/teams.controller.ts
 import {
   Controller,
@@ -8,17 +7,31 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
+  ParseIntPipe,
+  Query,
+  Optional,
+  BadRequestException,
 } from '@nestjs/common';
+import { ApiBody, ApiExtraModels, getSchemaPath, ApiOperation, ApiOkResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 import { TeamsService } from '../services/teams.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
+import { UpdateMemberEmailDto } from '../dto/update-member-email.dto';
 import { Public } from '../../auth/decorators/public.decorator';
-import { ValidateEmailsDto } from '../dto/validate-emails.dto';
+import { RolePermissionGuard } from '../../auth/guards/role-permission.guard';
+import { RequiredService } from '../../auth/decorators/required-service.decorator';
+import { GetUser } from '../../auth/decorators/get-user.decorator';
+import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
+import { ValidateEmailsDto } from '../dto/validate-emails.dto';
+import { MemberDto } from '../dto/member.dto';
 
 @Controller('teams')
+@ApiTags('Teams')
+@ApiExtraModels(UpdateTeamDto)
 export class TeamsController {
-  constructor(private readonly teamsService: TeamsService) { }
+  constructor(private readonly teamsService: TeamsService) {}
 
   @Public()
   @Post()
@@ -26,9 +39,40 @@ export class TeamsController {
     return this.teamsService.create(createTeamDto);
   }
 
-  @Get()
-  findAll() {
-    return this.teamsService.findAll();
+  @Post('admin')
+  createAsAdmin(
+    @Body() CreateTeamDto: CreateTeamDto,
+    @GetUser() user?: AppUser,
+  ) {
+    return this.teamsService.createAsAdmin(CreateTeamDto, user);
+  }
+
+  @Public()
+  @Get('')
+  @RequiredService('ListTeams')
+  getTeams(
+    @Query('page') @Optional() page?: string,
+    @Query('limit') @Optional() limit?: string,
+    @Query('sortByLikes') @Optional() sortByLikes?: boolean,
+  ) {
+    if (sortByLikes === undefined) {
+      sortByLikes = false;
+    }
+    if (page && limit) {
+      const pageNum = parseInt(page, 10);
+      const limitNum = parseInt(limit, 10);
+      if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
+        return this.teamsService.findPaged(pageNum, limitNum, sortByLikes);
+      }
+    }
+    return this.teamsService.findAll(sortByLikes);
+  }
+
+  @Get('incomplete-jurors')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListTeams')
+  getTeamsWithIncompleteJurors() {
+    return this.teamsService.getTeamsWithLessThanThreeJurors();
   }
 
   @Public()
@@ -45,23 +89,179 @@ export class TeamsController {
   }
 
   @Public()
+  @Get('final-score/videogame/:videogameId')
+  @ApiOperation({ summary: 'Get final scores for all teams for a videogame' })
+  @ApiOkResponse({
+    description: 'Array of team final scores for the videogame',
+    schema: {
+      example: [
+        {
+          teamId: 1,
+          teamCode: 'N1-IST-101',
+          isExternal: false,
+          videogameId: 24,
+          videogameName: 'Stella',
+          editionId: 3,
+          avgJunior: null,
+          avgSenior: 5,
+          finalScore: 2
+        }
+      ]
+    }
+  })
+  getFinalScoreByVideogame(@Param('videogameId', ParseIntPipe) videogameId: number) {
+    return this.teamsService.getFinalScoreByVideogame(videogameId);
+  }
+
+  @Public()
+  @Get('final-score/team/:teamId')
+  @ApiOperation({ summary: 'Get final score(s) for a specific team' })
+  @ApiOkResponse({
+    description: 'Final score(s) for the team (one row per videogame)',
+    schema: {
+      example: [
+        {
+          teamId: 1,
+          teamCode: 'N1-IST-101',
+          isExternal: false,
+          videogameId: 24,
+          videogameName: 'Stella',
+          editionId: 3,
+          avgJunior: null,
+          avgSenior: 5,
+          finalScore: 2
+        }
+      ]
+    }
+  })
+  getFinalScoreByTeam(@Param('teamId', ParseIntPipe) teamId: number) {
+    return this.teamsService.getFinalScoreByTeam(teamId);
+  }
+
+  @Public()
+  @Get('final-score/by-n/:n')
+  @ApiOperation({ summary: 'Get final scores for teams filtered by teamCode prefix (e.g., N1, N0, N2)' })
+  @ApiParam({ name: 'n', required: true, description: "Team code prefix to filter by (N0..N4). Example: 'N1' or 'N1-'" })
+  @ApiOkResponse({
+    description: 'Array of TeamFinalScore rows whose teamCode starts with the given prefix',
+    schema: {
+      example: [
+        {
+          teamId: 1,
+          teamCode: 'N1-IST-101',
+          isExternal: false,
+          videogameId: 24,
+          videogameName: 'Stella',
+          editionId: 3,
+          avgJunior: null,
+          avgSenior: 5,
+          finalScore: 2,
+          teamName: "Team1",
+          logoUrl: "loguito"
+        }
+      ]
+    }
+  })
+  getFinalScoresByN(@Param('n') n: string) {
+    return this.teamsService.getFinalScoreByTeamCodePrefix(n);
+  }
+
+  @Public()
   @Post('validate-emails')
   validateEmails(@Body() validateEmailsDto: ValidateEmailsDto) {
     return this.teamsService.validateEmails(validateEmailsDto);
   }
 
+  @Get('leader/:email/status')
+  getStatus(@Param('email') email: string) {
+    return this.teamsService.getLeaderStatus(email);
+  }
+
+  @Get(':id/full')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('GetTeam')
+  findOneFull(@Param('id') id: string) {
+    return this.teamsService.findOneWithDetails(id);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.teamsService.findOne(+id);
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('GetTeam')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.teamsService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTeamDto: UpdateTeamDto) {
-    return this.teamsService.update(+id, updateTeamDto);
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
+  @ApiBody({
+    schema: {
+      $ref: getSchemaPath(UpdateTeamDto),
+    },
+  })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDto: UpdateTeamDto,
+    @GetUser() currentUser: AppUser,
+  ) {
+    if (!updateDto || Object.keys(updateDto).length === 0) {
+      throw new BadRequestException(
+        'El cuerpo de la solicitud no puede estar vacío',
+      );
+    }
+
+    // Si contiene campos complejos (members, isExternal), usar update completo
+    // Si solo tiene teamName o videogame, usar updateTeamInfo
+    const complexFields = ['members', 'isExternal'];
+    if (complexFields.some((field) => field in updateDto))
+      return this.teamsService.update(id, updateDto, currentUser);
+
+    return this.teamsService.updateTeamInfo(id, updateDto, currentUser);
+  }
+
+  @Patch(':teamId/members/:memberId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
+  updateMemberEmail(
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @Body() updateMemberEmailDto: UpdateMemberEmailDto,
+    @GetUser('id') userId: string,
+  ) {
+    return this.teamsService.updateMemberEmail(
+      teamId,
+      memberId,
+      updateMemberEmailDto,
+      userId,
+    );
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.teamsService.remove(+id);
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('DeleteTeam')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.teamsService.remove(id);
+  }
+
+  @Post(':id/member')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
+  addMember(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() memberDto: MemberDto,
+    @GetUser() user: AppUser,
+  ) {
+    return this.teamsService.addMember(id, memberDto, user);
+  }
+
+  @Delete(':id/members/:memberId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateTeam')
+  deleteMember(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @GetUser() user: AppUser,
+  ) {
+    return this.teamsService.deleteMember(id, memberId, user);
   }
 }
