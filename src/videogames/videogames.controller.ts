@@ -6,7 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  Put,
   UseGuards,
 } from '@nestjs/common';
 import { VideogamesService } from './videogames.service';
@@ -15,16 +14,18 @@ import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { AppUser } from 'src/auth/jwt.strategy';
 
 @Controller('videogames')
 export class VideogamesController {
-  constructor(private readonly videogamesService: VideogamesService) {}
+  constructor(private readonly videogamesService: VideogamesService) { }
 
   @Post()
   create(@Body() createVideogameDto: CreateVideogameDto) {
     return this.videogamesService.create(createVideogameDto);
   }
-  //ruta publica
+
   @Public()
   @Get()
   findAll() {
@@ -42,23 +43,29 @@ export class VideogamesController {
     return this.videogamesService.getLikes(+id);
   }
 
-  @Public()
-  @Post(':id/toggle-like/:liked')
-  toggleLike(
+  /**
+   * Authenticated: returns whether the current user has liked the game.
+   * Used by the modal on mount to initialise the heart icon correctly.
+   */
+  @Get(':id/my-like')
+  getMyLike(
     @Param('id') videogameId: string,
-    @Param('liked') liked: boolean,
+    @GetUser() user: AppUser,
   ) {
-    return this.videogamesService.toggleLike(+videogameId, liked);
+    return this.videogamesService.getMyLike(+videogameId, user.id);
   }
 
-  @Put(':id/likes')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('SetLikes')
-  setLikes(
+  /**
+   * Authenticated: toggle like for the current user.
+   * The server decides like/unlike based on DB state — never trusts the client.
+   * No visitorId in the body — identity comes from the JWT cookie.
+   */
+  @Post(':id/toggle-like')
+  toggleLike(
     @Param('id') videogameId: string,
-    @Body() setLikesDto: { likes: number },
+    @GetUser() user: AppUser,
   ) {
-    return this.videogamesService.setLikes(+videogameId, setLikesDto.likes);
+    return this.videogamesService.toggleLike(+videogameId, user.id);
   }
 
   @Patch(':id')

@@ -1,13 +1,25 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, NotImplementedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  NotImplementedException,
+} from '@nestjs/common';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
 import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { VideogamesGateway } from './videogames.gateway';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class VideogamesService {
   private readonly logger = new Logger(VideogamesService.name);
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private gateway: VideogamesGateway,
+  ) {}
+
   private readonly MAX_LIKES_LOGO_ONLY = 20;
   private readonly MAX_LIKES_NO_CONTENT = 10;
   private readonly MAX_LIKES = 999999;
@@ -35,6 +47,9 @@ export class VideogamesService {
             status: true,
           },
         },
+        _count: {
+          select: { likedBy: true },
+        },
       },
     });
 
@@ -55,26 +70,54 @@ export class VideogamesService {
   async getLikes(videogameId: number) {
     const videogame = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
-      select: {
-        likes: true,
-      },
+      select: { id: true },
     });
 
     if (!videogame) {
       throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
     }
 
-    return { videogameId, likes: videogame.likes };
-  }  
+    const likes = await this.prisma.videogameLike.count({
+      where: { videogameId },
+    });
 
-  async toggleLike(videogameId: number, liked: boolean): Promise<{ liked: boolean; likeCount: number }> {
+    return { videogameId, likes };
+  }
+
+  /**
+   * Returns whether the authenticated user has liked the given videogame.
+   */
+  async getMyLike(
+    videogameId: number,
+    userId: string,
+  ): Promise<{ liked: boolean }> {
+    const like = await this.prisma.videogameLike.findUnique({
+      where: { videogameId_userId: { videogameId, userId } },
+    });
+    return { liked: !!like };
+  }
+
+  /**
+   * Toggle like for an authenticated user on a videogame.
+   *
+   * - No denormalized counter: the like count is always read via COUNT().
+   * - No application-level transaction needed — a single INSERT or DELETE
+   *   is atomic by itself.
+   * - Unique constraint (P2002) guards against concurrent double-clicks.
+   */
+  async toggleLike(
+    videogameId: number,
+    userId: string,
+  ): Promise<{ liked: boolean; likeCount: number }> {
     const videogame = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
       select: {
-        likes: true,
         logoUrl: true,
         videoUrl: true,
         additionalImages: true,
+        _count: {
+          select: { likedBy: true },
+        },
       },
     });
 
@@ -82,61 +125,64 @@ export class VideogamesService {
       throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
     }
 
-    // Check if the game has videos or photos
-    const hasContent = videogame.videoUrl || (videogame.additionalImages && videogame.additionalImages.length > 0);
-    const lacksContentAndLogo = !hasContent && !videogame.logoUrl;
-
-    // Enforce like limit for games without content
-    if (lacksContentAndLogo && liked && videogame.likes >= this.MAX_LIKES_NO_CONTENT) {
-      throw new BadRequestException('This game cannot receive more than 10 likes without any video, photo, or logo.');
-    }
-    if (!hasContent && liked && videogame.likes >= this.MAX_LIKES_LOGO_ONLY) {
-      throw new BadRequestException('This game cannot receive more than 20 likes without videos or photos');
-    }
-
-    // Increment or decrement likes
-    if (liked) {
-      await this.prisma.videogame.update({
-        where: { id: videogameId },
-        data: { likes: { increment: 1 } },
-      });
-    } else {
-      if (videogame.likes > 0) {
-        await this.prisma.videogame.update({
-          where: { id: videogameId },
-          data: { likes: { decrement: 1 } },
-        });
-      }
-    }
-
-    const updatedVideogame = await this.prisma.videogame.findUnique({
-      where: { id: videogameId },
-      select: { likes: true },
+    // Check whether this user already liked this game
+    const existingLike = await this.prisma.videogameLike.findUnique({
+      where: { videogameId_userId: { videogameId, userId } },
     });
 
-    return { liked, likeCount: updatedVideogame?.likes || 0 };
-  }
+    const hasContent =
+      videogame.videoUrl ||
+      (videogame.additionalImages && videogame.additionalImages.length > 0);
+    const lacksContentAndLogo = !hasContent && !videogame.logoUrl;
 
-  async setLikes(videogameId: number, likes: number) {
-    this.logger.log(`Admin set likes for videogame ${videogameId} to ${likes}`);
-    if (likes < 0) {
-      throw new BadRequestException('Likes cannot be negative');
+    const currentLikes = videogame._count.likedBy;
+
+    // ── UNLIKE ────────────────────────────────────────────────────────────
+    if (existingLike) {
+      await this.prisma.videogameLike.delete({
+        where: { videogameId_userId: { videogameId, userId } },
+      });
+
+      const newCount = currentLikes - 1;
+      this.gateway.emitLikesUpdate(videogameId, newCount, userId, false);
+      return { liked: false, likeCount: newCount };
     }
-    if (likes > this.MAX_LIKES) {
-      throw new BadRequestException('Likes cannot exceed 999,999');
+
+    // ── LIKE ──────────────────────────────────────────────────────────────
+
+    // Enforce content-based caps
+    if (lacksContentAndLogo && currentLikes >= this.MAX_LIKES_NO_CONTENT) {
+      throw new BadRequestException(
+        'This game cannot receive more than 10 likes without any video, photo, or logo.',
+      );
+    }
+    if (!hasContent && currentLikes >= this.MAX_LIKES_LOGO_ONLY) {
+      throw new BadRequestException(
+        'This game cannot receive more than 20 likes without videos or photos.',
+      );
+    }
+
+    if (currentLikes >= this.MAX_LIKES) {
+      throw new BadRequestException(
+        `Likes cannot exceed ${this.MAX_LIKES}`,
+      );
     }
 
     try {
-      const videogame = await this.prisma.videogame.update({
-        where: { id: videogameId },
-        data: { likes },
-        select: { likes: true },
+      await this.prisma.videogameLike.create({
+        data: { videogameId, userId },
       });
 
-      return { videogameId, likeCount: videogame.likes }; 
+      const newCount = currentLikes + 1;
+      this.gateway.emitLikesUpdate(videogameId, newCount, userId, true);
+      return { liked: true, likeCount: newCount };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
+      // Two simultaneous requests passed findUnique check — DB unique constraint wins
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('You have already liked this game.');
       }
       throw error;
     }

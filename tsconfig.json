@@ -24,6 +24,6 @@
     "strict": true,
     "noEmitOnError": true,
     "strictPropertyInitialization": false,
-    "types": ["jest", "node"]
+    "types": ["node", "jest", "express", "multer"]
   }
 }
