@@ -113,6 +113,8 @@ export class JurorService {
       email: user.email,
       confirmationStatusId: user.confirmationStatusId,
       lastSignInAt: user.lastSignInAt,
+      jurorCategory: user.jurorCategory,
+      jurorType: user.jurorType,
       evaluatedCount: evaluatedNames.length,
       evaluatedGameNames: evaluatedNames,
       unevaluatedCount: unevaluatedNames.length,
@@ -161,8 +163,8 @@ export class JurorService {
   }
 
   async create(dto: CreateJurorDto): Promise<JurorListItem> {
-
     let user: User;
+
     try {
       user = await this.auth.registerUser({
         email: dto.email,
@@ -182,23 +184,28 @@ export class JurorService {
           `Juror with email ${dto.email} already exists.`,
         );
       }
+
       throw new InternalServerErrorException(
-        `Error during registration for ${dto.email}: ${error instanceof Error ? error.message : error}`,
+        `Error during registration for ${dto.email}: ${error instanceof Error ? error.message : error
+        }`,
       );
     }
 
     try {
-      // Update the user with juror-specific details and make them active
       const created = await this.prisma.user.update({
         where: { id: user.id },
         data: {
           firstName: dto.firstName,
           lastName: dto.lastName,
           roleId: this.jurorRoleId,
-          isActive: true
+          isActive: true,
+          jurorCategory: dto.jurorCategory,
+          jurorType: dto.jurorType,
         },
       });
+
       const stats = await this.getEvaluationStats(created.id);
+
       return this.mapToJurorListItem(
         created,
         stats.evaluated,
@@ -297,7 +304,20 @@ export class JurorService {
       }
     }
 
-    const updated = await this.prisma.user.update({ where: { id }, data: dto });
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+        ...(dto.email !== undefined && { email: dto.email }),
+        ...(dto.jurorCategory !== undefined && {
+          jurorCategory: dto.jurorCategory,
+        }),
+        ...(dto.jurorType !== undefined && {
+          jurorType: dto.jurorType,
+        }),
+      },
+    });
 
     // Just in case, it's important to invalidate the cache of the current user
     this.auth.invalidateUserProfileCache(id);
