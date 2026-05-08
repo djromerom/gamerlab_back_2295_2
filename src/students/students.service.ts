@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { StudentsEvaluations, StudentsGrade } from "./types/students.type";
+import { StudentsEvaluations, StudentsGrade, Members } from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Member, Prisma } from "@prisma/client";
 
