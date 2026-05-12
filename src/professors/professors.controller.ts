@@ -155,12 +155,12 @@ export class ProfessorsController {
   async findSelectOptions(): Promise<SelectOption[]> {
     return this.professorsService.findForSelect();
   }
-/**
- * Download grading template for all subjects/NRCs.
- * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members. 
- * Use query parameter `?final=true` to include the "Calificación Feria" column (final export). 
- * The template is intended to be filled and re-uploaded using the upload endpoint which will parse and persist senior grades.
- */
+  /**
+   * Download grading template for all subjects/NRCs.
+   * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members. 
+   * Use query parameter `?final=true` to include the "Calificación Feria" column (final export). 
+   * The template is intended to be filled and re-uploaded using the upload endpoint which will parse and persist senior grades.
+   */
   @Get('download-grading-template-all')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportToExcel')
@@ -179,6 +179,30 @@ export class ProfessorsController {
     // Permitir ?final=true o ?final=1 para activar el modo final
     const final = finalParam === 'true' || finalParam === '1';
     await this.professorsService.downloadGradingTemplateAll(professorId, res, final);
+  }
+
+  @Get('download-grading-report-grouped')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportToExcel')
+  @ApiOperation({ summary: 'Download grouped grading report by NRC and team' })
+  @ApiQuery({
+    name: 'final',
+    required: false,
+    description: 'Set to true to include Calificación Feria and Calificación Jurado Junior',
+    example: 'true',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'XLSX file stream. One worksheet per NRC with one row per team and consolidated members.',
+  })
+  async downloadGradingReportGrouped(
+    @GetUser('id') professorId: string,
+    @Res({ passthrough: true }) res: Response,
+    @Query('final') finalParam?: string,
+  ) {
+    const final = finalParam === 'true' || finalParam === '1';
+    await this.professorsService.downloadGradingReportGrouped(professorId, res, final);
   }
 
   @Get(':id')
@@ -212,9 +236,9 @@ export class ProfessorsController {
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.professorsService.remove(id);
   }
-/**
- * Get signature report grouped by team for a NRC.
- * */
+  /**
+   * Get signature report grouped by team for a NRC.
+   * */
   @Get('nrc-report/:nrcCode')
   @UseGuards(RolePermissionGuard)
   @RequiredService('NrcReport')
@@ -266,12 +290,12 @@ export class ProfessorsController {
     );
   }
 
-  
-/**
-    * Get signature report grouped by team for a subject.
-    * Each entry contains team details, videogame, and evaluations.
-    * Supports pagination and option to include inactive teams/members.
- */
+
+  /**
+      * Get signature report grouped by team for a subject.
+      * Each entry contains team details, videogame, and evaluations.
+      * Supports pagination and option to include inactive teams/members.
+   */
   @Get('signature-report/:subjectName')
   @UseGuards(RolePermissionGuard)
   @RequiredService('SubjectReport')
@@ -388,22 +412,22 @@ export class ProfessorsController {
       },
     },
   })
-    @ApiResponse({
+  @ApiResponse({
     status: 201,
     description: 'Evaluation created',
     schema: {
       example: {
         "action": "created",
-    "evaluation": {
-        "id": 11,
-        "date": "2025-11-14T06:12:40.992Z",
-        "comments": null,
-        "totalScore": 4.5,
-        "jurorId": "f777c17a-3390-4830-bf21-fb92235a679b",
-        "videogameId": 27,
-        "editionId": 2,
-        "isSenior": true,
-        "isActive": true
+        "evaluation": {
+          "id": 11,
+          "date": "2025-11-14T06:12:40.992Z",
+          "comments": null,
+          "totalScore": 4.5,
+          "jurorId": "f777c17a-3390-4830-bf21-fb92235a679b",
+          "videogameId": 27,
+          "editionId": 2,
+          "isSenior": true,
+          "isActive": true
         }
       }
     }
