@@ -1,0 +1,101 @@
+name: Deploy-back
+on:
+  # Trigger the workflow on pushes to dev and main branches
+  # By default, dev and main branches are protected, so only approved PRs can trigger the workflow.
+  push:
+    branches: [ dev , main ]
+  
+  # Allow manual triggering of the workflow with a specified target branch (dev or main)
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch target (dev or main)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - main
+
+jobs:
+  # Job to build and push the Docker image, tagged based on the branch and commit SHA
+  docker-image:
+    runs-on: ubuntu-latest
+    outputs:
+      tag-name: ${{  steps.resolve-tag.outputs.tag  }}
+      branch: ${{  steps.resolve-tag.outputs.branch  }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Resolve deploy tag
+        id: resolve-tag
+        run: |
+          set -euo pipefail
+          BRANCH="${{ github.event_name == 'workflow_dispatch' && inputs.target_branch || github.ref_name }}"
+          if [ -z "$BRANCH" ]; then
+            echo "ERROR: branch could not be resolved"
+            exit 1
+          fi
+          echo "Resolved branch: $BRANCH"
+          
+          IMAGE_SUFFIX=$(echo "$BRANCH_IMAGE_TAGS" | jq -r ".\"$BRANCH\".tag")
+          if [ "$IMAGE_SUFFIX" = "null" ] || [ -z "$IMAGE_SUFFIX" ]; then
+            echo "ERROR: No image suffix configured for branch '$BRANCH'"
+            exit 1
+          fi
+          TAG="sha-${GITHUB_SHA::7}-${IMAGE_SUFFIX}"
+          echo "Resolved image tag: $TAG"
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+        env:
+          BRANCH_IMAGE_TAGS: ${{ secrets.BRANCH_IMAGE_TAGS }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile 
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:${{ steps.resolve-tag.outputs.tag }}
+          push: true
+          no-cache: true
+    
+  # Conditional jobs to dispatch repository events for test deployments (dev branch) 
+  test-dispatch:
+    needs: docker-image
+    if: needs.docker-image.outputs.branch == 'dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch_send
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{  secrets.DEPLOY_PAT  }}
+          repository: ${{  secrets.REPO_DISPATCH_TARGET  }}
+          event-type: test-image-published
+          client-payload: |
+            {
+              "tag": "${{  needs.docker-image.outputs.tag-name  }}"
+            }
+            
+  # Conditional job to dispatch repository events for production deployments (main branch)
+  prod-dispatch:
+    needs: docker-image
+    if: needs.docker-image.outputs.branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch_send
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{  secrets.DEPLOY_PAT  }}
+          repository: ${{  secrets.REPO_DISPATCH_TARGET  }}
+          event-type: prod-image-published
+          client-payload: |
+            {
+              "tag": "${{  needs.docker-image.outputs.tag-name  }}"
+            }

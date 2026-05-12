@@ -1,0 +1,15 @@
+name: Test-back
+on:
+  # Trigger the workflow on pull requests to dev and main branches
+  pull_request:
+    branches: [ dev , main ]
+
+jobs:
+  # Job to build and unit-test the application
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Place holder for test steps here, e.g., running unit tests

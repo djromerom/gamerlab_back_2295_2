@@ -1,3 +1,5 @@
+import { Member } from "@prisma/client";
+
 export class StudentsEvaluations {
   evaluationId: number;
   evaluationDate: Date;

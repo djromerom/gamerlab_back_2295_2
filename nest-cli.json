@@ -10,8 +10,11 @@
         "watchAssets": true
       },
       {
-        "include": "certificates/assets/**/*",
-        "outDir": "dist"
+        "include": "**/*.hbs",
+        "watchAssets": true
+      },
+      {
+        "include": "certificates/assets/**/*"
       }
     ]
   },

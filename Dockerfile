@@ -6,6 +6,9 @@ RUN apk add --no-cache postgresql-client
 
 WORKDIR /usr/src/app
 
+# Skip chromium download during npm install
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
+
 COPY package.json package-lock.json ./
 RUN npm install
 
@@ -21,15 +24,32 @@ FROM node:20-alpine
 # Install PostgreSQL client in production stage
 RUN apk add --no-cache postgresql-client
 
-WORKDIR /usr/src/app
 
+# Install chromium for pdf generation (puppeteer)
+RUN apk add -q --update --no-cache \
+      chromium \
+      nss \
+      freetype \
+      harfbuzz \
+      ca-certificates \
+      ttf-freefont
+
+# Set chromium path for puppeteer
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV NODE_ENV=production
+
+WORKDIR /usr/src/app
 
 # Copiar solo lo necesario
 COPY --from=builder /usr/src/app/dist ./dist
+
 COPY --from=builder /usr/src/app/package.json ./
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+
+# Templates y certificados
+COPY --from=builder /usr/src/app/src/email/templates ./dist/src/email/templates
+COPY --from=builder /usr/src/app/src/certificates/assets ./dist/src/certificates/assets
 
 # Copiar directorio de prisma para las migraciones Y el archivo de seeding
 COPY --from=builder /usr/src/app/prisma ./prisma

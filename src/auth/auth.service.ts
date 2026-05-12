@@ -17,7 +17,7 @@ import { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { CacheService } from 'src/cache/cache.service';
+import { CacheService } from '../cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
 import { AuthEmailType } from '../email/types/email-type.type';
 import { LoginType } from './types/login-type.type';
@@ -60,7 +60,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly httpService: HttpService,
     private readonly emailService: EmailService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     this.logger.log(
@@ -169,17 +169,17 @@ export class AuthService {
   async resetTokenExpiration(userId: string, typeOfToken: AuthEmailType): Promise<void> {
     try {
       // Find the appropriate token type
-      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL' 
+      const tokenTypeId = typeOfToken === 'VERIFICACION_EMAIL'
         ? this.verificationTokenId
         : this.resetPasswordTokenId;
-      
+
       const token = await this.prisma.verificationToken.findFirst({
         where: {
           userId: userId,
           tokenTypeId: tokenTypeId,
         },
       });
-      
+
       if (!token) {
         this.logger.warn(`No verification token found for this user`);
         throw new NotFoundException('No verification token found for this user.');
@@ -367,9 +367,17 @@ export class AuthService {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        return this.registerUserInternal(registerDto, tx);
+      const { user, verificationToken } = await this.prisma.$transaction(async (tx) => {
+        return this.registerUserTransaction(registerDto, tx);
       });
+
+      // Transaction is fully committed at this point — $transaction only returns after commit
+      // Safe to send the verification email now.
+      setImmediate(() => {
+        this.sendVerificationEmail(registerDto.email, verificationToken);
+      });
+
+      return user;
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -393,10 +401,10 @@ export class AuthService {
   }
 
   // Private method with the actual user registration logic
-  private async registerUserInternal(
+  private async registerUserTransaction(
     registerDto: RegisterDto,
     tx: Prisma.TransactionClient
-  ): Promise<User> {
+  ): Promise<{ user: User; verificationToken: string }> {
     try {
       // Check if user already exists within transaction
       const existingUser = await tx.user.findUnique({
@@ -450,13 +458,8 @@ export class AuthService {
         },
       });
 
-      // Send verification email (async, outside transaction)
-      setImmediate(() => {
-        this.sendVerificationEmail(registerDto.email, verificationToken);
-      });
-
       this.logger.log(`User registered successfully within transaction: ${user.email}`);
-      return user;
+      return { user, verificationToken };
 
     } catch (error) {
       if (error instanceof ConflictException) {
@@ -644,11 +647,11 @@ export class AuthService {
    * @returns The result of the login process. 201 if succesful.
    */
   async handleMicrosoftCallback(code: string, res: Response) {
-    try{
+    try {
       // Exchange code for Microsoft tokens and extract user info
       const microsoftTokens = await this.exchangeCodeForToken(code);
       const userInfo = this.parseIdToken(microsoftTokens.id_token);
-      
+
       // Check if user exists
       const user = await this.prisma.user.findUnique({
         where: { email: userInfo.email }

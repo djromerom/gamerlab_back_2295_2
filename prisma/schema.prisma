@@ -36,16 +36,16 @@ model Edition {
 }
 
 model EventConfiguration {
-  id              Int       @id @default(autoincrement())
-  editionId       Int       @map("id_edicion") @default(3) @unique
-  startDate       DateTime  @map("fecha_inicio")
-  endDate         DateTime  @map("fecha_fin")
-  evaluationsOpen Boolean   @default(false) @map("evaluaciones_abiertas")
-  showRanking     Boolean   @default(false) @map("mostrar_ranking")
-  showEvaluations Boolean   @default(false) @map("mostrar_evaluaciones")
-  createdAt       DateTime  @default(now()) @map("creado_en")
-  updatedAt       DateTime  @updatedAt @map("actualizado_en")
-  edition         Edition   @relation(fields: [editionId], references: [id])
+  id              Int      @id @default(autoincrement())
+  editionId       Int      @unique @default(3) @map("id_edicion")
+  startDate       DateTime @map("fecha_inicio")
+  endDate         DateTime @map("fecha_fin")
+  evaluationsOpen Boolean  @default(false) @map("evaluaciones_abiertas")
+  showRanking     Boolean  @default(false) @map("mostrar_ranking")
+  showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
+  createdAt       DateTime @default(now()) @map("creado_en")
+  updatedAt       DateTime @updatedAt @map("actualizado_en")
+  edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
 }
@@ -167,13 +167,18 @@ model User {
   password             String?            @map("contrasena")
   authMethod           AuthMethod?        @map("metodo_auth")
   microsoftOid         String?            @map("microsoft_oid")
+  jurorCategory        JurorCategory?     @map("categoria_jurado")
+  jurorType            JurorType?         @map("tipo_jurado")
   createdTeam          Team?              @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
   managedNrcs          NRC[]              @relation("ProfessorNRC")
   confirmationStatus   ConfirmationStatus @relation(fields: [confirmationStatusId], references: [id])
   role                 Role               @relation(fields: [roleId], references: [id])
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
+  likedVideogames      VideogameLike[]
 
+  @@index([jurorCategory])
+  @@index([jurorType])
   @@map("usuarios")
 }
 
@@ -235,12 +240,25 @@ model Videogame {
   repoUrl           String?         @map("repo_url")
   videoUrl          String?         @map("video_url")
   additionalImages  String[]        @default([]) @map("imagenes_adicionales")
-  likes             Int             @default(0) @map("likes")
   evaluations       Evaluation[]
+  likedBy           VideogameLike[]
   team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
 
   @@map("videojuegos")
+}
+
+model VideogameLike {
+  id          Int      @id @default(autoincrement())
+  videogameId Int      @map("id_videojuego")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([videogameId, userId])
+  @@map("videogame_likes")
 }
 
 model Evaluation {
@@ -260,6 +278,24 @@ model Evaluation {
 
   @@unique([jurorId, videogameId], name: "jurado_videojuego_unique")
   @@map("evaluacion")
+}
+
+model JurorAssignmentAuditLog {
+  id               Int                          @id @default(autoincrement())
+  action           ManualJurorAssignmentAction
+  actorUserId      String                       @map("actor_user_id")
+  teamId           Int?                         @map("team_id")
+  jurorId          String?                      @map("juror_id")
+  previousJurorId  String?                      @map("previous_juror_id")
+  newJurorId       String?                      @map("new_juror_id")
+  notes            String?                      @db.Text
+  createdAt        DateTime                     @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([teamId])
+  @@index([jurorId])
+  @@index([createdAt])
+  @@map("juror_assignment_audit_logs")
 }
 
 model Subject {
@@ -408,4 +444,23 @@ view TeamFinalScore {
 enum AuthMethod {
   PASSWORD
   ENTRA_ID
+}
+
+
+enum JurorCategory {
+  JUNIOR
+  SENIOR
+}
+
+enum JurorType {
+  OFFICIAL
+  BACKUP
+}
+
+enum ManualJurorAssignmentAction {
+  ASSIGN
+  UNASSIGN
+  REASSIGN
+  UNASSIGN_ALL
+  UNASSIGN_ALL_FROM_EVALUATOR
 }
