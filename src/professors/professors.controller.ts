@@ -181,6 +181,30 @@ export class ProfessorsController {
     await this.professorsService.downloadGradingTemplateAll(professorId, res, final);
   }
 
+  @Get('download-grading-report-grouped')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportToExcel')
+  @ApiOperation({ summary: 'Download grouped grading report by NRC and team' })
+  @ApiQuery({
+    name: 'final',
+    required: false,
+    description: 'Set to true to include Calificación Feria and Calificación Jurado Junior',
+    example: 'true',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'XLSX file stream. One worksheet per NRC with one row per team and consolidated members.',
+  })
+  async downloadGradingReportGrouped(
+    @GetUser('id') professorId: string,
+    @Res({ passthrough: true }) res: Response,
+    @Query('final') finalParam?: string,
+  ) {
+    const final = finalParam === 'true' || finalParam === '1';
+    await this.professorsService.downloadGradingReportGrouped(professorId, res, final);
+  }
+
   @Get(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetProfessor')
@@ -394,16 +418,16 @@ export class ProfessorsController {
     schema: {
       example: {
         "action": "created",
-    "evaluation": {
-        "id": 11,
-        "date": "2025-11-14T06:12:40.992Z",
-        "comments": null,
-        "totalScore": 4.5,
-        "jurorId": "f777c17a-3390-4830-bf21-fb92235a679b",
-        "videogameId": 27,
-        "editionId": 2,
-        "isSenior": true,
-        "isActive": true
+        "evaluation": {
+          "id": 11,
+          "date": "2025-11-14T06:12:40.992Z",
+          "comments": null,
+          "totalScore": 4.5,
+          "jurorId": "f777c17a-3390-4830-bf21-fb92235a679b",
+          "videogameId": 27,
+          "editionId": 2,
+          "isSenior": true,
+          "isActive": true
         }
       }
     }
