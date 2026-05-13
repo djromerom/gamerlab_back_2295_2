@@ -681,6 +681,35 @@ export class AuthService {
         this.logger.log(`First-time Entra ID setup completed for user: ${user.email}`);
       }
 
+      // Handle the case where the user already completed registration via password
+      // but also wants to log in with Microsoft. Since Microsoft has verified ownership
+      // of the same email address, we allow this without changing their authMethod.
+      if (user.authMethod === 'PASSWORD') {
+        if (!user.isActive) {
+          throw new UnauthorizedException('User account is currently inactive.');
+        }
+
+        // Save the Microsoft OID the first time they use Outlook, so future logins
+        // can validate OID consistency if needed.
+        if (!user.microsoftOid) {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { microsoftOid: userInfo.oid },
+          });
+        }
+
+        this.logger.log(`Password user authenticated via Microsoft: ${user.email}`);
+
+        const payload = { sub: user.id, email: user.email };
+        const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+        const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+        this.setAuthCookies(res, accessToken, refreshToken);
+        this.updateLastSignIn(user.email);
+
+        const REDIRECT_TO = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
+        return res.redirect(`${REDIRECT_TO}/inicio`);
+      }
+
       // Use existing login method with Entra ID
       await this.login(
         { email: userInfo.email, microsoftOid: userInfo.oid }, 'ENTRA_ID', res

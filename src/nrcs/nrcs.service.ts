@@ -7,6 +7,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, NRC } from '@prisma/client';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
+import { CreateNrcDto } from './dto/create-nrc.dto';
+import { UpdateNrcDto } from './dto/update-nrc.dto';
 
 @Injectable()
 export class NrcsService {
@@ -94,28 +96,35 @@ export class NrcsService {
     return nrc;
   }
 
-  async create(data: Prisma.NRCCreateInput) {
+  async create(dto: CreateNrcDto) {
+    const { code, subjectId, professorId, isActive } = dto;
+
     // Check for existing ACTIVE NRC with the same code
     const existingNrc = await this.prisma.nRC.findFirst({
       where: {
-        code: data.code,
+        code,
         isActive: true, // Solo verificar NRCs activos
       },
     });
 
     if (existingNrc) {
       throw new ConflictException(
-        `Ya existe un NRC con el código ${data.code}.`,
+        `Ya existe un NRC con el código ${code}.`,
       );
     }
 
     return this.prisma.nRC.create({
-      data,
+      data: {
+        code,
+        subject: { connect: { id: subjectId } },
+        professor: { connect: { id: professorId } },
+        ...(isActive !== undefined && { isActive }),
+      },
       include: { subject: true, professor: true },
     });
   }
 
-  async update(id: number, data: Prisma.NRCUpdateInput) {
+  async update(id: number, dto: UpdateNrcDto) {
     const existingNrc = await this.prisma.nRC.findUnique({
       where: { id },
     });
@@ -125,37 +134,31 @@ export class NrcsService {
     }
 
     // Check if the code is being updated and conflicts with another ACTIVE NRC
-    if (data.code !== undefined) {
-      const codeValue =
-        typeof data.code === 'object' ? data.code.set : data.code;
+    if (dto.code !== undefined) {
+      const conflictingNrc = await this.prisma.nRC.findFirst({
+        where: {
+          code: dto.code,
+          id: { not: id },
+          isActive: true, // Solo verificar contra NRCs activos
+        },
+      });
 
-      if (codeValue !== undefined) {
-        const numericCode =
-          typeof codeValue === 'string' ? parseInt(codeValue, 10) : codeValue;
-
-        if (isNaN(numericCode)) {
-          throw new ConflictException(`El código debe ser un número válido.`);
-        }
-
-        const conflictingNrc = await this.prisma.nRC.findFirst({
-          where: {
-            code: numericCode,
-            id: { not: id },
-            isActive: true, // Solo verificar contra NRCs activos
-          },
-        });
-
-        if (conflictingNrc) {
-          throw new ConflictException(
-            `Ya existe otro NRC con el código ${numericCode}.`,
-          );
-        }
+      if (conflictingNrc) {
+        throw new ConflictException(
+          `Ya existe otro NRC con el código ${dto.code}.`,
+        );
       }
     }
 
+    const { subjectId, professorId, ...rest } = dto;
+
     return this.prisma.nRC.update({
       where: { id },
-      data,
+      data: {
+        ...rest,
+        ...(subjectId !== undefined && { subject: { connect: { id: subjectId } } }),
+        ...(professorId !== undefined && { professor: { connect: { id: professorId } } }),
+      },
       include: {
         subject: true,
         professor: true,
