@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, NRC } from '@prisma/client';
@@ -99,28 +100,46 @@ export class NrcsService {
   async create(dto: CreateNrcDto) {
     const { code, subjectId, professorId, isActive } = dto;
 
+    const activeEdition = await this.prisma.edition.findFirst({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!activeEdition) {
+      throw new BadRequestException('No hay una edición activa configurada');
+    }
+
     // Check for existing ACTIVE NRC with the same code
     const existingNrc = await this.prisma.nRC.findFirst({
       where: {
         code,
-        isActive: true, // Solo verificar NRCs activos
+        isActive: true,
+        editionId: activeEdition.id,
       },
     });
 
     if (existingNrc) {
       throw new ConflictException(
-        `Ya existe un NRC con el código ${code}.`,
+        `Ya existe un NRC con el código ${code} en la edición activa.`,
       );
     }
 
     return this.prisma.nRC.create({
       data: {
         code,
+        edition: { connect: { id: activeEdition.id } },
         subject: { connect: { id: subjectId } },
         professor: { connect: { id: professorId } },
         ...(isActive !== undefined && { isActive }),
       },
-      include: { subject: true, professor: true },
+      include: { subject: true, professor: true, edition: true },
     });
   }
 
@@ -139,13 +158,14 @@ export class NrcsService {
         where: {
           code: dto.code,
           id: { not: id },
-          isActive: true, // Solo verificar contra NRCs activos
+          isActive: true,
+          editionId: existingNrc.editionId,
         },
       });
 
       if (conflictingNrc) {
         throw new ConflictException(
-          `Ya existe otro NRC con el código ${dto.code}.`,
+          `Ya existe otro NRC con el código ${dto.code} en esta edición.`,
         );
       }
     }
@@ -156,12 +176,17 @@ export class NrcsService {
       where: { id },
       data: {
         ...rest,
-        ...(subjectId !== undefined && { subject: { connect: { id: subjectId } } }),
-        ...(professorId !== undefined && { professor: { connect: { id: professorId } } }),
+        ...(subjectId !== undefined && {
+          subject: { connect: { id: subjectId } },
+        }),
+        ...(professorId !== undefined && {
+          professor: { connect: { id: professorId } },
+        }),
       },
       include: {
         subject: true,
         professor: true,
+        edition: true,
       },
     });
   }
