@@ -792,6 +792,22 @@ export class TeamRepository implements ITeamRepository {
       );
     }
 
+    const activeEdition = await tx.edition.findFirst({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!activeEdition) {
+      throw new BadRequestException('No hay una edición activa configurada');
+    }
+
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
     const teamCode = await this.generateTeamCode(firstMemberNrcCode);
 
@@ -801,6 +817,7 @@ export class TeamRepository implements ITeamRepository {
         isExternal: dto.isExternal,
         userId,
         teamCode,
+        editionId: activeEdition.id,
       },
     });
   }
