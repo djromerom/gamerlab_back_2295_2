@@ -1,18 +1,37 @@
-import { Injectable, BadRequestException, PayloadTooLargeException } from '@nestjs/common';
+import { Injectable, BadRequestException, PayloadTooLargeException, OnModuleInit } from '@nestjs/common';
 import { BlobServiceClient, BlockBlobClient, BlobSASPermissions, StorageSharedKeyCredential, generateBlobSASQueryParameters } from '@azure/storage-blob';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { Upload } from '@prisma/client';
 
 @Injectable()
-export class AzureStorageService {
+export class AzureStorageService implements OnModuleInit {
   private containerClient;
 
   constructor(private readonly prisma: PrismaService) {
-    const sasUrl = process.env.AZURE_BLOB_SAS_URL;
-    if (!sasUrl) throw new Error('AZURE_BLOB_SAS_URL no está definido en .env');
-    const blobServiceClient = new BlobServiceClient(sasUrl);
-    this.containerClient = blobServiceClient.getContainerClient('');
+    let blobServiceClient: BlobServiceClient;
+
+    const containerName = process.env.AZURE_CONTAINER;
+    if (!containerName) throw new Error('AZURE_CONTAINER no está definido en el .env');
+
+    if (process.env.NODE_ENV === 'development') {
+      //Si se está en un ambiente de desarrollo, buscar conectarse a Azurite.
+      //El connection string de Azurite es público (leakeable), pero igual se espera que esté en el .env
+      const connString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+      if (!connString) throw new Error('AZURE_STORAGE_CONNECTION_STRING no está definido en el .env')
+      blobServiceClient = BlobServiceClient.fromConnectionString(connString);
+    } else {
+      const sasUrl = process.env.AZURE_BLOB_SAS_URL;
+      if (!sasUrl) throw new Error('AZURE_BLOB_SAS_URL no está definido en .env');
+      blobServiceClient = new BlobServiceClient(sasUrl);
+    }
+
+    this.containerClient = blobServiceClient.getContainerClient(containerName);
+  }
+
+  async onModuleInit() {
+    //crea el bucket si no existe (importante para el ambiente de desarrollo)
+    await this.containerClient.createIfNotExists();
   }
 
   async uploadFile(file: Express.Multer.File): Promise<Upload> {
@@ -48,7 +67,7 @@ export class AzureStorageService {
       if (error.statusCode === 413 || error.code === 'REQUEST_BODY_TOO_LARGE') {
         throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage. Tamaño máximo permitido: 1MB');
       }
-      
+
       if (error.statusCode === 400) {
         throw new BadRequestException(`Error de Azure Storage: ${error.message || 'Solicitud inválida'}`);
       }
@@ -61,7 +80,7 @@ export class AzureStorageService {
         fileName: file.originalname,
         fileSize: file.size,
       });
-      
+
       throw new BadRequestException('Error interno al subir el archivo. Por favor, inténtelo de nuevo.');
     }
   }
@@ -76,8 +95,8 @@ export class AzureStorageService {
     if (!rec) throw new Error('Registro no encontrado');
 
     const accountName = process.env.AZURE_ACCOUNT_NAME;
-    const accountKey  = process.env.AZURE_ACCOUNT_KEY;
-    const container   = process.env.AZURE_CONTAINER || this.containerClient.containerName;
+    const accountKey = process.env.AZURE_ACCOUNT_KEY;
+    const container = process.env.AZURE_CONTAINER || this.containerClient.containerName;
 
     if (!accountName || !accountKey) {
       throw new Error('Faltan AZURE_ACCOUNT_NAME o AZURE_ACCOUNT_KEY en .env');
