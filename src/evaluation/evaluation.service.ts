@@ -1,38 +1,67 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ForbiddenException } from '@nestjs/common';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 import { CriterionService } from 'src/criterion/criterion.service';
 
-
 @Injectable()
 export class EvaluationService {
-  constructor(private readonly prisma: PrismaService,
-     private readonly criterionService: CriterionService
-  ) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly criterionService: CriterionService,
+  ) {}
 
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
+
     if (!config?.evaluationsOpen) {
-      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
+      throw new ForbiddenException(
+        'Las evaluaciones no están habilitadas en este momento.',
+      );
     }
   }
+
   /**
-    * Creates an evaluation and its details in a single query.
-    * @param jurorId string
-    * @param evaluationPayload object with date, comments, videogameId, totalScore, details (array)
+   * Creates an evaluation and its details in a single query.
+   * @param jurorId string
+   * @param evaluationPayload object with date, comments, videogameId, totalScore, details (array)
    */
-  async createEvaluationWithDetails(jurorId: string, evaluationPayload: CreateEvaluationDto) {
+  async createEvaluationWithDetails(
+    jurorId: string,
+    evaluationPayload: CreateEvaluationDto,
+  ) {
     await this.checkEvaluationsOpen();
+
     const { date, comments, videogameId, details } = evaluationPayload;
+
+    const activeEdition = await this.prisma.edition.findFirst({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!activeEdition) {
+      throw new BadRequestException('No hay una edición activa configurada');
+    }
+
     // Determine if the juror is a professor (roleId === 3) -> mark as senior
     // We fetch only the roleId for the juror user to avoid extra data.
     const jurorUser = await this.prisma.user.findUnique({
       where: { id: jurorId },
       select: { roleId: true },
     });
+
     const isSenior = jurorUser?.roleId === 3;
-    
+
     const activeCriteria = await this.criterionService.findForSelect();
 
     if (!activeCriteria || activeCriteria.length === 0) {
@@ -40,26 +69,30 @@ export class EvaluationService {
     }
 
     const criteriaWeightMap = new Map<number, number>();
-    activeCriteria.forEach(criterion => {
+
+    activeCriteria.forEach((criterion) => {
       criteriaWeightMap.set(criterion.id, criterion.weight ?? 0);
     });
 
     let calculatedTotalScore = 0;
 
-    const detailsData = details.map(detail => {
+    const detailsData = details.map((detail) => {
       const weight = criteriaWeightMap.get(detail.criterionId);
+
       if (weight === undefined) {
         throw new BadRequestException(
           `Criterion with id ${detail.criterionId} is not valid or not active.`,
         );
       }
+
       if (detail.score < 1 || detail.score > 5) {
-         throw new BadRequestException(
+        throw new BadRequestException(
           `Score for criterion ${detail.criterionId} is out of range (1-5). Score: ${detail.score}`,
         );
       }
+
       calculatedTotalScore += detail.score * weight;
-      
+
       return {
         criterionId: detail.criterionId,
         score: detail.score,
@@ -68,17 +101,15 @@ export class EvaluationService {
         isActive: detail.isActive ?? true,
       };
     });
-    
+
     calculatedTotalScore = parseFloat(calculatedTotalScore.toFixed(4));
 
-    // Build create data as `any` to avoid TypeScript errors if Prisma client
-    // types haven't been regenerated after the schema change.
     const createData: any = {
       jurorId,
       date: new Date(date),
       comments,
       videogameId,
-      // mark whether this evaluation is from a senior juror (professor)
+      editionId: activeEdition.id,
       isSenior,
       totalScore: calculatedTotalScore,
       details: {
@@ -93,42 +124,45 @@ export class EvaluationService {
       },
     });
 
-    return { evaluationId: evaluation.id, message: 'Evaluación y detalles guardados correctamente' };
+    return {
+      evaluationId: evaluation.id,
+      message: 'Evaluación y detalles guardados correctamente',
+    };
   }
+
   async computeFinalScoreForVideogame(videogameId: number, editionId?: number) {
-  // 1. get weights (by editionId if provided) or use default 60/40
-  const weighting = editionId
-    ? await this.prisma.weighting.findUnique({ where: { editionId } })
-    : null;
-  const seniorPct = weighting?.seniorPct ?? 60;
-  const juniorPct = weighting?.juniorPct ?? 40;
+    const weighting = editionId
+      ? await this.prisma.weighting.findUnique({ where: { editionId } })
+      : null;
 
-  // 2. averages
-  const seniorAgg = await this.prisma.evaluation.aggregate({
-    _avg: { totalScore: true },
-    where: { videogameId, isSenior: true, isActive: true },
-  });
-  const juniorAgg = await this.prisma.evaluation.aggregate({
-    _avg: { totalScore: true },
-    where: { videogameId, isSenior: false, isActive: true },
-  });
+    const seniorPct = weighting?.seniorPct ?? 60;
+    const juniorPct = weighting?.juniorPct ?? 40;
 
-  const seniorAvg = seniorAgg._avg.totalScore ?? null;
-  const juniorAvg = juniorAgg._avg.totalScore ?? null;
+    const seniorAgg = await this.prisma.evaluation.aggregate({
+      _avg: { totalScore: true },
+      where: { videogameId, isSenior: true, isActive: true },
+    });
 
-  // 3. if one of the groups is missing, normalize or use the other (policy choice)
-  if (seniorAvg == null && juniorAvg == null) return null; // no data
+    const juniorAgg = await this.prisma.evaluation.aggregate({
+      _avg: { totalScore: true },
+      where: { videogameId, isSenior: false, isActive: true },
+    });
 
-  if (seniorAvg == null) {
-    // fallback: treat junior average as 100%
-    return Number((juniorAvg!).toFixed(2));
+    const seniorAvg = seniorAgg._avg.totalScore ?? null;
+    const juniorAvg = juniorAgg._avg.totalScore ?? null;
+
+    if (seniorAvg == null && juniorAvg == null) return null;
+
+    if (seniorAvg == null) {
+      return Number(juniorAvg!.toFixed(2));
+    }
+
+    if (juniorAvg == null) {
+      return Number(seniorAvg!.toFixed(2));
+    }
+
+    const final = (seniorAvg * seniorPct + juniorAvg * juniorPct) / 100;
+
+    return Number(final.toFixed(2));
   }
-  if (juniorAvg == null) {
-    return Number((seniorAvg!).toFixed(2));
-  }
-
-  // both exist -> apply weighted average
-  const final = (seniorAvg * seniorPct + juniorAvg * juniorPct) / 100;
-  return Number(final.toFixed(2));
-}
 }
