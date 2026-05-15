@@ -1,29 +1,44 @@
 import { Injectable, BadRequestException, PayloadTooLargeException, OnModuleInit } from '@nestjs/common';
-import { BlobServiceClient, BlockBlobClient, BlobSASPermissions, StorageSharedKeyCredential, generateBlobSASQueryParameters } from '@azure/storage-blob';
+import { BlobServiceClient, BlockBlobClient, BlobSASPermissions, StorageSharedKeyCredential, generateBlobSASQueryParameters, ContainerClient } from '@azure/storage-blob';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { Upload } from '@prisma/client';
 
 @Injectable()
 export class AzureStorageService implements OnModuleInit {
-  private containerClient;
+  private readonly containerClient: ContainerClient;
+  private readonly credential: StorageSharedKeyCredential;
 
   constructor(private readonly prisma: PrismaService) {
-    let blobServiceClient: BlobServiceClient;
-
+    //armar containerClient y credential sin importar el ambiente.
+    //  => En dev, saca las credenciales del connection string por defecto de Azurite
+    //  => En prod, saca las credenciales de las .env
     const containerName = process.env.AZURE_CONTAINER;
     if (!containerName) throw new Error('AZURE_CONTAINER no está definido en el .env');
 
+    let blobServiceClient: BlobServiceClient;
+
     if (process.env.NODE_ENV === 'development') {
-      //Si se está en un ambiente de desarrollo, buscar conectarse a Azurite.
-      //El connection string de Azurite es público (leakeable), pero igual se espera que esté en el .env
       const connString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-      if (!connString) throw new Error('AZURE_STORAGE_CONNECTION_STRING no está definido en el .env')
+      if (!connString) throw new Error('AZURE_STORAGE_CONNECTION_STRING no está definido en el .env');
+
+      // Azurite connection strings always carry AccountName + AccountKey
+      const accountNameMatch = connString.match(/AccountName=([^;]+)/);
+      const accountKeyMatch = connString.match(/AccountKey=([^;]+)/);
+      if (!accountNameMatch || !accountKeyMatch) throw new Error('Connection string inválido');
+
+      this.credential = new StorageSharedKeyCredential(accountNameMatch[1], accountKeyMatch[1]);
       blobServiceClient = BlobServiceClient.fromConnectionString(connString);
     } else {
-      const sasUrl = process.env.AZURE_BLOB_SAS_URL;
-      if (!sasUrl) throw new Error('AZURE_BLOB_SAS_URL no está definido en .env');
-      blobServiceClient = new BlobServiceClient(sasUrl);
+      const accountName = process.env.AZURE_ACCOUNT_NAME;
+      const accountKey = process.env.AZURE_ACCOUNT_KEY;
+      if (!accountName || !accountKey) throw new Error('Faltan AZURE_ACCOUNT_NAME o AZURE_ACCOUNT_KEY en .env');
+
+      this.credential = new StorageSharedKeyCredential(accountName, accountKey);
+      blobServiceClient = new BlobServiceClient(
+        `https://${accountName}.blob.core.windows.net`,
+        this.credential,
+      );
     }
 
     this.containerClient = blobServiceClient.getContainerClient(containerName);
@@ -90,36 +105,27 @@ export class AzureStorageService implements OnModuleInit {
   }
 
   // Genera SAS de lectura por blob (dinámico)
-  async getReadSasUrlById(id: string, ttlSec: number = 900): Promise<{ url: string, expiresAt: string }> {
+  async getReadSasUrlById(id: string, ttlSec: number = 900): Promise<{ url: string; expiresAt: string }> {
     const rec = await this.getById(id);
     if (!rec) throw new Error('Registro no encontrado');
 
-    const accountName = process.env.AZURE_ACCOUNT_NAME;
-    const accountKey = process.env.AZURE_ACCOUNT_KEY;
-    const container = process.env.AZURE_CONTAINER || this.containerClient.containerName;
-
-    if (!accountName || !accountKey) {
-      throw new Error('Faltan AZURE_ACCOUNT_NAME o AZURE_ACCOUNT_KEY en .env');
-    }
-
-    const cred = new StorageSharedKeyCredential(accountName, accountKey);
-    //literally why even
-    //const service = new BlobServiceClient(`https://${accountName}.blob.core.windows.net`, cred);
-    const containerClient = this.containerClient;//service.getContainerClient(container);
-
     const expiresOn = new Date(Date.now() + Math.max(60, ttlSec) * 1000);
+    const blobClient = this.containerClient.getBlockBlobClient(rec.blobName);
+
     const sas = generateBlobSASQueryParameters(
       {
-        containerName: container,
+        containerName: this.containerClient.containerName,
         blobName: rec.blobName,
         permissions: BlobSASPermissions.parse('r'),
         expiresOn,
       },
-      cred,
+      this.credential,
     ).toString();
 
-    const signedUrl = `${containerClient.getBlockBlobClient(rec.blobName).url}?${sas}`;
-    return { url: signedUrl, expiresAt: expiresOn.toISOString() };
+    return {
+      url: `${blobClient.url}?${sas}`,
+      expiresAt: expiresOn.toISOString(),
+    };
   }
 
   // Marca como público (flag) sin guardar SAS
