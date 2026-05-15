@@ -36,7 +36,6 @@ RUN apk add -q --update --no-cache \
 
 # Set chromium path for puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-ENV NODE_ENV=production
 
 WORKDIR /usr/src/app
 
