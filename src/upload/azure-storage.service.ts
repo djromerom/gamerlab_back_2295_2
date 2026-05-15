@@ -103,8 +103,9 @@ export class AzureStorageService implements OnModuleInit {
     }
 
     const cred = new StorageSharedKeyCredential(accountName, accountKey);
-    const service = new BlobServiceClient(`https://${accountName}.blob.core.windows.net`, cred);
-    const containerClient = service.getContainerClient(container);
+    //literally why even
+    //const service = new BlobServiceClient(`https://${accountName}.blob.core.windows.net`, cred);
+    const containerClient = this.containerClient;//service.getContainerClient(container);
 
     const expiresOn = new Date(Date.now() + Math.max(60, ttlSec) * 1000);
     const sas = generateBlobSASQueryParameters(
