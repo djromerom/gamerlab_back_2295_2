@@ -400,8 +400,8 @@ export class AuthService {
     }
   }
 
-  // Private method with the actual user registration logic
-  private async registerUserTransaction(
+  // Public to allow TeamRepository to enlist User creation in its own transaction
+  async registerUserTransaction(
     registerDto: RegisterDto,
     tx: Prisma.TransactionClient
   ): Promise<{ user: User; verificationToken: string }> {
@@ -474,7 +474,8 @@ export class AuthService {
   }
 
   // Helper method to send verification email
-  private async sendVerificationEmail(email: string, verificationToken: string): Promise<{ message: string }> {
+  // Public to allow TeamRepository to send the verification email after createTeam commits
+  async sendVerificationEmail(email: string, verificationToken: string): Promise<{ message: string }> {
     return this.emailService.resendAuthEmailOfType(email, 'VERIFICACION_EMAIL', verificationToken);
   }
 
