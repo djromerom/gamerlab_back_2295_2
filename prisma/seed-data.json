@@ -217,7 +217,7 @@
       {
         "id": 14,
         "name": "ADD_EVALUATION",
-        "description": "Permite añadir una evaluación",
+        "description": "Permite a\u00f1adir una evaluaci\u00f3n",
         "createdAt": "2025-05-09T17:35:40.340Z",
         "updatedAt": "2025-05-09T17:35:40.340Z",
         "isActive": true
@@ -249,7 +249,7 @@
       {
         "id": 18,
         "name": "UPDATE_NRC",
-        "description": "Permite actualizar información de NRCs",
+        "description": "Permite actualizar informaci\u00f3n de NRCs",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -273,7 +273,7 @@
       {
         "id": 21,
         "name": "READ_TEAM_DETAIL",
-        "description": "Permite ver detalles de un equipo específico",
+        "description": "Permite ver detalles de un equipo espec\u00edfico",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -281,7 +281,7 @@
       {
         "id": 22,
         "name": "UPDATE_TEAM",
-        "description": "Permite actualizar información de equipos",
+        "description": "Permite actualizar informaci\u00f3n de equipos",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -353,7 +353,7 @@
       {
         "id": 31,
         "name": "READ_PROFESSOR_DETAIL",
-        "description": "Permite ver detalles de un profesor específico",
+        "description": "Permite ver detalles de un profesor espec\u00edfico",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -369,7 +369,7 @@
       {
         "id": 33,
         "name": "UPDATE_PROFESSOR",
-        "description": "Permite actualizar información de profesores",
+        "description": "Permite actualizar informaci\u00f3n de profesores",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -425,7 +425,7 @@
       {
         "id": 40,
         "name": "READ_JUROR_DETAIL",
-        "description": "Permite ver detalles de un jurado específico",
+        "description": "Permite ver detalles de un jurado espec\u00edfico",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -433,7 +433,7 @@
       {
         "id": 41,
         "name": "UPDATE_JUROR",
-        "description": "Permite actualizar información de jurados",
+        "description": "Permite actualizar informaci\u00f3n de jurados",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -449,7 +449,7 @@
       {
         "id": 43,
         "name": "ASSIGN_JURORS",
-        "description": "Permite asignar jurados a videojuegos automáticamente",
+        "description": "Permite asignar jurados a videojuegos autom\u00e1ticamente",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -457,7 +457,7 @@
       {
         "id": 44,
         "name": "CREATE_CRITERION",
-        "description": "Permite crear nuevos criterios de evaluación",
+        "description": "Permite crear nuevos criterios de evaluaci\u00f3n",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -465,7 +465,7 @@
       {
         "id": 45,
         "name": "READ_CRITERIA",
-        "description": "Permite ver todos los criterios de evaluación",
+        "description": "Permite ver todos los criterios de evaluaci\u00f3n",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -473,7 +473,7 @@
       {
         "id": 46,
         "name": "READ_CRITERION_DETAIL",
-        "description": "Permite ver detalles de un criterio específico",
+        "description": "Permite ver detalles de un criterio espec\u00edfico",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -481,7 +481,7 @@
       {
         "id": 47,
         "name": "UPDATE_CRITERION",
-        "description": "Permite actualizar criterios de evaluación",
+        "description": "Permite actualizar criterios de evaluaci\u00f3n",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -489,7 +489,7 @@
       {
         "id": 48,
         "name": "DELETE_CRITERION",
-        "description": "Permite eliminar criterios de evaluación",
+        "description": "Permite eliminar criterios de evaluaci\u00f3n",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -505,7 +505,7 @@
       {
         "id": 50,
         "name": "SEND_EMAIL",
-        "description": "Permite enviar correos electrónicos",
+        "description": "Permite enviar correos electr\u00f3nicos",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
         "isActive": true
@@ -513,16 +513,15 @@
       {
         "id": 52,
         "name": "UPDATE_SETTINGS",
-        "description": "Permite actualizar la configuración actual del evento",
+        "description": "Permite actualizar la configuraci\u00f3n actual del evento",
         "createdAt": "2025-06-04T15:29:45.468Z",
         "updatedAt": "2025-06-04T15:29:45.468Z",
-        "isActive": true 
-      }
-      ,
+        "isActive": true
+      },
       {
         "id": 51,
         "name": "READ_WEIGHT",
-        "description": "Permite leer la configuración de ponderado por edición",
+        "description": "Permite leer la configuraci\u00f3n de ponderado por edici\u00f3n",
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
@@ -530,7 +529,7 @@
       {
         "id": 52,
         "name": "MANAGE_WEIGHT",
-        "description": "Permite crear/editar la configuración de ponderado por edición",
+        "description": "Permite crear/editar la configuraci\u00f3n de ponderado por edici\u00f3n",
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
@@ -561,7 +560,7 @@
       {
         "id": 2,
         "name": "GetUser",
-        "description": "Obtener detalles de un usuario específico por ID (UsuariosController.findOne)",
+        "description": "Obtener detalles de un usuario espec\u00edfico por ID (UsuariosController.findOne)",
         "url": null,
         "method": "GET",
         "createdAt": "2025-05-03T02:44:16.611Z",
@@ -571,7 +570,7 @@
       {
         "id": 3,
         "name": "UpdateUser",
-        "description": "Actualizar información de un usuario (UsuariosController.update)",
+        "description": "Actualizar informaci\u00f3n de un usuario (UsuariosController.update)",
         "url": null,
         "method": "PUT",
         "createdAt": "2025-05-03T02:44:16.611Z",
@@ -681,7 +680,7 @@
       {
         "id": 14,
         "name": "Create Evaluation",
-        "description": "Añade una nueva evaluación de un videojuego",
+        "description": "A\u00f1ade una nueva evaluaci\u00f3n de un videojuego",
         "url": null,
         "method": "POST",
         "createdAt": "2025-05-09T17:34:00.669Z",
@@ -701,7 +700,7 @@
       {
         "id": 16,
         "name": "ListNrcs",
-        "description": "Permite listar todos los nrcs del sistema. Está pensado para administradores únicamente",
+        "description": "Permite listar todos los nrcs del sistema. Est\u00e1 pensado para administradores \u00fanicamente",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -721,7 +720,7 @@
       {
         "id": 18,
         "name": "UpdateNrc",
-        "description": "Permite actualizar la información de un nrc",
+        "description": "Permite actualizar la informaci\u00f3n de un nrc",
         "url": null,
         "method": "PATCH",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -751,7 +750,7 @@
       {
         "id": 21,
         "name": "GetTeam",
-        "description": "Permite ver la información de un equipo dado",
+        "description": "Permite ver la informaci\u00f3n de un equipo dado",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -761,7 +760,7 @@
       {
         "id": 22,
         "name": "UpdateTeam",
-        "description": "Permite actualizar la información de cualquier equipo",
+        "description": "Permite actualizar la informaci\u00f3n de cualquier equipo",
         "url": null,
         "method": "PATCH",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -841,7 +840,7 @@
       {
         "id": 30,
         "name": "MySubjects",
-        "description": "Permite listar las  materias que tiene asignado un profesor a través de los nrcs",
+        "description": "Permite listar las  materias que tiene asignado un profesor a trav\u00e9s de los nrcs",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -851,7 +850,7 @@
       {
         "id": 31,
         "name": "GetProfessor",
-        "description": "Lista la información de un profesor",
+        "description": "Lista la informaci\u00f3n de un profesor",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -861,7 +860,7 @@
       {
         "id": 32,
         "name": "UpdateProfessor",
-        "description": "Permite actualizar la información de un profesor",
+        "description": "Permite actualizar la informaci\u00f3n de un profesor",
         "url": null,
         "method": "PATCH",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -891,7 +890,7 @@
       {
         "id": 35,
         "name": "SubjectReport",
-        "description": "Genera un reporte donde la agrupación es la materia a la que pertenecen los estudiantes",
+        "description": "Genera un reporte donde la agrupaci\u00f3n es la materia a la que pertenecen los estudiantes",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -921,7 +920,7 @@
       {
         "id": 38,
         "name": "AssignJurors",
-        "description": "Permite la asignación de videojuegos a jurados de forma automática",
+        "description": "Permite la asignaci\u00f3n de videojuegos a jurados de forma autom\u00e1tica",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -951,7 +950,7 @@
       {
         "id": 41,
         "name": "GetJuror",
-        "description": "Permite obtener la información de un jurado",
+        "description": "Permite obtener la informaci\u00f3n de un jurado",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -971,7 +970,7 @@
       {
         "id": 43,
         "name": "UpdateJuror",
-        "description": "Actualiza la información de un jurado",
+        "description": "Actualiza la informaci\u00f3n de un jurado",
         "url": null,
         "method": "PATCH",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -1011,7 +1010,7 @@
       {
         "id": 47,
         "name": "GetCriterion",
-        "description": "Obtiene la información de un criterio",
+        "description": "Obtiene la informaci\u00f3n de un criterio",
         "url": null,
         "method": "GET",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -1021,7 +1020,7 @@
       {
         "id": 48,
         "name": "UpdateCriterion",
-        "description": "Actualiza la información de un criterio",
+        "description": "Actualiza la informaci\u00f3n de un criterio",
         "url": null,
         "method": "PATCH",
         "createdAt": "2025-06-04T15:24:25.240Z",
@@ -1047,8 +1046,7 @@
         "createdAt": "2025-06-04T15:24:25.240Z",
         "updatedAt": "2025-06-04T15:24:25.240Z",
         "isActive": true
-      }
-      ,
+      },
       {
         "id": 51,
         "name": "UploadSeniorGrades",
@@ -1068,12 +1066,11 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
-      }
-      ,
+      },
       {
         "id": 52,
         "name": "GetWeight",
-        "description": "Obtener configuración de ponderado por edición (SettingsController.getWeight)",
+        "description": "Obtener configuraci\u00f3n de ponderado por edici\u00f3n (SettingsController.getWeight)",
         "url": null,
         "method": "GET",
         "createdAt": "2025-11-14T06:00:00.000Z",
@@ -1083,7 +1080,7 @@
       {
         "id": 53,
         "name": "ManageWeight",
-        "description": "Crear/editar configuración de ponderado por edición (SettingsController.create/update)",
+        "description": "Crear/editar configuraci\u00f3n de ponderado por edici\u00f3n (SettingsController.create/update)",
         "url": null,
         "method": "POST",
         "createdAt": "2025-11-14T06:00:00.000Z",
@@ -1461,8 +1458,7 @@
         "createdAt": "2025-05-28T10:00:00.000Z",
         "updatedAt": "2025-06-04T15:34:25.447Z",
         "isActive": true
-      }
-      ,
+      },
       {
         "serviceId": 51,
         "permissionId": 31,
@@ -1476,8 +1472,7 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
-      }
-      ,
+      },
       {
         "serviceId": 52,
         "permissionId": 51,
@@ -1720,11 +1715,10 @@
         "semesterName": "Primer semestre",
         "name": "Feria Gamer 2024 - S1",
         "date": "Marzo 2024",
-        "description": "Edición destacada por la integración de estudios indie y universidades locales.",
+        "description": "Edici\u00f3n destacada por la integraci\u00f3n de estudios indie y universidades locales.",
         "description2": null,
-        "highlightedGames": "Destacado 1;Destacado 2;Destacado 3;Destacado 4",
         "alt": "Feria Gamer 2025-10",
-        "isActive": true,
+        "isActive": false,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
@@ -1736,11 +1730,10 @@
         "semesterName": "Segundo semestre",
         "name": "Feria Gamer 2024 - S2",
         "date": "Abril 2024",
-        "description": "Innovacion y aprendizaje se fusionaron en la II Feria Gamer del Programa de Ingeniería de Software y Computacion de la Universidad Del Norte, evento donde los videojuegos se transformaron en Herramientas para educar sobre los peligros del mundo digital",
-        "description2": "Estudiantes de primero a tercer semestre presentaron el jueves, 24 de abril de 2025, sus proyectos finales, una serie de videojuegos diseñados para generar conciencia sobre riesgos como el grooming, phishing y ciberacoso, mientras demostraban su creatividad y dominio técnico en programación.",
-        "highlightedGames": "Dulce y Burbujas;Leyendas de Papel, Páginas de Aventura;Carrot Mania;Musical Bubble Coffee",
+        "description": "Innovacion y aprendizaje se fusionaron en la II Feria Gamer del Programa de Ingenier\u00eda de Software y Computacion de la Universidad Del Norte, evento donde los videojuegos se transformaron en Herramientas para educar sobre los peligros del mundo digital",
+        "description2": "Estudiantes de primero a tercer semestre presentaron el jueves, 24 de abril de 2025, sus proyectos finales, una serie de videojuegos dise\u00f1ados para generar conciencia sobre riesgos como el grooming, phishing y ciberacoso, mientras demostraban su creatividad y dominio t\u00e9cnico en programaci\u00f3n.",
         "alt": "Feria Gamer 2024-30",
-        "isActive": true,
+        "isActive": false,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
@@ -1752,84 +1745,12 @@
         "semesterName": "Segundo semestre",
         "name": "Feria Gamer 2025 - S3",
         "date": "Noviembre 2025",
-        "description": "La innovación y la protección digital se encontraron en la III Feria Gamer del Programa de Ingeniería de Software y Computación de la Universidad del Norte, un evento donde los videojuegos se transformaron en herramientas para educar sobre los desafíos de la seguridad en línea.",
-        "description2": "Estudiantes de primer a tercer semestre presentaron el jueves, 27 de noviembre sus proyectos finales: experiencias interactivas creadas para concientizar sobre amenazas como el robo de información, suplantación de identidad, vulnerabilidades comunes y buenas prácticas de seguridad digital. A través de dinámicas lúdicas y creativas, los participantes demostraron su habilidad técnica y su compromiso con formar usuarios más preparados y responsables en un mundo cada vez más conectado.",
-        "highlightedGames": null,
+        "description": "La innovaci\u00f3n y la protecci\u00f3n digital se encontraron en la III Feria Gamer del Programa de Ingenier\u00eda de Software y Computaci\u00f3n de la Universidad del Norte, un evento donde los videojuegos se transformaron en herramientas para educar sobre los desaf\u00edos de la seguridad en l\u00ednea.",
+        "description2": "Estudiantes de primer a tercer semestre presentaron el jueves, 27 de noviembre sus proyectos finales: experiencias interactivas creadas para concientizar sobre amenazas como el robo de informaci\u00f3n, suplantaci\u00f3n de identidad, vulnerabilidades comunes y buenas pr\u00e1cticas de seguridad digital. A trav\u00e9s de din\u00e1micas l\u00fadicas y creativas, los participantes demostraron su habilidad t\u00e9cnica y su compromiso con formar usuarios m\u00e1s preparados y responsables en un mundo cada vez m\u00e1s conectado.",
         "alt": "Feria Gamer 2025-30",
         "isActive": true,
         "createdAt": "2025-11-15T00:00:00.000Z",
         "updatedAt": "2025-11-15T00:00:00.000Z"
-      }
-    ]
-  },
-  {
-    "table": "podio",
-    "data": [
-      {
-        "id": 1,
-        "editionId": 1,
-        "position": 1,
-        "teamName": "Equipo Alpha",
-        "gameName": "Aventura Espacial",
-        "score": 4.8,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "id": 2, 
-        "editionId": 1,
-        "position": 2,
-        "teamName": "Equipo Beta",
-        "gameName": "Mundo Submarino",
-        "score": 4.5,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "id": 3,
-        "editionId": 1,
-        "position": 3,
-        "teamName": "Equipo Gamma",
-        "gameName": "Ciudad Futurista",
-        "score": 4.2,
-        "isActive": true,
-        "createdAt": "2025-01-01T00:00:00.000Z",
-        "updatedAt": "2025-01-01T00:00:00.000Z"
-      },
-      {
-        "id": 4,
-        "editionId": 2,
-        "position": 1,
-        "teamName": "Equipo Delta",
-        "gameName": "Dulce y Burbujas",
-        "score": 4.9,
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      },
-      {
-        "id": 5,
-        "editionId": 2,
-        "position": 2,
-        "teamName": "Equipo Epsilon",
-        "gameName": "Leyendas de Papel, Páginas de Aventura",
-        "score": 4.6,
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      },
-      {
-        "id": 6,
-        "editionId": 2,
-        "position": 3,
-        "teamName": "Equipo Zeta",
-        "gameName": "Carrot Mania",
-        "score": 4.3,
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
       }
     ]
   },
@@ -1862,7 +1783,7 @@
         "id": 2,
         "editionId": 2,
         "title": "Anti-Ciberacoso",
-        "description": "Juegos que concientizan sobre el impacto del acoso en línea y cómo combatirlo efectivamente.",
+        "description": "Juegos que concientizan sobre el impacto del acoso en l\u00ednea y c\u00f3mo combatirlo efectivamente.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1871,7 +1792,7 @@
         "id": 3,
         "editionId": 2,
         "title": "Anti-Grooming",
-        "description": "Videojuegos que enseñan a identificar y prevenir el acoso en línea por parte de adultos hacia menores.",
+        "description": "Videojuegos que ense\u00f1an a identificar y prevenir el acoso en l\u00ednea por parte de adultos hacia menores.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1880,7 +1801,7 @@
         "id": 4,
         "editionId": 2,
         "title": "Anti-Phishing",
-        "description": "Experiencias interactivas para reconocer intentos de suplantación de identidad y estafas en línea.",
+        "description": "Experiencias interactivas para reconocer intentos de suplantaci\u00f3n de identidad y estafas en l\u00ednea.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1893,9 +1814,9 @@
       {
         "id": 1,
         "editionId": 2,
-        "name": "Fabian de Jesús Miranda Varelo",
+        "name": "Fabian de Jes\u00fas Miranda Varelo",
         "role": "Participante - Carrot Mania",
-        "quote": "El año pasado fui expositor en la feria gamer con Carrot Mania, un juego diseñado para comparar la eficiencia de la iteratividad con la recursividad. La dinámica consistía en ayudar a un conejo a recuperar sus zanahorias atrapadas en burbujas. Fue una experiencia enriquecedora, donde pude interactuar con estudiantes de bachillerato, asistentes y jurados, recibiendo valiosa retroalimentación que me ayudó a mejorar mi propuesta y reforzar mis habilidades en el desarrollo de videojuegos.",
+        "quote": "El a\u00f1o pasado fui expositor en la feria gamer con Carrot Mania, un juego dise\u00f1ado para comparar la eficiencia de la iteratividad con la recursividad. La din\u00e1mica consist\u00eda en ayudar a un conejo a recuperar sus zanahorias atrapadas en burbujas. Fue una experiencia enriquecedora, donde pude interactuar con estudiantes de bachillerato, asistentes y jurados, recibiendo valiosa retroalimentaci\u00f3n que me ayud\u00f3 a mejorar mi propuesta y reforzar mis habilidades en el desarrollo de videojuegos.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1903,9 +1824,9 @@
       {
         "id": 2,
         "editionId": 2,
-        "name": "Laura González Valdeblanquez",
+        "name": "Laura Gonz\u00e1lez Valdeblanquez",
         "role": "Participante - Musical Bubble Coffe",
-        "quote": "La participación en la FeriaGamer fue una experiencia muy enriquecedora y gratificante, ya que brindó el espacio para poder mostrar el proyecto, que se logró con tanto fuerzo y trabajo en equipo, a personas interesadas, lo cual , en particular, me hacía mucha ilusión. Además, la dinámica de presentar el proyecto para diferentes jurados y demás público, nos ayuda a prepararnos para saber como actuar de acuerdo a la persona.",
+        "quote": "La participaci\u00f3n en la FeriaGamer fue una experiencia muy enriquecedora y gratificante, ya que brind\u00f3 el espacio para poder mostrar el proyecto, que se logr\u00f3 con tanto fuerzo y trabajo en equipo, a personas interesadas, lo cual , en particular, me hac\u00eda mucha ilusi\u00f3n. Adem\u00e1s, la din\u00e1mica de presentar el proyecto para diferentes jurados y dem\u00e1s p\u00fablico, nos ayuda a prepararnos para saber como actuar de acuerdo a la persona.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1915,7 +1836,7 @@
         "editionId": 2,
         "name": "Marian Andrea Pacheco Charris",
         "role": "Participante",
-        "quote": "Puedo describir mi experiencia participando en la feria gamer como muy enriquecedora, fue un excelente espacio para profundizar mis habilidades de comunicación, y exponer acerca del proceso que fue realizar un proyecto que relacionaba dos materias de programación. Además, me brindó la oportunidad de escuchar diferentes opiniones y críticas constructivas para tener en cuenta en mis próximos proyectos.",
+        "quote": "Puedo describir mi experiencia participando en la feria gamer como muy enriquecedora, fue un excelente espacio para profundizar mis habilidades de comunicaci\u00f3n, y exponer acerca del proceso que fue realizar un proyecto que relacionaba dos materias de programaci\u00f3n. Adem\u00e1s, me brind\u00f3 la oportunidad de escuchar diferentes opiniones y cr\u00edticas constructivas para tener en cuenta en mis pr\u00f3ximos proyectos.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1923,9 +1844,9 @@
       {
         "id": 4,
         "editionId": 2,
-        "name": "Arturo José González Barros",
+        "name": "Arturo Jos\u00e9 Gonz\u00e1lez Barros",
         "role": "Participante",
-        "quote": "Participar en la feria gamer fue para mí un verdadero reto. Pensar en haber hecho un programa completamente funcional con los conocimientos aprendidos en clase me hizo darme cuenta de las grandes capacidades que uno puede llegar a tener y el excelente trabajo de los profesores al enseñarnos las bases necesarias para afrontar esos grandes retos. Me gustó mucho tener un equipo de trabajo del cuál podía apoyarme y entenderme bastante bien, lo que facilitó las fechas de entrega y la presentación de un excelente trabajo. Y por último, me motivó a hacer trabajos similares para adquirir experiencias y probar mis conocimientos.",
+        "quote": "Participar en la feria gamer fue para m\u00ed un verdadero reto. Pensar en haber hecho un programa completamente funcional con los conocimientos aprendidos en clase me hizo darme cuenta de las grandes capacidades que uno puede llegar a tener y el excelente trabajo de los profesores al ense\u00f1arnos las bases necesarias para afrontar esos grandes retos. Me gust\u00f3 mucho tener un equipo de trabajo del cu\u00e1l pod\u00eda apoyarme y entenderme bastante bien, lo que facilit\u00f3 las fechas de entrega y la presentaci\u00f3n de un excelente trabajo. Y por \u00faltimo, me motiv\u00f3 a hacer trabajos similares para adquirir experiencias y probar mis conocimientos.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1933,9 +1854,9 @@
       {
         "id": 5,
         "editionId": 2,
-        "name": "María Alejandra Lobo León",
+        "name": "Mar\u00eda Alejandra Lobo Le\u00f3n",
         "role": "Participante - Hidden Deck",
-        "quote": "Me pareció una experiencia muy enriquecedora, ya que tuve la oportunidad de recibir feedback acerca de mi proyecto, y conocer las opiniones de los asistentes y jurados fue algo emocionante. Además, el hecho de poder compartir mi trabajo con otros estudiantes y profesionales del área me permitió aprender y crecer en mi desarrollo como programadora.",
+        "quote": "Me pareci\u00f3 una experiencia muy enriquecedora, ya que tuve la oportunidad de recibir feedback acerca de mi proyecto, y conocer las opiniones de los asistentes y jurados fue algo emocionante. Adem\u00e1s, el hecho de poder compartir mi trabajo con otros estudiantes y profesionales del \u00e1rea me permiti\u00f3 aprender y crecer en mi desarrollo como programadora.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1944,8 +1865,8 @@
         "id": 6,
         "editionId": 2,
         "name": "Jefferson Jose Torres Lora",
-        "role": "Monitor Programación Orientada a Objetos",
-        "quote": "La dinámica de los jóvenes en la feria gamer es excelente, ya que no solo aprenden sobre programación y desarrollo, sino que también adquieren conciencia sobre la temática central del evento. Esto permite que los estudiantes se diviertan y se entretengan mientras aprenden de forma progresiva y significativa.",
+        "role": "Monitor Programaci\u00f3n Orientada a Objetos",
+        "quote": "La din\u00e1mica de los j\u00f3venes en la feria gamer es excelente, ya que no solo aprenden sobre programaci\u00f3n y desarrollo, sino que tambi\u00e9n adquieren conciencia sobre la tem\u00e1tica central del evento. Esto permite que los estudiantes se diviertan y se entretengan mientras aprenden de forma progresiva y significativa.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1954,8 +1875,8 @@
         "id": 7,
         "editionId": 2,
         "name": "Elvira Elena Florez Carbonell",
-        "role": "Monitora Estructura de Datos I y Algoritmia y Programación I",
-        "quote": "Desde mi experiencia como monitora y jurado en la feria gamer, considero que este espacio, si bien aún presenta muchas oportunidades para mejorar y crecer, también representa una gran oportunidad para mostrar a las demás carreras los proyectos desarrollados por los alumnos. Además, permite que tanto participantes como visitantes observen, reflexionen y aprecien de primera mano cómo se evidencian los avances en resultados a medida que se progresa de semestre.",
+        "role": "Monitora Estructura de Datos I y Algoritmia y Programaci\u00f3n I",
+        "quote": "Desde mi experiencia como monitora y jurado en la feria gamer, considero que este espacio, si bien a\u00fan presenta muchas oportunidades para mejorar y crecer, tambi\u00e9n representa una gran oportunidad para mostrar a las dem\u00e1s carreras los proyectos desarrollados por los alumnos. Adem\u00e1s, permite que tanto participantes como visitantes observen, reflexionen y aprecien de primera mano c\u00f3mo se evidencian los avances en resultados a medida que se progresa de semestre.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1964,8 +1885,8 @@
         "id": 8,
         "editionId": 2,
         "name": "Margarita Gamarra Acosta",
-        "role": "Profesora Departamento de Ingeniería de Sistemas y Computación",
-        "quote": "Para mi la feria gamer es una muestra del trabajo, esfuerzo y pasión de todos los estudiantes participantes. El trabajo en equipo se ve reflejado en los excelentes resultados que muestran en cada uno de sus videojuegos, esta es ya la tercera versión de la feria y cada vez quedo mas sorprendida con las presentaciones y la creatividad de los trabajos que presentan, cada semestre agregan nuevas y mejores herramientas a los videojuegos y este semestre se unen mas estudiantes interesados en participar, este semestre queremos brindarle un espacio habierto para toda la comunidad uninorteña, para que los proyectos sean visibles ante toda la comunidad académica.",
+        "role": "Profesora Departamento de Ingenier\u00eda de Sistemas y Computaci\u00f3n",
+        "quote": "Para mi la feria gamer es una muestra del trabajo, esfuerzo y pasi\u00f3n de todos los estudiantes participantes. El trabajo en equipo se ve reflejado en los excelentes resultados que muestran en cada uno de sus videojuegos, esta es ya la tercera versi\u00f3n de la feria y cada vez quedo mas sorprendida con las presentaciones y la creatividad de los trabajos que presentan, cada semestre agregan nuevas y mejores herramientas a los videojuegos y este semestre se unen mas estudiantes interesados en participar, este semestre queremos brindarle un espacio habierto para toda la comunidad uninorte\u00f1a, para que los proyectos sean visibles ante toda la comunidad acad\u00e9mica.",
         "isActive": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
@@ -1973,9 +1894,9 @@
       {
         "id": 9,
         "editionId": 1,
-        "name": "Laura Vanessa Acuña Ordóñez",
+        "name": "Laura Vanessa Acu\u00f1a Ord\u00f3\u00f1ez",
         "role": "Participante",
-        "quote": "Realmente fue una experiencia muy gratificante y retadora, porque nos permitió desarrollar habilidades que tal vez antes no habíamos experimentado, podría mejorar la organización del evento, porque como expositor es un poco difícil estar al frente del proyecto y pendiente a las necesidades de los invitados que a veces no saben a quien recurrir. Y por lo general ellos están en busca de personas que los puedan orientar y ayudar.",
+        "quote": "Realmente fue una experiencia muy gratificante y retadora, porque nos permiti\u00f3 desarrollar habilidades que tal vez antes no hab\u00edamos experimentado, podr\u00eda mejorar la organizaci\u00f3n del evento, porque como expositor es un poco dif\u00edcil estar al frente del proyecto y pendiente a las necesidades de los invitados que a veces no saben a quien recurrir. Y por lo general ellos est\u00e1n en busca de personas que los puedan orientar y ayudar.",
         "isActive": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
@@ -1983,9 +1904,9 @@
       {
         "id": 10,
         "editionId": 1,
-        "name": "María Del Mar Yusti Prins",
+        "name": "Mar\u00eda Del Mar Yusti Prins",
         "role": "Participante",
-        "quote": "La feria gamer fue una gran experiencia como estudiante de primer semestre de Ingeniería de Sistemas. Nunca imaginé que, desde mis primeros meses en la universidad, tendría la oportunidad de presentar mi proyecto final frente a estudiantes y jurados. Sentí mucha  emoción al ver cómo el proyecto  que había creado junto a mis compañeros podía interesar e inspirar a estudiantes.Esa experiencia me ayudó a fortalecer mi confianza, fortalecer el trabajo en equipo y mis habilidades comunicativas.",
+        "quote": "La feria gamer fue una gran experiencia como estudiante de primer semestre de Ingenier\u00eda de Sistemas. Nunca imagin\u00e9 que, desde mis primeros meses en la universidad, tendr\u00eda la oportunidad de presentar mi proyecto final frente a estudiantes y jurados. Sent\u00ed mucha  emoci\u00f3n al ver c\u00f3mo el proyecto  que hab\u00eda creado junto a mis compa\u00f1eros pod\u00eda interesar e inspirar a estudiantes.Esa experiencia me ayud\u00f3 a fortalecer mi confianza, fortalecer el trabajo en equipo y mis habilidades comunicativas.",
         "isActive": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
@@ -1995,7 +1916,7 @@
         "editionId": 1,
         "name": "Marianna Contreras Zapata",
         "role": "Participante",
-        "quote": "Fue una buena experiencia y oportunidad de presentar con mi grupo el proyecto que veníamos preparando, todo el proceso de ir avanzando y hacer el juego fue muy enriquecedora, luego explicarlo y exponerlo ante los demás y así mostrar nuestra capacidad de aprendizaje de las clases y aplicarlo fue única",
+        "quote": "Fue una buena experiencia y oportunidad de presentar con mi grupo el proyecto que ven\u00edamos preparando, todo el proceso de ir avanzando y hacer el juego fue muy enriquecedora, luego explicarlo y exponerlo ante los dem\u00e1s y as\u00ed mostrar nuestra capacidad de aprendizaje de las clases y aplicarlo fue \u00fanica",
         "isActive": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
@@ -2011,6 +1932,300 @@
         "startDate": "2025-11-27T13:30:00.000Z",
         "endDate": "2025-11-27T17:30:00.000Z",
         "evaluationsOpen": false,
+        "showRanking": true,
+        "showEvaluations": false,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "usuarios",
+    "data": [
+      {
+        "id": "student-user-1",
+        "email": "student1@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 2,
+        "firstName": "Student",
+        "lastName": "One"
+      },
+      {
+        "id": "student-user-2",
+        "email": "student2@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 2,
+        "firstName": "Student",
+        "lastName": "Two"
+      },
+      {
+        "id": "student-user-3",
+        "email": "student3@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 2,
+        "firstName": "Student",
+        "lastName": "Three"
+      },
+      {
+        "id": "juror-senior",
+        "email": "jurorsenior@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 4,
+        "firstName": "Juror",
+        "lastName": "Senior"
+      },
+      {
+        "id": "juror-junior",
+        "email": "jurorjunior@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 4,
+        "firstName": "Juror",
+        "lastName": "Junior"
+      },
+      {
+        "id": "student-user-4",
+        "email": "student4@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 2,
+        "firstName": "Student",
+        "lastName": "Four"
+      },
+      {
+        "id": "student-user-5",
+        "email": "student5@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 2,
+        "firstName": "Student",
+        "lastName": "Five"
+      }
+    ]
+  },
+  {
+    "table": "equipos",
+    "data": [
+      {
+        "id": 100,
+        "teamName": "Equipo Alpha Mock",
+        "userId": "student-user-1",
+        "editionId": 3,
+        "isActive": true,
+        "isExternal": false,
+        "teamCode": "N10-ABC-1001",
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 200,
+        "teamName": "Equipo Beta Mock",
+        "userId": "student-user-2",
+        "editionId": 3,
+        "isActive": true,
+        "isExternal": false,
+        "teamCode": "N10-ABC-1002",
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 300,
+        "teamName": "Equipo Gamma Mock",
+        "userId": "student-user-3",
+        "editionId": 3,
+        "isActive": true,
+        "isExternal": false,
+        "teamCode": "N10-ABC-1003",
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 400,
+        "teamName": "Equipo Delta Mock",
+        "userId": "student-user-4",
+        "editionId": 3,
+        "isActive": true,
+        "isExternal": false,
+        "teamCode": "N2-ABC-201",
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 500,
+        "teamName": "Equipo Epsilon Mock",
+        "userId": "student-user-5",
+        "editionId": 3,
+        "isActive": true,
+        "isExternal": false,
+        "teamCode": "N0-ABC-001",
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "videojuegos",
+    "data": [
+      {
+        "id": 100,
+        "name": "Juego Alpha",
+        "teamId": 100,
+        "videogameStatusId": 1,
+        "isActive": true,
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 200,
+        "name": "Juego Beta",
+        "teamId": 200,
+        "videogameStatusId": 1,
+        "isActive": true,
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 300,
+        "name": "Juego Gamma",
+        "teamId": 300,
+        "videogameStatusId": 1,
+        "isActive": true,
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 400,
+        "name": "Juego Delta",
+        "teamId": 400,
+        "videogameStatusId": 1,
+        "isActive": true,
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 500,
+        "name": "Juego Epsilon",
+        "teamId": 500,
+        "videogameStatusId": 1,
+        "isActive": true,
+        "registrationDate": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "evaluacion",
+    "data": [
+      {
+        "id": 100,
+        "videogameId": 100,
+        "jurorId": "juror-senior",
+        "editionId": 3,
+        "totalScore": 4.8,
+        "isSenior": true,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 200,
+        "videogameId": 200,
+        "jurorId": "juror-senior",
+        "editionId": 3,
+        "totalScore": 4.5,
+        "isSenior": true,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 300,
+        "videogameId": 300,
+        "jurorId": "juror-senior",
+        "editionId": 3,
+        "totalScore": 4.2,
+        "isSenior": true,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 400,
+        "videogameId": 100,
+        "jurorId": "juror-junior",
+        "editionId": 3,
+        "totalScore": 4.0,
+        "isSenior": false,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 500,
+        "videogameId": 200,
+        "jurorId": "juror-junior",
+        "editionId": 3,
+        "totalScore": 3.5,
+        "isSenior": false,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 600,
+        "videogameId": 300,
+        "jurorId": "juror-junior",
+        "editionId": 3,
+        "totalScore": 3.0,
+        "isSenior": false,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 700,
+        "videogameId": 400,
+        "jurorId": "juror-senior",
+        "editionId": 3,
+        "totalScore": 4.6,
+        "isSenior": true,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 800,
+        "videogameId": 500,
+        "jurorId": "juror-senior",
+        "editionId": 3,
+        "totalScore": 4.1,
+        "isSenior": true,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 900,
+        "videogameId": 400,
+        "jurorId": "juror-junior",
+        "editionId": 3,
+        "totalScore": 3.8,
+        "isSenior": false,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 1000,
+        "videogameId": 500,
+        "jurorId": "juror-junior",
+        "editionId": 3,
+        "totalScore": 3.2,
+        "isSenior": false,
+        "isActive": true,
+        "date": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "juego_destacado",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 3,
+        "videogameId": 100,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "editionId": 3,
+        "videogameId": 200,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       }
