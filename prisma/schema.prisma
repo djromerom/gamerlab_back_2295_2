@@ -31,6 +31,7 @@ model Edition {
   podiums            Podium[]
   weighting          Weighting?
   testimonials       Testimonial[]
+  rankingResults     RankingResult[]
 
   @@map("ediciones")
 }
@@ -183,19 +184,20 @@ model User {
 }
 
 model Team {
-  id               Int        @id @default(autoincrement()) @map("id_equipo")
-  teamName         String     @unique @map("nombre_equipo") @db.VarChar(50)
-  registrationDate DateTime   @default(now()) @map("fecha_registro")
-  userId           String     @unique @map("id_usuario")
-  editionId        Int        @map("id_edicion")
-  isActive         Boolean    @default(true) @map("activo")
-  isExternal       Boolean    @default(false) @map("externo")
-  teamCode         String     @map("codigo_equipo") @db.VarChar(12)
-  edition          Edition    @relation(fields: [editionId], references: [id])
-  user             User       @relation("createdTeam", fields: [userId], references: [id])
-  members          Member[]   @relation("TeamMembers")
+  id               Int             @id @default(autoincrement()) @map("id_equipo")
+  teamName         String          @unique @map("nombre_equipo") @db.VarChar(50)
+  registrationDate DateTime        @default(now()) @map("fecha_registro")
+  userId           String          @unique @map("id_usuario")
+  editionId        Int             @map("id_edicion")
+  isActive         Boolean         @default(true) @map("activo")
+  isExternal       Boolean         @default(false) @map("externo")
+  teamCode         String          @map("codigo_equipo") @db.VarChar(12)
+  edition          Edition         @relation(fields: [editionId], references: [id])
+  user             User            @relation("createdTeam", fields: [userId], references: [id])
+  members          Member[]        @relation("TeamMembers")
   videogame        Videogame?
-  assignedJurors   User[]     @relation("JurorTeamAssignment")
+  assignedJurors   User[]          @relation("JurorTeamAssignment")
+  rankingResults   RankingResult[]
 
   @@unique([teamCode, editionId])
   @@map("equipos")
@@ -242,6 +244,7 @@ model Videogame {
   additionalImages  String[]        @default([]) @map("imagenes_adicionales")
   evaluations       Evaluation[]
   likedBy           VideogameLike[]
+  rankingResults    RankingResult[]
   team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
 
@@ -394,6 +397,34 @@ model Podium {
 
   @@unique([editionId, position], name: "podio_criterio_unique")
   @@map("podio")
+}
+
+model RankingResult {
+  id          Int @id @default(autoincrement())
+  teamId      Int @map("id_equipo")
+  videogameId Int @map("id_videojuego")
+  editionId   Int @map("id_edicion")
+
+  baseScore                Float  @map("puntaje_base")
+  rankingScore             Float  @map("puntaje_ranking")
+  tieBreakerScore          Float? @map("puntaje_desempate")
+  jurorTieBreakerScore     Float? @map("puntaje_desempate_jurados")
+  professorTieBreakerScore Float? @map("puntaje_desempate_profesores")
+
+  wasTied       Boolean @default(false) @map("hubo_empate")
+  finalPosition Int     @map("posicion_final")
+
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade)
+  edition   Edition   @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, videogameId, editionId])
+  @@index([editionId])
+  @@index([finalPosition])
+  @@map("resultado_ranking")
 }
 
 model EducationalFocus {
