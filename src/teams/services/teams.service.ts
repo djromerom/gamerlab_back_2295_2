@@ -500,12 +500,10 @@ export class TeamsService {
    * Calcula el puntaje de desempate de un videojuego.
    *
    * Fórmula solicitada por el Jira:
+   * Fórmula:
    * 70% promedio de jurados + 30% promedio de profesores.
    *
-   * Importante:
-   * - Esta función NO decide si hay empate.
-   * - Solo calcula el puntaje que se debe usar cuando otro método ya detectó empate.
-   * - Los profesores se identifican por el rol "Profesor".
+   * Esta función solo calcula el puntaje; no decide si hay empate.
    */
   private async getTieBreakerScore(
     videogameId: number,
@@ -612,13 +610,6 @@ export class TeamsService {
 
   /**
    * Guarda el ranking final calculado en la tabla resultado_ranking.
-   *
-   * Esto cumple el criterio:
-   * "Debe almacenarse el resultado final del desempate".
-   *
-   * Se usa upsert porque el ranking puede recalcularse:
-   * - Si no existe el registro, lo crea.
-   * - Si ya existe para el mismo equipo, videojuego y edición, lo actualiza.
    */
   private async persistRankingResults(rows: any[]): Promise<void> {
     await Promise.all(
@@ -627,8 +618,6 @@ export class TeamsService {
         const videogameId = Number(row.videogameId ?? row.videogame_id);
         const editionId = Number(row.editionId ?? row.edition_id);
 
-        // Si falta algún ID clave, no se puede guardar el resultado.
-        // Se omite esa fila para evitar romper todo el ranking.
         if (
           !Number.isInteger(teamId) ||
           !Number.isInteger(videogameId) ||
@@ -681,38 +670,39 @@ export class TeamsService {
   }
 
   /**
-   * Aplica la lógica de desempate sobre un listado de equipos ya rankeables.
+   * Aplica la lógica de desempate sobre un listado de equipos.
    *
-   * Pasos:
-   * 1. Agrupa equipos por finalScore.
-   * 2. Detecta si dos o más equipos tienen el mismo finalScore.
-   * 3. Solo a los equipos empatados les calcula tieBreakerScore.
-   * 4. Agrega campos informativos para el frontend:
-   *    - wasTied
-   *    - jurorTieBreakerScore
-   *    - professorTieBreakerScore
-   *    - tieBreakerScore
-   *    - rankingScore
-   * 5. Ordena el resultado final usando rankingScore.
-   * 6. Guarda el resultado final en resultado_ranking.
+   * Correcciones importantes:
+   * - Solo compara equipos de la misma edición.
+   * - No marca como empatados los equipos sin calificación real.
+   * - No aplica desempate si finalScore es 0 o menor.
    */
   private async applyTieBreakerToRanking(rows: any[]): Promise<any[]> {
-    const scoreGroups = new Map<number, any[]>();
+    const scoreGroups = new Map<string, any[]>();
 
     for (const row of rows) {
       const finalScore = this.normalizeScore(
         row.finalScore ?? row.final_score ?? row.finalscore,
       );
 
-      if (finalScore === null) {
+      const editionId = Number(row.editionId ?? row.edition_id);
+
+      if (
+        finalScore === null ||
+        finalScore <= 0 ||
+        !Number.isInteger(editionId) ||
+        editionId <= 0
+      ) {
         continue;
       }
 
-      if (!scoreGroups.has(finalScore)) {
-        scoreGroups.set(finalScore, []);
+      const groupKey = `${editionId}-${finalScore}`;
+
+      if (!scoreGroups.has(groupKey)) {
+        scoreGroups.set(groupKey, []);
       }
 
-      scoreGroups.get(finalScore)!.push(row);
+      scoreGroups.get(groupKey)!.push(row);
     }
 
     const tiedRows = new Set<any>();
