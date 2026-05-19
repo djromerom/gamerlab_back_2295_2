@@ -424,7 +424,18 @@ export class JurorService {
     const MAX_PER_JUROR = 6;
     const results: string[] = [];
 
-    const teams = await this.getTeams();
+    const latestEdition = await this.prisma.edition.findFirst({
+      orderBy: {
+        id: 'desc'
+      }
+    });
+
+    if (!latestEdition) {
+      return { message: 'No hay ediciones disponibles.', details: [] };
+    }
+
+
+    const teams = await this.getTeams(latestEdition.id);
     const allJurorsMap = await this.getJurors(false);
     const allProfessorsMap = await this.getJurors(true);
 
@@ -453,9 +464,17 @@ export class JurorService {
     }
 
     const assignments = new Map<number, string[]>();
-    const evaluatorLoad = new Map<string, number>();
+    const evaluatorLoad = new Map<string, number>(); // Carga actual de evaluaciones por jurado
+    const totalSlots = teams.length * MAX_PER_TEAM; // Total de evaluaciones a realizar
+    const targetLoad = Math.ceil(totalSlots / allEvaluators.size); // Promedio de evaluaciones por jurado
 
-    for (const [id] of allEvaluators) evaluatorLoad.set(id, 0);
+    const evaluatorLevels = new Map<string, Set<number>>(); // Niveles de equipos que puede evaluar cada jurado
+
+    // Inicializamos la carga y los niveles para cada jurado
+    for (const [id] of allEvaluators) {
+      evaluatorLoad.set(id, 0);
+      evaluatorLevels.set(id, new Set<number>());
+    }
 
     for (const team of teams) {
       const level = team.teamCode ? this.extractLevelFromTeamCode(team.teamCode) : null;
@@ -471,11 +490,12 @@ export class JurorService {
       for (const jid of existing) {
         if (evaluatorLoad.has(jid)) {
           evaluatorLoad.set(jid, (evaluatorLoad.get(jid) ?? 0) + 1);
+          evaluatorLevels.get(jid)?.add(level); // Agregamos el nivel del equipo al conjunto de niveles que puede evaluar el jurado
         }
       }
     }
 
-    const assignFromPool = (teamId: number, needed: number, allowedEmails: string[] | null): void => {
+    const assignFromPool = (teamId: number, needed: number, allowedEmails: string[] | null, level: number): void => {
       const current = assignments.get(teamId)!;
       if (needed <= 0 || current.length >= MAX_PER_TEAM) return;
 
@@ -486,12 +506,33 @@ export class JurorService {
           if (allowedEmails === null) return true;
           return email && allowedEmails.includes(email);
         })
-        .sort((a, b) => a[1] - b[1]);
+        .sort((a, b) => {
+          const idA = a[0], loadA = a[1];
+          const idB = b[0], loadB = b[1];
+
+          const aUnderTarget = loadA < targetLoad;
+          const bUnderTarget = loadB < targetLoad;
+
+          if (aUnderTarget !== bUnderTarget) return aUnderTarget ? -1 : 1;
+
+          const aHasCurrent = evaluatorLevels.get(idA)?.has(level)
+          const bHasCurrent = evaluatorLevels.get(idB)?.has(level)
+
+          if (aHasCurrent !== bHasCurrent) return aHasCurrent ? -1 : 1;
+
+          const maxLevelA = Math.max(-1, ...Array.from(evaluatorLevels.get(idA) ?? []).filter(l => l < level))
+          const maxLevelB = Math.max(-1, ...Array.from(evaluatorLevels.get(idB) ?? []).filter(l => l < level))
+
+          if (maxLevelA !== maxLevelB) return maxLevelB - maxLevelA;
+
+          return loadA - loadB;
+        });
 
       for (const [id, load] of candidates) {
         if (current.length >= MAX_PER_TEAM || needed <= 0) break;
         current.push(id);
         evaluatorLoad.set(id, load + 1);
+        evaluatorLevels.get(id)?.add(level);
         needed--;
       }
     };
@@ -504,12 +545,12 @@ export class JurorService {
       if (level === 0) {
         for (const team of levelTeams) {
           const needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
-          assignFromPool(team.id, needed, this.COLEGIO_JUROR_EMAILS);
+          assignFromPool(team.id, needed, this.COLEGIO_JUROR_EMAILS, level);
         }
       } else {
         for (const team of levelTeams) {
           const needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
-          assignFromPool(team.id, needed, null);
+          assignFromPool(team.id, needed, null, level);
         }
       }
 
@@ -542,13 +583,14 @@ export class JurorService {
       details: results,
     };
   }
-
-  async getTeams() {
+  // Modificado: Se ha agregado un edition_id para filtrar los equipos por edición
+  async getTeams(editionId: number) {
     try {
       // Obtener TODOS los equipos activos con videojuegos confirmados
       // Esto incluye todos los niveles (0, 1, 2, 3, 4, etc.)
       const allTeams = await this.prisma.team.findMany({
         where: {
+          editionId: editionId, // Se ha agregado un edition_id para filtrar los equipos por edición
           isActive: true,
           videogame: {
             videogameStatusId: this.confirmedStatusId,
