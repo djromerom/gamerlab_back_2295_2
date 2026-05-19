@@ -471,6 +471,12 @@ export class TeamRepository implements ITeamRepository {
         if (videogame.videogameStatusId !== undefined) {
           videogameUpdateData.videogameStatusId = videogame.videogameStatusId;
         }
+        if (videogame.gameFileUrl !== undefined) {
+          videogameUpdateData.gameFileUrl = videogame.gameFileUrl;
+        }
+        if (videogame.entry !== undefined) {
+          videogameUpdateData.entry = videogame.entry;
+        }
 
         if (Object.keys(videogameUpdateData).length > 0) {
           await tx.videogame.update({
