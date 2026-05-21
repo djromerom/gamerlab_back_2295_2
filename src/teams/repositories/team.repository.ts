@@ -494,6 +494,12 @@ export class TeamRepository implements ITeamRepository {
         if (videogame.videogameStatusId !== undefined) {
           videogameUpdateData.videogameStatusId = videogame.videogameStatusId;
         }
+        if (videogame.gameFileUrl !== undefined) {
+          videogameUpdateData.gameFileUrl = videogame.gameFileUrl;
+        }
+        if (videogame.entry !== undefined) {
+          videogameUpdateData.entry = videogame.entry;
+        }
 
         if (Object.keys(videogameUpdateData).length > 0) {
           await tx.videogame.update({
@@ -972,15 +978,13 @@ export class TeamRepository implements ITeamRepository {
     teamId: number,
     videogame: VideogameDto,
   ) {
+    const { vgName, additionalImages, ...rest } = videogame;
     return await tx.videogame.create({
       data: {
-        name: videogame.vgName,
+        name: vgName,
+        additionalImages: additionalImages || [],
         teamId,
-        description: videogame.description,
-        repoUrl: videogame.repoUrl,
-        videoUrl: videogame.videoUrl,
-        logoUrl: videogame.logoUrl,
-        additionalImages: videogame.additionalImages || [],
+        ...rest
       },
     });
   }
@@ -1004,16 +1008,12 @@ export class TeamRepository implements ITeamRepository {
     id: number,
     data: UpdateVideogameDto,
   ): Promise<Videogame> {
+    const { vgName, ...rest } = data
     return await tx.videogame.update({
       where: { teamId: id },
       data: {
-        name: data.vgName,
-        description: data.description,
-        logoUrl: data.logoUrl,
-        repoUrl: data.repoUrl,
-        videoUrl: data.videoUrl,
-        additionalImages: data.additionalImages,
-        videogameStatusId: data.videogameStatusId,
+        name: vgName,
+        ...rest
       },
     });
   }

@@ -31,7 +31,7 @@ export class TeamsService {
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async findByTeamName(teamName: string): Promise<any> {
     return await this.teamRepository.findByTeamName(teamName);
@@ -72,18 +72,33 @@ export class TeamsService {
       throw new BadRequestException('Invalid prefix');
     }
 
-    const p = prefix.toUpperCase();
-    const starts = p.endsWith('-') ? p : `${p}-`;
-
     const client: any = (this.prisma as any).teamFinalScore;
 
     try {
+      const activeEdition = await this.prisma.edition.findFirst({
+        where: { isActive: true },
+        select: { id: true },
+      });
+
+      if (!activeEdition) {
+        return [];
+      }
+
+      const whereClause: any = {
+        editionId: activeEdition.id,
+      };
+
+      if (prefix.toLowerCase() !== 'all') {
+        const p = prefix.toUpperCase();
+        const starts = p.endsWith('-') ? p : `${p}-`;
+
+        whereClause.teamCode = {
+          startsWith: starts,
+        };
+      }
+
       const rows: any[] = await client.findMany({
-        where: {
-          teamCode: {
-            startsWith: starts,
-          },
-        },
+        where: whereClause,
       });
 
       const missingTeamName = rows.some(
@@ -91,7 +106,9 @@ export class TeamsService {
       );
 
       const missingLogo = rows.some(
-        (r) => r.logoUrl === undefined || r.logoUrl === null,
+        (r) =>
+          (r.logoUrl === undefined || r.logoUrl === null) &&
+          (r.videogameLogoUrl === undefined || r.videogameLogoUrl === null),
       );
 
       if (!missingTeamName && !missingLogo) {
@@ -154,6 +171,10 @@ export class TeamsService {
           }
         }
 
+        if (rr.logoUrl === undefined || rr.logoUrl === null) {
+          rr.logoUrl = rr.videogameLogoUrl ?? rr.videogame_logo_url ?? null;
+        }
+
         if ((rr.logoUrl === undefined || rr.logoUrl === null) && rr.videogameId) {
           const vg = vgsMap.get(Number(rr.videogameId));
 
@@ -187,8 +208,7 @@ export class TeamsService {
       }
     } catch (error) {
       this.logger.error(
-        `reCAPTCHA verification error: ${
-          error instanceof Error ? error.message : String(error)
+        `reCAPTCHA verification error: ${error instanceof Error ? error.message : String(error)
         }`,
       );
 

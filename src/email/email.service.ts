@@ -8,6 +8,8 @@ import {
   BadRequestException,
   InternalServerErrorException,
   ServiceUnavailableException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CertificatesService } from 'src/certificates/certificates.service';
@@ -42,21 +44,19 @@ export class EmailService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => CertificatesService))
     private readonly certificatesService: CertificatesService,
     private readonly configService: ConfigService,
   ) { }
 
   /**
    * INICIALIZACIÓN DEL MÓDULO (Ejecutado por NestJS al arrancar el servidor)
-   * Aquí leemos las variables de entorno asociadas a Azure Communication Services (.env).
-   * Si las credenciales faltan, desactivamos el emailClient para no colapsar la app.
    */
   async onModuleInit() {
     this.logger.log(
       'Initializing EmailService: Fetching email templates and token types...',
     );
     try {
-      // Initialize token types for auth emails
       const verificationToken = await this.prisma.tokenType.findUnique({
         where: { type: this.VERIFICATION_TOKEN_NAME },
       });
@@ -80,11 +80,8 @@ export class EmailService {
       this.resetPasswordTokenId = resetPasswordToken.id;
 
       this.logger.log('Setting up Azure Communication Services EmailClient');
-      const acsConnectionString = this.configService.get<string>(
-        'ACS_CONNECTION_STRING',
-      );
-      const acsSenderAddress =
-        this.configService.get<string>('ACS_SENDER_ADDRESS');
+      const acsConnectionString = this.configService.get<string>('ACS_CONNECTION_STRING');
+      const acsSenderAddress = this.configService.get<string>('ACS_SENDER_ADDRESS');
 
       if (
         acsConnectionString &&
@@ -109,12 +106,6 @@ export class EmailService {
 
   /**
    * REENVÍO DE CORREOS DE AUTENTICACIÓN (AuthModule)
-   *
-   * Esta función es llamada cuando el usuario solicita que se le re-envíe el correo,
-   * ya sea para verificar su cuenta o para resetear contraseña.
-   *
-   * @param email Correo del usuario que originó la petición.
-   * @param typeOfEmail Tipo de acción (ej. 'VERIFICACION_EMAIL' o 'RESETEAR_CONTRASENA').
    */
   async resendAuthEmailOfType(
     email: string,
@@ -142,7 +133,6 @@ export class EmailService {
     }
 
     try {
-      // Generate new verification token
       const REDIRECT_TO = this.configService.get<string>(
         'FRONTEND_URL',
         `http://localhost:5173`,
@@ -151,7 +141,6 @@ export class EmailService {
       let verificationToken: string;
 
       if (token === undefined) {
-        // Delete any existing token of said type for this user
         const tokenTypeId =
           typeOfEmail === 'VERIFICACION_EMAIL'
             ? this.verificationTokenId
@@ -172,9 +161,8 @@ export class EmailService {
         verificationToken = randomUUID();
         const expiresAt = new Date(
           Date.now() + TOKEN_EXPIRATION_TIME * 60 * 60 * 1000,
-        ); // 24 hours
+        );
 
-        // Create new verification token
         await this.prisma.verificationToken.create({
           data: {
             token: verificationToken,
@@ -185,15 +173,9 @@ export class EmailService {
           },
         });
       } else {
-        // Use the provided token
         verificationToken = token;
       }
 
-      /*
-      * Leer la configuración del tipo de correo
-      * (template, subject) 
-      * Proviene de ./types/email-type.type.ts
-      */
       const authConfig = AUTH_EMAIL_CONFIG[typeOfEmail];
       if (!authConfig) {
         this.logger.error(`Invalid email type specified: ${typeOfEmail}`);
@@ -218,7 +200,6 @@ export class EmailService {
         };
       }
 
-      // Send new verification email usando nuestro gestor de Handlebars+ACS
       await this.sendEmail(email, subject, templateName, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
@@ -230,9 +211,6 @@ export class EmailService {
 
   /**
    * REENVÍO DE CORREOS DEL EQUIPO (TeamsModule)
-   *
-   * Usado para notificar al equipo que su videojuego fue aprobado o rechazado,
-   * o cuando hay un update en la info del juego.
    */
   async resendTeamEmailOfType(
     email: string,
@@ -257,11 +235,6 @@ export class EmailService {
         throw new BadRequestException('Invalid team email type specified.');
       }
 
-      /*
-      * Leer la configuración del tipo de correo
-      * (template, subject) 
-      * Proviene de ./types/team-email.type.ts
-      */
       const { template: templateName, subject } = teamConfig;
       let templateParams: Record<string, unknown> = { email };
 
@@ -278,7 +251,6 @@ export class EmailService {
         templateParams = { ...templateParams, ...params };
       }
 
-      // Enviar correo de notificación del equipo
       await this.sendEmail(email, subject, templateName, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
@@ -290,10 +262,6 @@ export class EmailService {
 
   /**
    * REENVÍO DE CERTIFICADOS A MIEMBROS (CertificatesModule)
-   *
-   * Función encargada de adjuntar el resultado de `generateCertificateHtml` en Puppeteer
-   * y despachar un correo con el adjunto.
-   * IMPORTANTE: También requiere la migración de sus plantillas a .hbs local.
    */
   async resendCertEmailOfType(
     email: string,
@@ -313,7 +281,6 @@ export class EmailService {
         throw new NotFoundException('The email address is not registered.');
       }
 
-      // Find the team that this user is a member of (by user id)
       const team = user
         ? await this.prisma.team.findFirst({
           where: { user: { id: user.id } },
@@ -337,11 +304,6 @@ export class EmailService {
 
       const teamId = team.id;
 
-      /*
-      * Leer la configuración del tipo de correo
-      * (template, subject, certIndex) 
-      * Proviene de ./types/cert-email.type.ts
-      */
       const certConfig = CERT_EMAIL_CONFIG[typeOfEmail];
       if (!certConfig) {
         this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);
@@ -361,7 +323,6 @@ export class EmailService {
         email: emails.join(', '),
       };
 
-      // Disparar correo de certificado con el PDF adjunto
       await this.sendEmail(email, subject, templateName, templateParams, attachments);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
@@ -370,19 +331,125 @@ export class EmailService {
       this.handleResendError(error, typeOfEmail, email, { isCert: true });
     }
   }
+
   /**
-   * MÉTODOLOGÍ: ACS + HANDLEBARS LOCAL
+   * ENVÍO DE CERTIFICADOS A TODOS LOS JURADOS
    *
-   * Esta función mejora el rendimiento de tu aplicación:
-   * 1. Elimina la latencia de consultar APIs de plantillas en un tercero (EmailJS).
-   * 2. El proceso String Interpolation vía `handlebars` consume microsegundos de CPU.
-   * 3. ACS absorbe directamente el HTML puro, ahorrándonos costos operativos en volúmenes.
+   * Obtiene todos los usuarios con rol de Jurado activos,
+   * genera el PDF de cada uno y lo despacha por email.
+   * Procesa en secuencia para no saturar Puppeteer ni ACS.
+   */
+  async sendAllJurorCertificates(): Promise<{ message: string; sent: number; failed: number; errors: string[] }> {
+    this.logger.log('Starting bulk juror certificate sending...');
+
+    // Obtener todos los jurados activos directamente desde Prisma
+    const jurors = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        role: { name: 'Jurado' },
+      },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+
+    if (jurors.length === 0) {
+      return { message: 'No hay jurados activos para enviar certificados.', sent: 0, failed: 0, errors: [] };
+    }
+
+    this.logger.log(`Found ${jurors.length} active jurors. Sending certificates...`);
+
+    let sent = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    // Procesar en secuencia — Puppeteer no soporta bien la concurrencia alta
+    for (const juror of jurors) {
+      try {
+        const jurorName = `${juror.firstName} ${juror.lastName}`;
+        const pdfBuffer = await this.certificatesService.generateJurorCertificateHtml(juror.id);
+
+        const attachments = [{
+          name: 'certificado-jurado.pdf',
+          contentType: 'application/pdf',
+          contentInBase64: pdfBuffer.toString('base64'),
+        }];
+
+        await this.sendEmail(
+          juror.email,
+          'Tu certificado de participación — V Feria Gamer',
+          'juror_certificate',
+          { jurorName },
+          attachments,
+        );
+
+        sent++;
+        this.logger.log(`✅ Certificate sent to ${juror.email} (${sent}/${jurors.length})`);
+      } catch (err) {
+        failed++;
+        const errMsg = `${juror.email}: ${err instanceof Error ? err.message : String(err)}`;
+        errors.push(errMsg);
+        this.logger.error(`❌ Failed to send certificate to ${juror.email}: ${errMsg}`);
+      }
+    }
+
+    this.logger.log(`Bulk send complete. Sent: ${sent}, Failed: ${failed}`);
+    return {
+      message: `Certificados enviados: ${sent} exitosos, ${failed} fallidos.`,
+      sent,
+      failed,
+      errors,
+    };
+  }
+
+  /**
+   * ENVÍO DE CERTIFICADO A JURADO
    *
-   * @param to Correo destinatario
-   * @param subject Asunto
-   * @param templateName Nombre del archivo .hbs (ej. "verification", sin extensión)
-   * @param templateParams Estructura de llaves y valores (ej. {{email}}) a inyectar en la plantilla.
-   * @param attachments Opcional: Arreglo de adjuntos con nombre, tipo y base64.
+   * Los jurados son Users en la DB. Se busca por userId (UUID),
+   * se genera el PDF y se despacha al email del usuario.
+   *
+   * @param userId UUID del usuario jurado
+   */
+  async resendJurorCertEmail(userId: string): Promise<{ message: string }> {
+    this.logger.log(`Generating juror certificate for userId: ${userId}`);
+
+    try {
+      // 1. Buscar el User (jurado) por su UUID
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User (juror) with id ${userId} not found`);
+      }
+
+      const jurorName = `${user.firstName} ${user.lastName}`;
+
+      // 2. Generar el PDF
+      const pdfBuffer = await this.certificatesService.generateJurorCertificateHtml(userId);
+
+      const attachments = [{
+        name: 'certificado-jurado.pdf',
+        contentType: 'application/pdf',
+        contentInBase64: pdfBuffer.toString('base64'),
+      }];
+
+      // 3. Enviar el email con el PDF adjunto
+      await this.sendEmail(
+        user.email,
+        'Tu certificado de participación — V Feria Gamer',
+        'juror_certificate',   // → src/email/templates/juror_certificate.hbs
+        { jurorName },
+        attachments,
+      );
+
+      this.logger.log(`Juror certificate sent successfully to: ${user.email}`);
+      return { message: 'Juror certificate email sent successfully' };
+    } catch (error) {
+      this.handleResendError(error, 'JUROR_CERTIFICATE', userId, { isCert: true });
+    }
+  }
+
+  /**
+   * MÉTODOLOGÍA: ACS + HANDLEBARS LOCAL
    */
   async sendEmail(
     to: string,
@@ -392,67 +459,47 @@ export class EmailService {
     attachments?: { name: string; contentType: string; contentInBase64: string }[]
   ): Promise<void> {
     try {
-      this.logger.log(
-        `Compilando plantilla local: ${templateName}.hbs`,
-      );
+      this.logger.log(`Compilando plantilla local: ${templateName}.hbs`);
 
-      // PASO 1: Ubicación Física del diseño.
-      // __dirname apunta al directorio del archivo en ejecución:
-      //   - dev (ts-node):  .../src/email  → src/email/templates/<name>.hbs
-      //   - prod (node):    .../dist/src/email → dist/src/email/templates/<name>.hbs
-      // La configuración en nest-cli.json garantiza que los .hbs estén en 
-      // dist/src/email/templates/ tras cualquier build o start:dev.
       const tplPath = path.join(
         __dirname,
         'templates',
         `${templateName}.hbs`,
       );
 
-      // Verificar que el archivo existe en disco para no mandar un mail vacío o quebrar la API.
       if (!fs.existsSync(tplPath)) {
         throw new InternalServerErrorException(
           `No se encontró el diseño en: ${tplPath}`,
         );
       }
 
-      // PASO 2: Data-Binding (Compilación).
-      // fs lee la estructura HBS. handlebars interpreta etiquetas {{variable}} y genera HTML inyectado.
       const source = fs.readFileSync(tplPath, 'utf8');
       const compiledTemplate = handlebars.compile(source);
-      const htmlContent = compiledTemplate(templateParams); // <- Ya es puramente HTML generado en <1ms
+      const htmlContent = compiledTemplate(templateParams);
 
-      // PASO 3: Ensamblado SDK Azure Communication Services
       const message: any = {
         senderAddress: this.senderAddress,
         content: {
           subject: subject,
-          html: htmlContent, // A ACS no le importa cómo hicimos el HTML, mientras lo entreguemos listo.
+          html: htmlContent,
         },
         recipients: {
           to: [{ address: to }],
         },
       };
 
-      // Si vienen adjuntos genéricos o PDFs de validación (Certificados), se los colamos al message:
       if (attachments && attachments.length > 0) {
         message.attachments = attachments;
       }
 
-      // PASO 4: Enrutamiento Final o Modo Simulación.
-      // Si la config principal falló en el moduleInit (faltaba .env), this.emailClient es null.
       if (this.emailClient) {
         this.logger.log(`Enviando carga útil a ACS apuntando a ${to}...`);
 
-        // Poller de larga duración: ACS toma el pedido y esperamos hasta que termine su cola nativa.
         const poller = await this.emailClient.beginSend(message);
         const result = await poller.pollUntilDone();
 
-        // Verificación de que el correo se envió correctamente
         if (!result || result.status !== 'Succeeded') {
-          this.logger.error(
-            `[ACS] Envío no exitoso: ${result?.status}`,
-          );
-
+          this.logger.error(`[ACS] Envío no exitoso: ${result?.status}`);
           throw new ServiceUnavailableException(
             `ACS terminó con estado: ${result?.status ?? 'unknown'}`,
           );
@@ -460,15 +507,11 @@ export class EmailService {
 
         this.logger.log(`✅ Correo disparado vía Azure ACS.`);
       } else {
-        // En ambiente DEV pre-llaves, esto "imita" el éxito para no frenar tu QA Local.
         this.logger.warn(
           `⚠️ [MODO DEV] Plantilla compilada correctamente. Cancelando interred (Falso Positivo) al no detectar llaves de ACS.`,
         );
       }
     } catch (error) {
-
-      // Timeouts y cancelaciones del poller de ACS (ej. red lenta, ACS no responde a tiempo)
-      // No se reintenta: el riesgo de duplicar un correo supera el beneficio.
       const isTimeout =
         (error instanceof Error && error.name === 'AbortError') ||
         (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT') ||
@@ -478,42 +521,31 @@ export class EmailService {
           error.statusCode === 504
         ));
 
-      if (isTimeout) {
+      if (isTimeout) { }
 
-      }
-
-      // RestErrors de ACS
       if (error instanceof RestError) {
-
         if (error.code === 'ETIMEDOUT') {
           this.logger.warn(`[ACS] Timeout al enviar correo a ${to}.`, error.stack);
           throw new ServiceUnavailableException('El servicio de correo provocó un timeout. Intenta de nuevo en unos instantes.');
         }
-
         this.logger.error(`Error de ACS con codigo ${error.code}`, error.stack);
         throw new ServiceUnavailableException(`Fallo en ACS: ${error.code ?? 'unknown'}`);
       }
 
-      // Re-throw
       if (error instanceof ServiceUnavailableException || error instanceof InternalServerErrorException) {
         throw error;
       }
 
-      // Errores inesperados
       this.logger.error(
         `Error inesperado enviando correo: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new InternalServerErrorException(
-        'Error inesperado enviando correo',
-      );
+      throw new InternalServerErrorException('Error inesperado enviando correo');
     }
   }
 
   /**
    * Helper privado para manejar errores de reenvío de forma uniforme.
-   * Re-lanza excepciones conocidas (rethrowClasses).
-   * Para el resto, loggea y lanza InternalServerErrorException.
    */
   private handleResendError(
     error: unknown,

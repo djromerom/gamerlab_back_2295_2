@@ -8,7 +8,7 @@ import { MulterExceptionFilter } from './multer-exception.filter';
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
-  constructor(private readonly azureService: AzureStorageService) {}
+  constructor(private readonly azureService: AzureStorageService) { }
 
   @Public()
   @Post()
@@ -80,36 +80,47 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
+    return await this.azureService.uploadFile(file);
+  }
 
-    // Additional size check (backup to multer config)
-    const maxSize = 1024 * 1024; // 1MB
-    if (file.size > maxSize) {
-      throw new PayloadTooLargeException('El archivo es demasiado grande. Tamaño máximo permitido: 1MB');
+  @Public()
+  @Post('zip')
+  @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
+  @ApiBody({
+    description: 'Archivo a subir (campo: file)',
+    required: false,
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseFilters(MulterExceptionFilter)
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 1024 * 1024 * 500, // 500MB limit,
+      files: 1
+    },
+    fileFilter: (req, file, callback) => {
+      const allowedTypes = [
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/x-zip',
+        'multipart/x-zip',
+      ];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return callback(new BadRequestException('Tipo de archivo no permitido. Solo se permite .zip!'), false);
+      }
+      callback(null, true);
+    },
+  }))
+  async uploadGameFile(@UploadedFile() file: Express.Multer.File,) {
+    // Validate file existence
+    if (!file) {
+      throw new BadRequestException('Archivo no encontrado. Se requiere un archivo .zip!');
     }
-
-    try {
-      const saved = await this.azureService.uploadFile(file);
-      return saved;
-    } catch (error: any) {
-      // Handle Azure-specific errors
-      if (error.code === 'REQUEST_BODY_TOO_LARGE' || error.statusCode === 413) {
-        throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage');
-      }
-      
-      // Handle other Azure errors
-      if (error.statusCode === 400) {
-        throw new BadRequestException(`Error de Azure Storage: ${error.message || 'Solicitud inválida'}`);
-      }
-
-      // Re-throw NestJS exceptions (from service)
-      if (error instanceof PayloadTooLargeException || error instanceof BadRequestException) {
-        throw error;
-      }
-
-      // Log unknown errors and re-throw
-      console.error('Azure Storage Error:', error);
-      throw new BadRequestException('Error al subir el archivo. Por favor, inténtelo de nuevo.');
-    }
+    return this.azureService.uploadFile(file);
   }
 
   @Get(':id')

@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/email/email.module.ts
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { EmailController } from './email.controller';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -13,7 +13,7 @@ import { CertificatesModule } from 'src/certificates/certificates.module';
     PrismaModule,
     ConfigModule,
     HttpModule,
-    CertificatesModule,
+    forwardRef(() => CertificatesModule),
   ],
   controllers: [EmailController],
   providers: [EmailService],

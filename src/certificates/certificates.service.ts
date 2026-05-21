@@ -8,6 +8,10 @@ import puppeteer from 'puppeteer';
 export class CertificatesService {
   constructor(private prisma: PrismaService) { }
 
+  // ─────────────────────────────────────────────
+  // TEAM CERTIFICATES
+  // ─────────────────────────────────────────────
+
   async generateCertificateHtml(teamId: number, place: number): Promise<Buffer> {
     let templateName: string;
     switch (place) {
@@ -33,7 +37,6 @@ export class CertificatesService {
 
     return pdfBuffer;
   }
-
 
   private async adjustCertificateParameters(template: string, teamId: number) {
     const team = await this.prisma.team.findUnique({
@@ -68,6 +71,48 @@ export class CertificatesService {
 
     return certificateHtml;
   }
+
+  // ─────────────────────────────────────────────
+  // JUROR CERTIFICATES
+  // Los jurados son Users en la DB — no existe modelo Juror separado.
+  // ─────────────────────────────────────────────
+
+  async generateJurorCertificateHtml(userId: string): Promise<Buffer> {
+    const templatePath = path.join(__dirname, '.', 'assets', 'certificate-juror.html');
+    const template = await fs.readFile(templatePath, 'utf8');
+
+    const certificateHtml = await this.adjustJurorCertificateParameters(template, userId);
+    const pdfBuffer = await this.convertHtmlToPdfBase64(certificateHtml);
+
+    return pdfBuffer;
+  }
+
+  private async adjustJurorCertificateParameters(template: string, userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Juror (user) not found');
+    }
+
+    const jurorName = `${user.firstName} ${user.lastName}`;
+
+    const replacements: Record<string, string> = {
+      jurorName,
+      jurorTitle: '', // No hay campo título en User; puedes quitarlo del HTML si no lo necesitas
+    };
+
+    const certificateHtml = template.replace(/{{\s*([\w.]+)\s*}}/g, (_, key) => {
+      return replacements[key] ?? '';
+    });
+
+    return certificateHtml;
+  }
+
+  // ─────────────────────────────────────────────
+  // SHARED
+  // ─────────────────────────────────────────────
 
   private async convertHtmlToPdfBase64(htmlContent: string): Promise<Buffer> {
     const browser = await puppeteer.launch({
