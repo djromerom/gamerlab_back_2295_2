@@ -5,7 +5,6 @@ import {
   IsNotEmpty,
   IsArray,
   ValidateNested,
-  IsUrl,
 } from 'class-validator';
 import { UploadDto } from 'src/upload/create-upload.dto';
 
@@ -35,13 +34,4 @@ export class CreateVideogameDto {
   @Type(() => UploadDto)
   @IsOptional()
   uploads?: UploadDto[];
-
-  @IsString()
-  @IsUrl()
-  @IsOptional()
-  gameFileUrl?: string;
-
-  @IsString()
-  @IsOptional()
-  entry: string;
 }

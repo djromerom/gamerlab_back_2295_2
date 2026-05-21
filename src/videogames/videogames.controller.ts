@@ -32,7 +32,6 @@ export class VideogamesController {
     return this.videogamesService.findAll();
   }
 
-  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.videogamesService.findOne(+id);

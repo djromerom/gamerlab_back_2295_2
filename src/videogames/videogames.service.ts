@@ -18,7 +18,7 @@ export class VideogamesService {
   constructor(
     private prisma: PrismaService,
     private gateway: VideogamesGateway,
-  ) { }
+  ) {}
 
   private readonly MAX_LIKES_LOGO_ONLY = 20;
   private readonly MAX_LIKES_NO_CONTENT = 10;
@@ -189,86 +189,14 @@ export class VideogamesService {
   }
 
   async findOne(videogameId: number) {
-    console.log("trying to find game with id: ", videogameId);
-    const vg = await this.prisma.videogame.findUnique({
-      where: { id: videogameId },
-      include: {
-        team: {
-          select: {
-            teamName: true,
-            members: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
-        videogameStatus: {
-          select: {
-            status: true,
-          },
-        },
-        _count: {
-          select: { likedBy: true },
-        },
-      },
-    });
-
-    if (!vg) {
-      throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
-    }
-    //no muy necesario retornar lo que está comentado.
-    //este endpoint solo se usa para buscar el entry y el gameFileURL
-    //el resto de información se busca por otros modulos.
-    return {
-      id: vg.id,
-      name: vg.name,
-      descripcion: vg.description || '',
-      //logoUrl: vg.logoUrl,
-      //videoUrl: vg.videoUrl,
-      //repoUrl: vg.repoUrl,
-      //additionalImages: vg.additionalImages,
-      teamName: vg.team.teamName,
-      status: vg.videogameStatus.status,
-      gameFileURL: vg.gameFileUrl || '',
-      entry: vg.entry || ''
-    };
+    throw new NotImplementedException('Method findOne not implemented yet');
   }
 
   async update(videogameId: number, videogameData: UpdateVideogameDto) {
-    const vg = await this.prisma.videogame.findUnique({
-      where: { id: videogameId },
-    });
-
-    if (!vg) {
-      throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
-    }
-
-    const { vgName, ...restData } = videogameData;
-    const updateData: any = { ...restData };
-    if (vgName !== undefined) {
-      updateData.name = vgName;
-    }
-
-    return this.prisma.videogame.update({
-      where: { id: videogameId },
-      data: updateData,
-    });
+    throw new NotImplementedException('Method update not implemented yet');
   }
 
-  //TODO: remove static game files, if there are any. possible interface with upload module?
   async remove(videogameId: number) {
-    const vg = await this.prisma.videogame.findUnique({
-      where: { id: videogameId },
-    });
-
-    if (!vg) {
-      throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
-    }
-
-    return this.prisma.videogame.delete({
-      where: { id: videogameId },
-    });
+    throw new NotImplementedException('Method delete not implemented yet');
   }
 }
