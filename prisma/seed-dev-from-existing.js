@@ -522,6 +522,24 @@ async function seedJurorTestData() {
 async function main() {
   await seedBaseData();
   await seedJurorTestData();
+
+  console.log('🌱 Sincronizando secuencias de IDs');
+  await resetSequence('ediciones', 'id_edicion');
+  await resetSequence('configuracion_evento', 'id');
+  await resetSequence('enfoque_educativo', 'id_enfoque');
+  await resetSequence('testimonio', 'id_testimonio');
+  await resetSequence('juego_destacado', 'id_juego_destacado');
+  await resetSequence('ponderado', 'id');
+  await resetSequence('equipos', 'id_equipo');
+  await resetSequence('integrante', 'id_integrante');
+  await resetSequence('videojuegos', 'id_videojuego');
+  await resetSequence('videogame_likes', 'id');
+  await resetSequence('evaluacion', 'id_evaluacion');
+  await resetSequence('materia', 'id_materia');
+  await resetSequence('nrc', 'id_nrc');
+  await resetSequence('criterios', 'id_criterio');
+  await resetSequence('detalle_evaluacion', 'id_detalle');
+  console.log('✅ Secuencias sincronizadas');
 }
 
 main()

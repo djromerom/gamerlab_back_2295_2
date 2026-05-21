@@ -49,15 +49,16 @@ export class AzureStorageService implements OnModuleInit {
     await this.containerClient.createIfNotExists();
   }
 
-  async uploadFile(file: Express.Multer.File): Promise<Upload> {
+  async uploadFile(file: Express.Multer.File, maxSize: number = 1024 * 1024): Promise<Upload> {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
 
-    // Validate file size (1MB limit)
-    const maxSize = 1024 * 1024; // 1MB
+    // Validate file size dynamically
     if (file.size > maxSize) {
-      throw new PayloadTooLargeException(`El archivo es demasiado grande (${Math.round(file.size / 1024 / 1024 * 100) / 100}MB). Tamaño máximo permitido: 1MB`);
+      const sizeMB = Math.round(file.size / 1024 / 1024 * 100) / 100;
+      const limitMB = Math.round(maxSize / 1024 / 1024 * 100) / 100;
+      throw new PayloadTooLargeException(`El archivo es demasiado grande (${sizeMB}MB). Tamaño máximo permitido: ${limitMB}MB`);
     }
 
     const blobName = `${Date.now()}-${path.basename(file.originalname)}`;

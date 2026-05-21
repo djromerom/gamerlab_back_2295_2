@@ -8,7 +8,7 @@ import { MulterExceptionFilter } from './multer-exception.filter';
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
-  constructor(private readonly azureService: AzureStorageService) {}
+  constructor(private readonly azureService: AzureStorageService) { }
 
   @Public()
   @Post()
@@ -95,7 +95,7 @@ export class UploadController {
       if (error.code === 'REQUEST_BODY_TOO_LARGE' || error.statusCode === 413) {
         throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage');
       }
-      
+
       // Handle other Azure errors
       if (error.statusCode === 400) {
         throw new BadRequestException(`Error de Azure Storage: ${error.message || 'Solicitud inválida'}`);
