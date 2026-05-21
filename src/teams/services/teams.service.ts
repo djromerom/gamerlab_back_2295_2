@@ -73,11 +73,8 @@ export class TeamsService {
     }
 
     const p = prefix.toUpperCase();
-
-    // Permite que el endpoint reciba "N1" o "N1-".
     const starts = p.endsWith('-') ? p : `${p}-`;
 
-    // Vista de Prisma que expone el puntaje final calculado por equipo/videojuego.
     const client: any = (this.prisma as any).teamFinalScore;
 
     try {
@@ -89,8 +86,6 @@ export class TeamsService {
         },
       });
 
-      // La vista teamFinalScore puede no traer todos los datos visuales que necesita el frontend.
-      // Por eso se revisa si faltan teamName o logoUrl para enriquecer la respuesta.
       const missingTeamName = rows.some(
         (r) => r.teamName === undefined || r.teamName === null,
       );
@@ -99,9 +94,6 @@ export class TeamsService {
         (r) => r.logoUrl === undefined || r.logoUrl === null,
       );
 
-      // Si la vista ya trae toda la información, aplicamos directamente la lógica de desempate.
-      // Importante: el desempate se aplica aquí porque este método sí tiene varios equipos
-      // y puede detectar si dos o más tienen el mismo finalScore.
       if (!missingTeamName && !missingLogo) {
         return this.applyTieBreakerToRanking(rows);
       }
@@ -151,7 +143,6 @@ export class TeamsService {
         vgs.forEach((v) => vgsMap.set(v.id, v));
       }
 
-      // Se enriquecen las filas con teamName y logoUrl cuando esos campos no vienen desde la vista.
       const enrichedRows = rows.map((r) => {
         const rr = { ...r };
 
@@ -174,7 +165,6 @@ export class TeamsService {
         return rr;
       });
 
-      // Después de enriquecer los datos, se aplica la lógica de desempate.
       return this.applyTieBreakerToRanking(enrichedRows);
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
@@ -207,7 +197,6 @@ export class TeamsService {
 
     const firstMember = createTeamDto.members[0];
 
-    // Verifica si el correo del primer integrante ya existe.
     const existingEmails = await this.teamRepository.checkEmailsExist([
       firstMember.memberEmail,
     ]);
@@ -218,7 +207,6 @@ export class TeamsService {
       );
     }
 
-    // Verifica códigos estudiantiles duplicados dentro de la misma petición.
     const studentCodeMap = new Map<string, boolean>();
     const studentCodes: string[] = [];
 
@@ -480,7 +468,6 @@ export class TeamsService {
 
   /**
    * Normaliza cualquier puntaje a número con dos decimales.
-   * Sirve para evitar errores cuando Prisma devuelve valores como string, Decimal o number.
    */
   private normalizeScore(value: any): number | null {
     if (value === null || value === undefined) {
@@ -499,7 +486,6 @@ export class TeamsService {
   /**
    * Calcula el puntaje de desempate de un videojuego.
    *
-   * Fórmula solicitada por el Jira:
    * Fórmula:
    * 70% promedio de jurados + 30% promedio de profesores.
    *
@@ -540,7 +526,6 @@ export class TeamsService {
       baseWhere.editionId = editionId;
     }
 
-    // Promedio de calificaciones dadas por profesores.
     const professorAgg = await this.prisma.evaluation.aggregate({
       _avg: {
         totalScore: true,
@@ -553,7 +538,6 @@ export class TeamsService {
       },
     });
 
-    // Promedio de calificaciones dadas por jurados que NO son profesores.
     const jurorAgg = await this.prisma.evaluation.aggregate({
       _avg: {
         totalScore: true,
@@ -579,7 +563,6 @@ export class TeamsService {
       };
     }
 
-    // Si solo existe calificación docente, se usa esa como desempate.
     if (jurorScore === null) {
       return {
         jurorScore,
@@ -588,7 +571,6 @@ export class TeamsService {
       };
     }
 
-    // Si solo existe calificación de jurados, se usa esa como desempate.
     if (professorScore === null) {
       return {
         jurorScore,
@@ -719,7 +701,6 @@ export class TeamsService {
           row.finalScore ?? row.final_score ?? row.finalscore,
         );
 
-        // Si el equipo no está empatado, conserva su puntaje original.
         if (!tiedRows.has(row)) {
           return {
             ...row,
@@ -734,8 +715,6 @@ export class TeamsService {
         const videogameId = Number(row.videogameId ?? row.videogame_id);
         const editionId = Number(row.editionId ?? row.edition_id);
 
-        // Si por alguna razón no hay videogameId válido, no se puede calcular el desempate.
-        // Se mantiene el puntaje base para no romper el ranking.
         if (!Number.isInteger(videogameId) || videogameId <= 0) {
           return {
             ...row,
@@ -758,22 +737,49 @@ export class TeamsService {
           jurorTieBreakerScore: tieBreaker.jurorScore,
           professorTieBreakerScore: tieBreaker.professorScore,
           tieBreakerScore: tieBreaker.tieBreakerScore,
-          rankingScore: tieBreaker.tieBreakerScore ?? baseScore,
+          // El puntaje general del ranking se mantiene como el puntaje base.
+          // El tieBreakerScore solo se usa para ordenar equipos que ya estaban empatados.
+          rankingScore: baseScore,
         };
       }),
     );
 
-    // Ordena de mayor a menor usando rankingScore.
-    // Si no hubo empate, rankingScore será igual al finalScore base.
-    // Si hubo empate, rankingScore será el tieBreakerScore.
     const sortedRanking = result.sort((a, b) => {
-      const scoreA = this.normalizeScore(a.rankingScore) ?? -Infinity;
-      const scoreB = this.normalizeScore(b.rankingScore) ?? -Infinity;
+      const baseA =
+        this.normalizeScore(a.finalScore ?? a.final_score ?? a.finalscore) ??
+        -Infinity;
 
-      return scoreB - scoreA;
+      const baseB =
+        this.normalizeScore(b.finalScore ?? b.final_score ?? b.finalscore) ??
+        -Infinity;
+
+      // Primero se ordena por puntaje final general.
+      if (baseA !== baseB) {
+        return baseB - baseA;
+      }
+
+      const editionA = Number(a.editionId ?? a.edition_id);
+      const editionB = Number(b.editionId ?? b.edition_id);
+
+      // Evita comparar desempates entre ediciones distintas.
+      if (editionA !== editionB) {
+        return editionA - editionB;
+      }
+
+      const tieA = this.normalizeScore(a.tieBreakerScore) ?? baseA;
+      const tieB = this.normalizeScore(b.tieBreakerScore) ?? baseB;
+
+      // Solo si el puntaje base es igual, se usa el puntaje de desempate.
+      if (tieA !== tieB) {
+        return tieB - tieA;
+      }
+
+      const codeA = String(a.teamCode ?? a.team_code ?? '');
+      const codeB = String(b.teamCode ?? b.team_code ?? '');
+
+      return codeA.localeCompare(codeB);
     });
 
-    // Aquí se almacena el resultado final del ranking/desempate en la tabla resultado_ranking.
     await this.persistRankingResults(sortedRanking);
 
     return sortedRanking;
