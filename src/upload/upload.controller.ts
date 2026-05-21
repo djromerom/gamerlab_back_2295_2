@@ -99,7 +99,7 @@ export class UploadController {
   @UseFilters(MulterExceptionFilter)
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 1024 * 1024 * 50, // 50MB limit,
+      fileSize: 1024 * 1024 * 500, // 500MB limit,
       files: 1
     },
     fileFilter: (req, file, callback) => {
