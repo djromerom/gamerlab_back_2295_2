@@ -124,9 +124,29 @@ export class AzureStorageService implements OnModuleInit {
     ).toString();
 
     return {
-      url: `${blobClient.url}?${sas}`,
+      url: this.normalizeUrl(`${blobClient.url}?${sas}`),
       expiresAt: expiresOn.toISOString(),
     };
+  }
+
+  /**
+   * En desarrollo (Azurite) la URL interna puede apuntar a 127.0.0.1 o al
+   * hostname del contenedor Docker. El browser del front siempre necesita
+   * llegar por localhost:10000, así que reemplazamos el host aquí.
+   * En producción la URL pasa sin modificaciones.
+   */
+  private normalizeUrl(rawUrl: string): string {
+    if (process.env.NODE_ENV !== 'development') return rawUrl;
+
+    try {
+      const parsed = new URL(rawUrl);
+      parsed.hostname = 'localhost';
+      parsed.port = '10000';
+      return parsed.toString();
+    } catch {
+      // Si por alguna razón la URL no es parseable, la devolvemos tal cual
+      return rawUrl;
+    }
   }
 
   // Marca como público (flag) sin guardar SAS
