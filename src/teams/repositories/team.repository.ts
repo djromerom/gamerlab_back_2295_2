@@ -142,8 +142,20 @@ export class TeamRepository implements ITeamRepository {
     videogame: Videogame;
   }> {
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const finalUserId = await this.handleUser(tx, createTeamDto.members[0]);
+      // verificationToken lives inside the tx — only sent after full commit
+      let pendingVerificationToken: string | null = null;
+      let pendingLeaderEmail: string | null = null;
+
+      const result = await this.prisma.$transaction(async (tx) => {
+        const { userId: finalUserId, verificationToken } = await this.handleUser(
+          tx,
+          createTeamDto.members[0],
+        );
+
+        // Capture token so we can send the email after the tx commits
+        pendingVerificationToken = verificationToken;
+        pendingLeaderEmail = createTeamDto.members[0].memberEmail;
+
         const team = await this.createTeamRecord(
           tx,
           createTeamDto,
@@ -160,12 +172,23 @@ export class TeamRepository implements ITeamRepository {
           createTeamDto.videogame,
         );
 
-        return {
-          team,
-          members,
-          videogame,
-        };
+        return { team, members, videogame };
       });
+
+      // Transaction fully committed — safe to send the email now
+      if (pendingVerificationToken && pendingLeaderEmail) {
+        const token = pendingVerificationToken;
+        const email = pendingLeaderEmail;
+        setImmediate(() => {
+          this.authService.sendVerificationEmail(email, token).catch((err) => {
+            this.logger.error(
+              `Failed to send verification email to ${email}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+        });
+      }
+
+      return result;
     } catch (error: any) {
       handlePrismaError(error);
     }
@@ -742,7 +765,7 @@ export class TeamRepository implements ITeamRepository {
   private async handleUser(
     tx: Prisma.TransactionClient,
     firstMember: MemberDto,
-  ) {
+  ): Promise<{ userId: string; verificationToken: string | null }> {
     const studentRole = await tx.role.findUnique({
       where: { name: 'Estudiante' },
     });
@@ -752,7 +775,6 @@ export class TeamRepository implements ITeamRepository {
       where: { email: firstMember.memberEmail },
     });
 
-    let userId;
     if (existingUser) {
       const hasTeam = await tx.team.findUnique({
         where: { userId: existingUser.id },
@@ -765,22 +787,30 @@ export class TeamRepository implements ITeamRepository {
           field: 'memberEmail',
         });
 
-      userId = existingUser.id;
-    } else {
-      const createdUser = await this.authService.registerUser({
-        email: firstMember.memberEmail,
-      });
-      userId = createdUser.id;
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          firstName: firstMember.memberFirstName,
-          lastName: firstMember.memberLastName,
-          roleId: studentRole.id,
-        },
-      });
+      // Existing user re-registering: no new email needed
+      return { userId: existingUser.id, verificationToken: null };
     }
-    return userId;
+
+    // New user — enlist creation inside the current tx so rollback is atomic.
+    // If createTeamRecord / createMembers / createVideogame fail afterwards,
+    // the User and VerificationToken are rolled back together with the rest.
+    const { user: createdUser, verificationToken } =
+      await this.authService.registerUserTransaction(
+        { email: firstMember.memberEmail },
+        tx,
+      );
+
+    // Fill in name and role (registerUserTransaction creates the user with empty fields)
+    await tx.user.update({
+      where: { id: createdUser.id },
+      data: {
+        firstName: firstMember.memberFirstName,
+        lastName: firstMember.memberLastName,
+        roleId: studentRole.id,
+      },
+    });
+
+    return { userId: createdUser.id, verificationToken };
   }
 
   private async createTeamRecord(
@@ -798,6 +828,22 @@ export class TeamRepository implements ITeamRepository {
       );
     }
 
+    const activeEdition = await tx.edition.findFirst({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!activeEdition) {
+      throw new BadRequestException('No hay una edición activa configurada');
+    }
+
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
     const teamCode = await this.generateTeamCode(firstMemberNrcCode);
 
@@ -807,6 +853,7 @@ export class TeamRepository implements ITeamRepository {
         isExternal: dto.isExternal,
         userId,
         teamCode,
+        editionId: activeEdition.id,
       },
     });
   }

@@ -155,12 +155,12 @@ export class ProfessorsController {
   async findSelectOptions(): Promise<SelectOption[]> {
     return this.professorsService.findForSelect();
   }
-  /**
-   * Download grading template for all subjects/NRCs.
-   * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members. 
-   * Use query parameter `?final=true` to include the "Calificación Feria" column (final export). 
-   * The template is intended to be filled and re-uploaded using the upload endpoint which will parse and persist senior grades.
-   */
+/**
+ * Download grading template for all subjects/NRCs.
+ * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members. 
+ * Use query parameter `?final=true` to include the "Calificación Feria" column (final export). 
+ * The template is intended to be filled and re-uploaded using the upload endpoint which will parse and persist senior grades.
+ */
   @Get('download-grading-template-all')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportToExcel')
@@ -236,9 +236,9 @@ export class ProfessorsController {
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.professorsService.remove(id);
   }
-  /**
-   * Get signature report grouped by team for a NRC.
-   * */
+/**
+ * Get signature report grouped by team for a NRC.
+ * */
   @Get('nrc-report/:nrcCode')
   @UseGuards(RolePermissionGuard)
   @RequiredService('NrcReport')
@@ -290,12 +290,12 @@ export class ProfessorsController {
     );
   }
 
-
-  /**
-      * Get signature report grouped by team for a subject.
-      * Each entry contains team details, videogame, and evaluations.
-      * Supports pagination and option to include inactive teams/members.
-   */
+  
+/**
+    * Get signature report grouped by team for a subject.
+    * Each entry contains team details, videogame, and evaluations.
+    * Supports pagination and option to include inactive teams/members.
+ */
   @Get('signature-report/:subjectName')
   @UseGuards(RolePermissionGuard)
   @RequiredService('SubjectReport')
@@ -412,7 +412,7 @@ export class ProfessorsController {
       },
     },
   })
-  @ApiResponse({
+    @ApiResponse({
     status: 201,
     description: 'Evaluation created',
     schema: {

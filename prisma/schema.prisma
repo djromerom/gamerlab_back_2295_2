@@ -21,14 +21,13 @@ model Edition {
   date               String?             @map("fecha") @db.VarChar(50)
   description        String?             @map("descripcion")
   description2       String?             @map("descripcion2")
-  highlightedGames   String?             @map("juegos_destacados")
+  highlightedGames   HighlightedGame[]
   alt                String?             @map("alt") @db.VarChar(100)
   eventConfiguration EventConfiguration?
   educationalFocuses EducationalFocus[]
   teams              Team[]
   evaluations        Evaluation[]
   nrcs               NRC[]
-  podiums            Podium[]
   weighting          Weighting?
   testimonials       Testimonial[]
 
@@ -37,14 +36,14 @@ model Edition {
 
 model EventConfiguration {
   id              Int      @id @default(autoincrement())
-  editionId       Int      @unique @default(3) @map("id_edicion")
-  startDate       DateTime @map("fecha_inicio")
-  endDate         DateTime @map("fecha_fin")
   evaluationsOpen Boolean  @default(false) @map("evaluaciones_abiertas")
-  showRanking     Boolean  @default(false) @map("mostrar_ranking")
-  showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   createdAt       DateTime @default(now()) @map("creado_en")
   updatedAt       DateTime @updatedAt @map("actualizado_en")
+  endDate         DateTime @map("fecha_fin")
+  startDate       DateTime @map("fecha_inicio")
+  editionId       Int      @unique @map("id_edicion")
+  showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
+  showRanking     Boolean  @default(false) @map("mostrar_ranking")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -174,8 +173,8 @@ model User {
   managedNrcs          NRC[]              @relation("ProfessorNRC")
   confirmationStatus   ConfirmationStatus @relation(fields: [confirmationStatusId], references: [id])
   role                 Role               @relation(fields: [roleId], references: [id])
-  teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
   likedVideogames      VideogameLike[]
+  teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -187,10 +186,10 @@ model Team {
   teamName         String     @unique @map("nombre_equipo") @db.VarChar(50)
   registrationDate DateTime   @default(now()) @map("fecha_registro")
   userId           String     @unique @map("id_usuario")
-  editionId        Int        @default(3) @map("id_edicion")
+  editionId        Int        @map("id_edicion")
   isActive         Boolean    @default(true) @map("activo")
   isExternal       Boolean    @default(false) @map("externo")
-  teamCode         String     @map("codigo_equipo") @db.VarChar(10)
+  teamCode         String     @map("codigo_equipo") @db.VarChar(12)
   edition          Edition    @relation(fields: [editionId], references: [id])
   user             User       @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]   @relation("TeamMembers")
@@ -240,27 +239,41 @@ model Videogame {
   repoUrl           String?         @map("repo_url")
   videoUrl          String?         @map("video_url")
   additionalImages  String[]        @default([]) @map("imagenes_adicionales")
-  evaluations       Evaluation[]
-  likedBy           VideogameLike[]
   team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
   gameFileUrl       String?         @map("archivo_videojuego_url")
   entry             String?
 
+  highlightedGames   HighlightedGame[]
+  evaluations       Evaluation[]
+  likedBy           VideogameLike[]
+
   @@map("videojuegos")
 }
 
 model VideogameLike {
-  id          Int      @id @default(autoincrement())
-  videogameId Int      @map("id_videojuego")
-  userId      String   @map("user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id          Int       @id @default(autoincrement())
+  videogameId Int       @map("id_videojuego")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  userId      String    @map("user_id")
+  videogame   Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([videogameId, userId])
   @@map("videogame_likes")
+}
+
+model HighlightedGame {
+  id          Int       @id @default(autoincrement()) @map("id_juego_destacado")
+  editionId   Int       @map("id_edicion")
+  videogameId Int       @map("id_videojuego")
+  createdAt   DateTime  @default(now()) @map("creado_en")
+  updatedAt   DateTime  @updatedAt @map("actualizado_en")
+  edition     Edition   @relation(fields: [editionId], references: [id])
+  videogame   Videogame @relation(fields: [videogameId], references: [id])
+
+  @@unique([editionId, videogameId])
+  @@map("juego_destacado")
 }
 
 model Evaluation {
@@ -270,7 +283,7 @@ model Evaluation {
   totalScore  Float?             @map("puntaje_total")
   jurorId     String             @map("id_jurado")
   videogameId Int                @map("id_videojuego")
-  editionId   Int                @default(3) @map("id_edicion")
+  editionId   Int                @map("id_edicion")
   isActive    Boolean            @default(true) @map("activo")
   isSenior    Boolean            @default(false) @map("es_jurado_senior")
   details     EvaluationDetail[]
@@ -283,15 +296,15 @@ model Evaluation {
 }
 
 model JurorAssignmentAuditLog {
-  id               Int                          @id @default(autoincrement())
-  action           ManualJurorAssignmentAction
-  actorUserId      String                       @map("actor_user_id")
-  teamId           Int?                         @map("team_id")
-  jurorId          String?                      @map("juror_id")
-  previousJurorId  String?                      @map("previous_juror_id")
-  newJurorId       String?                      @map("new_juror_id")
-  notes            String?                      @db.Text
-  createdAt        DateTime                     @default(now()) @map("created_at")
+  id              Int                         @id @default(autoincrement())
+  action          ManualJurorAssignmentAction
+  actorUserId     String                      @map("actor_user_id")
+  teamId          Int?                        @map("team_id")
+  jurorId         String?                     @map("juror_id")
+  previousJurorId String?                     @map("previous_juror_id")
+  newJurorId      String?                     @map("new_juror_id")
+  notes           String?
+  createdAt       DateTime                    @default(now()) @map("created_at")
 
   @@index([actorUserId])
   @@index([teamId])
@@ -322,7 +335,7 @@ model NRC {
   isActive    Boolean  @default(true) @map("activo")
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   createdAt   DateTime @default(now()) @map("creado_en")
-  editionId   Int      @default(3) @map("id_edicion")
+  editionId   Int      @map("id_edicion")
   edition     Edition  @relation(fields: [editionId], references: [id])
   subject     Subject  @relation(fields: [subjectId], references: [id])
   professor   User     @relation("ProfessorNRC", fields: [professorId], references: [id])
@@ -384,22 +397,6 @@ model Upload {
   @@map("archivos_subidos")
 }
 
-model Podium {
-  id        Int      @id @default(autoincrement()) @map("id_podio")
-  editionId Int      @map("id_edicion")
-  position  Int      @map("puesto")
-  teamName  String   @map("equipo") @db.VarChar(100)
-  gameName  String   @map("juego") @db.VarChar(100)
-  score     Float    @map("puntuacion")
-  isActive  Boolean  @default(true) @map("activo")
-  createdAt DateTime @default(now()) @map("creado_en")
-  updatedAt DateTime @updatedAt @map("actualizado_en")
-  edition   Edition  @relation(fields: [editionId], references: [id])
-
-  @@unique([editionId, position], name: "podio_criterio_unique")
-  @@map("podio")
-}
-
 model EducationalFocus {
   id          Int      @id @default(autoincrement()) @map("id_enfoque")
   editionId   Int      @map("id_edicion")
@@ -431,10 +428,12 @@ model Testimonial {
 
 view TeamFinalScore {
   teamId        Int     @map("team_id")
-  teamCode      String? @map("team_code")
+  teamCode      String? @map("team_code") @db.VarChar(12)
+  teamName      String? @map("team_name") @db.VarChar(50)
   isExternal    Boolean @map("is_external")
   videogameId   Int     @map("videogame_id")
-  videogameName String? @map("videogame_name")
+  videogameName String? @map("videogame_name") @db.VarChar(30)
+  videogameLogoUrl String? @map("videogame_logo_url")
   editionId     Int     @map("edition_id")
   avgJunior     Float?  @map("avg_junior")
   avgSenior     Float?  @map("avg_senior")
@@ -448,7 +447,6 @@ enum AuthMethod {
   PASSWORD
   ENTRA_ID
 }
-
 
 enum JurorCategory {
   JUNIOR

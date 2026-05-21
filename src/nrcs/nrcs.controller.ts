@@ -13,13 +13,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { NrcsService } from './nrcs.service';
-import { Prisma, NRC } from '@prisma/client';
+import { NRC } from '@prisma/client';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { CreateNrcDto } from './dto/create-nrc.dto';
+import { UpdateNrcDto } from './dto/update-nrc.dto';
 
 @Controller('nrcs')
 export class NrcsController {
@@ -52,7 +54,7 @@ export class NrcsController {
   @Post()
   @UseGuards(RolePermissionGuard)
   @RequiredService('CreateNrc')
-  create(@Body() data: Prisma.NRCCreateInput) {
+  create(@Body() data: CreateNrcDto) {
     return this.nrcService.create(data);
   }
 
@@ -61,7 +63,7 @@ export class NrcsController {
   @RequiredService('UpdateNrc')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: Prisma.NRCUpdateInput,
+    @Body() data: UpdateNrcDto,
   ) {
     return this.nrcService.update(id, data);
   }

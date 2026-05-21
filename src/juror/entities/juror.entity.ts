@@ -1,1 +1,1 @@
-export class Juror {}
+export class Juror { }

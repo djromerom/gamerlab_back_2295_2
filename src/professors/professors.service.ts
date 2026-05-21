@@ -21,7 +21,7 @@ import { ExcelExportService, NrcSheetData } from './excel-export.service';
 export class ProfessorsService {
   private readonly logger = new Logger(ProfessorsService.name);
   private readonly PROFESSOR_ROLE_NAME = 'Profesor';
- 
+
   private professorRoleId: number;
  
   constructor(

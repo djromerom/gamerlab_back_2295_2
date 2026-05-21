@@ -31,7 +31,7 @@ export class TeamsService {
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async findByTeamName(teamName: string): Promise<any> {
     return await this.teamRepository.findByTeamName(teamName);
@@ -60,46 +60,25 @@ export class TeamsService {
     if (!prefix || typeof prefix !== 'string') {
       throw new BadRequestException('Invalid prefix');
     }
-    const p = prefix.toUpperCase();
-    const starts = p.endsWith('-') ? p : `${p}-`;
-    const client: any = (this.prisma as any).teamFinalScore;
+
     try {
-      const rows: any[] = await client.findMany({ where: { teamCode: { startsWith: starts } } });
-
-      // If view doesn't include teamName or logoUrl, enrich rows from teams and videogames tables
-      const missingTeamName = rows.some(r => r.teamName === undefined || r.teamName === null);
-      const missingLogo = rows.some(r => r.logoUrl === undefined || r.logoUrl === null);
-
-      if (!missingTeamName && !missingLogo) return rows;
-
-      const teamIds = Array.from(new Set(rows.map(r => Number(r.teamId)).filter(Boolean)));
-      const videogameIds = Array.from(new Set(rows.map(r => Number(r.videogameId)).filter(Boolean)));
-
-      const teamsMap = new Map<number, any>();
-      if (teamIds.length > 0) {
-        const teams = await this.prisma.team.findMany({ where: { id: { in: teamIds } }, select: { id: true, teamName: true, teamCode: true } });
-        teams.forEach(t => teamsMap.set(t.id, t));
+      const activeEdition = await this.prisma.edition.findFirst({ where: { isActive: true } });
+      if (!activeEdition) {
+        return [];
       }
 
-      const vgsMap = new Map<number, any>();
-      if (videogameIds.length > 0) {
-        const vgs = await this.prisma.videogame.findMany({ where: { id: { in: videogameIds } }, select: { id: true, logoUrl: true } });
-        vgs.forEach(v => vgsMap.set(v.id, v));
+      const client: any = (this.prisma as any).teamFinalScore;
+      let whereClause: any = { editionId: activeEdition.id };
+
+      if (prefix.toLowerCase() !== 'all') {
+        const p = prefix.toUpperCase();
+        const starts = p.endsWith('-') ? p : `${p}-`;
+        whereClause.teamCode = { startsWith: starts };
       }
 
-      // Map and fill missing fields
-      return rows.map(r => {
-        const rr = { ...r };
-        if ((rr.teamName === undefined || rr.teamName === null) && rr.teamId) {
-          const t = teamsMap.get(Number(rr.teamId));
-          if (t) rr.teamName = t.teamName ?? t.teamCode ?? null;
-        }
-        if ((rr.logoUrl === undefined || rr.logoUrl === null) && rr.videogameId) {
-          const vg = vgsMap.get(Number(rr.videogameId));
-          if (vg) rr.logoUrl = vg.logoUrl ?? null;
-        }
-        return rr;
-      });
+      const rows: any[] = await client.findMany({ where: whereClause });
+
+      return rows;
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch final scores by prefix');
@@ -120,8 +99,7 @@ export class TeamsService {
       }
     } catch (error) {
       this.logger.error(
-        `reCAPTCHA verification error: ${
-          error instanceof Error ? error.message : String(error)
+        `reCAPTCHA verification error: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       throw new UnauthorizedException('Error en la verificación de reCAPTCHA');
