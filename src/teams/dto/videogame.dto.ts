@@ -1,6 +1,8 @@
 // src/teams/dto/videogame.dto.ts
 import { IsString, IsNotEmpty, MaxLength, IsOptional, IsUrl, ValidateIf, IsArray, ArrayMaxSize } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { env } from 'node:process';
+import { isEnvSensitiveUrl } from 'src/common/decorators/isEnvSensitiveUrl.decorator';
 
 export class VideogameDto {
   @IsString()
@@ -16,6 +18,7 @@ export class VideogameDto {
 
   @IsString()
   @IsOptional()
+  @isEnvSensitiveUrl({ message: 'La URL del logo del juego debe ser válida' })
   logoUrl?: string;
 
   @IsOptional()
@@ -41,6 +44,16 @@ export class VideogameDto {
   })
   @IsArray({ message: 'Las imágenes adicionales deben ser un array o un string de URLs separadas por comas' })
   @ArrayMaxSize(5, { message: 'Se permite un máximo de 5 imágenes adicionales' })
-  @IsUrl({}, { each: true, message: 'Cada imagen adicional debe ser una URL válida' })
+  @isEnvSensitiveUrl({ each: true, message: 'La URL de cada imagen adicional debe ser válida' })
   additionalImages?: string[];
+
+  @IsOptional()
+  @IsString()
+  @ValidateIf((o) => o.gameFileUrl && o.gameFileUrl.trim() !== '')
+  @isEnvSensitiveUrl({ message: 'La URL del archivo del juego debe ser válida' })
+  gameFileUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  entry?: string;
 }
