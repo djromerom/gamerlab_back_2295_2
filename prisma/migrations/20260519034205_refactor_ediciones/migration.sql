@@ -26,12 +26,17 @@ DROP COLUMN "nombre",
 DROP COLUMN "nombre_semestre",
 ADD COLUMN     "foto_principal" TEXT,
 ADD COLUMN     "fotos" TEXT[] DEFAULT ARRAY[]::TEXT[],
-ADD COLUMN     "inicia_en" TIMESTAMP(3) NOT NULL,
-ADD COLUMN     "termina_en" TIMESTAMP(3) NOT NULL,
+ADD COLUMN     "inicia_en" TIMESTAMP(3) NOT NULL DEFAULT '2000-01-01 00:00:00',
+ADD COLUMN     "termina_en" TIMESTAMP(3) NOT NULL DEFAULT '2000-01-01 00:00:00',
 DROP COLUMN "semestre",
-ADD COLUMN     "semestre" INTEGER NOT NULL,
+ADD COLUMN     "semestre" INTEGER NOT NULL DEFAULT 0,
 ALTER COLUMN "titulo" SET NOT NULL,
 ALTER COLUMN "año" SET NOT NULL;
+
+-- Remove temporary defaults (schema enforces NOT NULL without DB default)
+ALTER TABLE "ediciones" ALTER COLUMN "inicia_en" DROP DEFAULT;
+ALTER TABLE "ediciones" ALTER COLUMN "termina_en" DROP DEFAULT;
+ALTER TABLE "ediciones" ALTER COLUMN "semestre" DROP DEFAULT;
 
 -- CreateIndex
 CREATE INDEX "ediciones_año_semestre_idx" ON "ediciones"("año", "semestre");
