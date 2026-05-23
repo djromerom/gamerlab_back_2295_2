@@ -85,15 +85,14 @@ export class SettingsController {
   @Public()
   @Get('evaluations-status')
   @ApiOperation({
-    summary: 'Get if evaluations are open and the end date of the event',
+    summary: 'Get if evaluations are open',
   })
   @ApiResponse({
     status: 200,
-    description: 'Returns whether evaluations are open and the event end date',
+    description: 'Returns whether evaluations are open',
     schema: {
       example: {
         evaluationsOpen: true,
-        endDate: '2024-12-31T23:59:59.000Z',
       },
     },
   })
@@ -112,7 +111,7 @@ export class SettingsController {
   @ApiResponse({
     status: 200,
     description:
-      'Returns the updated evaluations open status and event end date',
+      'Returns the updated evaluations open status',
     schema: {
       example: { evaluationsOpen: false },
     },

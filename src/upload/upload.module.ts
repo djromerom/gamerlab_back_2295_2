@@ -6,5 +6,6 @@ import { PrismaService } from '../prisma/prisma.service';
 @Module({
   controllers: [UploadController],
   providers: [AzureStorageService, PrismaService],
+  exports: [AzureStorageService],
 })
 export class UploadModule {}
