@@ -15,10 +15,15 @@ async function main() {
     if (!edition) {
         edition = await prisma.edition.create({
             data: {
-                semester: '2026-1',
-                isActive: true,
                 year: 2026,
-                name: 'Edición de Prueba',
+                semester: 10,
+                title: 'Edición de Prueba',
+                photos: [''],
+                startsAt: new Date('2026-05-28 08:00:00'),
+                endsAt: new Date('2026-05-28 12:00:00'),
+                isActive: true,
+                createdAt: Date.now().toString(),
+                updatedAt: Date.now().toString(),
             },
         });
     }
