@@ -27,6 +27,12 @@ interface SeedData {
 }
 
 async function main() {
+
+  if (process.env.NODE_ENV === 'production') {
+    console.log('⚠️  Seeding should only be run in non-production environment. Aborting...');
+    return;
+  }
+
   const configService = new ConfigService();
 
   try {

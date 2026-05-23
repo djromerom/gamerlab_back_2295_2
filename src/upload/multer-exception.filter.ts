@@ -10,8 +10,8 @@ export class MulterExceptionFilter implements ExceptionFilter {
 
     // Handle Multer file size errors
     if (exception.code === 'LIMIT_FILE_SIZE') {
-      const error = new PayloadTooLargeException('El archivo es demasiado grande. Tamaño máximo permitido: 1MB');
-      
+      const error = new PayloadTooLargeException('El archivo es demasiado grande.');
+
       return response.status(413).json({
         statusCode: 413,
         message: error.message,
@@ -24,7 +24,7 @@ export class MulterExceptionFilter implements ExceptionFilter {
     // Handle other Multer errors
     if (exception.code === 'LIMIT_FILE_COUNT') {
       const error = new BadRequestException('Demasiados archivos. Solo se permite un archivo por solicitud.');
-      
+
       return response.status(400).json({
         statusCode: 400,
         message: error.message,
@@ -36,7 +36,7 @@ export class MulterExceptionFilter implements ExceptionFilter {
 
     if (exception.code === 'LIMIT_UNEXPECTED_FILE') {
       const error = new BadRequestException('Campo de archivo inesperado. Use el campo "file" para subir archivos.');
-      
+
       return response.status(400).json({
         statusCode: 400,
         message: error.message,

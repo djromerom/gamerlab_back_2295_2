@@ -136,4 +136,6 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+api-tests
+env
 .vscode/

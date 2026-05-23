@@ -247,6 +247,8 @@ model Videogame {
   additionalImages  String[]        @default([]) @map("imagenes_adicionales")
   team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
+  gameFileUrl       String?         @map("archivo_videojuego_url")
+  entry             String?
 
   highlightedGames   HighlightedGame[]
   evaluations       Evaluation[]
@@ -389,13 +391,14 @@ model Weighting {
 }
 
 model Upload {
-  id        String   @id @default(uuid())
-  blobName  String
-  filename  String
-  mimetype  String
-  size      Int
-  isPublic  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  blobName    String   
+  filename    String
+  mimetype    String
+  size        Int
+  entry       String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   @@map("archivos_subidos")
 }

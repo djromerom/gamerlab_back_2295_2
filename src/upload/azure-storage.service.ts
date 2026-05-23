@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, PayloadTooLargeException, OnModuleInit } from '@nestjs/common';
+import { Injectable, BadRequestException, PayloadTooLargeException, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
 import { BlobServiceClient, BlockBlobClient, BlobSASPermissions, StorageSharedKeyCredential, generateBlobSASQueryParameters, ContainerClient } from '@azure/storage-blob';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { Upload } from '@prisma/client';
+import JSZip from 'jszip';
 
 @Injectable()
 export class AzureStorageService implements OnModuleInit {
@@ -49,16 +50,26 @@ export class AzureStorageService implements OnModuleInit {
     await this.containerClient.createIfNotExists();
   }
 
-  async uploadFile(file: Express.Multer.File, maxSize: number = 1024 * 1024): Promise<Upload> {
-    if (!file) {
-      throw new BadRequestException('No se proporcionó ningún archivo');
-    }
+  async uploadFile(file: Express.Multer.File): Promise<Upload> {
+    //check for zipfile entrypoint (.html file to embed in frontend gameplayer)
+    let entry: string = '';
+    if (file.originalname.includes(".zip")) {
+      const zip = await JSZip.loadAsync(file.buffer);
 
-    // Validate file size dynamically
-    if (file.size > maxSize) {
-      const sizeMB = Math.round(file.size / 1024 / 1024 * 100) / 100;
-      const limitMB = Math.round(maxSize / 1024 / 1024 * 100) / 100;
-      throw new PayloadTooLargeException(`El archivo es demasiado grande (${sizeMB}MB). Tamaño máximo permitido: ${limitMB}MB`);
+      //filtrar una lista de posibles entrypoints dentro del zip
+      const htmlFiles = Object.keys(zip.files).filter(
+        name => {
+          return name.endsWith('.html')
+        }
+      );
+
+      //si existe algún html, preferir servir index.html. sino, el primero que haya salido
+      if (htmlFiles.length !== 0) {
+        entry = htmlFiles.find(f => f.endsWith('index.html')) ?? htmlFiles[0];
+      } else {
+        throw new BadRequestException('El archivo .zip no contiene ningún archivo .html. Sin esto, no puede ser servido.')
+      }
+
     }
 
     const blobName = `${Date.now()}-${path.basename(file.originalname)}`;
@@ -75,13 +86,15 @@ export class AzureStorageService implements OnModuleInit {
           filename: file.originalname,
           mimetype: file.mimetype,
           size: file.size,
+          //cuando se monten archivos ZIP de juego, 'entry' se le envía al front para que sepa qué archivo servir dentro del zip.
+          entry: (entry !== '') ? entry : null,
           isPublic: false,
         },
       });
     } catch (error: any) {
       // Handle Azure-specific errors
       if (error.statusCode === 413 || error.code === 'REQUEST_BODY_TOO_LARGE') {
-        throw new PayloadTooLargeException('El archivo es demasiado grande para Azure Storage. Tamaño máximo permitido: 1MB');
+        throw new PayloadTooLargeException();
       }
 
       if (error.statusCode === 400) {
@@ -97,7 +110,7 @@ export class AzureStorageService implements OnModuleInit {
         fileSize: file.size,
       });
 
-      throw new BadRequestException('Error interno al subir el archivo. Por favor, inténtelo de nuevo.');
+      throw new InternalServerErrorException('Error interno al subir el archivo. Por favor, inténtelo de nuevo.');
     }
   }
 

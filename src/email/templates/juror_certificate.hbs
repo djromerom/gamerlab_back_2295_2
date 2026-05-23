@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Certificado de Jurado — V Feria Gamer</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0d0d0d;
+      font-family: Arial, sans-serif;
+      color: #ffffff;
+    }
+    .wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #111111;
+      border: 1px solid #2a2a2a;
+    }
+    .header {
+      background-color: #0d0d0d;
+      padding: 32px 40px 24px;
+      text-align: center;
+      border-bottom: 1px solid #222;
+    }
+    .header img {
+      height: 48px;
+      width: auto;
+    }
+    .body {
+      padding: 40px 40px 32px;
+    }
+    .body h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #5ae7f1;
+      margin: 0 0 16px;
+    }
+    .body p {
+      font-size: 15px;
+      color: #cccccc;
+      line-height: 1.7;
+      margin: 0 0 16px;
+    }
+    .highlight {
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .cta-note {
+      background: #1a1a1a;
+      border-left: 3px solid #5ae7f1;
+      padding: 14px 18px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #aaaaaa;
+      margin: 24px 0;
+    }
+    .footer {
+      padding: 20px 40px;
+      border-top: 1px solid #222;
+      text-align: center;
+      font-size: 12px;
+      color: #555555;
+    }
+    .footer a {
+      color: #5ae7f1;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <!-- Reemplaza con la URL SAS del logo de Arkad si quieres mostrarlo aquí -->
+      <p style="color:#5ae7f1; font-size:18px; font-weight:700; margin:0;">V Feria Gamer — Arkad</p>
+    </div>
+
+    <div class="body">
+      <h1>¡Gracias por ser parte de la V Feria Gamer!</h1>
+
+      <p>
+        Estimado/a <span class="highlight">{{ jurorName }}</span>,
+      </p>
+
+      <p>
+        En nombre del equipo de <strong>Arkad</strong> y del
+        <strong>Departamento de Ingeniería de Sistemas y Computación</strong>
+        de la Universidad del Norte, queremos agradecerte por tu valioso tiempo
+        y dedicación como <strong>jurado</strong> en la
+        <strong>V Feria Gamer</strong>, celebrada el
+        <strong>28 de mayo de 2026</strong> en Barranquilla.
+      </p>
+
+      <p>
+        Tu participación fue fundamental para garantizar un proceso de evaluación
+        justo y enriquecedor para todos los equipos participantes.
+      </p>
+
+      <div class="cta-note">
+        📎 Adjunto a este correo encontrarás tu <strong>certificado oficial de participación</strong>
+        en formato PDF. Consérvalo como reconocimiento de tu labor.
+      </div>
+
+      <p>
+        Esperamos contar con tu presencia en futuras ediciones.
+      </p>
+
+      <p style="margin-top: 32px;">
+        Atentamente,<br/>
+        <span class="highlight">Equipo Arkad</span><br/>
+        Universidad del Norte
+      </p>
+    </div>
+
+    <div class="footer">
+      Universidad del Norte — Departamento de Ingeniería de Sistemas y Computación<br/>
+      Barranquilla, Colombia &nbsp;|&nbsp;
+      <a href="https://www.uninorte.edu.co">uninorte.edu.co</a>
+    </div>
+  </div>
+</body>
+</html>

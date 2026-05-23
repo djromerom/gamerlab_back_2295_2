@@ -51,6 +51,13 @@ services:
         echo 'Database seeding completed'
       "
     restart: "no"
+  
+  gotenberg:
+    image: gotenberg/gotenberg:8-chromium
+    container_name: arkad_gotenberg_dev
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
 
   app-dev:
     image: node:20-alpine
@@ -60,6 +67,8 @@ services:
         condition: service_healthy
       migrate-and-seed-dev:
         condition: service_completed_successfully
+      gotenberg:
+        condition: service_started
     ports:
       - "3000:3000"
     working_dir: /usr/src/app
@@ -70,8 +79,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - CHOKIDAR_INTERVAL=1000
       - WATCHPACK_POLLING=true
-      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
-      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - GOTENBERG_URL=http://gotenberg:3000
       - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
     dns:
       - 8.8.8.8
@@ -82,8 +90,6 @@ services:
       - node_modules_dev:/usr/src/app/node_modules
     command: >
       sh -c "
-        echo 'Installing Chromium for Puppeteer...' &&
-        apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont &&
         echo 'Installing dependencies...' &&
         npm install &&
         echo 'Generating Prisma client...' &&
@@ -96,6 +102,7 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite
     container_name: "azurite"
     hostname: azurite
+    command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000
     restart: always
     ports:
       - "10000:10000"
