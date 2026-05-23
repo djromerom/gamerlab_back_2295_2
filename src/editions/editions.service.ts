@@ -106,7 +106,7 @@ export class EditionsService {
       }
     }
 
-    const upload = await this.azureStorageService.uploadFile(file, 5 * 1024 * 1024); // 5MB max
+    const upload = await this.azureStorageService.uploadFile(file); // 5MB max
 
     const updated = await this.prisma.edition.update({
       where: { id },
@@ -130,7 +130,7 @@ export class EditionsService {
 
     // Upload all the photos in parallel (each one with max 5MB)
     const uploads = await Promise.all(
-      files.map(file => this.azureStorageService.uploadFile(file, 5 * 1024 * 1024))
+      files.map(file => this.azureStorageService.uploadFile(file))
     );
 
     const uploadIds = uploads.map(u => u.id);
