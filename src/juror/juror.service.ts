@@ -470,6 +470,58 @@ export class JurorService {
     const userEmailMap = new Map<string, string>();
     for (const u of users) userEmailMap.set(u.id, u.email);
 
+    // Modificacion: Cargar NRCs de profesores y de miembros de equipos para evitar que un profesor
+    // Evalue equipos de sus propios cursos
+    const professorWithNrcs = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: Array.from(allProfessorsMap.keys()),
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        managedNrcs: {
+          select: { id: true, code: true },
+        },
+      },
+    });
+
+    const professorNrcMap = new Map<string, Set<number>>();
+    for (const prof of professorWithNrcs) {
+      const nrcIds = new Set<number>();
+      for (const nrc of prof.managedNrcs) {
+        nrcIds.add(nrc.id);
+      }
+      professorNrcMap.set(prof.id, nrcIds);
+    }
+
+    const teamIdsForNrcs = teams.map((t) => t.id);
+    const teamsWithNrcs = await this.prisma.team.findMany({
+      where: { id: { in: teamIdsForNrcs } },
+      select: {
+        id: true,
+        members: {
+          select: {
+            nrcs: {
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    const teamNrcMap = new Map<number, Set<number>>();
+    for (const team of teamsWithNrcs) {
+      const nrcIds = new Set<number>();
+      for (const member of team.members) {
+        for (const nrc of member.nrcs) {
+          nrcIds.add(nrc.id);
+        }
+      }
+      teamNrcMap.set(team.id, nrcIds);
+    }
+
     const teamsByLevel = new Map<number, typeof teams>();
     for (const team of teams) {
       const level = team.teamCode
@@ -528,6 +580,25 @@ export class JurorService {
 
       const candidates = Array.from(evaluatorLoad.entries())
         .filter(([id, load]) => load < MAX_PER_JUROR && !current.includes(id))
+        // Modificacion: Excluir profesores cuyos NRCs coincidan con los del equipo
+        // para evitar que un profesor evalúe a sus propios estudiantes
+        .filter(([id]) => {
+          // Si es nivel colegio, no aplica esta restricción
+          if (level === 0) return true;
+          // Si el evaluador no es profesor, no hay conflicto
+          if (!allProfessorsMap.has(id)) return true;
+          // Obtener los NRCs del profesor
+          const profNrcs = professorNrcMap.get(id);
+          if (!profNrcs || profNrcs.size === 0) return true;
+          // Obtener los NRCs de los miembros del equipo
+          const teamNrcs = teamNrcMap.get(teamId);
+          if (!teamNrcs || teamNrcs.size === 0) return true;
+          // Verificar si hay intersección: algún NRC del profesor coincide con el equipo
+          for (const nrcId of profNrcs) {
+            if (teamNrcs.has(nrcId)) return false; // Conflicto de interés
+          }
+          return true; // Sin conflicto
+        })
         .filter(([id]) => {
           const email = userEmailMap.get(id);
           if (allowedEmails === null) return true;
