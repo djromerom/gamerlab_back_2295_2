@@ -230,9 +230,10 @@ export class JurorService {
   ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
 
+    // Se ha modificado esta variable para incluir tanto a jurados como a profesores en el listado
     const whereClause: Prisma.UserWhereInput = {
-      roleId: this.jurorRoleId,
       isActive: true,
+      OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
     };
 
     const [users, total, allGames] = await this.prisma.$transaction([

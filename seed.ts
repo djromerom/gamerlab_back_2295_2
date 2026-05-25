@@ -7,6 +7,20 @@ import { ConfigService } from '@nestjs/config';
 
 const prisma = new PrismaClient();
 
+async function resetSequence(tableName: string, idColumn: string) {
+  try {
+    await prisma.$executeRawUnsafe(`
+      SELECT setval(
+        pg_get_serial_sequence('"${tableName}"', '${idColumn}'),
+        COALESCE((SELECT MAX("${idColumn}") FROM "${tableName}"), 1),
+        true
+      );
+    `);
+  } catch (error) {
+    console.error(`⚠️ Could not reset sequence for ${tableName}.${idColumn}`);
+  }
+}
+
 interface SeedData {
   table: string;
   data: any[];
@@ -317,6 +331,30 @@ async function main() {
     } else {
       console.log('🔢 NRC 9999 already exists, skipping creation...');
     }
+
+    console.log('🌱 Synchronizing database sequences...');
+    await resetSequence('ediciones', 'id_edicion');
+    await resetSequence('configuracion_evento', 'id');
+    await resetSequence('enfoque_educativo', 'id_enfoque');
+    await resetSequence('testimonio', 'id_testimonio');
+    await resetSequence('juego_destacado', 'id_juego_destacado');
+    await resetSequence('ponderado', 'id');
+    await resetSequence('equipos', 'id_equipo');
+    await resetSequence('integrante', 'id_integrante');
+    await resetSequence('videojuegos', 'id_videojuego');
+    await resetSequence('videogame_likes', 'id');
+    await resetSequence('evaluacion', 'id_evaluacion');
+    await resetSequence('materia', 'id_materia');
+    await resetSequence('nrc', 'id_nrc');
+    await resetSequence('criterios', 'id_criterio');
+    await resetSequence('detalle_evaluacion', 'id_detalle');
+    await resetSequence('tipo_token', 'id');
+    await resetSequence('estado_videojuego', 'id_estado');
+    await resetSequence('estados_confirmacion', 'id_estado');
+    await resetSequence('roles', 'id_rol');
+    await resetSequence('permisos', 'id_permiso');
+    await resetSequence('servicio', 'id_servicio');
+    console.log('✅ All sequences synchronized');
 
     console.log('🎉 Seeding process completed successfully');
 

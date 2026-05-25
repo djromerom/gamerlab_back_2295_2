@@ -6,8 +6,6 @@ RUN apk add --no-cache postgresql-client
 
 WORKDIR /usr/src/app
 
-# Skip chromium download during npm install
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
 
 COPY package.json package-lock.json ./
 RUN npm install
@@ -25,17 +23,6 @@ FROM node:20-alpine
 RUN apk add --no-cache postgresql-client
 
 
-# Install chromium for pdf generation (puppeteer)
-RUN apk add -q --update --no-cache \
-      chromium \
-      nss \
-      freetype \
-      harfbuzz \
-      ca-certificates \
-      ttf-freefont
-
-# Set chromium path for puppeteer
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 WORKDIR /usr/src/app
 

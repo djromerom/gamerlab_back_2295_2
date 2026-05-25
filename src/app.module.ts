@@ -23,6 +23,10 @@ import { UploadModule } from './upload/upload.module';
 import { SettingsModule } from './settings/settings.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { EmailModule } from './email/email.module';
+import { EditionsModule } from './editions/editions.module';
+import { TestimonialsModule } from './testimonials/testimonials.module';
+import { EducationalFocusesModule } from './educational-focuses/educational-focuses.module';
+import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
 
 @Module({
   imports: [
@@ -46,6 +50,10 @@ import { EmailModule } from './email/email.module';
     UploadModule,
     SettingsModule,
     CertificatesModule,
+    EditionsModule,
+    TestimonialsModule,
+    EducationalFocusesModule,
+    HighlightedGamesModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

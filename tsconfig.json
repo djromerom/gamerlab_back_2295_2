@@ -11,7 +11,9 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "src/*": ["src/*"]
+      "src/*": [
+        "src/*"
+      ]
     },
     "incremental": true,
     "skipLibCheck": true,
@@ -24,6 +26,15 @@
     "strict": true,
     "noEmitOnError": true,
     "strictPropertyInitialization": false,
-    "types": ["node", "jest", "express", "multer"]
-  }
+    "types": [
+      "node",
+      "jest",
+      "express",
+      "multer"
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }
