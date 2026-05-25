@@ -27,6 +27,7 @@ import { EditionsModule } from './editions/editions.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
 import { EducationalFocusesModule } from './educational-focuses/educational-focuses.module';
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
+import { HistoricalsModule } from './historicals/historicals.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { HighlightedGamesModule } from './highlighted-games/highlighted-games.mo
     TestimonialsModule,
     EducationalFocusesModule,
     HighlightedGamesModule,
+    HistoricalsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
