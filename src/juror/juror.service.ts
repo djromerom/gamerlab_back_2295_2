@@ -435,24 +435,32 @@ export class JurorService {
       },
     });
 
+    // MODIFICADO: Se implemento el BadRequest para esta validacion
     if (!latestEdition) {
-      return { message: 'No hay ediciones disponibles.', details: [] };
+      throw new BadRequestException('No hay ediciones disponibles.');
     }
 
     const teams = await this.getTeams(latestEdition.id);
     const allJurorsMap = await this.getJurors(false);
     const allProfessorsMap = await this.getJurors(true);
 
+    // MODIFICADO: Se añadio el BadRequestException a esta otra validacion
     if (teams.length === 0) {
-      return {
-        message: 'No hay equipos confirmados y activos para asignar.',
-        details: [],
-      };
+      throw new BadRequestException(
+        'No hay equipos confirmados y activos para asignar.',
+      );
     }
 
     const allEvaluators = new Map<string, number>();
     for (const [id, count] of allJurorsMap) allEvaluators.set(id, count);
     for (const [id, count] of allProfessorsMap) allEvaluators.set(id, count);
+
+    // MODIFICACION: Validación nueva — sin evaluadores la asignación no tiene sentido
+    if (allEvaluators.size === 0) {
+      throw new BadRequestException(
+        'No hay jurados ni profesores activos disponibles para realizar la asignación.',
+      );
+    }
 
     const users = await this.prisma.user.findMany({
       where: { id: { in: Array.from(allEvaluators.keys()) } },
@@ -1365,11 +1373,9 @@ export class JurorService {
       );
 
       if (assignmentCount === 0) {
-        return {
-          message:
-            'No hay asignaciones de evaluadores (jurados o profesores) para eliminar',
-          asignacionesEliminadas: 0,
-        };
+        throw new BadRequestException(
+          'No hay asignaciones de evaluadores (jurados o profesores) para eliminar',
+        );
       }
 
       await this.prisma.$transaction(async (tx) => {
