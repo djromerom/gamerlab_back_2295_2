@@ -295,11 +295,12 @@ async function main() {
       where: { email: profesorEmail },
     });
 
+    const password =
+      configService.get<string>('PROFESOR_COLEGIOS_PASSWORD') || 'Pass1234';
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     if (!profesor) {
       console.log(`👨‍🏫 Creating professor ${profesorEmail}...`);
-      const password =
-        configService.get<string>('PROFESOR_COLEGIOS_PASSWORD') || 'Pass1234';
-      const hashedPassword = await bcrypt.hash(password, 10);
       profesor = await prisma.user.create({
         data: {
           id: profesorId,
@@ -318,8 +319,19 @@ async function main() {
       console.log('✅ Professor created successfully');
     } else {
       console.log(
-        `👨‍🏫 Professor ${profesorEmail} already exists, using existing...`,
+        `👨‍🏫 Professor ${profesorEmail} already exists, setting password...`,
       );
+      // El usuario existe pero fue creado desde seed-data.json sin contraseña
+      // Actualizamos su contraseña y authMethod para que pueda hacer login
+      profesor = await prisma.user.update({
+        where: { email: profesorEmail },
+        data: {
+          password: hashedPassword,
+          authMethod: 'PASSWORD',
+          roleId: 3, // Asegurar que sea Profesor
+        },
+      });
+      console.log('✅ Professor password updated successfully');
     }
 
     // Crear o buscar NRC 9999 (asociado al profesor y la materia)
@@ -364,20 +376,21 @@ async function main() {
 
     if (profesorFinal && equipoEpsilon) {
       // Verificar si ya existe la asignación en la tabla implícita _JurorTeamAssignment
-      const existingAssignment = await prisma.$queryRawUnsafe<
-        { count: bigint }[]
-      >(
-        `SELECT COUNT(*) as count FROM "_JurorTeamAssignment" WHERE "A" = $1 AND "B" = $2`,
-        profesorFinal.id,
-        equipoEpsilon.id,
-      );
+      // Usamos métodos nativos de Prisma para relaciones many-to-many (type-safe)
+      const alreadyAssigned = await prisma.user.findFirst({
+        where: {
+          id: profesorFinal.id,
+          teamsToEvaluate: { some: { id: equipoEpsilon.id } },
+        },
+      });
 
-      if (existingAssignment[0]?.count === BigInt(0)) {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "_JurorTeamAssignment" ("A", "B") VALUES ($1, $2)`,
-          profesorFinal.id,
-          equipoEpsilon.id,
-        );
+      if (!alreadyAssigned) {
+        await prisma.user.update({
+          where: { id: profesorFinal.id },
+          data: {
+            teamsToEvaluate: { connect: { id: equipoEpsilon.id } },
+          },
+        });
         console.log(
           `✅ Professor assigned to team ${equipoEpsilon.teamName} (ID: ${equipoEpsilon.id})`,
         );

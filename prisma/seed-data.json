@@ -2217,6 +2217,56 @@
     ]
   },
   {
+    "table": "criterios",
+    "data": [
+      {
+        "id": 1,
+        "name": "Creatividad e Innovación",
+        "weight": 0.25,
+        "description": "Evalúa la originalidad del concepto, la narrativa y las mecánicas del juego",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "name": "Jugabilidad y Diversión",
+        "weight": 0.25,
+        "description": "Evalúa qué tan entretenido e intuitivo es el juego, la fluidez de las mecánicas y la experiencia del usuario",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "name": "Aspecto Técnico",
+        "weight": 0.2,
+        "description": "Evalúa la calidad del código, rendimiento, estabilidad y optimización del juego",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 4,
+        "name": "Diseño Visual y Sonoro",
+        "weight": 0.15,
+        "description": "Evalúa la calidad artística, interfaz de usuario, animaciones y banda sonora",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 5,
+        "name": "Temática y Mensaje",
+        "weight": 0.15,
+        "description": "Evalúa qué tan bien aborda la temática de seguridad digital y el mensaje educativo",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
     "table": "juego_destacado",
     "data": [
       {
