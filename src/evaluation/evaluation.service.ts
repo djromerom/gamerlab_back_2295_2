@@ -3,9 +3,10 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 import { CriterionService } from 'src/criterion/criterion.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
+import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 
 @Injectable()
 export class EvaluationService {
@@ -164,5 +165,129 @@ export class EvaluationService {
     const final = (seniorAvg * seniorPct + juniorAvg * juniorPct) / 100;
 
     return Number(final.toFixed(2));
+  }
+  // [MODIFICADO]: Optimización de rendimiento para calificaciones masivas
+  // [ANTES]: Consultaba Edición, Rol de Jurado y Criterios repetidamente dentro del ciclo for por cada videojuego calificado
+  // [APRENDIZAJE]: Minimizar accesos de lectura redundantes a base de datos extrayendo consultas estáticas fuera de bucles asíncronos
+  async createBatchEvaluations(
+    jurorId: string,
+    batchPayload: BatchEvaluationDto,
+  ) {
+    await this.checkEvaluationsOpen();
+
+    const results = {
+      successful: [] as { videogameId: number; evaluationId: number }[],
+      failed: [] as { videogameId: number; error: string }[],
+    };
+
+    // --- OPTIMIZACIÓN: CONSULTAS DE LECTURA GLOBALES (FUERA DEL BUCLE) ---
+    const activeEdition = await this.prisma.edition.findFirst({
+      where: { isActive: true },
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+
+    if (!activeEdition) {
+      throw new BadRequestException('No hay una edición activa configurada');
+    }
+
+    const professorRole = await this.prisma.role.findUnique({
+      where: { name: 'Professor' },
+      select: { id: true },
+    });
+
+    const professorRoleId = professorRole?.id;
+
+    const jurorUser = await this.prisma.user.findUnique({
+      where: { id: jurorId },
+      select: { roleId: true },
+    });
+
+    const isSenior = jurorUser?.roleId === professorRoleId;
+
+    const activeCriteria = await this.prisma.criterion.findMany({
+      where: { isActive: true },
+    });
+
+    if (!activeCriteria || activeCriteria.length === 0) {
+      throw new BadRequestException('No active evaluation criteria found.');
+    }
+
+    const criteriaWeightMap = new Map<number, number>();
+    activeCriteria.forEach((criterion) => {
+      criteriaWeightMap.set(criterion.id, criterion.weight ?? 0);
+    });
+    // ---------------------------------------------------------------------
+
+    for (const evaluationPayload of batchPayload.evaluations) {
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
+          let calculatedTotalScore = 0;
+
+          const detailsData = evaluationPayload.details.map((detail) => {
+            const weight = criteriaWeightMap.get(detail.criterionId);
+
+            if (weight === undefined) {
+              throw new Error(
+                `Criterion with id ${detail.criterionId} is not valid or not active.`,
+              );
+            }
+
+            if (detail.score < 1 || detail.score > 5) {
+              throw new Error(
+                `Score for criterion ${detail.criterionId} is out of range (1-5). Score: ${detail.score}`,
+              );
+            }
+
+            calculatedTotalScore += detail.score * weight;
+
+            return {
+              criterionId: detail.criterionId,
+              score: detail.score,
+              createdAt: new Date(detail.createdAt),
+              updatedAt: new Date(detail.updatedAt),
+              isActive: detail.isActive ?? true,
+            };
+          });
+
+          calculatedTotalScore = parseFloat(calculatedTotalScore.toFixed(4));
+
+          const evaluation = await tx.evaluation.create({
+            data: {
+              jurorId,
+              date: new Date(evaluationPayload.date),
+              comments: evaluationPayload.comments,
+              videogameId: evaluationPayload.videogameId,
+              editionId: activeEdition.id,
+              isSenior,
+              totalScore: calculatedTotalScore,
+              details: {
+                create: detailsData,
+              },
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          return {
+            videogameId: evaluationPayload.videogameId,
+            evaluationId: evaluation.id,
+          };
+        });
+
+        results.successful.push(result);
+      } catch (error: any) {
+        results.failed.push({
+          videogameId: evaluationPayload.videogameId,
+          error: error.message || 'Error desconocido al guardar la evaluación',
+        });
+      }
+    }
+
+    return {
+      results,
+      message: `Procesadas ${batchPayload.evaluations.length} evaluaciones: ${results.successful.length} exitosas, ${results.failed.length} fallidas`,
+    };
   }
 }
