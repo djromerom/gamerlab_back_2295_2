@@ -1926,7 +1926,7 @@
       {
         "id": 1,
         "editionId": 3,
-        "evaluationsOpen": false,
+        "evaluationsOpen": true,
         "showRanking": true,
         "showEvaluations": false,
         "createdAt": "2025-01-01T00:00:00.000Z",
@@ -1999,6 +1999,15 @@
         "roleId": 2,
         "firstName": "Student",
         "lastName": "Five"
+      },
+      {
+        "id": "profesor-colegios",
+        "email": "profesorcolegios@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 3,
+        "firstName": "Profesor",
+        "lastName": "Colegios"
       }
     ]
   },

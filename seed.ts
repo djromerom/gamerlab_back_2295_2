@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
-import { randomUUID } from 'crypto';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
+import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 const prisma = new PrismaClient();
 
@@ -27,9 +27,10 @@ interface SeedData {
 }
 
 async function main() {
-
   if (process.env.NODE_ENV === 'production') {
-    console.log('⚠️  Seeding should only be run in non-production environment. Aborting...');
+    console.log(
+      '⚠️  Seeding should only be run in non-production environment. Aborting...',
+    );
     return;
   }
 
@@ -55,7 +56,9 @@ async function main() {
 
     // Procesar cada tabla en el orden especificado
     for (const tableData of seedData) {
-      console.log(`🔄 Processing table: ${tableData.table} (${tableData.data.length} records)`);
+      console.log(
+        `🔄 Processing table: ${tableData.table} (${tableData.data.length} records)`,
+      );
 
       try {
         // Usar el método createMany de Prisma según la tabla (insertar todos los registros de una vez)
@@ -63,121 +66,121 @@ async function main() {
           case 'tipo_token':
             await prisma.tokenType.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'estado_videojuego':
             await prisma.videogameStatus.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'estados_confirmacion':
             await prisma.confirmationStatus.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'roles':
             await prisma.role.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'ediciones':
             await prisma.edition.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'enfoque_educativo':
             await prisma.educationalFocus.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'testimonio':
             // Limpiar espacios en blanco en nombres antes de insertar
-            const cleanedTestimonials = tableData.data.map(t => ({
+            const cleanedTestimonials = tableData.data.map((t) => ({
               ...t,
               name: t.name.trim(),
-              role: t.role.trim()
+              role: t.role.trim(),
             }));
             await prisma.testimonial.createMany({
               data: cleanedTestimonials,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'permisos':
             await prisma.permission.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'servicio':
             await prisma.service.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'servicio_permiso':
             await prisma.servicePermission.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'rol_permiso':
             await prisma.rolePermission.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'configuracion_evento':
             await prisma.eventConfiguration.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'usuarios':
             await prisma.user.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'equipos':
             await prisma.team.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'integrante':
             await prisma.member.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'videojuegos':
             await prisma.videogame.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'materia':
             await prisma.subject.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'nrc':
             await prisma.nRC.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'criterios':
             await prisma.criterion.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'ponderado':
@@ -189,30 +192,37 @@ async function main() {
           case 'evaluacion':
             await prisma.evaluation.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'detalle_evaluacion':
             await prisma.evaluationDetail.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
           case 'juego_destacado':
             await prisma.highlightedGame.createMany({
               data: tableData.data,
-              skipDuplicates: true
+              skipDuplicates: true,
             });
             break;
 
           default:
-            console.log(`⚠️  Table ${tableData.table} not recognized, skipping...`);
+            console.log(
+              `⚠️  Table ${tableData.table} not recognized, skipping...`,
+            );
             continue;
         }
 
-        console.log(`✅ ${tableData.data.length} records created/updated in ${tableData.table}`);
+        console.log(
+          `✅ ${tableData.data.length} records created/updated in ${tableData.table}`,
+        );
       } catch (error) {
-        console.error(`❌ Error creating records in ${tableData.table}:`, error);
+        console.error(
+          `❌ Error creating records in ${tableData.table}:`,
+          error,
+        );
         if (error instanceof Error) {
           console.error(`Error message: ${error.message}`);
         }
@@ -223,12 +233,13 @@ async function main() {
     // Create admin user only if it doesn't exist
     const adminEmail = 'admin@uninorte.edu.co';
     const existingAdmin = await prisma.user.findUnique({
-      where: { email: adminEmail }
+      where: { email: adminEmail },
     });
 
     if (!existingAdmin) {
       console.log('👤 Creating admin user...');
-      const password = configService.get<string>('ADMIN_PASSWORD') || 'Admin1234';
+      const password =
+        configService.get<string>('ADMIN_PASSWORD') || 'Admin1234';
       const hashedPassword = await bcrypt.hash(password, 10);
       await prisma.user.create({
         data: {
@@ -241,8 +252,8 @@ async function main() {
           isActive: true,
           createdAt: new Date(),
           authMethod: 'PASSWORD',
-          password: hashedPassword
-        }
+          password: hashedPassword,
+        },
       });
       console.log('✅ Admin user created successfully');
     } else {
@@ -259,8 +270,8 @@ async function main() {
     let materiaColegios = await prisma.subject.findFirst({
       where: {
         abrevName: 'COL',
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     if (!materiaColegios) {
@@ -271,8 +282,8 @@ async function main() {
           code: 'COL0000',
           abrevName: 'COL',
           semester: 0,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
       console.log('✅ Subject "Colegios" created successfully');
     } else {
@@ -281,12 +292,13 @@ async function main() {
 
     // Crear o buscar profesor
     let profesor = await prisma.user.findUnique({
-      where: { email: profesorEmail }
+      where: { email: profesorEmail },
     });
 
     if (!profesor) {
       console.log(`👨‍🏫 Creating professor ${profesorEmail}...`);
-      const password = configService.get<string>('PROFESOR_COLEGIOS_PASSWORD') || 'Pass1234';
+      const password =
+        configService.get<string>('PROFESOR_COLEGIOS_PASSWORD') || 'Pass1234';
       const hashedPassword = await bcrypt.hash(password, 10);
       profesor = await prisma.user.create({
         data: {
@@ -300,20 +312,22 @@ async function main() {
           createdAt: new Date(),
           lastSignInAt: new Date(),
           authMethod: 'PASSWORD',
-          password: hashedPassword
-        }
+          password: hashedPassword,
+        },
       });
       console.log('✅ Professor created successfully');
     } else {
-      console.log(`👨‍🏫 Professor ${profesorEmail} already exists, using existing...`);
+      console.log(
+        `👨‍🏫 Professor ${profesorEmail} already exists, using existing...`,
+      );
     }
 
     // Crear o buscar NRC 9999 (asociado al profesor y la materia)
     const nrcExistente = await prisma.nRC.findFirst({
       where: {
         code: 9999,
-        editionId: 3
-      }
+        editionId: 3,
+      },
     });
 
     if (!nrcExistente) {
@@ -324,12 +338,54 @@ async function main() {
           subjectId: materiaColegios.id, // Asociado a la materia
           professorId: profesor.id, // Asociado al profesor
           editionId: 3,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
-      console.log('✅ NRC 9999 created successfully (associated with professor and subject)');
+      console.log(
+        '✅ NRC 9999 created successfully (associated with professor and subject)',
+      );
     } else {
       console.log('🔢 NRC 9999 already exists, skipping creation...');
+    }
+
+    // Asignar profesor-colegios al equipo 500 (Equipo Epsilon Mock, colegio)
+    console.log(
+      '🔗 Assigning professor to team 500 (Equipo Epsilon Mock - school team)...',
+    );
+
+    // Buscar el profesor actualizado (pudo ser creado por JSON o por el seed)
+    const profesorFinal = await prisma.user.findUnique({
+      where: { email: profesorEmail },
+    });
+
+    const equipoEpsilon = await prisma.team.findUnique({
+      where: { id: 500 },
+    });
+
+    if (profesorFinal && equipoEpsilon) {
+      // Verificar si ya existe la asignación en la tabla implícita _JurorTeamAssignment
+      const existingAssignment = await prisma.$queryRawUnsafe<
+        { count: bigint }[]
+      >(
+        `SELECT COUNT(*) as count FROM "_JurorTeamAssignment" WHERE "A" = $1 AND "B" = $2`,
+        profesorFinal.id,
+        equipoEpsilon.id,
+      );
+
+      if (existingAssignment[0]?.count === BigInt(0)) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "_JurorTeamAssignment" ("A", "B") VALUES ($1, $2)`,
+          profesorFinal.id,
+          equipoEpsilon.id,
+        );
+        console.log(
+          `✅ Professor assigned to team ${equipoEpsilon.teamName} (ID: ${equipoEpsilon.id})`,
+        );
+      } else {
+        console.log('ℹ️ Professor already assigned to team 500, skipping...');
+      }
+    } else {
+      console.warn('⚠️ Could not find professor or team 500 for assignment');
     }
 
     console.log('🌱 Synchronizing database sequences...');
@@ -357,7 +413,6 @@ async function main() {
     console.log('✅ All sequences synchronized');
 
     console.log('🎉 Seeding process completed successfully');
-
   } catch (error) {
     console.error('💥 Error during seeding process:', error);
     throw error;
@@ -367,8 +422,7 @@ async function main() {
 }
 
 // Ejecutar el seeding
-main()
-  .catch((e) => {
-    console.error('Fatal error in seeding:', e);
-    process.exit(1);
-  });
+main().catch((e) => {
+  console.error('Fatal error in seeding:', e);
+  process.exit(1);
+});
