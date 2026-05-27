@@ -7,7 +7,6 @@ import { CriterionService } from 'src/criterion/criterion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
-import { CriterionService } from 'src/criterion/criterion.service';
 import { EditionStatus } from '@prisma/client';
 
 @Injectable()
@@ -15,7 +14,7 @@ export class EvaluationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly criterionService: CriterionService,
-  ) {}
+  ) { }
 
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
@@ -184,7 +183,7 @@ export class EvaluationService {
 
     // --- OPTIMIZACIÓN: CONSULTAS DE LECTURA GLOBALES (FUERA DEL BUCLE) ---
     const activeEdition = await this.prisma.edition.findFirst({
-      where: { isActive: true },
+      where: { status: EditionStatus.ACTIVE },
       orderBy: { id: 'desc' },
       select: { id: true },
     });
