@@ -4,6 +4,7 @@ import { CreateTestimonialDto } from '../../testimonials/dto/create-testimonial.
 import { UpdateTestimonialDto } from '../../testimonials/dto/update-testimonial.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @ApiTags('Testimonials')
 @Controller('editions/:editionId/testimonials')
@@ -18,6 +19,7 @@ export class TestimonialsController {
     return this.testimonialsService.create(editionId, createTestimonialDto);
   }
 
+  @Public()
   @Get()
   findAll(
     @Param('editionId', ParseIntPipe) editionId: number,
@@ -26,6 +28,7 @@ export class TestimonialsController {
     return this.testimonialsService.findAll(editionId, query);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('editionId', ParseIntPipe) editionId: number, @Param('id', ParseIntPipe) id: number) {
     return this.testimonialsService.findOne(editionId, id);

@@ -72,8 +72,8 @@ describe('ImageValidationPipe', () => {
       pipe = new ImageValidationPipe({
         minWidth: 10,
         minHeight: 10,
-        maxWidth: 2000,
-        maxHeight: 2000,
+        maxWidth: 6000,
+        maxHeight: 6000,
       });
       mockedSizeOf.mockReturnValue({ width: 1000, height: 1000 });
 

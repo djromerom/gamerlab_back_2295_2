@@ -207,6 +207,24 @@ async function main() {
               skipDuplicates: true,
             });
             break;
+          case 'equipos_historico':
+            await prisma.historicalTeam.createMany({
+              data: tableData.data,
+              skipDuplicates: true
+            });
+            break;
+          case 'integrante_historico':
+            await prisma.historicalMember.createMany({
+              data: tableData.data,
+              skipDuplicates: true
+            });
+            break;
+          case 'videojuegos_historico':
+            await prisma.historicalVideogame.createMany({
+              data: tableData.data,
+              skipDuplicates: true
+            });
+            break;
 
           default:
             console.log(
@@ -409,6 +427,9 @@ async function main() {
     await resetSequence('juego_destacado', 'id_juego_destacado');
     await resetSequence('ponderado', 'id');
     await resetSequence('equipos', 'id_equipo');
+    await resetSequence('equipos_historico', 'id_equipo_historico');
+    await resetSequence('integrante_historico', 'id_integrante_historico');
+    await resetSequence('videojuegos_historico', 'id_videojuego_historico');
     await resetSequence('integrante', 'id_integrante');
     await resetSequence('videojuegos', 'id_videojuego');
     await resetSequence('videogame_likes', 'id');

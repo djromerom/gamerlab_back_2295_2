@@ -1717,7 +1717,7 @@
         "alt": "Feria Gamer 2025-10",
         "startsAt": "2024-03-01T00:00:00.000Z",
         "endsAt": "2024-03-31T23:59:59.000Z",
-        "isActive": false,
+        "status": "ARCHIVED",
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
@@ -1731,7 +1731,7 @@
         "alt": "Feria Gamer 2024-30",
         "startsAt": "2024-04-01T00:00:00.000Z",
         "endsAt": "2024-04-30T23:59:59.000Z",
-        "isActive": false,
+        "status": "INACTIVE",
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
@@ -1745,7 +1745,7 @@
         "alt": "Feria Gamer 2025-30",
         "startsAt": "2025-11-01T00:00:00.000Z",
         "endsAt": "2025-11-30T23:59:59.000Z",
-        "isActive": true,
+        "status": "ACTIVE",
         "createdAt": "2025-11-15T00:00:00.000Z",
         "updatedAt": "2025-11-15T00:00:00.000Z"
       }
@@ -1787,7 +1787,7 @@
       },
       {
         "id": 3,
-        "editionId": 2,
+        "editionId": 3,
         "title": "Anti-Grooming",
         "description": "Videojuegos que ense\u00f1an a identificar y prevenir el acoso en l\u00ednea por parte de adultos hacia menores.",
         "isActive": true,
@@ -1796,7 +1796,7 @@
       },
       {
         "id": 4,
-        "editionId": 2,
+        "editionId": 3,
         "title": "Anti-Phishing",
         "description": "Experiencias interactivas para reconocer intentos de suplantaci\u00f3n de identidad y estafas en l\u00ednea.",
         "isActive": true,
@@ -2282,6 +2282,175 @@
         "videogameId": 200,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "equipos_historico",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 1,
+        "teamName": "Eco Warriors",
+        "teamCode": "HIST-100"
+      },
+      {
+        "id": 2,
+        "editionId": 1,
+        "teamName": "Green Tech",
+        "teamCode": "HIST-200"
+      },
+      {
+        "id": 3,
+        "editionId": 1,
+        "teamName": "Nature Devs",
+        "teamCode": "HIST-300"
+      },
+      {
+        "id": 4,
+        "editionId": 1,
+        "teamName": "Wind Runners",
+        "teamCode": "HIST-400"
+      },
+      {
+        "id": 5,
+        "editionId": 1,
+        "teamName": "Solar Knights",
+        "teamCode": "HIST-500"
+      }
+    ]
+  },
+  {
+    "table": "integrante_historico",
+    "data": [
+      {
+        "id": 1,
+        "firstName": "Juan",
+        "lastName": "Perez",
+        "email": "juan.perez@example.com",
+        "studentCode": "20000",
+        "teamId": 1
+      },
+      {
+        "id": 2,
+        "firstName": "Maria",
+        "lastName": "Lopez",
+        "email": "maria.lopez@example.com",
+        "studentCode": "20001",
+        "teamId": 1
+      },
+      {
+        "id": 3,
+        "firstName": "Luis",
+        "lastName": "Gomez",
+        "email": "luis.gomez@example.com",
+        "studentCode": "20002",
+        "teamId": 2
+      },
+      {
+        "id": 4,
+        "firstName": "Ana",
+        "lastName": "Torres",
+        "email": "ana.torres@example.com",
+        "studentCode": "20003",
+        "teamId": 2
+      },
+      {
+        "id": 5,
+        "firstName": "Carlos",
+        "lastName": "Diaz",
+        "email": "carlos.diaz@example.com",
+        "studentCode": "20004",
+        "teamId": 3
+      },
+      {
+        "id": 6,
+        "firstName": "Sofia",
+        "lastName": "Ruiz",
+        "email": "sofia.ruiz@example.com",
+        "studentCode": "20005",
+        "teamId": 3
+      },
+      {
+        "id": 7,
+        "firstName": "Pedro",
+        "lastName": "Gomez",
+        "email": "pedro.gomez@example.com",
+        "studentCode": "20006",
+        "teamId": 4
+      },
+      {
+        "id": 8,
+        "firstName": "Laura",
+        "lastName": "Martinez",
+        "email": "laura.martinez@example.com",
+        "studentCode": "20007",
+        "teamId": 5
+      }
+    ]
+  },
+  {
+    "table": "videojuegos_historico",
+    "data": [
+      {
+        "id": 1,
+        "name": "Save the Forest",
+        "description": "Un juego sobre la reforestación.",
+        "logoUrl": "https://images.unsplash.com/photo-1448375240586-882707db888b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 1,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 110,
+        "finalScore": 82
+      },
+      {
+        "id": 2,
+        "name": "Ocean Cleaner",
+        "description": "Limpia el océano de la contaminación.",
+        "logoUrl": "https://images.unsplash.com/photo-1483683804023-6ccdb62f86ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 2,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 120,
+        "finalScore": 84
+      },
+      {
+        "id": 3,
+        "name": "City Planner",
+        "description": "Construye una ciudad sostenible.",
+        "logoUrl": "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 3,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 130,
+        "finalScore": 86
+      },
+      {
+        "id": 4,
+        "name": "Wind Farm Manager",
+        "description": "Administra un parque eólico.",
+        "logoUrl": "https://images.unsplash.com/photo-1466611653911-95081537e5b7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 4,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 140,
+        "finalScore": 88
+      },
+      {
+        "id": 5,
+        "name": "Sun Collector",
+        "description": "Atrapa energía solar para iluminar la ciudad.",
+        "logoUrl": "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 5,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 150,
+        "finalScore": 90
       }
     ]
   }

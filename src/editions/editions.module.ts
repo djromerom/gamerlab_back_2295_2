@@ -5,6 +5,7 @@ import { EditionsController } from './editions.controller';
 import { EducationalFocusesModule } from '../educational-focuses/educational-focuses.module';
 import { HighlightedGamesModule } from '../highlighted-games/highlighted-games.module';
 import { TestimonialsModule } from '../testimonials/testimonials.module';
+import { HistoricalsModule } from '../historicals/historicals.module';
 import { EducationalFocusesController } from './controllers/educational-focuses.controller';
 import { HighlightedGamesController } from './controllers/highlighted-games.controller';
 import { TestimonialsController } from './controllers/testimonials.controller';
@@ -15,6 +16,7 @@ import { TestimonialsController } from './controllers/testimonials.controller';
 		HighlightedGamesModule,
 		TestimonialsModule,
 		UploadModule,
+		HistoricalsModule,
 	],
 	controllers: [
 		EditionsController,

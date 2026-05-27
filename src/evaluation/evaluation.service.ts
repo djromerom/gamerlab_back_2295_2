@@ -7,6 +7,8 @@ import { CriterionService } from 'src/criterion/criterion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
+import { CriterionService } from 'src/criterion/criterion.service';
+import { EditionStatus } from '@prisma/client';
 
 @Injectable()
 export class EvaluationService {
@@ -40,7 +42,7 @@ export class EvaluationService {
 
     const activeEdition = await this.prisma.edition.findFirst({
       where: {
-        isActive: true,
+        status: EditionStatus.ACTIVE,
       },
       orderBy: {
         id: 'desc',

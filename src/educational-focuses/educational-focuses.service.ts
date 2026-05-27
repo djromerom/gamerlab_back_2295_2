@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEducationalFocusDto } from './dto/create-educational-focus.dto';
 import { UpdateEducationalFocusDto } from './dto/update-educational-focus.dto';
@@ -8,6 +8,9 @@ import { EducationalFocus } from '@prisma/client';
 
 @Injectable()
 export class EducationalFocusesService {
+
+  private readonly logger = new Logger(EducationalFocusesService.name);
+
   constructor(private prisma: PrismaService) { }
 
   async create(editionId: number, createEducationalFocusDto: CreateEducationalFocusDto) {
@@ -33,6 +36,10 @@ export class EducationalFocusesService {
         where: { editionId },
       }),
     ]);
+
+    this.logger.log(`Educational Focuses found for edition #${editionId}`);
+    this.logger.log(`Total items: ${totalItems}`);
+    this.logger.log(`Total pages: ${Math.ceil(totalItems / limit)}`);
 
     const totalPages = Math.ceil(totalItems / limit);
 

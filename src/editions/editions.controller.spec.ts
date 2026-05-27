@@ -15,6 +15,7 @@ describe('EditionsController', () => {
     uploadPhotos: jest.fn(),
     deletePhotos: jest.fn(),
     activate: jest.fn(),
+    archive: jest.fn(),
     remove: jest.fn(),
   };
 
@@ -102,9 +103,17 @@ describe('EditionsController', () => {
 
   describe('activate', () => {
     it('should call editionsService.activate with the correct id', async () => {
-      mockEditionsService.activate.mockResolvedValue({ id: 1, isActive: true });
+      mockEditionsService.activate.mockResolvedValue({ id: 1, status: 'ACTIVE' });
       await controller.activate(1);
       expect(mockEditionsService.activate).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('archive', () => {
+    it('should call editionsService.archive with the correct id', async () => {
+      mockEditionsService.archive.mockResolvedValue({ id: 1, status: 'ARCHIVED' });
+      await controller.archive(1);
+      expect(mockEditionsService.archive).toHaveBeenCalledWith(1);
     });
   });
 

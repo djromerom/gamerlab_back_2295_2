@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, EditionStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
@@ -8,7 +8,7 @@ async function main() {
 
     // 1. Obtener o crear una edición activa
     let edition = await prisma.edition.findFirst({
-        where: { isActive: true },
+        where: { status: EditionStatus.ACTIVE },
         orderBy: { id: 'desc' },
     });
 
@@ -21,9 +21,7 @@ async function main() {
                 photos: [''],
                 startsAt: new Date('2026-05-28 08:00:00'),
                 endsAt: new Date('2026-05-28 12:00:00'),
-                isActive: true,
-                createdAt: Date.now().toString(),
-                updatedAt: Date.now().toString(),
+                status: EditionStatus.ACTIVE,
             },
         });
     }

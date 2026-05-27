@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { EventConfiguration } from '@prisma/client';
+import { EventConfiguration, EditionStatus } from '@prisma/client';
 import { CreateWeightDto } from './dto/create-weight.dto';
 
 @Injectable()
@@ -113,7 +113,7 @@ export class SettingsService {
 
   private async getActiveConfig(): Promise<EventConfiguration> {
     const activeCnfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: { isActive: true } },
+      where: { edition: { status: EditionStatus.ACTIVE } },
     });
     if (!activeCnfg)
       throw new NotFoundException(
