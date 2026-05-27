@@ -3,18 +3,18 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
+import { EditionStatus } from '@prisma/client';
 import { CriterionService } from 'src/criterion/criterion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
-import { EditionStatus } from '@prisma/client';
 
 @Injectable()
 export class EvaluationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly criterionService: CriterionService,
-  ) { }
+  ) {}
 
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
@@ -87,9 +87,9 @@ export class EvaluationService {
         );
       }
 
-      if (detail.score < 1 || detail.score > 5) {
+      if (detail.score < 0 || detail.score > 5) {
         throw new BadRequestException(
-          `Score for criterion ${detail.criterionId} is out of range (1-5). Score: ${detail.score}`,
+          `Score for criterion ${detail.criterionId} is out of range (0-5). Score: ${detail.score}`,
         );
       }
 
@@ -193,7 +193,7 @@ export class EvaluationService {
     }
 
     const professorRole = await this.prisma.role.findUnique({
-      where: { name: 'Professor' },
+      where: { name: 'Profesor' },
       select: { id: true },
     });
 
@@ -234,9 +234,9 @@ export class EvaluationService {
               );
             }
 
-            if (detail.score < 1 || detail.score > 5) {
+            if (detail.score < 0 || detail.score > 5) {
               throw new Error(
-                `Score for criterion ${detail.criterionId} is out of range (1-5). Score: ${detail.score}`,
+                `Score for criterion ${detail.criterionId} is out of range (0-5). Score: ${detail.score}`,
               );
             }
 
