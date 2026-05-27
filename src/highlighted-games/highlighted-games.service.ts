@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateHighlightedGameDto } from './dto/create-highlighted-game.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -10,6 +10,14 @@ export class HighlightedGamesService {
   constructor(private prisma: PrismaService) { }
 
   async create(editionId: number, createHighlightedGameDto: CreateHighlightedGameDto) {
+    const vg = await this.prisma.videogame.findUnique({
+      where: { id: createHighlightedGameDto.videogameId }
+    });
+    
+    if (!vg || vg.videogameStatusId !== 1) {
+      throw new BadRequestException("Solo se pueden destacar juegos que estén confirmados.");
+    }
+
     return this.prisma.highlightedGame.create({
       data: {
         editionId,
