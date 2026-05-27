@@ -4,6 +4,7 @@ import { CreateEducationalFocusDto } from '../../educational-focuses/dto/create-
 import { UpdateEducationalFocusDto } from '../../educational-focuses/dto/update-educational-focus.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @ApiTags('Educational Focuses')
 @Controller('editions/:editionId/educational-focuses')
@@ -18,6 +19,7 @@ export class EducationalFocusesController {
     return this.educationalFocusesService.create(editionId, createEducationalFocusDto);
   }
 
+  @Public()
   @Get()
   findAll(
     @Param('editionId', ParseIntPipe) editionId: number,
@@ -26,6 +28,7 @@ export class EducationalFocusesController {
     return this.educationalFocusesService.findAll(editionId, query);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('editionId', ParseIntPipe) editionId: number, @Param('id', ParseIntPipe) id: number) {
     return this.educationalFocusesService.findOne(editionId, id);

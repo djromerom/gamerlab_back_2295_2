@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class HistoricalsService {
   private readonly logger = new Logger(HistoricalsService.name);
-  
+
   constructor(
     private readonly prisma: PrismaService,
   ) { }
@@ -98,12 +98,10 @@ export class HistoricalsService {
     const teamsToDump = await this.prisma.team.findMany({
       where: { editionId },
       include: {
-        members: true, // Trae los integrantes de cada equipo
+        members: true,
         videogame: {
           include: {
-            _count: {
-              select: { likedBy: true }, // Obtenemos el conteo de likes (agregación en BD)
-            },
+            _count: { select: { likedBy: true } },
           },
         },
       },
@@ -112,16 +110,20 @@ export class HistoricalsService {
       throw new NotFoundException(`No teams found for edition with ID ${editionId}`);
     }
 
-    // Definimos las operaciones de creación para cada equipo, sus integrantes y su videojuego
+    // Leer scores finales de la vista para guardarlos en el snapshot
+    const scoreRows = await this.prisma.teamFinalScore.findMany({
+      where: { editionId },
+    });
+    const scoreByTeamId = new Map(scoreRows.map((r) => [r.teamId, r.finalScore ?? null]));
+
     const dumpOperations = teamsToDump.map((team) => {
-      // Para cada equipo en teamsToDump, creamos un registro en historicalTeam y registros relacionados en historicalMember y historicalVideogame
+      const finalScore = scoreByTeamId.get(team.id) ?? null;
       return this.prisma.historicalTeam.create({
         data: {
           teamName: team.teamName,
           editionId: team.editionId,
           isExternal: team.isExternal,
           teamCode: team.teamCode,
-          // Creación anidada de integrantes históricos
           members: {
             create: team.members.map((member) => ({
               firstName: member.firstName,
@@ -130,7 +132,6 @@ export class HistoricalsService {
               studentCode: member.studentCode,
             })),
           },
-          // Creación anidada del videojuego histórico (si existe)
           ...(team.videogame && {
             videogame: {
               create: {
@@ -142,7 +143,8 @@ export class HistoricalsService {
                 additionalImages: team.videogame.additionalImages,
                 gameFileUrl: team.videogame.gameFileUrl,
                 entry: team.videogame.entry,
-                likes: team.videogame._count.likedBy, // Asignamos el conteo exacto de likes
+                likes: team.videogame._count.likedBy,
+                finalScore,
               },
             },
           }),
@@ -150,14 +152,9 @@ export class HistoricalsService {
       });
     });
 
-    // Ejecutar todas las transacciones de manera atómica
     try {
-      // Usar transacciones interactivas masivas garantiza que, si un equipo falla, 
-      // ninguno se inserte y la base de datos se mantenga limpia.
       const result = await this.prisma.$transaction(dumpOperations);
-
       this.logger.log(`Volcado completado exitosamente para la edición ${editionId}.`);
-      
       return {
         success: true,
         message: 'Volcado histórico realizado correctamente',
@@ -167,6 +164,30 @@ export class HistoricalsService {
       this.logger.error('Error durante el volcado histórico', error);
       throw new InternalServerErrorException('Hubo un error crítico al realizar el volcado histórico.');
     }
+  }
+
+  // Retorna equipos históricos de una edición, ordenados por finalScore DESC
+  async getHistoricalTeamsWithScores(editionId: number) {
+    const edition = await this.prisma.edition.findUnique({ where: { id: editionId } });
+    if (!edition) throw new NotFoundException(`Edition with ID ${editionId} not found`);
+
+    const historicalTeams = await this.prisma.historicalTeam.findMany({
+      where: { editionId },
+      include: { members: true, videogame: true },
+    });
+    if (historicalTeams.length === 0) {
+      throw new NotFoundException(`No historical teams found for edition with ID ${editionId}`);
+    }
+
+    // Ordenar: primero los que tienen finalScore (desc), luego los que no
+    return historicalTeams.sort((a, b) => {
+      const sa = a.videogame?.finalScore ?? null;
+      const sb = b.videogame?.finalScore ?? null;
+      if (sa === null && sb === null) return 0;
+      if (sa === null) return 1;
+      if (sb === null) return -1;
+      return sb - sa;
+    });
   }
 
   async updateHistoricalTeam(historicalTeamId: number, updateData: UpdateHistoricalTeamDto) {
@@ -187,7 +208,7 @@ export class HistoricalsService {
       throw new InternalServerErrorException('An error occurred while updating the historical team.');
     }
   }
-  
+
   async updateHistoricalMember(historicalMemberId: number, updateData: UpdateHistoricalMemberDto) {
     // Verificar que el miembro histórico exista
     const historicalMember = await this.prisma.historicalMember.findUnique({ where: { id: historicalMemberId } });
@@ -206,7 +227,7 @@ export class HistoricalsService {
       throw new InternalServerErrorException('An error occurred while updating the historical member.');
     }
   }
-  
+
   async updateHistoricalVideogame(historicalVideogameId: number, updateData: UpdateHistoricalVideogameDto) {
     // Verificar que el videojuego histórico exista
     const historicalVideogame = await this.prisma.historicalVideogame.findUnique({ where: { id: historicalVideogameId } });

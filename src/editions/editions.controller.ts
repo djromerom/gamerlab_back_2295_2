@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseInterceptors, UploadedFiles, UploadedFile, Query, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseInterceptors, UploadedFiles, UploadedFile, Query, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, HttpCode } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { EditionsService } from './editions.service';
 import { CreateEditionDto } from './dto/create-edition.dto';
@@ -48,8 +48,8 @@ export class EditionsController {
       new ImageValidationPipe({
         minWidth: 10,
         minHeight: 10,
-        maxWidth: 2000,
-        maxHeight: 2000,
+        maxWidth: 6000,
+        maxHeight: 6000,
       }),
     ) file: Express.Multer.File,
   ) {
@@ -71,8 +71,8 @@ export class EditionsController {
         maxTotalSize: 25 * 1024 * 1024, // 25MB limit total
         minWidth: 10,
         minHeight: 10,
-        maxWidth: 2000,
-        maxHeight: 2000,
+        maxWidth: 6000,
+        maxHeight: 6000,
       }),
     ) files: Express.Multer.File[],
   ) {
@@ -90,6 +90,12 @@ export class EditionsController {
   @Patch(':id/activate')
   activate(@Param('id', ParseIntPipe) id: number) {
     return this.editionsService.activate(id);
+  }
+
+  @Post(':id/archive')
+  @HttpCode(200)
+  archive(@Param('id', ParseIntPipe) id: number) {
+    return this.editionsService.archive(id);
   }
 
   @Public()

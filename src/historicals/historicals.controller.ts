@@ -4,6 +4,7 @@ import { UpdateHistoricalTeamDto } from './dto/update-historical-team.dto';
 import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
 import { UpdateHistoricalVideogameDto } from './dto/update-historical-videogame.dto';
 import { HistoricalsService } from './historicals.service';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('historicals')
 export class HistoricalsController {
@@ -34,6 +35,7 @@ export class HistoricalsController {
     return this.historicalsService.getHistoricalMembersByTeam(teamId);
   }
 
+  @Public()
   @Get('historical-videogames/:editionId')
   @ApiOperation({ summary: 'Get historical videogames of a specific edition' })
   @ApiOkResponse({ description: 'Historical videogames retrieved successfully' })
@@ -41,6 +43,16 @@ export class HistoricalsController {
   @ApiBadRequestResponse({ description: 'Invalid edition ID' })
   getHistoricalVideogames(@Param('editionId') editionId: number) {
     return this.historicalsService.getHistoricalVideogamesByEdition(editionId);
+  }
+
+  @Public()
+  @Get('historical-teams-with-scores/:editionId')
+  @ApiOperation({ summary: 'Get historical teams of a specific edition, sorted by finalScore DESC' })
+  @ApiOkResponse({ description: 'Historical teams with scores retrieved successfully' })
+  @ApiNotFoundResponse({ description: 'Edition not found or no historical teams available' })
+  @ApiBadRequestResponse({ description: 'Invalid edition ID' })
+  getHistoricalTeamsWithScores(@Param('editionId') editionId: number) {
+    return this.historicalsService.getHistoricalTeamsWithScores(editionId);
   }
 
   @Post('create-historical-edition-dump/:editionId')

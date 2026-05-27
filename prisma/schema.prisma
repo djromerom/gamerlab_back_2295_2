@@ -8,6 +8,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EditionStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 model Edition {
   id Int @id @default(autoincrement()) @map("id_edicion")
 
@@ -25,7 +31,7 @@ model Edition {
   startsAt DateTime @map("inicia_en")
   endsAt   DateTime @map("termina_en")
 
-  isActive  Boolean  @default(false) @map("activo")
+  status    EditionStatus @default(INACTIVE) @map("estado")
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
@@ -300,6 +306,7 @@ model HistoricalVideogame {
   gameFileUrl      String?        @map("archivo_videojuego_url")
   entry            String?
   likes            Int            @default(0) @map("likes")
+  finalScore       Float?         @map("puntaje_final")
 
   @@map("videojuegos_historico")
 }

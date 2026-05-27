@@ -4,9 +4,10 @@ import { CreateEditionDto } from './dto/create-edition.dto';
 import { UpdateEditionDto } from './dto/update-edition.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
-import { Edition } from '@prisma/client';
+import { Edition, EditionStatus } from '@prisma/client';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
+import { HistoricalsService } from '../historicals/historicals.service';
 
 @Injectable()
 export class EditionsService {
@@ -15,6 +16,7 @@ export class EditionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly azureStorageService: AzureStorageService,
+    private readonly historicalsService: HistoricalsService,
   ) { }
 
   async create(createEditionDto: CreateEditionDto) {
@@ -193,23 +195,48 @@ export class EditionsService {
           throw new NotFoundException(`Edition #${id} not found`);
         }
 
+        if (edition.status === EditionStatus.ARCHIVED) {
+          throw new BadRequestException(`No se puede activar una edición archivada.`);
+        }
+
+        // Desactivar la actualmente activa (si existe)
         await tx.edition.updateMany({
-          where: { isActive: true },
-          data: { isActive: false },
+          where: { status: EditionStatus.ACTIVE },
+          data: { status: EditionStatus.INACTIVE },
         });
 
+        // Activar la edición solicitada
         return await tx.edition.update({
           where: { id },
-          data: { isActive: true },
+          data: { status: EditionStatus.ACTIVE },
         });
       });
     } catch (error: any) {
       this.logger.error(`Error activating edition #${id}: ${error.message}`, error.stack);
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
       throw new InternalServerErrorException('Error interno al activar la edición.');
     }
+  }
+
+  async archive(id: number) {
+    const edition = await this.findOne(id);
+
+    if (edition.status !== EditionStatus.INACTIVE) {
+      throw new BadRequestException(
+        `Solo se puede archivar una edición en estado INACTIVE. Estado actual: ${edition.status}`,
+      );
+    }
+
+    // Crear dump histórico (lanza si ya existe o si no tiene equipos)
+    await this.historicalsService.createHistoricalEditionDump(id);
+
+    // Marcar como ARCHIVED
+    return await this.prisma.edition.update({
+      where: { id },
+      data: { status: EditionStatus.ARCHIVED },
+    });
   }
 
   async getVideogamesByEdition(id: number) {

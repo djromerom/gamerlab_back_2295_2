@@ -18,7 +18,7 @@ import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Member, Team, User } from '@prisma/client';
+import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
 
@@ -76,7 +76,7 @@ export class TeamsService {
 
     try {
       const activeEdition = await this.prisma.edition.findFirst({
-        where: { isActive: true },
+        where: { status: EditionStatus.ACTIVE },
         select: { id: true },
       });
 

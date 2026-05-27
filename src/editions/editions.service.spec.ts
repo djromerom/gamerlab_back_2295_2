@@ -2,18 +2,23 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EditionsService } from './editions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AzureStorageService } from '../upload/azure-storage.service';
+import { HistoricalsService } from '../historicals/historicals.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { EditionStatus } from '@prisma/client';
 
 describe('EditionsService', () => {
   let service: EditionsService;
   let prisma: PrismaService;
+  let historicalsService: HistoricalsService;
 
   const mockEdition = {
     id: 1,
     year: 2025,
     semester: 10,
     title: 'Test Edition',
-    isActive: false,
+    status: EditionStatus.INACTIVE,
+    mainPhoto: null,
+    photos: [],
   };
 
   const mockPrismaService: any = {
@@ -43,17 +48,27 @@ describe('EditionsService', () => {
     deleteById: jest.fn().mockResolvedValue({ id: 'uuid-1', deleted: true }),
   };
 
+  const mockHistoricalsService = {
+    createHistoricalEditionDump: jest.fn().mockResolvedValue({
+      success: true,
+      message: 'Volcado histórico realizado correctamente',
+      teamsDumpedCount: 3,
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EditionsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AzureStorageService, useValue: mockAzureStorageService },
+        { provide: HistoricalsService, useValue: mockHistoricalsService },
       ],
     }).compile();
 
     service = module.get<EditionsService>(EditionsService);
     prisma = module.get<PrismaService>(PrismaService);
+    historicalsService = module.get<HistoricalsService>(HistoricalsService);
   });
 
   afterEach(() => {
@@ -121,17 +136,85 @@ describe('EditionsService', () => {
   });
 
   describe('activate', () => {
-    it('should deactivate all others and activate the specified edition', async () => {
+    it('should deactivate all others and activate the specified edition (INACTIVE → ACTIVE)', async () => {
       await service.activate(1);
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.edition.updateMany).toHaveBeenCalledWith({
-        where: { isActive: true },
-        data: { isActive: false },
+        where: { status: EditionStatus.ACTIVE },
+        data: { status: EditionStatus.INACTIVE },
       });
       expect(prisma.edition.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { isActive: true },
+        data: { status: EditionStatus.ACTIVE },
       });
+    });
+
+    it('should throw BadRequestException when trying to activate an ARCHIVED edition', async () => {
+      mockPrismaService.edition.findUnique.mockResolvedValueOnce({
+        ...mockEdition,
+        status: EditionStatus.ARCHIVED,
+      });
+      await expect(service.activate(1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException if edition does not exist', async () => {
+      mockPrismaService.edition.findUnique.mockResolvedValueOnce(null);
+      await expect(service.activate(99)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('archive', () => {
+    it('should create historical dump and mark edition as ARCHIVED when INACTIVE', async () => {
+      // Arrange: mock del dump retorna 3 equipos procesados
+      const dumpResult = {
+        success: true,
+        message: 'Volcado histórico realizado correctamente',
+        teamsDumpedCount: 3,
+      };
+      mockHistoricalsService.createHistoricalEditionDump.mockResolvedValueOnce(dumpResult);
+      mockPrismaService.edition.update.mockResolvedValueOnce({
+        ...mockEdition,
+        status: EditionStatus.ARCHIVED,
+      });
+
+      const result = await service.archive(1);
+
+      expect(historicalsService.createHistoricalEditionDump).toHaveBeenCalledWith(1);
+      expect(historicalsService.createHistoricalEditionDump).toHaveBeenCalledTimes(1);
+      expect(dumpResult.success).toBe(true);
+      expect(dumpResult.teamsDumpedCount).toBeGreaterThan(0);
+      expect(prisma.edition.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { status: EditionStatus.ARCHIVED },
+      });
+      expect(result.status).toEqual(EditionStatus.ARCHIVED);
+    });
+
+    it('should throw BadRequestException when trying to archive an ACTIVE edition', async () => {
+      mockPrismaService.edition.findUnique.mockResolvedValueOnce({
+        ...mockEdition,
+        status: EditionStatus.ACTIVE,
+      });
+      await expect(service.archive(1)).rejects.toThrow(BadRequestException);
+      expect(mockHistoricalsService.createHistoricalEditionDump).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when trying to archive an already ARCHIVED edition', async () => {
+      mockPrismaService.edition.findUnique.mockResolvedValueOnce({
+        ...mockEdition,
+        status: EditionStatus.ARCHIVED,
+      });
+      await expect(service.archive(1)).rejects.toThrow(BadRequestException);
+      expect(mockHistoricalsService.createHistoricalEditionDump).not.toHaveBeenCalled();
+    });
+
+    it('should propagate error if createHistoricalEditionDump fails (dump already exists)', async () => {
+      mockHistoricalsService.createHistoricalEditionDump.mockRejectedValueOnce(
+        new BadRequestException(`A historical dump already exists for edition with ID 1`),
+      );
+      await expect(service.archive(1)).rejects.toThrow(BadRequestException);
+      // Should NOT mark as ARCHIVED if the dump failed
+      expect(prisma.edition.update).not.toHaveBeenCalled();
     });
   });
 
@@ -149,7 +232,7 @@ describe('EditionsService', () => {
         ...mockEdition,
         photos: Array(45).fill('uuid'),
       });
-      
+
       const files = Array(6).fill({ buffer: Buffer.from('test'), size: 100 }) as any;
       await expect(service.uploadPhotos(1, files)).rejects.toThrow(BadRequestException);
     });
@@ -163,7 +246,7 @@ describe('EditionsService', () => {
         ...mockEdition,
         photos: Array(50).fill('uuid'),
       });
-      
+
       const files = Array(5).fill({ buffer: Buffer.from('test'), size: 100 }) as any;
       const result = await service.uploadPhotos(1, files);
       expect(prisma.edition.update).toHaveBeenCalled();
