@@ -130,6 +130,8 @@ export class CertificatesService {
       new Blob([htmlContent], { type: 'text/html' }),
       'index.html',
     );
+    formData.append('waitDelay', '4s');
+    formData.append('skipNetworkIdleEvent', 'false');
 
     let response: Response;
     try {
