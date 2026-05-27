@@ -470,6 +470,22 @@ export class JurorService {
     const userEmailMap = new Map<string, string>();
     for (const u of users) userEmailMap.set(u.id, u.email);
 
+    // [MODIFICACIÓN]: Construir el conjunto de evaluadores SENIOR (categoría SENIOR + todos los profesores)
+    // para garantizar que cada equipo universitario tenga al menos uno
+    const seniorEvaluatorIds = new Set<string>();
+    const evaluatorUserDetails = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(allEvaluators.keys()) } },
+      select: { id: true, jurorCategory: true, roleId: true },
+    });
+    for (const u of evaluatorUserDetails) {
+      if (
+        u.roleId === this.professorRoleId ||
+        u.jurorCategory === JurorCategory.SENIOR
+      ) {
+        seniorEvaluatorIds.add(u.id);
+      }
+    }
+
     // Modificacion: Cargar NRCs de profesores y de miembros de equipos para evitar que un profesor
     // Evalue equipos de sus propios cursos
     const professorWithNrcs = await this.prisma.user.findMany({
@@ -574,6 +590,8 @@ export class JurorService {
       needed: number,
       allowedEmails: string[] | null,
       level: number,
+      // [MODIFICACIÓN]: Cuando es true, solo considera evaluadores SENIOR o Profesores
+      seniorOnly: boolean = false,
     ): void => {
       const current = assignments.get(teamId)!;
       if (needed <= 0 || current.length >= MAX_PER_TEAM) return;
@@ -603,6 +621,11 @@ export class JurorService {
           const email = userEmailMap.get(id);
           if (allowedEmails === null) return true;
           return email && allowedEmails.includes(email);
+        })
+        // [MODIFICACIÓN]: Filtrar solo evaluadores SENIOR/Profesor cuando se requiere la garantía mínima
+        .filter(([id]) => {
+          if (!seniorOnly) return true;
+          return seniorEvaluatorIds.has(id);
         })
         .sort((a, b) => {
           const idA = a[0],
@@ -658,9 +681,24 @@ export class JurorService {
           assignFromPool(team.id, needed, this.COLEGIO_JUROR_EMAILS, level);
         }
       } else {
+        // [MODIFICACIÓN]: Garantizar mínimo 1 SENIOR o Profesor por equipo universitario
+        // Primer paso: intentar asignar 1 SENIOR/Profesor
+        // Segundo paso: completar cupos restantes con cualquier evaluador disponible
         for (const team of levelTeams) {
-          const needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
-          assignFromPool(team.id, needed, null, level);
+          const currentAssigned = assignments.get(team.id)!;
+          const alreadyHasSenior = currentAssigned.some((id) =>
+            seniorEvaluatorIds.has(id),
+          );
+          let needed = MAX_PER_TEAM - currentAssigned.length;
+
+          if (!alreadyHasSenior && needed > 0) {
+            assignFromPool(team.id, 1, null, level, true);
+            needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
+          }
+
+          if (needed > 0) {
+            assignFromPool(team.id, needed, null, level);
+          }
         }
       }
 
@@ -672,6 +710,26 @@ export class JurorService {
       const withFull = counts.filter((c) => c === MAX_PER_TEAM).length;
       results.push(
         `${label}: ${levelTeams.length} equipos | ${withFull} con ${MAX_PER_TEAM} evaluadores | rango: ${min}-${max}`,
+      );
+    }
+
+    // [MODIFICACIÓN]: Detectar y reportar equipos universitarios que no pudieron recibir un SENIOR
+    let teamsWithoutSenior = 0;
+    for (const level of sortedLevels) {
+      if (level === 0) continue;
+      for (const team of teamsByLevel.get(level)!) {
+        const assigned = assignments.get(team.id)!;
+        if (
+          assigned.length > 0 &&
+          !assigned.some((id) => seniorEvaluatorIds.has(id))
+        ) {
+          teamsWithoutSenior++;
+        }
+      }
+    }
+    if (teamsWithoutSenior > 0) {
+      results.push(
+        `⚠️ ${teamsWithoutSenior} equipo(s) universitario(s) sin SENIOR disponible (se asignaron JUNIORs como alternativa).`,
       );
     }
 
