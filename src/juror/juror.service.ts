@@ -643,20 +643,21 @@ export class JurorService {
 
           if (aHasCurrent !== bHasCurrent) return aHasCurrent ? -1 : 1;
 
-          const maxLevelA = Math.max(
-            -1,
-            ...Array.from(evaluatorLevels.get(idA) ?? []).filter(
-              (l) => l < level,
-            ),
-          );
-          const maxLevelB = Math.max(
-            -1,
-            ...Array.from(evaluatorLevels.get(idB) ?? []).filter(
-              (l) => l < level,
-            ),
-          );
+          // [MODIFICADO]: Calcular distancia mínima ABSOLUTA al nivel objetivo
+          // [APRENDIZAJE]: Math.abs() devuelve el valor absoluto (distancia sin signo)
+          // [ANTES]: Solo miraba niveles inferiores (l < level)
+          const levelsA = Array.from(evaluatorLevels.get(idA) ?? []);
+          const levelsB = Array.from(evaluatorLevels.get(idB) ?? []);
+          const minDistA =
+            levelsA.length > 0
+              ? Math.min(...levelsA.map((l) => Math.abs(l - level)))
+              : Infinity;
+          const minDistB =
+            levelsB.length > 0
+              ? Math.min(...levelsB.map((l) => Math.abs(l - level)))
+              : Infinity;
 
-          if (maxLevelA !== maxLevelB) return maxLevelB - maxLevelA;
+          if (minDistA !== minDistB) return minDistA - minDistB;
 
           return loadA - loadB;
         });
