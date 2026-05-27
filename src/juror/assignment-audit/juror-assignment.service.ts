@@ -935,7 +935,9 @@ export class JurorAssignmentService implements OnModuleInit {
           nivel: this.extractLevelFromTeamCode(team.teamCode),
           totalJuradosAsignados: jurados.length,
           juradosQueEvaluaron,
-          juradosPendientes: jurados.length - juradosQueEvaluaron,
+          // [MODIFICADO]: Se ajustó el cálculo a 3 - juradosQueEvaluaron para reflejar que siempre se requieren 3 evaluaciones en total, independientemente de cuántos jurados estén asignados.
+          // [ANTES]: juradosPendientes se calculaba con jurados.length - juradosQueEvaluaron, causando valores erróneos si había menos de 3 jurados asignados.
+          juradosPendientes: 3 - juradosQueEvaluaron,
           jurados,
         };
       });

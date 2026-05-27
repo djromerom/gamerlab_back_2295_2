@@ -3,18 +3,18 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
+import { EditionStatus, JurorCategory } from '@prisma/client';
 import { CriterionService } from 'src/criterion/criterion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
-import { EditionStatus } from '@prisma/client';
 
 @Injectable()
 export class EvaluationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly criterionService: CriterionService,
-  ) { }
+  ) {}
 
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
@@ -55,14 +55,23 @@ export class EvaluationService {
       throw new BadRequestException('No hay una edición activa configurada');
     }
 
-    // Determine if the juror is a professor (roleId === 3) -> mark as senior
-    // We fetch only the roleId for the juror user to avoid extra data.
+    // Determine if the juror is a professor or has SENIOR category -> mark as senior
+    const professorRole = await this.prisma.role.findUnique({
+      where: { name: 'Profesor' },
+      select: { id: true },
+    });
+    const professorRoleId = professorRole?.id;
+
     const jurorUser = await this.prisma.user.findUnique({
       where: { id: jurorId },
-      select: { roleId: true },
+      select: { roleId: true, jurorCategory: true },
     });
 
-    const isSenior = jurorUser?.roleId === 3;
+    // [MODIFICADO]: Se agregó la validación de jurorCategory === JurorCategory.SENIOR para evaluar correctamente su peso.
+    // [ANTES]: isSenior solo se marcaba true si roleId === 3 (código quemado de Profesor).
+    const isSenior =
+      jurorUser?.roleId === professorRoleId ||
+      jurorUser?.jurorCategory === JurorCategory.SENIOR;
 
     const activeCriteria = await this.criterionService.findForSelect();
 
@@ -87,9 +96,9 @@ export class EvaluationService {
         );
       }
 
-      if (detail.score < 1 || detail.score > 5) {
+      if (detail.score < 0 || detail.score > 5) {
         throw new BadRequestException(
-          `Score for criterion ${detail.criterionId} is out of range (1-5). Score: ${detail.score}`,
+          `Score for criterion ${detail.criterionId} is out of range (0-5). Score: ${detail.score}`,
         );
       }
 
@@ -193,7 +202,7 @@ export class EvaluationService {
     }
 
     const professorRole = await this.prisma.role.findUnique({
-      where: { name: 'Professor' },
+      where: { name: 'Profesor' },
       select: { id: true },
     });
 
@@ -201,10 +210,14 @@ export class EvaluationService {
 
     const jurorUser = await this.prisma.user.findUnique({
       where: { id: jurorId },
-      select: { roleId: true },
+      select: { roleId: true, jurorCategory: true },
     });
 
-    const isSenior = jurorUser?.roleId === professorRoleId;
+    // [MODIFICADO]: Se agregó la verificación de JurorCategory.SENIOR para calcular adecuadamente el promedio final.
+    // [ANTES]: Solo los profesores eran considerados isSenior: true en las calificaciones en bloque.
+    const isSenior =
+      jurorUser?.roleId === professorRoleId ||
+      jurorUser?.jurorCategory === JurorCategory.SENIOR;
 
     const activeCriteria = await this.prisma.criterion.findMany({
       where: { isActive: true },
@@ -234,9 +247,9 @@ export class EvaluationService {
               );
             }
 
-            if (detail.score < 1 || detail.score > 5) {
+            if (detail.score < 0 || detail.score > 5) {
               throw new Error(
-                `Score for criterion ${detail.criterionId} is out of range (1-5). Score: ${detail.score}`,
+                `Score for criterion ${detail.criterionId} is out of range (0-5). Score: ${detail.score}`,
               );
             }
 
