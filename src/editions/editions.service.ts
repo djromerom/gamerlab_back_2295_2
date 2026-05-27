@@ -244,6 +244,7 @@ export class EditionsService {
     const videogames = await this.prisma.videogame.findMany({
       where: {
         isActive: true,
+        videogameStatusId: 1,
         team: { editionId: id },
       },
       select: {
