@@ -35,7 +35,7 @@ export class JurorService {
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
     private readonly jurorAssignmentAuditService: JurorAssignmentAuditService,
-  ) {}
+  ) { }
   async onModuleInit() {
     this.logger.log('Initializing Juror module: Fetching Juror role id');
 
@@ -190,8 +190,7 @@ export class JurorService {
       }
 
       throw new InternalServerErrorException(
-        `Error during registration for ${dto.email}: ${
-          error instanceof Error ? error.message : error
+        `Error during registration for ${dto.email}: ${error instanceof Error ? error.message : error
         }`,
       );
     }
@@ -825,8 +824,8 @@ export class JurorService {
 
       this.logger.log(
         `Obtenidos ${teams.length} equipos confirmados y activos para asignación ` +
-          `(${teamsWithEvaluators} con evaluadores asignados, ${teamsWithoutEvaluators} sin evaluadores). ` +
-          `Distribución por nivel: ${levelSummary || 'N/A'}`,
+        `(${teamsWithEvaluators} con evaluadores asignados, ${teamsWithoutEvaluators} sin evaluadores). ` +
+        `Distribución por nivel: ${levelSummary || 'N/A'}`,
       );
 
       return teams;
@@ -1429,10 +1428,10 @@ export class JurorService {
         nombre: team.teamName,
         videojuego: team.videogame
           ? {
-              id: team.videogame.id,
-              nombre: team.videogame.name,
-              descripcion: team.videogame.description,
-            }
+            id: team.videogame.id,
+            nombre: team.videogame.name,
+            descripcion: team.videogame.description,
+          }
           : null,
         lider: {
           id: team.user.id,
@@ -2055,6 +2054,108 @@ export class JurorService {
       );
       throw new InternalServerErrorException(
         'Error al obtener estadísticas de evaluación del equipo',
+      );
+    }
+  }
+  async getTeamJurorsEvaluationStatus(teamId: number): Promise<any> {
+    try {
+      const team = await this.prisma.team.findUnique({
+        where: { id: teamId },
+        select: {
+          id: true,
+          teamName: true,
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          assignedJurors: {
+            where: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      if (!team) {
+        throw new NotFoundException('Equipo no encontrado');
+      }
+
+      if (!team.videogame) {
+        return {
+          equipo: {
+            id: team.id,
+            nombre: team.teamName,
+            videojuego: null,
+          },
+          jurados: team.assignedJurors.map((juror) => ({
+            id: juror.id,
+            nombre: `${juror.firstName} ${juror.lastName}`,
+            email: juror.email,
+            yaCalifico: false,
+            estadoEvaluacion: 'PENDIENTE',
+          })),
+        };
+      }
+
+      const evaluations = await this.prisma.evaluation.findMany({
+        where: {
+          videogameId: team.videogame.id,
+          jurorId: {
+            in: team.assignedJurors.map((juror) => juror.id),
+          },
+          isActive: true,
+        },
+        select: {
+          jurorId: true,
+        },
+      });
+
+      const jurorsWhoEvaluated = new Set(
+        evaluations.map((evaluation) => evaluation.jurorId),
+      );
+
+      return {
+        equipo: {
+          id: team.id,
+          nombre: team.teamName,
+          videojuego: team.videogame.name,
+        },
+        jurados: team.assignedJurors.map((juror) => {
+          const yaCalifico = jurorsWhoEvaluated.has(juror.id);
+
+          return {
+            id: juror.id,
+            nombre: `${juror.firstName} ${juror.lastName}`,
+            email: juror.email,
+            yaCalifico,
+            estadoEvaluacion: yaCalifico ? 'CALIFICADO' : 'PENDIENTE',
+          };
+        }),
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      this.logger.error(
+        'Error al obtener estado de evaluación de jurados del equipo:',
+        error,
+      );
+
+      throw new InternalServerErrorException(
+        'Error al obtener estado de evaluación de jurados del equipo',
       );
     }
   }
