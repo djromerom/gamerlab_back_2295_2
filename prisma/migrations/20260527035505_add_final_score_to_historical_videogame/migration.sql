@@ -1,0 +1,1 @@
+ALTER TABLE "videojuegos_historico" ADD COLUMN "puntaje_final" DOUBLE PRECISION;

@@ -72,13 +72,36 @@ export class AzureStorageService implements OnModuleInit {
 
     }
 
+    //files need to be chunked so that Azure doesnt return a 401 (payload too large)
+    const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB per block
     const blobName = `${Date.now()}-${path.basename(file.originalname)}`;
     const blockBlobClient: BlockBlobClient = this.containerClient.getBlockBlobClient(blobName);
 
     try {
-      await blockBlobClient.uploadData(file.buffer, {
+      const blockIds: string[] = [];
+      let offset = 0;
+      let blockIndex = 0;
+
+      while (offset < file.buffer.length) {
+        const chunk = file.buffer.subarray(offset, offset + CHUNK_SIZE);
+
+        // Block IDs must be base64, same length across all blocks
+        const blockId = Buffer.from(
+          String(blockIndex).padStart(6, '0')
+        ).toString('base64');
+
+        await blockBlobClient.stageBlock(blockId, chunk, chunk.length);
+
+        blockIds.push(blockId);
+        offset += CHUNK_SIZE;
+        blockIndex++;
+      }
+
+      // Commit all staged blocks as one blob
+      await blockBlobClient.commitBlockList(blockIds, {
         blobHTTPHeaders: { blobContentType: file.mimetype },
       });
+
 
       return this.prisma.upload.create({
         data: {
@@ -137,9 +160,29 @@ export class AzureStorageService implements OnModuleInit {
     ).toString();
 
     return {
-      url: `${blobClient.url}?${sas}`,
+      url: this.normalizeUrl(`${blobClient.url}?${sas}`),
       expiresAt: expiresOn.toISOString(),
     };
+  }
+
+  /**
+   * En desarrollo (Azurite) la URL interna puede apuntar a 127.0.0.1 o al
+   * hostname del contenedor Docker. El browser del front siempre necesita
+   * llegar por localhost:10000, así que reemplazamos el host aquí.
+   * En producción la URL pasa sin modificaciones.
+   */
+  private normalizeUrl(rawUrl: string): string {
+    if (process.env.NODE_ENV !== 'development') return rawUrl;
+
+    try {
+      const parsed = new URL(rawUrl);
+      parsed.hostname = 'localhost';
+      parsed.port = '10000';
+      return parsed.toString();
+    } catch {
+      // Si por alguna razón la URL no es parseable, la devolvemos tal cual
+      return rawUrl;
+    }
   }
 
   // Marca como público (flag) sin guardar SAS

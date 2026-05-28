@@ -8,21 +8,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EditionStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 model Edition {
-  id                 Int                 @id @default(autoincrement()) @map("id_edicion")
-  semester           String              @unique @map("semestre")
-  isActive           Boolean             @default(false) @map("activo")
-  createdAt          DateTime            @default(now()) @map("creado_en")
-  updatedAt          DateTime            @updatedAt @map("actualizado_en")
-  title              String?             @map("titulo") @db.VarChar(100)
-  year               Int?                @map("año")
-  semesterName       String?             @map("nombre_semestre") @db.VarChar(50)
-  name               String?             @map("nombre") @db.VarChar(100)
-  date               String?             @map("fecha") @db.VarChar(50)
-  description        String?             @map("descripcion")
-  description2       String?             @map("descripcion2")
+  id Int @id @default(autoincrement()) @map("id_edicion")
+
+  year     Int @map("año")
+  semester Int @map("semestre")
+  // 10 = primer semestre, 20 = intersemestral, 30 = segundo semestre
+
+  title        String   @map("titulo") @db.VarChar(100)
+  description  String?  @map("descripcion")
+  description2 String?  @map("descripcion2")
+  alt          String?  @map("alt") @db.VarChar(100)
+  mainPhoto    String?  @map("foto_principal")
+  photos       String[] @default([]) @map("fotos")
+
+  startsAt DateTime @map("inicia_en")
+  endsAt   DateTime @map("termina_en")
+
+  status    EditionStatus @default(INACTIVE) @map("estado")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+
   highlightedGames   HighlightedGame[]
-  alt                String?             @map("alt") @db.VarChar(100)
   eventConfiguration EventConfiguration?
   educationalFocuses EducationalFocus[]
   teams              Team[]
@@ -30,7 +43,10 @@ model Edition {
   nrcs               NRC[]
   weighting          Weighting?
   testimonials       Testimonial[]
+  rankingResults     RankingResult[]
+  HistoricalTeam     HistoricalTeam[]
 
+  @@index([year, semester])
   @@map("ediciones")
 }
 
@@ -39,8 +55,6 @@ model EventConfiguration {
   evaluationsOpen Boolean  @default(false) @map("evaluaciones_abiertas")
   createdAt       DateTime @default(now()) @map("creado_en")
   updatedAt       DateTime @updatedAt @map("actualizado_en")
-  endDate         DateTime @map("fecha_fin")
-  startDate       DateTime @map("fecha_inicio")
   editionId       Int      @unique @map("id_edicion")
   showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   showRanking     Boolean  @default(false) @map("mostrar_ranking")
@@ -182,22 +196,37 @@ model User {
 }
 
 model Team {
-  id               Int        @id @default(autoincrement()) @map("id_equipo")
-  teamName         String     @unique @map("nombre_equipo") @db.VarChar(50)
-  registrationDate DateTime   @default(now()) @map("fecha_registro")
-  userId           String     @unique @map("id_usuario")
-  editionId        Int        @map("id_edicion")
-  isActive         Boolean    @default(true) @map("activo")
-  isExternal       Boolean    @default(false) @map("externo")
-  teamCode         String     @map("codigo_equipo") @db.VarChar(12)
-  edition          Edition    @relation(fields: [editionId], references: [id])
-  user             User       @relation("createdTeam", fields: [userId], references: [id])
-  members          Member[]   @relation("TeamMembers")
+  id               Int             @id @default(autoincrement()) @map("id_equipo")
+  teamName         String          @unique @map("nombre_equipo") @db.VarChar(50)
+  registrationDate DateTime        @default(now()) @map("fecha_registro")
+  userId           String          @unique @map("id_usuario")
+  editionId        Int             @map("id_edicion")
+  isActive         Boolean         @default(true) @map("activo")
+  isExternal       Boolean         @default(false) @map("externo")
+  teamCode         String          @map("codigo_equipo") @db.VarChar(12)
+  edition          Edition         @relation(fields: [editionId], references: [id])
+  user             User            @relation("createdTeam", fields: [userId], references: [id])
+  members          Member[]        @relation("TeamMembers")
   videogame        Videogame?
-  assignedJurors   User[]     @relation("JurorTeamAssignment")
+  assignedJurors   User[]          @relation("JurorTeamAssignment")
+  rankingResults   RankingResult[]
 
   @@unique([teamCode, editionId])
   @@map("equipos")
+}
+
+model HistoricalTeam {
+  id         Int                  @id @default(autoincrement()) @map("id_equipo_historico")
+  teamName   String               @map("nombre_equipo") @db.VarChar(50)
+  editionId  Int                  @map("id_edicion")
+  isExternal Boolean              @default(false) @map("externo")
+  teamCode   String               @map("codigo_equipo") @db.VarChar(12)
+  edition    Edition              @relation(fields: [editionId], references: [id])
+  members    HistoricalMember[]   @relation("HistoricalTeamMembers")
+  videogame  HistoricalVideogame?
+
+  @@unique([teamCode, editionId])
+  @@map("equipos_historico")
 }
 
 model Member {
@@ -214,6 +243,18 @@ model Member {
   nrcs        NRC[]    @relation("MemberNRC")
 
   @@map("integrante")
+}
+
+model HistoricalMember {
+  id          Int            @id @default(autoincrement()) @map("id_integrante_historico")
+  firstName   String         @map("nombre") @db.VarChar(50)
+  lastName    String         @map("apellido") @db.VarChar(50)
+  email       String         @map("correo") @db.VarChar(100)
+  studentCode String         @map("codigo_estudiantil") @db.VarChar(100)
+  teamId      Int            @map("id_equipo_historico")
+  team        HistoricalTeam @relation("HistoricalTeamMembers", fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("integrante_historico")
 }
 
 model VideogameStatus {
@@ -244,11 +285,30 @@ model Videogame {
   gameFileUrl       String?         @map("archivo_videojuego_url")
   entry             String?
 
-  highlightedGames   HighlightedGame[]
-  evaluations       Evaluation[]
-  likedBy           VideogameLike[]
+  highlightedGames HighlightedGame[]
+  evaluations      Evaluation[]
+  likedBy          VideogameLike[]
+  rankingResults   RankingResult[]
 
   @@map("videojuegos")
+}
+
+model HistoricalVideogame {
+  id               Int            @id @default(autoincrement()) @map("id_videojuego_historico")
+  name             String         @map("nombre") @db.VarChar(30)
+  description      String?        @map("descripcion")
+  logoUrl          String?        @map("logo_url")
+  teamId           Int            @unique @map("id_equipo_historico")
+  repoUrl          String?        @map("repo_url")
+  videoUrl         String?        @map("video_url")
+  additionalImages String[]       @default([]) @map("imagenes_adicionales")
+  historicalTeam   HistoricalTeam @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  gameFileUrl      String?        @map("archivo_videojuego_url")
+  entry            String?
+  likes            Int            @default(0) @map("likes")
+  finalScore       Float?         @map("puntaje_final")
+
+  @@map("videojuegos_historico")
 }
 
 model VideogameLike {
@@ -385,16 +445,44 @@ model Weighting {
 }
 
 model Upload {
-  id          String   @id @default(uuid())
-  blobName    String   
-  filename    String
-  mimetype    String
-  size        Int
-  entry       String?
-  isPublic    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  blobName  String
+  filename  String
+  mimetype  String
+  size      Int
+  entry     String?
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@map("archivos_subidos")
+}
+
+model RankingResult {
+  id          Int @id @default(autoincrement())
+  teamId      Int @map("id_equipo")
+  videogameId Int @map("id_videojuego")
+  editionId   Int @map("id_edicion")
+
+  baseScore                Float  @map("puntaje_base")
+  rankingScore             Float  @map("puntaje_ranking")
+  tieBreakerScore          Float? @map("puntaje_desempate")
+  jurorTieBreakerScore     Float? @map("puntaje_desempate_jurados")
+  professorTieBreakerScore Float? @map("puntaje_desempate_profesores")
+
+  wasTied       Boolean @default(false) @map("hubo_empate")
+  finalPosition Int     @map("posicion_final")
+
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  videogame Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  edition   Edition   @relation(fields: [editionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([teamId, videogameId, editionId])
+  @@index([editionId])
+  @@index([finalPosition])
+  @@map("resultado_ranking")
 }
 
 model EducationalFocus {
@@ -407,7 +495,6 @@ model EducationalFocus {
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   edition     Edition  @relation(fields: [editionId], references: [id])
 
-  @@unique([editionId, title], name: "enfoque_educativo_criterio_unique")
   @@map("enfoque_educativo")
 }
 
@@ -422,22 +509,21 @@ model Testimonial {
   updatedAt DateTime @updatedAt @map("actualizado_en")
   edition   Edition  @relation(fields: [editionId], references: [id])
 
-  @@unique([editionId, name], name: "testimonio_criterio_unique")
   @@map("testimonio")
 }
 
 view TeamFinalScore {
-  teamId        Int     @map("team_id")
-  teamCode      String? @map("team_code") @db.VarChar(12)
-  teamName      String? @map("team_name") @db.VarChar(50)
-  isExternal    Boolean @map("is_external")
-  videogameId   Int     @map("videogame_id")
-  videogameName String? @map("videogame_name") @db.VarChar(30)
+  teamId           Int     @map("team_id")
+  teamCode         String? @map("team_code") @db.VarChar(12)
+  teamName         String? @map("team_name") @db.VarChar(50)
+  isExternal       Boolean @map("is_external")
+  videogameId      Int     @map("videogame_id")
+  videogameName    String? @map("videogame_name") @db.VarChar(30)
   videogameLogoUrl String? @map("videogame_logo_url")
-  editionId     Int     @map("edition_id")
-  avgJunior     Float?  @map("avg_junior")
-  avgSenior     Float?  @map("avg_senior")
-  finalScore    Float?  @map("final_score")
+  editionId        Int     @map("edition_id")
+  avgJunior        Float?  @map("avg_junior")
+  avgSenior        Float?  @map("avg_senior")
+  finalScore       Float?  @map("final_score")
 
   @@unique([teamId, videogameId, editionId])
   @@map("vw_team_final_scores")

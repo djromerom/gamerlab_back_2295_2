@@ -1709,46 +1709,43 @@
     "data": [
       {
         "id": 1,
-        "semester": "2025-10",
+        "semester": 10,
         "title": "Titulo",
         "year": 2025,
-        "semesterName": "Primer semestre",
-        "name": "Feria Gamer 2024 - S1",
-        "date": "Marzo 2024",
         "description": "Edici\u00f3n destacada por la integraci\u00f3n de estudios indie y universidades locales.",
         "description2": null,
         "alt": "Feria Gamer 2025-10",
-        "isActive": false,
+        "startsAt": "2024-03-01T00:00:00.000Z",
+        "endsAt": "2024-03-31T23:59:59.000Z",
+        "status": "ARCHIVED",
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
       {
         "id": 2,
-        "semester": "2024-30",
+        "semester": 30,
         "title": "Titulo",
         "year": 2024,
-        "semesterName": "Segundo semestre",
-        "name": "Feria Gamer 2024 - S2",
-        "date": "Abril 2024",
         "description": "Innovacion y aprendizaje se fusionaron en la II Feria Gamer del Programa de Ingenier\u00eda de Software y Computacion de la Universidad Del Norte, evento donde los videojuegos se transformaron en Herramientas para educar sobre los peligros del mundo digital",
         "description2": "Estudiantes de primero a tercer semestre presentaron el jueves, 24 de abril de 2025, sus proyectos finales, una serie de videojuegos dise\u00f1ados para generar conciencia sobre riesgos como el grooming, phishing y ciberacoso, mientras demostraban su creatividad y dominio t\u00e9cnico en programaci\u00f3n.",
         "alt": "Feria Gamer 2024-30",
-        "isActive": false,
+        "startsAt": "2024-04-01T00:00:00.000Z",
+        "endsAt": "2024-04-30T23:59:59.000Z",
+        "status": "INACTIVE",
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
       {
         "id": 3,
-        "semester": "2025-30",
+        "semester": 30,
         "title": "Feria Gamer 2025 - S2",
         "year": 2025,
-        "semesterName": "Segundo semestre",
-        "name": "Feria Gamer 2025 - S3",
-        "date": "Noviembre 2025",
         "description": "La innovaci\u00f3n y la protecci\u00f3n digital se encontraron en la III Feria Gamer del Programa de Ingenier\u00eda de Software y Computaci\u00f3n de la Universidad del Norte, un evento donde los videojuegos se transformaron en herramientas para educar sobre los desaf\u00edos de la seguridad en l\u00ednea.",
         "description2": "Estudiantes de primer a tercer semestre presentaron el jueves, 27 de noviembre sus proyectos finales: experiencias interactivas creadas para concientizar sobre amenazas como el robo de informaci\u00f3n, suplantaci\u00f3n de identidad, vulnerabilidades comunes y buenas pr\u00e1cticas de seguridad digital. A trav\u00e9s de din\u00e1micas l\u00fadicas y creativas, los participantes demostraron su habilidad t\u00e9cnica y su compromiso con formar usuarios m\u00e1s preparados y responsables en un mundo cada vez m\u00e1s conectado.",
         "alt": "Feria Gamer 2025-30",
-        "isActive": true,
+        "startsAt": "2025-11-01T00:00:00.000Z",
+        "endsAt": "2025-11-30T23:59:59.000Z",
+        "status": "ACTIVE",
         "createdAt": "2025-11-15T00:00:00.000Z",
         "updatedAt": "2025-11-15T00:00:00.000Z"
       }
@@ -1790,7 +1787,7 @@
       },
       {
         "id": 3,
-        "editionId": 2,
+        "editionId": 3,
         "title": "Anti-Grooming",
         "description": "Videojuegos que ense\u00f1an a identificar y prevenir el acoso en l\u00ednea por parte de adultos hacia menores.",
         "isActive": true,
@@ -1799,7 +1796,7 @@
       },
       {
         "id": 4,
-        "editionId": 2,
+        "editionId": 3,
         "title": "Anti-Phishing",
         "description": "Experiencias interactivas para reconocer intentos de suplantaci\u00f3n de identidad y estafas en l\u00ednea.",
         "isActive": true,
@@ -1929,9 +1926,7 @@
       {
         "id": 1,
         "editionId": 3,
-        "startDate": "2025-11-27T13:30:00.000Z",
-        "endDate": "2025-11-27T17:30:00.000Z",
-        "evaluationsOpen": false,
+        "evaluationsOpen": true,
         "showRanking": true,
         "showEvaluations": false,
         "createdAt": "2025-01-01T00:00:00.000Z",
@@ -2004,6 +1999,15 @@
         "roleId": 2,
         "firstName": "Student",
         "lastName": "Five"
+      },
+      {
+        "id": "profesor-colegios",
+        "email": "profesorcolegios@uninorte.edu.co",
+        "confirmationStatusId": 1,
+        "isActive": true,
+        "roleId": 3,
+        "firstName": "Profesor",
+        "lastName": "Colegios"
       }
     ]
   },
@@ -2213,6 +2217,56 @@
     ]
   },
   {
+    "table": "criterios",
+    "data": [
+      {
+        "id": 1,
+        "name": "Creatividad e Innovación",
+        "weight": 0.25,
+        "description": "Evalúa la originalidad del concepto, la narrativa y las mecánicas del juego",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "name": "Jugabilidad y Diversión",
+        "weight": 0.25,
+        "description": "Evalúa qué tan entretenido e intuitivo es el juego, la fluidez de las mecánicas y la experiencia del usuario",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 3,
+        "name": "Aspecto Técnico",
+        "weight": 0.2,
+        "description": "Evalúa la calidad del código, rendimiento, estabilidad y optimización del juego",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 4,
+        "name": "Diseño Visual y Sonoro",
+        "weight": 0.15,
+        "description": "Evalúa la calidad artística, interfaz de usuario, animaciones y banda sonora",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      },
+      {
+        "id": 5,
+        "name": "Temática y Mensaje",
+        "weight": 0.15,
+        "description": "Evalúa qué tan bien aborda la temática de seguridad digital y el mensaje educativo",
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
     "table": "juego_destacado",
     "data": [
       {
@@ -2228,6 +2282,175 @@
         "videogameId": 200,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "table": "equipos_historico",
+    "data": [
+      {
+        "id": 1,
+        "editionId": 1,
+        "teamName": "Eco Warriors",
+        "teamCode": "HIST-100"
+      },
+      {
+        "id": 2,
+        "editionId": 1,
+        "teamName": "Green Tech",
+        "teamCode": "HIST-200"
+      },
+      {
+        "id": 3,
+        "editionId": 1,
+        "teamName": "Nature Devs",
+        "teamCode": "HIST-300"
+      },
+      {
+        "id": 4,
+        "editionId": 1,
+        "teamName": "Wind Runners",
+        "teamCode": "HIST-400"
+      },
+      {
+        "id": 5,
+        "editionId": 1,
+        "teamName": "Solar Knights",
+        "teamCode": "HIST-500"
+      }
+    ]
+  },
+  {
+    "table": "integrante_historico",
+    "data": [
+      {
+        "id": 1,
+        "firstName": "Juan",
+        "lastName": "Perez",
+        "email": "juan.perez@example.com",
+        "studentCode": "20000",
+        "teamId": 1
+      },
+      {
+        "id": 2,
+        "firstName": "Maria",
+        "lastName": "Lopez",
+        "email": "maria.lopez@example.com",
+        "studentCode": "20001",
+        "teamId": 1
+      },
+      {
+        "id": 3,
+        "firstName": "Luis",
+        "lastName": "Gomez",
+        "email": "luis.gomez@example.com",
+        "studentCode": "20002",
+        "teamId": 2
+      },
+      {
+        "id": 4,
+        "firstName": "Ana",
+        "lastName": "Torres",
+        "email": "ana.torres@example.com",
+        "studentCode": "20003",
+        "teamId": 2
+      },
+      {
+        "id": 5,
+        "firstName": "Carlos",
+        "lastName": "Diaz",
+        "email": "carlos.diaz@example.com",
+        "studentCode": "20004",
+        "teamId": 3
+      },
+      {
+        "id": 6,
+        "firstName": "Sofia",
+        "lastName": "Ruiz",
+        "email": "sofia.ruiz@example.com",
+        "studentCode": "20005",
+        "teamId": 3
+      },
+      {
+        "id": 7,
+        "firstName": "Pedro",
+        "lastName": "Gomez",
+        "email": "pedro.gomez@example.com",
+        "studentCode": "20006",
+        "teamId": 4
+      },
+      {
+        "id": 8,
+        "firstName": "Laura",
+        "lastName": "Martinez",
+        "email": "laura.martinez@example.com",
+        "studentCode": "20007",
+        "teamId": 5
+      }
+    ]
+  },
+  {
+    "table": "videojuegos_historico",
+    "data": [
+      {
+        "id": 1,
+        "name": "Save the Forest",
+        "description": "Un juego sobre la reforestación.",
+        "logoUrl": "https://images.unsplash.com/photo-1448375240586-882707db888b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 1,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 110,
+        "finalScore": 82
+      },
+      {
+        "id": 2,
+        "name": "Ocean Cleaner",
+        "description": "Limpia el océano de la contaminación.",
+        "logoUrl": "https://images.unsplash.com/photo-1483683804023-6ccdb62f86ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 2,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 120,
+        "finalScore": 84
+      },
+      {
+        "id": 3,
+        "name": "City Planner",
+        "description": "Construye una ciudad sostenible.",
+        "logoUrl": "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 3,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 130,
+        "finalScore": 86
+      },
+      {
+        "id": 4,
+        "name": "Wind Farm Manager",
+        "description": "Administra un parque eólico.",
+        "logoUrl": "https://images.unsplash.com/photo-1466611653911-95081537e5b7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 4,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 140,
+        "finalScore": 88
+      },
+      {
+        "id": 5,
+        "name": "Sun Collector",
+        "description": "Atrapa energía solar para iluminar la ciudad.",
+        "logoUrl": "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "teamId": 5,
+        "repoUrl": "https://github.com/example/repo",
+        "videoUrl": "https://youtube.com",
+        "additionalImages": [],
+        "likes": 150,
+        "finalScore": 90
       }
     ]
   }

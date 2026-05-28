@@ -14,8 +14,8 @@ import {
   Role,
 } from '@prisma/client';
 
-import { PrismaService } from '../../prisma/prisma.service';
 import { PaginatedResult } from '../../common/types/paginated-result.type';
+import { PrismaService } from '../../prisma/prisma.service';
 import { JurorAssignmentAuditService } from './juror-assignment-audit.service';
 
 type EvaluatorForValidation = {
@@ -131,13 +131,9 @@ export class JurorAssignmentService implements OnModuleInit {
   ) {
     this.validateEvaluatorRole(evaluator);
 
+    // [MODIFICADO]: Se eliminó la restricción que impedía a los profesores evaluar equipos de nivel distinto a 0 (manual assignment).
+    // [ANTES]: if (teamLevel !== 0) { throw new BadRequestException(...) }
     if (evaluator.roleId === this.professorRoleId) {
-      if (teamLevel !== 0) {
-        throw new BadRequestException(
-          'Los profesores solo pueden ser asignados a equipos de nivel 0 (colegios).',
-        );
-      }
-
       return;
     }
 
@@ -148,10 +144,7 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
-      if (
-        teamLevel === 0 &&
-        evaluator.jurorCategory === JurorCategory.JUNIOR
-      ) {
+      if (teamLevel === 0 && evaluator.jurorCategory === JurorCategory.JUNIOR) {
         throw new BadRequestException(
           'Los jurados JUNIOR no pueden ser asignados a colegios (nivel 0).',
         );
@@ -185,9 +178,7 @@ export class JurorAssignmentService implements OnModuleInit {
     });
 
     if (!evaluator || !evaluator.isActive) {
-      throw new NotFoundException(
-        'Evaluador no encontrado o inactivo.',
-      );
+      throw new NotFoundException('Evaluador no encontrado o inactivo.');
     }
 
     this.validateEvaluatorRole(evaluator);
@@ -619,10 +610,9 @@ export class JurorAssignmentService implements OnModuleInit {
       );
 
       if (assignmentCount === 0) {
-        return {
-          message: 'No hay asignaciones de evaluadores para eliminar.',
-          asignacionesEliminadas: 0,
-        };
+        throw new BadRequestException(
+          'No hay asignaciones de evaluadores activas para eliminar.',
+        );
       }
 
       await this.prisma.$transaction(async (tx) => {
@@ -749,9 +739,7 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
-  async getAuditLog(
-    filters: AuditLogFilters,
-  ): Promise<PaginatedResult<any>> {
+  async getAuditLog(filters: AuditLogFilters): Promise<PaginatedResult<any>> {
     try {
       const page = filters.page ?? 1;
       const limit = filters.limit ?? 20;
@@ -882,9 +870,7 @@ export class JurorAssignmentService implements OnModuleInit {
 
       const assignedJurorIds = Array.from(
         new Set(
-          teams.flatMap((team) =>
-            team.assignedJurors.map((juror) => juror.id),
-          ),
+          teams.flatMap((team) => team.assignedJurors.map((juror) => juror.id)),
         ),
       );
 
@@ -909,8 +895,7 @@ export class JurorAssignmentService implements OnModuleInit {
 
       const evaluatedSet = new Set(
         evaluations.map(
-          (evaluation) =>
-            `${evaluation.videogameId}:${evaluation.jurorId}`,
+          (evaluation) => `${evaluation.videogameId}:${evaluation.jurorId}`,
         ),
       );
 
@@ -924,13 +909,12 @@ export class JurorAssignmentService implements OnModuleInit {
 
           return {
             id: juror.id,
-            nombre:
-              `${juror.firstName ?? ''} ${juror.lastName ?? ''}`.trim(),
+            nombre: `${juror.firstName ?? ''} ${juror.lastName ?? ''}`.trim(),
             email: juror.email,
             categoria:
               juror.roleId === this.professorRoleId
                 ? 'PROFESOR'
-                : juror.jurorCategory ?? 'SIN_CATEGORIA',
+                : (juror.jurorCategory ?? 'SIN_CATEGORIA'),
             haEvaluado,
           };
         });
@@ -947,7 +931,9 @@ export class JurorAssignmentService implements OnModuleInit {
           nivel: this.extractLevelFromTeamCode(team.teamCode),
           totalJuradosAsignados: jurados.length,
           juradosQueEvaluaron,
-          juradosPendientes: jurados.length - juradosQueEvaluaron,
+          // [MODIFICADO]: Se ajustó el cálculo a 3 - juradosQueEvaluaron para reflejar que siempre se requieren 3 evaluaciones en total, independientemente de cuántos jurados estén asignados.
+          // [ANTES]: juradosPendientes se calculaba con jurados.length - juradosQueEvaluaron, causando valores erróneos si había menos de 3 jurados asignados.
+          juradosPendientes: 3 - juradosQueEvaluaron,
           jurados,
         };
       });
@@ -956,10 +942,7 @@ export class JurorAssignmentService implements OnModuleInit {
         throw error;
       }
 
-      this.logger.error(
-        'Error al obtener seguimiento de evaluaciones:',
-        error,
-      );
+      this.logger.error('Error al obtener seguimiento de evaluaciones:', error);
       throw new InternalServerErrorException(
         'Error al obtener seguimiento de evaluaciones.',
       );

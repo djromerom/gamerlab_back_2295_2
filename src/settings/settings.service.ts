@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { EventConfiguration } from '@prisma/client';
+import { EventConfiguration, EditionStatus } from '@prisma/client';
 import { CreateWeightDto } from './dto/create-weight.dto';
 
 @Injectable()
@@ -48,19 +48,17 @@ export class SettingsService {
 
   async getEvaluationsOpen(): Promise<{
     evaluationsOpen: boolean;
-    endDate: Date;
   }> {
     const activeCnfgInfo = await this.getActiveConfig();
 
     return {
       evaluationsOpen: activeCnfgInfo.evaluationsOpen,
-      endDate: activeCnfgInfo.endDate,
     };
   }
 
   async updateEvaluationStatus(
     open: boolean,
-  ): Promise<{ evaluationsOpen: boolean; endDate: Date }> {
+  ): Promise<{ evaluationsOpen: boolean }> {
     if (open === undefined || open === null)
       throw new BadRequestException("Missing 'open' parameter");
     const activeCnfg = await this.getActiveConfig();
@@ -68,7 +66,7 @@ export class SettingsService {
     const updated = await this.prisma.eventConfiguration.update({
       where: { id: activeCnfg.id },
       data: { evaluationsOpen: open },
-      select: { evaluationsOpen: true, endDate: true },
+      select: { evaluationsOpen: true },
     });
 
     return updated;
@@ -115,7 +113,7 @@ export class SettingsService {
 
   private async getActiveConfig(): Promise<EventConfiguration> {
     const activeCnfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: { isActive: true } },
+      where: { edition: { status: EditionStatus.ACTIVE } },
     });
     if (!activeCnfg)
       throw new NotFoundException(

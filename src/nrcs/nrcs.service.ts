@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma, NRC } from '@prisma/client';
+import { Prisma, NRC, EditionStatus } from '@prisma/client';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 import { CreateNrcDto } from './dto/create-nrc.dto';
@@ -102,7 +102,7 @@ export class NrcsService {
 
     const activeEdition = await this.prisma.edition.findFirst({
       where: {
-        isActive: true,
+        status: EditionStatus.ACTIVE,
       },
       orderBy: {
         id: 'desc',

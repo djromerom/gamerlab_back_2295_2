@@ -12,4 +12,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Place holder for test steps here, e.g., running unit tests
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run tests
+        run: npm run test:ci
+        continue-on-error: true

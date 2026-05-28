@@ -334,6 +334,52 @@ export class JurorController {
     return this.jurorService.getTeamEvaluationStats(teamIdNumber);
   }
 
+  @Get('teams/:teamId/jurors-status')
+  @ApiOperation({
+    summary: 'Obtener estado de evaluación de los jurados de un equipo',
+    description:
+      'Devuelve los jurados asignados a un equipo e indica cuáles ya calificaron y cuáles siguen pendientes.',
+  })
+  @ApiOkResponse({
+    description: 'Estado de evaluación de jurados del equipo',
+    schema: {
+      example: {
+        equipo: {
+          id: 1,
+          nombre: 'Equipo Alpha',
+          videojuego: 'Juego Alpha',
+        },
+        jurados: [
+          {
+            id: 'juror-senior',
+            nombre: 'Juror Senior',
+            email: 'jurorsenior@uninorte.edu.co',
+            yaCalifico: true,
+            estadoEvaluacion: 'CALIFICADO',
+          },
+          {
+            id: 'juror-junior',
+            nombre: 'Juror Junior',
+            email: 'jurorjunior@uninorte.edu.co',
+            yaCalifico: false,
+            estadoEvaluacion: 'PENDIENTE',
+          },
+        ],
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'ID de equipo inválido' })
+  @ApiNotFoundResponse({ description: 'Equipo no encontrado' })
+  getTeamJurorsEvaluationStatus(@Param('teamId') teamId: string) {
+    const teamIdNumber = parseInt(teamId, 10);
+
+    if (isNaN(teamIdNumber)) {
+      throw new BadRequestException('ID de equipo inválido');
+    }
+
+    return this.jurorService.getTeamJurorsEvaluationStatus(teamIdNumber);
+  }
+
   @Get(':id/teams')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')

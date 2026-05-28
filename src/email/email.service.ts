@@ -495,7 +495,9 @@ export class EmailService {
       if (this.emailClient) {
         this.logger.log(`Enviando carga útil a ACS apuntando a ${to}...`);
 
-        const poller = await this.emailClient.beginSend(message);
+        const poller = await this.emailClient.beginSend(message, {
+          abortSignal: AbortSignal.timeout(15_000), // 15 segundos máximo
+        });
         const result = await poller.pollUntilDone();
 
         if (!result || result.status !== 'Succeeded') {
@@ -512,16 +514,15 @@ export class EmailService {
         );
       }
     } catch (error) {
-      const isTimeout =
-        (error instanceof Error && error.name === 'AbortError') ||
-        (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ETIMEDOUT') ||
-        (error instanceof RestError && (
-          error.code === 'REQUEST_SEND_ERROR' ||
-          error.statusCode === 408 ||
-          error.statusCode === 504
-        ));
+      if ((error as any)?.statusCode === 429) {
+        this.logger.warn(`[ACS] Rate limit alcanzado al enviar correo a ${to}. Reintenta más tarde.`);
+        throw new ServiceUnavailableException('RATE_LIMIT_EXCEEDED');
+      }
 
-      if (isTimeout) { }
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.warn(`[ACS] Timeout (15s) al enviar correo a ${to}.`);
+        throw new ServiceUnavailableException('El servicio de correo provocó un timeout. Intenta de nuevo en unos instantes.');
+      }
 
       if (error instanceof RestError) {
         if (error.code === 'ETIMEDOUT') {

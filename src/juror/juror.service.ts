@@ -1,32 +1,32 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
-  NotFoundException,
   InternalServerErrorException,
   Logger,
-  ConflictException,
-  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
+import {
+  JurorCategory,
+  ManualJurorAssignmentAction,
+  Prisma,
+  Role,
+  User,
+} from '@prisma/client';
+import { AuthService } from '../auth/auth.service';
+import { PaginatedResult } from '../common/types/paginated-result.type';
+import { PrismaService } from '../prisma/prisma.service';
+import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment-audit.service';
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuthService } from '../auth/auth.service';
-import {
-  Prisma,
-  User,
-  Role,
-  ManualJurorAssignmentAction,
-  JurorCategory,
-} from '@prisma/client';
-import { PaginatedResult } from '../common/types/paginated-result.type';
 import { JurorListItem } from './types/juror-list-item.type';
-import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment-audit.service';
 
 @Injectable()
 export class JurorService {
   private readonly logger = new Logger(JurorService.name);
-  private readonly JUROR_ROLE_NAME = "Jurado";
-  private readonly PROFESSOR_ROLE_NAME = "Profesor";
-  private readonly CONFIRMED_STATUS_NAME = "CONFIRMADO";
+  private readonly JUROR_ROLE_NAME = 'Jurado';
+  private readonly PROFESSOR_ROLE_NAME = 'Profesor';
+  private readonly CONFIRMED_STATUS_NAME = 'CONFIRMADO';
   private jurorRoleId: number;
   private professorRoleId: number;
   private confirmedStatusId: number;
@@ -37,13 +37,11 @@ export class JurorService {
     private readonly jurorAssignmentAuditService: JurorAssignmentAuditService,
   ) { }
   async onModuleInit() {
-
     this.logger.log('Initializing Juror module: Fetching Juror role id');
 
     try {
-
       const jurorRole: Role | null = await this.prisma.role.findFirst({
-        where: { name: this.JUROR_ROLE_NAME, isActive: true }
+        where: { name: this.JUROR_ROLE_NAME, isActive: true },
       });
 
       if (!jurorRole) {
@@ -62,7 +60,7 @@ export class JurorService {
 
       // Buscar ID del rol de Profesor
       const professorRole: Role | null = await this.prisma.role.findFirst({
-        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true }
+        where: { name: this.PROFESSOR_ROLE_NAME, isActive: true },
       });
 
       if (!professorRole) {
@@ -85,20 +83,26 @@ export class JurorService {
       });
 
       if (!confirmedStatus) {
-        this.logger.error(`FATAL: Confirmation status '${this.CONFIRMED_STATUS_NAME}' not found.`);
-        throw new InternalServerErrorException(`Missing confirmation status '${this.CONFIRMED_STATUS_NAME}'.`);
+        this.logger.error(
+          `FATAL: Confirmation status '${this.CONFIRMED_STATUS_NAME}' not found.`,
+        );
+        throw new InternalServerErrorException(
+          `Missing confirmation status '${this.CONFIRMED_STATUS_NAME}'.`,
+        );
       }
 
       this.confirmedStatusId = confirmedStatus.id;
-      this.logger.log(`Confirmation status ID initialized: ${this.confirmedStatusId}`);
-
+      this.logger.log(
+        `Confirmation status ID initialized: ${this.confirmedStatusId}`,
+      );
     } catch (error) {
       if (error instanceof Error)
-        this.logger.error(`Initialization failed: ${error.message}`, error.stack);
+        this.logger.error(
+          `Initialization failed: ${error.message}`,
+          error.stack,
+        );
       throw error;
     }
-
-
   }
 
   private mapToJurorListItem(
@@ -225,9 +229,10 @@ export class JurorService {
   ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
 
+    // Se ha modificado esta variable para incluir tanto a jurados como a profesores en el listado
     const whereClause: Prisma.UserWhereInput = {
-      roleId: this.jurorRoleId,
-      isActive: true
+      isActive: true,
+      OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
     };
 
     const [users, total, allGames] = await this.prisma.$transaction([
@@ -326,13 +331,12 @@ export class JurorService {
     return this.mapToJurorListItem(updated, stats.evaluated, stats.unevaluated);
   }
 
-
   async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
     // We invalidate the cache of the user being deleted
     this.auth.invalidateUserProfileCache(id);
     return this.prisma.user.delete({
-      where: { id: user.id }
+      where: { id: user.id },
     });
   }
 
@@ -357,13 +361,9 @@ export class JurorService {
     },
     teamLevel: number,
   ) {
-    // Profesor: mantiene regla actual, solo colegios (nivel 0)
+    // [MODIFICADO]: Se eliminó la restricción que impedía a los profesores evaluar equipos de nivel distinto a 0 (manual assignment).
+    // [ANTES]: if (teamLevel !== 0) { throw new BadRequestException(...) }
     if (evaluator.roleId === this.professorRoleId) {
-      if (teamLevel !== 0) {
-        throw new BadRequestException(
-          'Los profesores solo pueden ser asignados a equipos de nivel 0 (colegios)',
-        );
-      }
       return;
     }
 
@@ -387,15 +387,15 @@ export class JurorService {
       return;
     }
 
-    throw new BadRequestException('El usuario debe ser un jurado o un profesor');
+    throw new BadRequestException(
+      'El usuario debe ser un jurado o un profesor',
+    );
   }
 
-  private getEvaluatorLabel(
-    evaluator: {
-      roleId: number;
-      jurorCategory?: JurorCategory | null;
-    },
-  ): string {
+  private getEvaluatorLabel(evaluator: {
+    roleId: number;
+    jurorCategory?: JurorCategory | null;
+  }): string {
     if (evaluator.roleId === this.professorRoleId) {
       return 'profesor';
     }
@@ -426,38 +426,118 @@ export class JurorService {
 
     const latestEdition = await this.prisma.edition.findFirst({
       orderBy: {
-        id: 'desc'
-      }
+        id: 'desc',
+      },
     });
 
+    // MODIFICADO: Se implemento el BadRequest para esta validacion
     if (!latestEdition) {
-      return { message: 'No hay ediciones disponibles.', details: [] };
+      throw new BadRequestException('No hay ediciones disponibles.');
     }
-
 
     const teams = await this.getTeams(latestEdition.id);
     const allJurorsMap = await this.getJurors(false);
     const allProfessorsMap = await this.getJurors(true);
 
+    // MODIFICADO: Se añadio el BadRequestException a esta otra validacion
     if (teams.length === 0) {
-      return { message: 'No hay equipos confirmados y activos para asignar.', details: [] };
+      throw new BadRequestException(
+        'No hay equipos confirmados y activos para asignar.',
+      );
     }
 
     const allEvaluators = new Map<string, number>();
     for (const [id, count] of allJurorsMap) allEvaluators.set(id, count);
     for (const [id, count] of allProfessorsMap) allEvaluators.set(id, count);
 
+    // MODIFICACION: Validación nueva — sin evaluadores la asignación no tiene sentido
+    if (allEvaluators.size === 0) {
+      throw new BadRequestException(
+        'No hay jurados ni profesores activos disponibles para realizar la asignación.',
+      );
+    }
+
     const users = await this.prisma.user.findMany({
       where: { id: { in: Array.from(allEvaluators.keys()) } },
-      select: { id: true, email: true }
+      select: { id: true, email: true },
     });
 
     const userEmailMap = new Map<string, string>();
     for (const u of users) userEmailMap.set(u.id, u.email);
 
+    // [MODIFICACIÓN]: Construir el conjunto de evaluadores SENIOR (categoría SENIOR + todos los profesores)
+    // para garantizar que cada equipo universitario tenga al menos uno
+    const seniorEvaluatorIds = new Set<string>();
+    const evaluatorUserDetails = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(allEvaluators.keys()) } },
+      select: { id: true, jurorCategory: true, roleId: true },
+    });
+    for (const u of evaluatorUserDetails) {
+      if (
+        u.roleId === this.professorRoleId ||
+        u.jurorCategory === JurorCategory.SENIOR
+      ) {
+        seniorEvaluatorIds.add(u.id);
+      }
+    }
+
+    // Modificacion: Cargar NRCs de profesores y de miembros de equipos para evitar que un profesor
+    // Evalue equipos de sus propios cursos
+    const professorWithNrcs = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: Array.from(allProfessorsMap.keys()),
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        managedNrcs: {
+          select: { id: true, code: true },
+        },
+      },
+    });
+
+    const professorNrcMap = new Map<string, Set<number>>();
+    for (const prof of professorWithNrcs) {
+      const nrcIds = new Set<number>();
+      for (const nrc of prof.managedNrcs) {
+        nrcIds.add(nrc.id);
+      }
+      professorNrcMap.set(prof.id, nrcIds);
+    }
+
+    const teamIdsForNrcs = teams.map((t) => t.id);
+    const teamsWithNrcs = await this.prisma.team.findMany({
+      where: { id: { in: teamIdsForNrcs } },
+      select: {
+        id: true,
+        members: {
+          select: {
+            nrcs: {
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    const teamNrcMap = new Map<number, Set<number>>();
+    for (const team of teamsWithNrcs) {
+      const nrcIds = new Set<number>();
+      for (const member of team.members) {
+        for (const nrc of member.nrcs) {
+          nrcIds.add(nrc.id);
+        }
+      }
+      teamNrcMap.set(team.id, nrcIds);
+    }
+
     const teamsByLevel = new Map<number, typeof teams>();
     for (const team of teams) {
-      const level = team.teamCode ? this.extractLevelFromTeamCode(team.teamCode) : null;
+      const level = team.teamCode
+        ? this.extractLevelFromTeamCode(team.teamCode)
+        : null;
       if (level === null) continue;
       if (!teamsByLevel.has(level)) teamsByLevel.set(level, []);
       teamsByLevel.get(level)!.push(team);
@@ -477,12 +557,17 @@ export class JurorService {
     }
 
     for (const team of teams) {
-      const level = team.teamCode ? this.extractLevelFromTeamCode(team.teamCode) : null;
+      const level = team.teamCode
+        ? this.extractLevelFromTeamCode(team.teamCode)
+        : null;
       if (level === null) continue;
 
       const existing = team.assignedJurors
-        .filter(j => j.roleId === this.professorRoleId || j.roleId === this.jurorRoleId)
-        .map(j => j.id)
+        .filter(
+          (j) =>
+            j.roleId === this.professorRoleId || j.roleId === this.jurorRoleId,
+        )
+        .map((j) => j.id)
         .filter((id, i, arr) => arr.indexOf(id) === i);
 
       assignments.set(team.id, [...existing]);
@@ -495,35 +580,79 @@ export class JurorService {
       }
     }
 
-    const assignFromPool = (teamId: number, needed: number, allowedEmails: string[] | null, level: number): void => {
+    const assignFromPool = (
+      teamId: number,
+      needed: number,
+      allowedEmails: string[] | null,
+      level: number,
+      // [MODIFICACIÓN]: Cuando es true, solo considera evaluadores SENIOR o Profesores
+      seniorOnly: boolean = false,
+    ): void => {
       const current = assignments.get(teamId)!;
       if (needed <= 0 || current.length >= MAX_PER_TEAM) return;
 
       const candidates = Array.from(evaluatorLoad.entries())
         .filter(([id, load]) => load < MAX_PER_JUROR && !current.includes(id))
+        // Modificacion: Excluir profesores cuyos NRCs coincidan con los del equipo
+        // para evitar que un profesor evalúe a sus propios estudiantes
+        .filter(([id]) => {
+          // Si es nivel colegio, no aplica esta restricción
+          if (level === 0) return true;
+          // Si el evaluador no es profesor, no hay conflicto
+          if (!allProfessorsMap.has(id)) return true;
+          // Obtener los NRCs del profesor
+          const profNrcs = professorNrcMap.get(id);
+          if (!profNrcs || profNrcs.size === 0) return true;
+          // Obtener los NRCs de los miembros del equipo
+          const teamNrcs = teamNrcMap.get(teamId);
+          if (!teamNrcs || teamNrcs.size === 0) return true;
+          // Verificar si hay intersección: algún NRC del profesor coincide con el equipo
+          for (const nrcId of profNrcs) {
+            if (teamNrcs.has(nrcId)) return false; // Conflicto de interés
+          }
+          return true; // Sin conflicto
+        })
         .filter(([id]) => {
           const email = userEmailMap.get(id);
           if (allowedEmails === null) return true;
           return email && allowedEmails.includes(email);
         })
+        // [MODIFICACIÓN]: Filtrar solo evaluadores SENIOR/Profesor cuando se requiere la garantía mínima
+        .filter(([id]) => {
+          if (!seniorOnly) return true;
+          return seniorEvaluatorIds.has(id);
+        })
         .sort((a, b) => {
-          const idA = a[0], loadA = a[1];
-          const idB = b[0], loadB = b[1];
+          const idA = a[0],
+            loadA = a[1];
+          const idB = b[0],
+            loadB = b[1];
 
           const aUnderTarget = loadA < targetLoad;
           const bUnderTarget = loadB < targetLoad;
 
           if (aUnderTarget !== bUnderTarget) return aUnderTarget ? -1 : 1;
 
-          const aHasCurrent = evaluatorLevels.get(idA)?.has(level)
-          const bHasCurrent = evaluatorLevels.get(idB)?.has(level)
+          const aHasCurrent = evaluatorLevels.get(idA)?.has(level);
+          const bHasCurrent = evaluatorLevels.get(idB)?.has(level);
 
           if (aHasCurrent !== bHasCurrent) return aHasCurrent ? -1 : 1;
 
-          const maxLevelA = Math.max(-1, ...Array.from(evaluatorLevels.get(idA) ?? []).filter(l => l < level))
-          const maxLevelB = Math.max(-1, ...Array.from(evaluatorLevels.get(idB) ?? []).filter(l => l < level))
+          // [MODIFICADO]: Calcular distancia mínima ABSOLUTA al nivel objetivo
+          // [APRENDIZAJE]: Math.abs() devuelve el valor absoluto (distancia sin signo)
+          // [ANTES]: Solo miraba niveles inferiores (l < level)
+          const levelsA = Array.from(evaluatorLevels.get(idA) ?? []);
+          const levelsB = Array.from(evaluatorLevels.get(idB) ?? []);
+          const minDistA =
+            levelsA.length > 0
+              ? Math.min(...levelsA.map((l) => Math.abs(l - level)))
+              : Infinity;
+          const minDistB =
+            levelsB.length > 0
+              ? Math.min(...levelsB.map((l) => Math.abs(l - level)))
+              : Infinity;
 
-          if (maxLevelA !== maxLevelB) return maxLevelB - maxLevelA;
+          if (minDistA !== minDistB) return minDistA - minDistB;
 
           return loadA - loadB;
         });
@@ -548,18 +677,56 @@ export class JurorService {
           assignFromPool(team.id, needed, this.COLEGIO_JUROR_EMAILS, level);
         }
       } else {
+        // [MODIFICACIÓN]: Garantizar mínimo 1 SENIOR o Profesor por equipo universitario
+        // Primer paso: intentar asignar 1 SENIOR/Profesor
+        // Segundo paso: completar cupos restantes con cualquier evaluador disponible
         for (const team of levelTeams) {
-          const needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
-          assignFromPool(team.id, needed, null, level);
+          const currentAssigned = assignments.get(team.id)!;
+          const alreadyHasSenior = currentAssigned.some((id) =>
+            seniorEvaluatorIds.has(id),
+          );
+          let needed = MAX_PER_TEAM - currentAssigned.length;
+
+          if (!alreadyHasSenior && needed > 0) {
+            assignFromPool(team.id, 1, null, level, true);
+            needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
+          }
+
+          if (needed > 0) {
+            assignFromPool(team.id, needed, null, level);
+          }
         }
       }
 
-      const counts = levelTeams.map(t => assignments.get(t.id)!.length);
+      const counts = levelTeams.map((t) => assignments.get(t.id)!.length);
       if (counts.length === 0) continue;
-      const min = Math.min(...counts), max = Math.max(...counts);
+      const min = Math.min(...counts),
+        max = Math.max(...counts);
       const label = level === 0 ? 'Colegios (N0)' : `Universitarios N${level}`;
-      const withFull = counts.filter(c => c === MAX_PER_TEAM).length;
-      results.push(`${label}: ${levelTeams.length} equipos | ${withFull} con ${MAX_PER_TEAM} evaluadores | rango: ${min}-${max}`);
+      const withFull = counts.filter((c) => c === MAX_PER_TEAM).length;
+      results.push(
+        `${label}: ${levelTeams.length} equipos | ${withFull} con ${MAX_PER_TEAM} evaluadores | rango: ${min}-${max}`,
+      );
+    }
+
+    // [MODIFICACIÓN]: Detectar y reportar equipos universitarios que no pudieron recibir un SENIOR
+    let teamsWithoutSenior = 0;
+    for (const level of sortedLevels) {
+      if (level === 0) continue;
+      for (const team of teamsByLevel.get(level)!) {
+        const assigned = assignments.get(team.id)!;
+        if (
+          assigned.length > 0 &&
+          !assigned.some((id) => seniorEvaluatorIds.has(id))
+        ) {
+          teamsWithoutSenior++;
+        }
+      }
+    }
+    if (teamsWithoutSenior > 0) {
+      results.push(
+        `⚠️ ${teamsWithoutSenior} equipo(s) universitario(s) sin SENIOR disponible (se asignaron JUNIORs como alternativa).`,
+      );
     }
 
     this.logger.log('Guardando asignaciones en la base de datos...');
@@ -567,19 +734,25 @@ export class JurorService {
       Array.from(assignments.entries()).map(([teamId, jurorIds]) =>
         this.prisma.team.update({
           where: { id: teamId },
-          data: { assignedJurors: { set: jurorIds.map(id => ({ id })) } },
-        })
-      )
+          data: { assignedJurors: { set: jurorIds.map((id) => ({ id })) } },
+        }),
+      ),
     );
 
     const totalTeams = teams.length;
-    const fullTeams = Array.from(assignments.values()).filter(ids => ids.length === MAX_PER_TEAM).length;
+    const fullTeams = Array.from(assignments.values()).filter(
+      (ids) => ids.length === MAX_PER_TEAM,
+    ).length;
     const allOk = fullTeams === totalTeams;
 
-    results.unshift(`✅ ${fullTeams}/${totalTeams} equipos con exactamente ${MAX_PER_TEAM} jurados.`);
+    results.unshift(
+      `✅ ${fullTeams}/${totalTeams} equipos con exactamente ${MAX_PER_TEAM} jurados.`,
+    );
 
     return {
-      message: allOk ? 'Evaluaciones asignadas correctamente' : `Faltaron jurados para completar ${totalTeams - fullTeams} equipo(s).`,
+      message: allOk
+        ? 'Evaluaciones asignadas correctamente'
+        : `Faltaron jurados para completar ${totalTeams - fullTeams} equipo(s).`,
       details: results,
     };
   }
@@ -604,31 +777,33 @@ export class JurorService {
               isActive: true,
               OR: [
                 { roleId: this.jurorRoleId },
-                { roleId: this.professorRoleId }
-              ]
+                { roleId: this.professorRoleId },
+              ],
             },
             select: {
               id: true,
-              roleId: true
-            }
+              roleId: true,
+            },
           },
           videogame: {
             select: {
               id: true,
               name: true,
               videogameStatusId: true,
-            }
-          }
-        }
+            },
+          },
+        },
       });
 
       // Filtrar solo los equipos con videojuegos confirmados
-      const teams = allTeams.filter(team =>
-        team.videogame?.videogameStatusId === this.confirmedStatusId
+      const teams = allTeams.filter(
+        (team) => team.videogame?.videogameStatusId === this.confirmedStatusId,
       );
 
       // Contar equipos con evaluadores asignados
-      const teamsWithEvaluators = teams.filter(t => t.assignedJurors.length > 0).length;
+      const teamsWithEvaluators = teams.filter(
+        (t) => t.assignedJurors.length > 0,
+      ).length;
       const teamsWithoutEvaluators = teams.length - teamsWithEvaluators;
 
       // Agrupar por nivel para logging
@@ -650,33 +825,37 @@ export class JurorService {
       this.logger.log(
         `Obtenidos ${teams.length} equipos confirmados y activos para asignación ` +
         `(${teamsWithEvaluators} con evaluadores asignados, ${teamsWithoutEvaluators} sin evaluadores). ` +
-        `Distribución por nivel: ${levelSummary || 'N/A'}`
+        `Distribución por nivel: ${levelSummary || 'N/A'}`,
       );
 
       return teams;
     } catch (error) {
       this.logger.error('Error al obtener los equipos:', error);
-      throw new InternalServerErrorException("Error al obtener los equipos");
+      throw new InternalServerErrorException('Error al obtener los equipos');
     }
   }
 
-  async getJurors(useProfessors: boolean = false): Promise<Map<string, number>> {
+  async getJurors(
+    useProfessors: boolean = false,
+  ): Promise<Map<string, number>> {
     try {
       const roleId = useProfessors ? this.professorRoleId : this.jurorRoleId;
-      const roleName = useProfessors ? this.PROFESSOR_ROLE_NAME : this.JUROR_ROLE_NAME;
+      const roleName = useProfessors
+        ? this.PROFESSOR_ROLE_NAME
+        : this.JUROR_ROLE_NAME;
 
       const evaluators = await this.prisma.user.findMany({
         where: {
           isActive: true,
           roleId: roleId,
           email: {
-            not: 'profesorcolegios@uninorte.edu.co' // Excluir este profesor específico
-          }
+            not: 'profesorcolegios@uninorte.edu.co', // Excluir este profesor específico
+          },
         },
         select: {
           id: true,
           email: true,
-        }
+        },
       });
 
       // Obtener equipos asignados a estos evaluadores para calcular la carga inicial
@@ -685,23 +864,23 @@ export class JurorService {
           isActive: true,
           assignedJurors: {
             some: {
-              id: { in: evaluators.map(e => e.id) },
+              id: { in: evaluators.map((e) => e.id) },
               isActive: true,
-              roleId: roleId
-            }
-          }
+              roleId: roleId,
+            },
+          },
         },
         select: {
           assignedJurors: {
             where: {
               isActive: true,
-              roleId: roleId
+              roleId: roleId,
             },
             select: {
-              id: true
-            }
-          }
-        }
+              id: true,
+            },
+          },
+        },
       });
 
       // Creamos el Map<evaluadorId, cantidadEvaluaciones>
@@ -718,10 +897,14 @@ export class JurorService {
         }
       }
 
-      this.logger.log(`Obtenidos ${evaluators.length} ${roleName}${useProfessors ? 'es' : 's'} para asignación`);
+      this.logger.log(
+        `Obtenidos ${evaluators.length} ${roleName}${useProfessors ? 'es' : 's'} para asignación`,
+      );
       return evaluatorLoadMap;
     } catch (error) {
-      throw new InternalServerErrorException(`Error al obtener los ${useProfessors ? 'profesores' : 'jurados'}`);
+      throw new InternalServerErrorException(
+        `Error al obtener los ${useProfessors ? 'profesores' : 'jurados'}`,
+      );
     }
   }
 
@@ -733,7 +916,7 @@ export class JurorService {
   async filterEvaluatorsByLevel(
     evaluators: Map<string, number>,
     targetLevel: number,
-    isProfessors: boolean
+    isProfessors: boolean,
   ): Promise<Map<string, number>> {
     const filtered = new Map<string, number>();
 
@@ -753,22 +936,22 @@ export class JurorService {
           some: {
             id: { in: evaluatorIds },
             isActive: true,
-            roleId: roleId
-          }
-        }
+            roleId: roleId,
+          },
+        },
       },
       select: {
         teamCode: true,
         assignedJurors: {
           where: {
             isActive: true,
-            roleId: roleId
+            roleId: roleId,
           },
           select: {
-            id: true
-          }
-        }
-      }
+            id: true,
+          },
+        },
+      },
     });
 
     // Crear un mapa de evaluador -> niveles asignados
@@ -792,11 +975,12 @@ export class JurorService {
 
     // Filtrar evaluadores según las reglas
     for (const [evaluatorId, load] of evaluators.entries()) {
-      const assignedLevels = evaluatorLevels.get(evaluatorId) || new Set<number>();
+      const assignedLevels =
+        evaluatorLevels.get(evaluatorId) || new Set<number>();
 
       if (isProfessors) {
         // Profesores: solo pueden tener asignaciones de nivel 0
-        const hasNonZeroLevel = Array.from(assignedLevels).some(l => l !== 0);
+        const hasNonZeroLevel = Array.from(assignedLevels).some((l) => l !== 0);
         if (!hasNonZeroLevel) {
           // Puede ser asignado a nivel 0
           filtered.set(evaluatorId, load);
@@ -804,7 +988,9 @@ export class JurorService {
       } else {
         // Jurados: no pueden tener asignaciones de nivel 0, y solo del mismo nivel
         const hasLevelZero = assignedLevels.has(0);
-        const hasOtherLevel = Array.from(assignedLevels).some(l => l !== 0 && l !== targetLevel);
+        const hasOtherLevel = Array.from(assignedLevels).some(
+          (l) => l !== 0 && l !== targetLevel,
+        );
 
         if (!hasLevelZero && !hasOtherLevel) {
           // Puede ser asignado a este nivel (targetLevel)
@@ -858,13 +1044,20 @@ export class JurorService {
         },
       });
 
-      const evaluatorsMap = new Map<string, {
-        id: string;
-        nombre: string;
-        tipo: string;
-        email: string;
-        equiposAsignados: { id: number; nombre: string; videojuego: string | null }[];
-      }>();
+      const evaluatorsMap = new Map<
+        string,
+        {
+          id: string;
+          nombre: string;
+          tipo: string;
+          email: string;
+          equiposAsignados: {
+            id: number;
+            nombre: string;
+            videojuego: string | null;
+          }[];
+        }
+      >();
 
       for (const team of teams) {
         for (const juror of team.assignedJurors) {
@@ -899,7 +1092,9 @@ export class JurorService {
       }));
     } catch (error) {
       this.logger.error('Error al obtener evaluadores con equipos:', error);
-      throw new InternalServerErrorException('Error al obtener la lista de evaluadores');
+      throw new InternalServerErrorException(
+        'Error al obtener la lista de evaluadores',
+      );
     }
   }
 
@@ -943,9 +1138,13 @@ export class JurorService {
       this.validateEvaluatorCategoryForLevel(juror, teamLevel);
 
       // Verificar que el jurado no esté ya asignado
-      const isAlreadyAssigned = team.assignedJurors.some((j) => j.id === jurorId);
+      const isAlreadyAssigned = team.assignedJurors.some(
+        (j) => j.id === jurorId,
+      );
       if (isAlreadyAssigned) {
-        throw new ConflictException('El evaluador ya está asignado a este equipo');
+        throw new ConflictException(
+          'El evaluador ya está asignado a este equipo',
+        );
       }
 
       // Verificar que el evaluador no tenga equipos asignados de otro nivel
@@ -964,7 +1163,9 @@ export class JurorService {
 
       if (existingTeams.length > 0) {
         for (const existingTeam of existingTeams) {
-          const existingLevel = this.extractLevelFromTeamCode(existingTeam.teamCode);
+          const existingLevel = this.extractLevelFromTeamCode(
+            existingTeam.teamCode,
+          );
           if (existingLevel === null) {
             this.logger.warn(
               `No se pudo extraer el nivel del equipo existente con código: ${existingTeam.teamCode}`,
@@ -983,7 +1184,9 @@ export class JurorService {
       }
 
       for (const existingTeam of existingTeams) {
-        const existingLevel = this.extractLevelFromTeamCode(existingTeam.teamCode);
+        const existingLevel = this.extractLevelFromTeamCode(
+          existingTeam.teamCode,
+        );
 
         if (existingLevel === null) {
           this.logger.warn(
@@ -1016,7 +1219,9 @@ export class JurorService {
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === 'P2002'
           ) {
-            throw new ConflictException('El jurado ya está asignado a este equipo');
+            throw new ConflictException(
+              'El jurado ya está asignado a este equipo',
+            );
           }
           throw error;
         }
@@ -1055,7 +1260,9 @@ export class JurorService {
         });
 
         if (!teamWithJurors) {
-          throw new NotFoundException('Equipo no encontrado después de la asignación');
+          throw new NotFoundException(
+            'Equipo no encontrado después de la asignación',
+          );
         }
 
         return teamWithJurors;
@@ -1084,7 +1291,9 @@ export class JurorService {
         throw error;
       }
       this.logger.error('Error al asignar jurado a equipo:', error);
-      throw new InternalServerErrorException('Error al asignar jurado al equipo');
+      throw new InternalServerErrorException(
+        'Error al asignar jurado al equipo',
+      );
     }
   }
 
@@ -1133,8 +1342,8 @@ export class JurorService {
       });
 
       return teams
-        .filter(team => team.assignedJurors.length < 3)
-        .map(team => ({
+        .filter((team) => team.assignedJurors.length < 3)
+        .map((team) => ({
           id: team.id,
           nombre: team.teamName,
           videojuego: team.videogame?.name ?? null,
@@ -1143,7 +1352,7 @@ export class JurorService {
             nombre: `${team.user.firstName} ${team.user.lastName}`,
             email: team.user.email,
           },
-          juradosAsignados: team.assignedJurors.map(juror => ({
+          juradosAsignados: team.assignedJurors.map((juror) => ({
             id: juror.id,
             nombre: `${juror.firstName} ${juror.lastName}`,
             email: juror.email,
@@ -1151,8 +1360,13 @@ export class JurorService {
           cantidadJurados: team.assignedJurors.length,
         }));
     } catch (error) {
-      this.logger.error('Error al obtener equipos con menos de 3 jurados:', error);
-      throw new InternalServerErrorException('Error al obtener equipos con menos de 3 jurados');
+      this.logger.error(
+        'Error al obtener equipos con menos de 3 jurados:',
+        error,
+      );
+      throw new InternalServerErrorException(
+        'Error al obtener equipos con menos de 3 jurados',
+      );
     }
   }
 
@@ -1209,20 +1423,22 @@ export class JurorService {
         },
       });
 
-      return teams.map(team => ({
+      return teams.map((team) => ({
         id: team.id,
         nombre: team.teamName,
-        videojuego: team.videogame ? {
-          id: team.videogame.id,
-          nombre: team.videogame.name,
-          descripcion: team.videogame.description,
-        } : null,
+        videojuego: team.videogame
+          ? {
+            id: team.videogame.id,
+            nombre: team.videogame.name,
+            descripcion: team.videogame.description,
+          }
+          : null,
         lider: {
           id: team.user.id,
           nombre: `${team.user.firstName} ${team.user.lastName}`,
           email: team.user.email,
         },
-        juradosAsignados: team.assignedJurors.map(j => ({
+        juradosAsignados: team.assignedJurors.map((j) => ({
           id: j.id,
           nombre: `${j.firstName} ${j.lastName}`,
           email: j.email,
@@ -1230,11 +1446,16 @@ export class JurorService {
         cantidadJurados: team.assignedJurors.length,
       }));
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       this.logger.error('Error al obtener equipos asignados al jurado:', error);
-      throw new InternalServerErrorException('Error al obtener equipos asignados al jurado');
+      throw new InternalServerErrorException(
+        'Error al obtener equipos asignados al jurado',
+      );
     }
   }
 
@@ -1277,10 +1498,9 @@ export class JurorService {
       );
 
       if (assignmentCount === 0) {
-        return {
-          message: 'No hay asignaciones de evaluadores (jurados o profesores) para eliminar',
-          asignacionesEliminadas: 0,
-        };
+        throw new BadRequestException(
+          'No hay asignaciones de evaluadores (jurados o profesores) para eliminar',
+        );
       }
 
       await this.prisma.$transaction(async (tx) => {
@@ -1353,7 +1573,9 @@ export class JurorService {
         evaluator.roleId !== this.jurorRoleId &&
         evaluator.roleId !== this.professorRoleId
       ) {
-        throw new BadRequestException('El usuario no es un jurado ni un profesor');
+        throw new BadRequestException(
+          'El usuario no es un jurado ni un profesor',
+        );
       }
 
       const assignedTeams = evaluator.teamsToEvaluate;
@@ -1361,7 +1583,8 @@ export class JurorService {
 
       if (assignmentCount === 0) {
         return {
-          message: 'El evaluador (jurado o profesor) no tiene asignaciones para eliminar',
+          message:
+            'El evaluador (jurado o profesor) no tiene asignaciones para eliminar',
           asignacionesEliminadas: 0,
           evaluador: {
             id: evaluator.id,
@@ -1439,7 +1662,9 @@ export class JurorService {
       });
 
       if (!evaluator || !evaluator.isActive) {
-        throw new NotFoundException('Evaluador (jurado o profesor) no encontrado o inactivo');
+        throw new NotFoundException(
+          'Evaluador (jurado o profesor) no encontrado o inactivo',
+        );
       }
 
       // Validar que sea jurado o profesor
@@ -1447,7 +1672,9 @@ export class JurorService {
         evaluator.roleId !== this.jurorRoleId &&
         evaluator.roleId !== this.professorRoleId
       ) {
-        throw new BadRequestException('El usuario no es un jurado ni un profesor');
+        throw new BadRequestException(
+          'El usuario no es un jurado ni un profesor',
+        );
       }
 
       // Verificar que el equipo existe y está activo
@@ -1537,7 +1764,9 @@ export class JurorService {
       });
 
       if (!updatedTeam) {
-        throw new NotFoundException('Equipo no encontrado después de la desasignación');
+        throw new NotFoundException(
+          'Equipo no encontrado después de la desasignación',
+        );
       }
 
       this.logger.log(
@@ -1545,7 +1774,8 @@ export class JurorService {
       );
 
       return {
-        message: 'Evaluador (jurado o profesor) desasignado correctamente del equipo',
+        message:
+          'Evaluador (jurado o profesor) desasignado correctamente del equipo',
         equipo: {
           id: updatedTeam.id,
           nombre: updatedTeam.teamName,
@@ -1597,7 +1827,9 @@ export class JurorService {
       newJuror.roleId !== this.jurorRoleId &&
       newJuror.roleId !== this.professorRoleId
     ) {
-      throw new BadRequestException('El nuevo usuario no es un jurado ni un profesor');
+      throw new BadRequestException(
+        'El nuevo usuario no es un jurado ni un profesor',
+      );
     }
 
     const team = await this.prisma.team.findUnique({
@@ -1624,14 +1856,22 @@ export class JurorService {
       throw new NotFoundException('Equipo no encontrado o inactivo');
     }
 
-    const isCurrentlyAssigned = team.assignedJurors.some(j => j.id === currentJurorId);
+    const isCurrentlyAssigned = team.assignedJurors.some(
+      (j) => j.id === currentJurorId,
+    );
     if (!isCurrentlyAssigned) {
-      throw new NotFoundException('El evaluador actual no está asignado a este equipo');
+      throw new NotFoundException(
+        'El evaluador actual no está asignado a este equipo',
+      );
     }
 
-    const isNewAlreadyAssigned = team.assignedJurors.some(j => j.id === newJurorId);
+    const isNewAlreadyAssigned = team.assignedJurors.some(
+      (j) => j.id === newJurorId,
+    );
     if (isNewAlreadyAssigned) {
-      throw new ConflictException('El nuevo evaluador ya está asignado a este equipo');
+      throw new ConflictException(
+        'El nuevo evaluador ya está asignado a este equipo',
+      );
     }
 
     const teamLevel = this.extractLevelFromTeamCode(team.teamCode);
@@ -1655,7 +1895,9 @@ export class JurorService {
     });
 
     for (const existingTeam of existingTeamsOfNewEvaluator) {
-      const existingLevel = this.extractLevelFromTeamCode(existingTeam.teamCode);
+      const existingLevel = this.extractLevelFromTeamCode(
+        existingTeam.teamCode,
+      );
 
       if (existingLevel === null) {
         this.logger.warn(
@@ -1787,7 +2029,7 @@ export class JurorService {
         };
       }
 
-      const assignedJurorIds = team.assignedJurors.map(j => j.id);
+      const assignedJurorIds = team.assignedJurors.map((j) => j.id);
 
       // Contar evaluaciones realizadas por los jurados asignados para este videojuego
       const evaluationsCount = await this.prisma.evaluation.count({
@@ -1806,9 +2048,115 @@ export class JurorService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      this.logger.error('Error al obtener estadísticas de evaluación del equipo:', error);
-      throw new InternalServerErrorException('Error al obtener estadísticas de evaluación del equipo');
+      this.logger.error(
+        'Error al obtener estadísticas de evaluación del equipo:',
+        error,
+      );
+      throw new InternalServerErrorException(
+        'Error al obtener estadísticas de evaluación del equipo',
+      );
     }
   }
+  async getTeamJurorsEvaluationStatus(teamId: number): Promise<any> {
+    try {
+      const team = await this.prisma.team.findUnique({
+        where: { id: teamId },
+        select: {
+          id: true,
+          teamName: true,
+          videogame: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          assignedJurors: {
+            where: {
+              isActive: true,
+              OR: [
+                { roleId: this.jurorRoleId },
+                { roleId: this.professorRoleId },
+              ],
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
 
+      if (!team) {
+        throw new NotFoundException('Equipo no encontrado');
+      }
+
+      if (!team.videogame) {
+        return {
+          equipo: {
+            id: team.id,
+            nombre: team.teamName,
+            videojuego: null,
+          },
+          jurados: team.assignedJurors.map((juror) => ({
+            id: juror.id,
+            nombre: `${juror.firstName} ${juror.lastName}`,
+            email: juror.email,
+            yaCalifico: false,
+            estadoEvaluacion: 'PENDIENTE',
+          })),
+        };
+      }
+
+      const evaluations = await this.prisma.evaluation.findMany({
+        where: {
+          videogameId: team.videogame.id,
+          jurorId: {
+            in: team.assignedJurors.map((juror) => juror.id),
+          },
+          isActive: true,
+        },
+        select: {
+          jurorId: true,
+        },
+      });
+
+      const jurorsWhoEvaluated = new Set(
+        evaluations.map((evaluation) => evaluation.jurorId),
+      );
+
+      return {
+        equipo: {
+          id: team.id,
+          nombre: team.teamName,
+          videojuego: team.videogame.name,
+        },
+        jurados: team.assignedJurors.map((juror) => {
+          const yaCalifico = jurorsWhoEvaluated.has(juror.id);
+
+          return {
+            id: juror.id,
+            nombre: `${juror.firstName} ${juror.lastName}`,
+            email: juror.email,
+            yaCalifico,
+            estadoEvaluacion: yaCalifico ? 'CALIFICADO' : 'PENDIENTE',
+          };
+        }),
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      this.logger.error(
+        'Error al obtener estado de evaluación de jurados del equipo:',
+        error,
+      );
+
+      throw new InternalServerErrorException(
+        'Error al obtener estado de evaluación de jurados del equipo',
+      );
+    }
+  }
 }
