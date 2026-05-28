@@ -12,4 +12,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Place holder for test steps here, e.g., running unit tests
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies and run tests
+        run: \
+          npm ci && \
+          npx prisma generate && \
+          npm run test:ci
