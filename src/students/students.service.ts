@@ -242,4 +242,84 @@ export class StudentsService {
             }
         };
     }
+
+    async getMyJudges(userId: string) {
+        if (!userId) {
+            throw new NotFoundException('user not found');
+        }
+
+        // 1. Obtener el equipo del estudiante con su videojuego y jurados asignados
+        const team = await this.prisma.team.findUnique({
+            where: { userId },
+            select: {
+                id: true,
+                videogame: {
+                    select: { id: true },
+                },
+                assignedJurors: {
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        jurorCategory: true,
+                        roleId: true,
+                        role: {
+                            select: { name: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!team) {
+            throw new NotFoundException('Team not found for this user');
+        }
+
+        const videogameId = team.videogame?.id ?? null;
+        const jurorIds = team.assignedJurors.map((j) => j.id);
+
+        // 2. Obtener las evaluaciones de esos jurados para el videojuego del equipo
+        let evaluationsMap = new Map<string, number | null>();
+
+        if (videogameId && jurorIds.length > 0) {
+            const evaluations = await this.prisma.evaluation.findMany({
+                where: {
+                    isActive: true,
+                    videogameId,
+                    jurorId: { in: jurorIds },
+                },
+                select: {
+                    jurorId: true,
+                    totalScore: true,
+                },
+            });
+
+            for (const ev of evaluations) {
+                evaluationsMap.set(ev.jurorId, ev.totalScore);
+            }
+        }
+
+        // 3. Armar la respuesta
+        return team.assignedJurors.map((juror) => {
+            const roleName = juror.role?.name ?? '';
+            let categoria: string;
+            if (roleName === 'Profesor') {
+                categoria = 'PROFESOR';
+            } else {
+                categoria = juror.jurorCategory ?? 'SIN_CATEGORIA';
+            }
+
+            const hasEvaluation = evaluationsMap.has(juror.id);
+            const totalScore = hasEvaluation ? evaluationsMap.get(juror.id) : null;
+
+            return {
+                id: juror.id,
+                nombre: `${juror.firstName ?? ''} ${juror.lastName ?? ''}`.trim(),
+                categoria,
+                totalScore: hasEvaluation ? totalScore : null,
+                haEvaluado: hasEvaluation,
+            };
+        });
+    }
 }
