@@ -1,47 +1,47 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
-  Query,
-  ParseUUIDPipe,
+  Get,
   HttpCode,
   HttpStatus,
-  Res,
-  UseGuards,
+  Param,
   ParseIntPipe,
-  UseInterceptors,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
   UploadedFile,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ProfessorsService } from './professors.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { NRC, Subject, User } from '@prisma/client';
+import { Response } from 'express';
+import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginatedResult } from '../common/types/paginated-result.type';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { UpdateTeamEvaluationDto } from './dto/update-team-evaluation.dto';
-import { NRC, Subject, User } from '@prisma/client';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { PaginatedResult } from '../common/types/paginated-result.type';
-import { Public } from '../auth/decorators/public.decorator';
+import { ProfessorsService } from './professors.service';
 import { SelectOption } from './types/select-option.type';
-import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Response } from 'express';
-import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
-import { RequiredService } from 'src/auth/decorators/required-service.decorator';
-import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiConsumes,
-  ApiBody,
-  ApiQuery,
-  ApiParam,
-  ApiCreatedResponse,
-  ApiNoContentResponse,
-} from '@nestjs/swagger';
 
 @ApiTags('Professors')
 @ApiBearerAuth()
@@ -238,63 +238,6 @@ export class ProfessorsController {
     );
   }
 
-  @Get(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('GetProfessor')
-  @ApiOperation({ summary: 'Get professor by id' })
-  @ApiParam({ name: 'id', description: 'Professor UUID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Professor data',
-    schema: {
-      example: {
-        id: 'uuid-1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        roleId: 3,
-        isActive: true,
-      },
-    },
-  })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.professorsService.findOne(id);
-  }
-
-  @Patch(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('UpdateProfessor')
-  @ApiOperation({ summary: 'Update a professor' })
-  @ApiResponse({
-    status: 200,
-    description: 'Updated professor',
-    schema: {
-      example: {
-        id: 'uuid-1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        roleId: 3,
-        isActive: true,
-      },
-    },
-  })
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateProfessorDto: UpdateProfessorDto,
-  ) {
-    return this.professorsService.update(id, updateProfessorDto);
-  }
-
-  @Delete(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('DeleteProfessor')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a professor' })
-  @ApiNoContentResponse({ description: 'Professor deactivated' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    await this.professorsService.remove(id);
-  }
   /**
    * Get signature report grouped by team for a NRC.
    * */
@@ -640,5 +583,63 @@ export class ProfessorsController {
       res.status(HttpStatus.OK);
     }
     return result;
+  }
+
+  @Get(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('GetProfessor')
+  @ApiOperation({ summary: 'Get professor by id' })
+  @ApiParam({ name: 'id', description: 'Professor UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Professor data',
+    schema: {
+      example: {
+        id: 'uuid-1',
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john@example.com',
+        roleId: 3,
+        isActive: true,
+      },
+    },
+  })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.professorsService.findOne(id);
+  }
+
+  @Patch(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateProfessor')
+  @ApiOperation({ summary: 'Update a professor' })
+  @ApiResponse({
+    status: 200,
+    description: 'Updated professor',
+    schema: {
+      example: {
+        id: 'uuid-1',
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john@example.com',
+        roleId: 3,
+        isActive: true,
+      },
+    },
+  })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateProfessorDto: UpdateProfessorDto,
+  ) {
+    return this.professorsService.update(id, updateProfessorDto);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('DeleteProfessor')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a professor' })
+  @ApiNoContentResponse({ description: 'Professor deactivated' })
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.professorsService.remove(id);
   }
 }
