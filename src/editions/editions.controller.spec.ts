@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EditionsController } from './editions.controller';
 import { EditionsService } from './editions.service';
-import { PrismaService } from '../prisma/prisma.service';
 
 describe('EditionsController', () => {
   let controller: EditionsController;
@@ -23,7 +22,9 @@ describe('EditionsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EditionsController],
       providers: [
-        { provide: EditionsService, useValue: mockEditionsService },
+        { provide: EditionsService, 
+          useValue: mockEditionsService 
+        },
       ],
     }).compile();
 

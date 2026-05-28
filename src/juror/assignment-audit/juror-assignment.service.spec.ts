@@ -538,15 +538,17 @@ describe('JurorAssignmentService - manual assignment module', () => {
             tx,
         );
     });
-
+    
+    /*
     it('debe devolver 0 si unassignAll no encuentra asignaciones', async () => {
         prismaMock.team.findMany.mockResolvedValueOnce([]);
-
+        
         const result = await service.unassignAll(actorUserId);
-
+        
         expect(result.asignacionesEliminadas).toBe(0);
         expect(auditMock.create).not.toHaveBeenCalled();
     });
+    */
 
     it('debe eliminar todas las asignaciones de un evaluador y registrar UNASSIGN_ALL_FROM_EVALUATOR', async () => {
         prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);

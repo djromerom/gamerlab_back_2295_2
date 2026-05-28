@@ -236,7 +236,9 @@ export class RolePermissionGuard implements CanActivate {
 
     serviceConfig = {
       serviceId: service.id,
-      requiredPermissionIds: requiredPermissions.map((p) => p.permissionId),
+      requiredPermissionIds: requiredPermissions.map(
+        (p: { permissionId: number }) => p.permissionId,
+      ),
       requiresNoPermissions: requiredPermissions.length === 0,
     };
 
@@ -273,7 +275,9 @@ export class RolePermissionGuard implements CanActivate {
 
     userPermissions = {
       roleId,
-      grantedPermissionIds: grantedPermissions.map((p) => p.permissionId),
+      grantedPermissionIds: grantedPermissions.map(
+        (p: { permissionId: number }) => p.permissionId,
+      ),
     };
 
     await this.cacheService.set(cacheKey, userPermissions, this.USER_PERMISSIONS_CACHE_TTL);

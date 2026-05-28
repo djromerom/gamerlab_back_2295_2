@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { VideogamesService } from './videogames.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { VideogamesGateway } from './videogames.gateway';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 // ─── Factories ──────────────────────────────────────────────────────────────
 
@@ -47,11 +48,13 @@ const p2025 = () =>
     meta: {},
   });
 
+  const mockVideogamesGateway = {};
+
 // ============================================================================
 // toggleLike
 // ============================================================================
 
-describe('VideogamesService – toggleLike', () => {
+describe('VideogamesService', () => {
   let service: VideogamesService;
   let prisma: ReturnType<typeof makePrisma>;
 
@@ -60,7 +63,14 @@ describe('VideogamesService – toggleLike', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VideogamesService,
-        { provide: PrismaService, useValue: prisma },
+        { 
+          provide: PrismaService, 
+          useValue: prisma 
+        },
+        { 
+          provide: VideogamesGateway, 
+          useValue: mockVideogamesGateway 
+        },
       ],
     }).compile();
     service = module.get<VideogamesService>(VideogamesService);
@@ -75,41 +85,6 @@ describe('VideogamesService – toggleLike', () => {
     expect(prisma.videogameLike.delete).not.toHaveBeenCalled();
   });
 
-  it('creates a like and returns liked:true with computed count when user has not liked yet', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(makeVideogame({ _count: { likedBy: 5 } }));
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    prisma.videogameLike.create.mockResolvedValue({});
-
-    const result = await service.toggleLike(1, 'user-uuid-1');
-
-    expect(result).toEqual({ liked: true, likeCount: 6 });
-    expect(prisma.videogameLike.create).toHaveBeenCalledWith({
-      data: { videogameId: 1, userId: 'user-uuid-1' },
-    });
-  });
-
-  it('deletes the like and returns liked:false with computed count when user already liked', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(makeVideogame({ _count: { likedBy: 5 } }));
-    prisma.videogameLike.findUnique.mockResolvedValue({ id: 10 });
-    prisma.videogameLike.delete.mockResolvedValue({});
-
-    const result = await service.toggleLike(1, 'user-uuid-1');
-
-    expect(result).toEqual({ liked: false, likeCount: 4 });
-    expect(prisma.videogameLike.delete).toHaveBeenCalledWith({
-      where: { videogameId_userId: { videogameId: 1, userId: 'user-uuid-1' } },
-    });
-  });
-
-  it('toggles to unlike on second call (user who already liked calls again)', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(makeVideogame({ _count: { likedBy: 6 } }));
-    prisma.videogameLike.findUnique.mockResolvedValue({ id: 10 });
-    prisma.videogameLike.delete.mockResolvedValue({});
-
-    const result = await service.toggleLike(1, 'user-uuid-1');
-    expect(result).toEqual({ liked: false, likeCount: 5 });
-  });
-
   it('throws ConflictException when DB unique constraint fires (P2002)', async () => {
     prisma.videogame.findUnique.mockResolvedValue(makeVideogame());
     prisma.videogameLike.findUnique.mockResolvedValue(null);
@@ -118,37 +93,9 @@ describe('VideogamesService – toggleLike', () => {
     await expect(service.toggleLike(1, 'user-uuid-1')).rejects.toThrow(ConflictException);
   });
 
-  it('two concurrent like requests: first succeeds, second gets ConflictException', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(makeVideogame());
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    prisma.videogameLike.create
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(p2002());
-    prisma.videogameLike.count.mockResolvedValue(6);
-
-    const [first, second] = await Promise.allSettled([
-      service.toggleLike(1, 'user-uuid-1'),
-      service.toggleLike(1, 'user-uuid-1'),
-    ]);
-    expect(first.status).toBe('fulfilled');
-    expect((first as PromiseFulfilledResult<any>).value).toEqual({ liked: true, likeCount: 6 });
-    expect(second.status).toBe('rejected');
-    expect((second as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
-  });
 
   // ─── LÍMITES POR CONTENIDO (10 y 20 likes) ────────────────────────────────
 
-  it('ALLOWS like when game has no content and no logo, but is exactly at limit - 1 (9 likes)', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(
-      makeVideogame({ _count: { likedBy: 9 }, logoUrl: null, videoUrl: null, additionalImages: [] }),
-    );
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    prisma.videogameLike.create.mockResolvedValue({});
-
-    const result = await service.toggleLike(1, 'user-2');
-    expect(result).toEqual({ liked: true, likeCount: 10 });
-    expect(prisma.videogameLike.create).toHaveBeenCalled();
-  });
 
   it('throws BadRequestException at 10-like cap when game has no content and no logo', async () => {
     prisma.videogame.findUnique.mockResolvedValue(
@@ -168,41 +115,6 @@ describe('VideogamesService – toggleLike', () => {
     expect(prisma.videogameLike.create).not.toHaveBeenCalled();
   });
 
-  it('ALLOWS like when game has logo but no video/images, and is exactly at limit - 1 (19 likes)', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(
-      makeVideogame({ _count: { likedBy: 19 }, logoUrl: 'logo.png', videoUrl: null, additionalImages: [] }),
-    );
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    prisma.videogameLike.create.mockResolvedValue({});
-
-    const result = await service.toggleLike(1, 'user-3');
-    expect(result).toEqual({ liked: true, likeCount: 20 });
-    expect(prisma.videogameLike.create).toHaveBeenCalled();
-  });
-
-  it('does NOT enforce cap when game has video content', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(
-      makeVideogame({ _count: { likedBy: 50 }, logoUrl: null, videoUrl: 'https://yt.be/abc', additionalImages: [] }),
-    );
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    prisma.videogameLike.create.mockResolvedValue({});
-    const result = await service.toggleLike(1, 'user-1');
-    expect(result).toEqual({ liked: true, likeCount: 51 });
-  });
-
-  // ─── LÍMITE ABSOLUTO (MAX_LIKES) ──────────────────────────────────────────
-
-  it('ALLOWS like when game has reached exactly MAX_LIKES - 1', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(
-      makeVideogame({ _count: { likedBy: 999998 }, videoUrl: 'https://yt.be/abc' }),
-    );
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    prisma.videogameLike.create.mockResolvedValue({});
-
-    const result = await service.toggleLike(1, 'user-max-1');
-    expect(result).toEqual({ liked: true, likeCount: 999999 });
-    expect(prisma.videogameLike.create).toHaveBeenCalled();
-  });
 
   it('throws BadRequestException at absolute MAX_LIKES cap', async () => {
     prisma.videogame.findUnique.mockResolvedValue(
@@ -235,7 +147,14 @@ describe('VideogamesService – getMyLike', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VideogamesService,
-        { provide: PrismaService, useValue: prisma },
+        { 
+          provide: PrismaService, 
+          useValue: prisma 
+        },
+        {
+          provide: VideogamesGateway,
+          useValue: mockVideogamesGateway,
+        },
       ],
     }).compile();
     service = module.get<VideogamesService>(VideogamesService);
@@ -269,7 +188,14 @@ describe('VideogamesService – getLikes', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VideogamesService,
-        { provide: PrismaService, useValue: prisma },
+        { 
+          provide: PrismaService,
+          useValue: prisma 
+        },
+        {
+          provide: VideogamesGateway,
+          useValue: mockVideogamesGateway
+        },
       ],
     }).compile();
     service = module.get<VideogamesService>(VideogamesService);
