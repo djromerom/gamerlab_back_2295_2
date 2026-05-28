@@ -32,6 +32,13 @@ export class StudentsController {
     return this.studentsService.getStudentsEvaluations(page, limit, id);
   }
 
+  @Get('/my-judges')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MyEvaluations')
+  getMyJudges(@GetUser('id') id: string) {
+    return this.studentsService.getMyJudges(id);
+  }
+
   @Get('/grades')
   @UseGuards(RolePermissionGuard)
   @RequiredService('MyGeneralGrade')
