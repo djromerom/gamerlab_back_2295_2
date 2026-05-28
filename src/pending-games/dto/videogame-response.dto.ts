@@ -24,6 +24,13 @@ export class VideogameResponseDto {
   @IsString()
   teamName: string;
 
+  // [MODIFICACIÓN]: Agregado campo teamCode para enviarlo al frontend y extraer el fragmento numérico.
+  // [AUTOR]: IA  |  [FECHA]: 2026-05-27
+  @Type(() => String)
+  @IsString()
+  @IsOptional()
+  teamCode?: string;
+
   @Type(() => Array)
   @IsArray()
   members: { fullName: string }[];

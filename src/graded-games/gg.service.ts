@@ -69,6 +69,7 @@ export class GradedGamesService {
         team: {
           select: {
             teamName: true,
+            teamCode: true,
             members: {
               select: {
                 firstName: true,
@@ -107,6 +108,7 @@ export class GradedGamesService {
         logoUrl: videogame.logoUrl ?? undefined,
         description: videogame.description || 'Sin descripción',
         teamName: videogame.team?.teamName || 'Sin equipo',
+        teamCode: videogame.team?.teamCode,
         members: videogame.team?.members?.map(member => ({
           fullName: `${member.firstName} ${member.lastName}`,
         })) || [],
@@ -156,6 +158,7 @@ export class GradedGamesService {
           team: {
             select: {
               teamName: true,
+              teamCode: true,
               members: {
                 select: {
                   firstName: true,
@@ -189,6 +192,7 @@ export class GradedGamesService {
         logoUrl: videogame.logoUrl ?? undefined,
         description: videogame.description || 'Sin descripción',
         teamName: videogame.team?.teamName || 'Sin equipo',
+        teamCode: videogame.team?.teamCode,
         members: videogame.team?.members?.map((member) => ({
           fullName: `${member.firstName} ${member.lastName}`,
         })) || [],
