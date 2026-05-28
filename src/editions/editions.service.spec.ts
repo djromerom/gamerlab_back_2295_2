@@ -4,12 +4,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { HistoricalsService } from '../historicals/historicals.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { EditionStatus } from '@prisma/client';
+
+const EditionStatus = {
+  INACTIVE: 'INACTIVE',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED',
+};
 
 describe('EditionsService', () => {
   let service: EditionsService;
   let prisma: PrismaService;
   let historicalsService: HistoricalsService;
+  
 
   const mockEdition = {
     id: 1,
