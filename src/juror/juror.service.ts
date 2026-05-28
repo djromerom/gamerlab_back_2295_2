@@ -362,13 +362,9 @@ export class JurorService {
     },
     teamLevel: number,
   ) {
-    // Profesor: mantiene regla actual, solo colegios (nivel 0)
+    // [MODIFICADO]: Se eliminó la restricción que impedía a los profesores evaluar equipos de nivel distinto a 0 (manual assignment).
+    // [ANTES]: if (teamLevel !== 0) { throw new BadRequestException(...) }
     if (evaluator.roleId === this.professorRoleId) {
-      if (teamLevel !== 0) {
-        throw new BadRequestException(
-          'Los profesores solo pueden ser asignados a equipos de nivel 0 (colegios)',
-        );
-      }
       return;
     }
 
