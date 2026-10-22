@@ -241,6 +241,74 @@ export class ProfessorsController {
   /**
    * Get signature report grouped by team for a NRC.
    * */
+  @Get('nrc-report/by-id/:nrcId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('NrcReport')
+  @ApiOperation({ summary: 'Get team-centric report by NRC ID and edition' })
+  @ApiParam({ name: 'nrcId', description: 'NRC database ID', type: Number })
+  @ApiQuery({
+    name: 'editionId',
+    required: true,
+    description: 'Edition database ID that owns the NRC',
+    type: Number,
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'includeInactive', required: false, example: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Projects associated with this NRC and edition only',
+    schema: {
+      example: {
+        filter: {
+          nrcId: 3,
+          nrcCode: 2501,
+          editionId: 1,
+          year: 2025,
+          semester: 10,
+        },
+        data: [
+          {
+            teamCode: 'D25N2501-01',
+            nrc: '2501',
+            team: 'Demo 2025 NRC 2501 - Mision Naturaleza',
+            subject: 'Colegios',
+            integrantes: 'Isabella Mora',
+            videogame: 'Mision Naturaleza',
+            calificacionFeria: null,
+            calificacionDocente: null,
+            videogameId: 1,
+            editionId: 1,
+            nrcId: 3,
+          },
+        ],
+        metadata: {
+          totalItems: 1,
+          itemsOnCurrentPage: 1,
+          currentPage: 1,
+          itemsPerPage: 20,
+          totalPages: 1,
+        },
+      },
+    },
+  })
+  async GetReportByNRCId(
+    @Param('nrcId', ParseIntPipe) nrcId: number,
+    @Query('editionId', ParseIntPipe) editionId: number,
+    @Query() query: PaginationQueryDto,
+    @GetUser('id') professorId: string,
+  ) {
+    const { includeInactive, limit, page } = query;
+    return this.professorsService.getNrcReportById(
+      nrcId,
+      editionId,
+      includeInactive,
+      limit,
+      page,
+      professorId,
+    );
+  }
+
   @Get('nrc-report/:nrcCode')
   @UseGuards(RolePermissionGuard)
   @RequiredService('NrcReport')

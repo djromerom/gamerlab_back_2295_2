@@ -62,6 +62,8 @@ export class NrcsService {
     let selectClause: Prisma.NRCSelect = {
       id: true,
       code: true,
+      subjectId: true,
+      editionId: true,
     };
 
     if (includeSubjects)

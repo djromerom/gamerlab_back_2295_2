@@ -568,25 +568,71 @@ export class ProfessorsService {
     page: number,
     professorId: string,
   ) {
-    const offset = (page - 1) * limit;
-
-    const nrcInfo = await this.prisma.nRC.findFirst({
+    const matchingNrcs = await this.prisma.nRC.findMany({
       where: {
         code: nrcCode,
         professorId,
         ...(includeInactive ? {} : { isActive: true }),
       },
-      select: { code: true, subject: { select: { name: true } } },
+      select: { id: true, editionId: true },
+    });
+
+    if (matchingNrcs.length === 0) {
+      throw new NotFoundException(`NRC ${nrcCode} not found for professor`);
+    }
+    if (matchingNrcs.length > 1) {
+      throw new BadRequestException(
+        `NRC code ${nrcCode} exists in multiple editions; use GET /professors/nrc-report/by-id/:nrcId?editionId=:editionId`,
+      );
+    }
+
+    return this.getNrcReportById(
+      matchingNrcs[0].id,
+      matchingNrcs[0].editionId,
+      includeInactive,
+      limit,
+      page,
+      professorId,
+    );
+  }
+
+  async getNrcReportById(
+    nrcId: number,
+    editionId: number,
+    includeInactive: boolean,
+    limit: number,
+    page: number,
+    professorId: string,
+  ) {
+    const offset = (page - 1) * limit;
+
+    const nrcInfo = await this.prisma.nRC.findFirst({
+      where: {
+        id: nrcId,
+        editionId,
+        professorId,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
+      select: {
+        id: true,
+        code: true,
+        editionId: true,
+        edition: { select: { year: true, semester: true } },
+        subject: { select: { name: true } },
+      },
     });
 
     if (!nrcInfo)
-      throw new NotFoundException(`NRC ${nrcCode} not found for professor`);
+      throw new NotFoundException(
+        `NRC ${nrcId} was not found in edition ${editionId} for professor`,
+      );
 
     const subjectName = nrcInfo.subject.name;
 
     const teamWhere: Prisma.TeamWhereInput = {
+      editionId: nrcInfo.editionId,
       members: {
-        some: { nrcs: { some: { code: nrcCode, professorId } } },
+        some: { nrcs: { some: { id: nrcInfo.id, professorId } } },
       },
     };
 
@@ -603,7 +649,7 @@ export class ProfessorsService {
             lastName: true,
             studentCode: true,
             nrcs: {
-              where: { professorId },
+              where: { id: nrcInfo.id, professorId },
               select: { code: true, professorId: true },
             },
           },
@@ -638,7 +684,9 @@ export class ProfessorsService {
           }
         }
         const nrcCodes =
-          nrcSet.size > 0 ? Array.from(nrcSet).join(', ') : String(nrcCode);
+          nrcSet.size > 0
+            ? Array.from(nrcSet).join(', ')
+            : String(nrcInfo.code);
         const vg = team.videogame;
         let grade: number | null = null;
         if (vg?.id) grade = await this.getFinalScoreByVideogameId(vg.id);
@@ -660,11 +708,14 @@ export class ProfessorsService {
           calificacionFeria: grade,
           calificacionDocente,
           videogameId: vg?.id ?? null,
+          editionId: nrcInfo.editionId,
+          nrcId: nrcInfo.id,
         });
       }
     } else {
       const memberWhere: Prisma.MemberWhereInput = {
-        nrcs: { some: { code: nrcCode, professorId } },
+        nrcs: { some: { id: nrcInfo.id, professorId } },
+        team: { is: { editionId: nrcInfo.editionId } },
         ...(includeInactive ? {} : { isActive: true }),
       };
 
@@ -743,7 +794,7 @@ export class ProfessorsService {
         }
         teamRows.push({
           teamCode: g.teamCode ?? '',
-          nrc: nrcCode,
+          nrc: String(nrcInfo.code),
           team: g.teamName,
           subject: subjectName,
           integrantes: g.members.join(', '),
@@ -751,12 +802,21 @@ export class ProfessorsService {
           calificacionFeria: g.grade,
           calificacionDocente,
           videogameId: g.videogameId ?? null,
+          editionId: nrcInfo.editionId,
+          nrcId: nrcInfo.id,
         });
       }
 
       const totalItems = teamRows.length;
       const paged = teamRows.slice(offset, offset + limit);
       return {
+        filter: {
+          nrcId: nrcInfo.id,
+          nrcCode: nrcInfo.code,
+          editionId: nrcInfo.editionId,
+          year: nrcInfo.edition.year,
+          semester: nrcInfo.edition.semester,
+        },
         data: paged,
         metadata: {
           totalItems,
@@ -769,6 +829,13 @@ export class ProfessorsService {
     }
 
     return {
+      filter: {
+        nrcId: nrcInfo.id,
+        nrcCode: nrcInfo.code,
+        editionId: nrcInfo.editionId,
+        year: nrcInfo.edition.year,
+        semester: nrcInfo.edition.semester,
+      },
       data: teamRows,
       metadata: {
         totalItems: totalTeams,
