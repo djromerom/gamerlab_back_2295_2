@@ -28,6 +28,7 @@ import { TestimonialsModule } from './testimonials/testimonials.module';
 import { EducationalFocusesModule } from './educational-focuses/educational-focuses.module';
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
 import { HistoricalsModule } from './historicals/historicals.module';
+import { TeamVerificationModule } from './team-verification/team-verification.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { HistoricalsModule } from './historicals/historicals.module';
     EditionsModule,
     TestimonialsModule,
     EducationalFocusesModule,
+    TeamVerificationModule,
     HighlightedGamesModule,
     HistoricalsModule,
   ],
