@@ -541,6 +541,14 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 54,
+        "name": "MANAGE_JUROR_BADGES",
+        "description": "Permite generar y consultar las escarapelas con QR de los jurados (solo Administrador)",
+        "createdAt": "2026-10-24T06:00:00.000Z",
+        "updatedAt": "2026-10-24T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1096,6 +1104,16 @@
         "createdAt": "2025-11-25T06:00:00.000Z",
         "updatedAt": "2025-11-25T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 55,
+        "name": "ManageJurorBadges",
+        "description": "Generar y consultar escarapelas con QR de jurados",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-10-24T06:00:00.000Z",
+        "updatedAt": "2026-10-24T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1492,6 +1510,13 @@
         "permissionId": 53,
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 55,
+        "permissionId": 54,
+        "createdAt": "2026-10-24T06:00:00.000Z",
+        "updatedAt": "2026-10-24T06:00:00.000Z",
         "isActive": true
       }
     ]
