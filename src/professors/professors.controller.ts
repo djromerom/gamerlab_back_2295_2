@@ -190,6 +190,12 @@ export class ProfessorsController {
     description: 'Set to true to include column: Calificación Feria',
     example: 'true',
   })
+  @ApiQuery({ name: 'editionId', required: false, type: Number })
+  @ApiQuery({ name: 'nrcId', required: false, type: Number })
+  @ApiQuery({ name: 'student', required: false })
+  @ApiQuery({ name: 'team', required: false })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['student', 'team'] })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   @ApiResponse({
     status: 200,
     description:
@@ -199,6 +205,12 @@ export class ProfessorsController {
     @GetUser('id') professorId: string,
     @Res({ passthrough: true }) res: Response,
     @Query('final') finalParam?: string,
+    @Query('editionId') editionId?: string,
+    @Query('nrcId') nrcId?: string,
+    @Query('student') student?: string,
+    @Query('team') team?: string,
+    @Query('sortBy') sortBy?: 'student' | 'team',
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     // Permitir ?final=true o ?final=1 para activar el modo final
     const final = finalParam === 'true' || finalParam === '1';
@@ -206,6 +218,7 @@ export class ProfessorsController {
       professorId,
       res,
       final,
+      { editionId: editionId === undefined ? undefined : Number(editionId), nrcId: nrcId === undefined ? undefined : Number(nrcId), student, team, sortBy, sortOrder },
     );
   }
 
@@ -651,6 +664,45 @@ export class ProfessorsController {
       res.status(HttpStatus.OK);
     }
     return result;
+  }
+
+  @Get('grading-games')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MySubjects')
+  @ApiOperation({ summary: 'List current and historical games for professor grading panel' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 25 })
+  @ApiQuery({ name: 'editionId', required: false, type: Number })
+  @ApiQuery({ name: 'nrcId', required: false, type: Number })
+  @ApiQuery({ name: 'team', required: false })
+  @ApiQuery({ name: 'student', required: false })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['student', 'team'] })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+  @ApiResponse({ status: 200, description: 'Paginated games with canEdit authorization flag' })
+  async getGradingGames(
+    @GetUser('id') professorId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '25',
+    @Query('editionId') editionId?: string,
+    @Query('nrcId') nrcId?: string,
+    @Query('team') team?: string,
+    @Query('student') student?: string,
+    @Query('sortBy') sortBy?: 'student' | 'team',
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+  ) {
+    return this.professorsService.getGradingGames(professorId, {
+      page: Number(page), limit: Number(limit),
+      editionId: editionId === undefined ? undefined : Number(editionId),
+      nrcId: nrcId === undefined ? undefined : Number(nrcId), team, student, sortBy, sortOrder,
+    });
+  }
+
+  @Get('grading-games/filter-options')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MySubjects')
+  @ApiOperation({ summary: 'Get professor-specific edition and NRC filters for grading games' })
+  async getGradingGamesFilterOptions(@GetUser('id') professorId: string) {
+    return this.professorsService.getGradingFilterOptions(professorId);
   }
 
   @Get(':id')
