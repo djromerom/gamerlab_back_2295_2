@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiOkResponse, ApiNotFoundResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { UpdateHistoricalTeamDto } from './dto/update-historical-team.dto';
 import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
 import { UpdateHistoricalVideogameDto } from './dto/update-historical-videogame.dto';
 import { HistoricalsService } from './historicals.service';
 import { Public } from '../auth/decorators/public.decorator';
+import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
+import { stripPersonalData } from '../common/utils/strip-personal-data';
 
 @Controller('historicals')
 export class HistoricalsController {
@@ -27,6 +29,7 @@ export class HistoricalsController {
   }
   
   @Get('historical-members/:TeamId')
+  @UseGuards(AdminRoleGuard)
   @ApiOperation({ summary: 'Get historical members of a specific team' })
   @ApiOkResponse({ description: 'Historical members retrieved successfully' })
   @ApiNotFoundResponse({ description: 'Team not found' })
@@ -45,6 +48,7 @@ export class HistoricalsController {
     return this.historicalsService.getHistoricalVideogamesByEdition(editionId);
   }
 
+  // Público: lo usa la página de ediciones pasadas. Sale sin correos ni códigos de los integrantes (BG-02)
   @Public()
   @Get('historical-teams-with-scores/:editionId')
   @ApiOperation({ summary: 'Get historical teams of a specific edition, sorted by finalScore DESC' })
@@ -52,7 +56,9 @@ export class HistoricalsController {
   @ApiNotFoundResponse({ description: 'Edition not found or no historical teams available' })
   @ApiBadRequestResponse({ description: 'Invalid edition ID' })
   getHistoricalTeamsWithScores(@Param('editionId') editionId: number) {
-    return this.historicalsService.getHistoricalTeamsWithScores(editionId);
+    return this.historicalsService
+      .getHistoricalTeamsWithScores(editionId)
+      .then((teams) => stripPersonalData(teams));
   }
 
   @Post('create-historical-edition-dump/:editionId')

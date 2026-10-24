@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HistoricalsController } from './historicals.controller';
 import { HistoricalsService } from './historicals.service';
+import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
 
 describe('HistoricalsController', () => {
   let controller: HistoricalsController;
@@ -29,7 +30,10 @@ describe('HistoricalsController', () => {
           useValue: mockHistoricalsService,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(AdminRoleGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<HistoricalsController>(HistoricalsController);
   });

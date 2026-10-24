@@ -4,13 +4,17 @@ import { AzureStorageService } from './azure-storage.service';
 import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator'; // Add this import
 import { MulterExceptionFilter } from './multer-exception.filter';
+import { PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
+import { isAllowedImage, isZip } from './file-signature';
 
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
   constructor(private readonly azureService: AzureStorageService) { }
 
+  // Público porque lo usa la inscripción web antes de crear la cuenta; con límite de peticiones (BG-02)
   @Public()
+  @PublicThrottle(PUBLIC_LIMITS.imageUpload)
   @Post()
   @UseFilters(MulterExceptionFilter)
   @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
@@ -80,10 +84,14 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
+    if (!isAllowedImage(file.buffer)) {
+      throw new BadRequestException('El contenido del archivo no corresponde a una imagen permitida (JPEG, PNG, GIF, WebP)');
+    }
     return await this.azureService.uploadFile(file);
   }
 
   @Public()
+  @PublicThrottle(PUBLIC_LIMITS.zipUpload)
   @Post('zip')
   @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
   @ApiBody({
@@ -119,6 +127,9 @@ export class UploadController {
     // Validate file existence
     if (!file) {
       throw new BadRequestException('Archivo no encontrado. Se requiere un archivo .zip!');
+    }
+    if (!isZip(file.buffer)) {
+      throw new BadRequestException('El contenido del archivo no corresponde a un .zip');
     }
     return this.azureService.uploadFile(file);
   }

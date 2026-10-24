@@ -426,6 +426,28 @@ async getJuradosData(): Promise<
   return resultado;
 }
 
+  /**
+   * Jurados asignados al equipo que lidera el usuario (página "Mis jurados" del estudiante).
+   * Mismo formato que getJuradosData, pero sin los jurados de otros equipos (BG-02).
+   */
+  async getJuradosDataForTeamLeader(userId: string) {
+    const team = await this.prisma.team.findFirst({
+      where: { userId, isActive: true },
+      select: { videogame: { select: { name: true } } },
+    });
+    const videogameName = team?.videogame?.name;
+    if (!videogameName) return [];
+
+    const jurados = await this.getJuradosData();
+    return jurados
+      .filter((jurado) => jurado.videojuegosAsignados.includes(videogameName))
+      .map((jurado) => ({
+        ...jurado,
+        videojuegosAsignados: [videogameName],
+        videojuegosCompletos: jurado.videojuegosCompletos.filter((name) => name === videogameName),
+      }));
+  }
+
   async getVideogamesDataFilter(
     materia?: string,
     nrc?: number

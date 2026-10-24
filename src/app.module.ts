@@ -1,4 +1,5 @@
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppController } from './app.controller';
@@ -32,6 +33,8 @@ import { HistoricalsModule } from './historicals/historicals.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Only routes with @PublicThrottle use it; the default below is overridden per route (BG-02)
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
     PrismaModule,
     AuthModule,
     EmailModule,

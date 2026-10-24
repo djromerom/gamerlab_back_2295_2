@@ -21,6 +21,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
+import { stripPersonalData } from '../../common/utils/strip-personal-data';
 
 @Injectable()
 export class TeamsService {
@@ -308,8 +309,13 @@ export class TeamsService {
     return await this.authService.registerUser(authRegisterPayload);
   }
 
-  async findAll(sortByLikes: boolean) {
-    return this.teamRepository.findAll(sortByLikes);
+  /**
+   * @param includePersonalData true only for callers with the ListTeams permission.
+   * Anonymous callers get the list without member emails, student codes or leader email (BG-02).
+   */
+  async findAll(sortByLikes: boolean, includePersonalData = false) {
+    const teams = await this.teamRepository.findAll(sortByLikes);
+    return includePersonalData ? teams : stripPersonalData(teams);
   }
 
   async findOne(id: number): Promise<unknown> {
@@ -805,8 +811,9 @@ export class TeamsService {
     return sortedRanking;
   }
 
-  async findPaged(page: number, limit: number, sortByLikes: boolean) {
-    return await this.teamRepository.findPaged(page, limit, sortByLikes);
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false) {
+    const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+    return includePersonalData ? result : stripPersonalData(result);
   }
 
   async getLeaderStatus(email: string) {
