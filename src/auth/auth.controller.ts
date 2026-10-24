@@ -299,6 +299,8 @@ export class AuthController {
   }
 
   @Post('reset-token-expiration')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageAuthTokens')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset Expiration of Token' })
   @ApiBearerAuth('access')

@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseInterceptors, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Public } from 'src/auth/decorators/public.decorator';
 import * as ExcelJS from 'exceljs';
 import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse } from '@nestjs/swagger';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { RequiredService } from '../auth/decorators/required-service.decorator';
 
 @ApiTags('reports')
 @Controller('reports')
@@ -49,6 +51,8 @@ export class ReportsController {
   }
 
   @Get('exportExcel')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export videogame report to Excel' })
   @ApiQuery({ name: 'materia', required: false, description: 'Subject name to filter' })
   @ApiQuery({ name: 'nrc', required: false, description: 'NRC code to filter', type: Number })
@@ -203,6 +207,8 @@ export class ReportsController {
   }
 
   @Get('exportJurados')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export jurors report to Excel' })
   @ApiOkResponse({ description: 'Excel file with jurors and their status' })
   async exportJurados(

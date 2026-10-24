@@ -5,12 +5,15 @@ import {
   Post,
   Body,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBody, ApiExtraModels, getSchemaPath, ApiOperation, ApiOkResponse, ApiTags, ApiNotFoundResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { EmailService } from './email.service';
 import { ResendAuthEmailDto } from './dto/resend-auth-email.dto';
 import { ResendTeamEmailDto } from './dto/resend-team-email.dto';
 import { ResendCertEmailDto } from './dto/resend-cert-email.dto';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { RequiredService } from '../auth/decorators/required-service.decorator';
 
 @Controller('email')
 @ApiTags('Email')
@@ -18,6 +21,8 @@ export class EmailController {
   constructor(private readonly emailService: EmailService) {}
   
   @Post('resend-auth-email')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('SendEmail')
   @ApiOperation({ summary: 'Resend auth email of a certain type to a user' })
   @ApiExtraModels(ResendAuthEmailDto)
   @ApiBody({ schema: { $ref: getSchemaPath(ResendAuthEmailDto) } })
@@ -30,6 +35,8 @@ export class EmailController {
   }
 
   @Post('resend-team-email')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('SendEmail')
   @ApiOperation({ summary: 'Resend team email of a certain type to a team' })
   @ApiExtraModels(ResendTeamEmailDto)
   @ApiBody({ schema: { $ref: getSchemaPath(ResendTeamEmailDto) } })
@@ -46,6 +53,8 @@ export class EmailController {
   }
 
   @Post('resend-certificate-email')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('SendEmail')
   @ApiOperation({ summary: 'Resend certificate email to a team' })
   @ApiExtraModels(ResendCertEmailDto)
   @ApiBody({ schema: { $ref: getSchemaPath(ResendCertEmailDto) } })
