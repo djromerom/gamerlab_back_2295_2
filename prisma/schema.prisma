@@ -45,6 +45,7 @@ model Edition {
   testimonials       Testimonial[]
   rankingResults     RankingResult[]
   HistoricalTeam     HistoricalTeam[]
+  jurorBadges        JurorBadge[]
 
   @@index([year, semester])
   @@map("ediciones")
@@ -189,6 +190,7 @@ model User {
   role                 Role               @relation(fields: [roleId], references: [id])
   likedVideogames      VideogameLike[]
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
+  jurorBadges          JurorBadge[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -371,6 +373,23 @@ model JurorAssignmentAuditLog {
   @@index([jurorId])
   @@index([createdAt])
   @@map("juror_assignment_audit_logs")
+}
+
+// Escarapela de un jurado en una edición. El token es el contenido opaco del QR.
+// La unicidad de (jurorId, editionId) entre activas se garantiza con un índice
+// parcial creado a mano en la migración (Prisma no lo soporta).
+model JurorBadge {
+  id        Int      @id @default(autoincrement()) @map("id_escarapela")
+  jurorId   String   @map("id_usuario")
+  editionId Int      @map("id_edicion")
+  token     String   @unique @map("token")
+  isActive  Boolean  @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("creado_en")
+  juror     User     @relation(fields: [jurorId], references: [id])
+  edition   Edition  @relation(fields: [editionId], references: [id])
+
+  @@index([editionId])
+  @@map("escarapelas_jurado")
 }
 
 model Subject {
