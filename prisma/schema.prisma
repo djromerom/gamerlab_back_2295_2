@@ -46,7 +46,7 @@ model Edition {
   rankingResults     RankingResult[]
   HistoricalTeam     HistoricalTeam[]
 
-  @@index([year, semester])
+  @@unique([year, semester])
   @@map("ediciones")
 }
 

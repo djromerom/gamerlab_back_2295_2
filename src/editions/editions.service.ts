@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEditionDto } from './dto/create-edition.dto';
 import { UpdateEditionDto } from './dto/update-edition.dto';
@@ -8,6 +8,8 @@ import { Edition, EditionStatus } from '@prisma/client';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
 import { HistoricalsService } from '../historicals/historicals.service';
+
+const DUPLICATE_EDITION_MESSAGE = 'La edición ya existe';
 
 @Injectable()
 export class EditionsService {
@@ -22,6 +24,7 @@ export class EditionsService {
   async create(createEditionDto: CreateEditionDto) {
     this.logger.log(`Creating new edition`);
     this.logger.debug(`Payload: ${JSON.stringify(createEditionDto)}`);
+    await this.ensureYearSemesterIsFree(createEditionDto.year, createEditionDto.semester);
     try {
       const result = await this.prisma.edition.create({
         data: createEditionDto,
@@ -31,9 +34,21 @@ export class EditionsService {
     } catch (error: any) {
       this.logger.error(`Error creating edition: ${error.message}`, error.stack);
       if (error.code === 'P2002') {
-        throw new BadRequestException('Ya existe una edición con ese año y semestre (restricción única).');
+        throw new ConflictException(DUPLICATE_EDITION_MESSAGE);
       }
       throw new InternalServerErrorException('Error interno al crear la edición.');
+    }
+  }
+
+  // Año + semestre identifican la edición; la restricción única de la base cubre las carreras.
+  private async ensureYearSemesterIsFree(year: number, semester: number, excludeId?: number) {
+    const existing = await this.prisma.edition.findFirst({
+      where: { year, semester, ...(excludeId !== undefined && { id: { not: excludeId } }) },
+      select: { id: true },
+    });
+    if (existing) {
+      this.logger.warn(`Edition ${year}-${semester} already exists (#${existing.id})`);
+      throw new ConflictException(DUPLICATE_EDITION_MESSAGE);
     }
   }
 
@@ -99,7 +114,14 @@ export class EditionsService {
   async update(id: number, updateEditionDto: UpdateEditionDto) {
     this.logger.log(`Updating edition #${id}`);
     this.logger.debug(`Update payload: ${JSON.stringify(updateEditionDto)}`);
-    await this.findOne(id);
+    const current = await this.findOne(id);
+    if (updateEditionDto.year !== undefined || updateEditionDto.semester !== undefined) {
+      await this.ensureYearSemesterIsFree(
+        updateEditionDto.year ?? current.year,
+        updateEditionDto.semester ?? current.semester,
+        id,
+      );
+    }
     try {
       const updated = await this.prisma.edition.update({
         where: { id },
@@ -110,7 +132,7 @@ export class EditionsService {
     } catch (error: any) {
       this.logger.error(`Error updating edition #${id}: ${error.message}`, error.stack);
       if (error.code === 'P2002') {
-        throw new BadRequestException('Ya existe otra edición con ese id.');
+        throw new ConflictException(DUPLICATE_EDITION_MESSAGE);
       }
       throw new InternalServerErrorException('Error interno al actualizar la edición.');
     }
