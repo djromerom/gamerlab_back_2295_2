@@ -32,6 +32,8 @@ refactor/ARK-40-modularizar-servicio-emails
 2. **Ticket** (`<TICKET>`): formato fijo `ARK-NN` (mayúscula, como lo muestra Jira).
    - Obligatorio en `feat`, `fix` y `hotfix`.
    - Opcional en `docs`, `refactor` y `chore` (inclúyelo si existe un ticket relacionado).
+   - **Tareas con subtareas**: usa el `ARK-NN` de la **subtarea** en la que trabajas, no el de la tarea padre. La tarea padre no tiene rama propia; se cierra cuando se cierran todas sus subtareas. El `<tipo>` depende del trabajo de la subtarea, no del tipo de la padre.
+   - **Excepción, rama de integración**: si la tarea padre debe llegar a `dev` completa y de una sola vez, se crea una rama con el `ARK-NN` del padre. Las ramas de las subtareas salen de ella y se mergean a ella, y un único PR lleva la rama del padre a `dev`. Úsala solo con una razón concreta; por defecto, cada subtarea sale directo de `dev`.
 3. **Descripción corta** (`<descripcion-corta>`): minúsculas, kebab-case (palabras separadas por guion), sin tildes/ñ/espacios/guion bajo/camelCase, máximo ~6 palabras. Idioma libre, se sugiere inglés.
 4. **Sin `/` adicionales**: no anidar más niveles (ej. evitar `add/Profesor/Materia/...`) — los niveles extra generan conflictos de refs en git.
 5. **Ramas efímeras**: se borran al hacer merge del PR; no se dejan vivas en el remoto.
