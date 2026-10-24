@@ -1297,6 +1297,9 @@ export class ProfessorsService {
     if (videogameId == null || videogameId === 0) {
       throw new BadRequestException('videogameId is required');
     }
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > 5 || Math.abs(Math.round(score * 100) - score * 100) > 1e-8) {
+      throw new BadRequestException('Score must be between 0 and 5, with at most two decimal places');
+    }
 
     const videogame = await this.prisma.videogame.findUnique({
       where: { id: videogameId },

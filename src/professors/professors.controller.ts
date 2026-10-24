@@ -40,6 +40,7 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { UpdateTeamEvaluationDto } from './dto/update-team-evaluation.dto';
+import { BatchTeamEvaluationDto } from './dto/batch-team-evaluation.dto';
 import { ProfessorsService } from './professors.service';
 import { SelectOption } from './types/select-option.type';
 
@@ -175,15 +176,15 @@ export class ProfessorsController {
     return this.professorsService.findForSelect();
   }
   /**
-   * Download grading template for all subjects/NRCs.
+   * Export grading results for all subjects/NRCs.
    * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members.
    * Use query parameter `?final=true` to include the "Calificación Feria" column (final export).
-   * The template is intended to be filled and re-uploaded using the upload endpoint which will parse and persist senior grades.
+   * This workbook is an export for consultation and does not serve as an editable grading template.
    */
   @Get('download-grading-template-all')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportToExcel')
-  @ApiOperation({ summary: 'Download grading template for all subjects/NRCs' })
+  @ApiOperation({ summary: 'Export grading results for all subjects/NRCs' })
   @ApiQuery({
     name: 'final',
     required: false,
@@ -544,11 +545,8 @@ export class ProfessorsController {
 
   /**
    * Upload an XLSX file containing senior juror grades.
-   * The uploaded file is expected to be the grading template previously
-   * downloaded from `GET /professors/download-grading-template-all`.
-   * Each sheet corresponds to a subject/NRC and rows should contain the
-   * videogame identifiers and the professor's grades. The service parses
-   * the workbook and upserts senior evaluations accordingly.
+   * Legacy XLSX upload endpoint retained for integrations. The export endpoint
+   * produces a consultation report and is not an editable upload template.
    */
   @Post('upload-senior-grades')
   @UseGuards(RolePermissionGuard)
@@ -557,12 +555,12 @@ export class ProfessorsController {
   @ApiOperation({
     summary: 'Upload an XLSX with senior juror grades',
     description:
-      "Upload the grading template previously downloaded from `GET /professors/download-grading-template-all`. Each sheet represents a subject/NRC and rows must contain the videogame identifier and the professor's grade. The server will parse the workbook and upsert senior evaluations accordingly.",
+      "Legacy XLSX upload endpoint retained for integrations. Provide a workbook with subject/NRC sheets, videogame identifiers, and grades; the export endpoint produces a consultation report and is not an editable template.",
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description:
-      'Binary XLSX file: grading template downloaded from the server (one sheet per subject/NRC).',
+      'Binary XLSX file with subject/NRC sheets, videogame identifiers, and grades.',
     schema: {
       type: 'object',
       properties: { file: { type: 'string', format: 'binary' } },
@@ -664,6 +662,39 @@ export class ProfessorsController {
       res.status(HttpStatus.OK);
     }
     return result;
+  }
+
+  @Post('team-evaluation/batch')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UploadSeniorGrades')
+  @ApiOperation({ summary: 'Save professor evaluations in batch' })
+  @ApiBody({ type: BatchTeamEvaluationDto })
+  @ApiResponse({ status: 200, schema: { example: { results: [
+    { videogameId: 24, success: true },
+    { videogameId: 25, success: false, message: 'Score must be between 0 and 5, with at most two decimal places' },
+  ] } } })
+  async updateTeamEvaluationBatch(
+    @Body() dto: BatchTeamEvaluationDto,
+    @GetUser('id') professorId: string,
+  ) {
+    const results = await Promise.all((Array.isArray(dto?.evaluations) ? dto.evaluations : []).map(async (row) => {
+      const videogameId = row?.videogameId;
+      try {
+        if (!Number.isInteger(videogameId) || videogameId < 1) {
+          throw new Error('videogameId must be a positive integer');
+        }
+        await this.professorsService.updateTeamEvaluation(videogameId, professorId, row?.score, true);
+        return { videogameId, success: true as const };
+      } catch (error) {
+        const message = (error as any)?.response;
+        return {
+          videogameId,
+          success: false as const,
+          message: typeof message === 'string' ? message : message?.message ?? (error as any)?.message ?? 'Could not save evaluation',
+        };
+      }
+    }));
+    return { results };
   }
 
   @Get('grading-games')
