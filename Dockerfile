@@ -12,9 +12,9 @@ RUN npm install
 
 COPY . .
 
-# Generar Prisma y compilar la API junto con el script de seed
+# Generar Prisma y construir
 RUN npx prisma generate && \
-    npm run build:all
+    npm run build
 
 # Etapa de producción
 FROM node:20-alpine
