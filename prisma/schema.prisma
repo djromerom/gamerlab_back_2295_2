@@ -363,6 +363,8 @@ model Evaluation {
   editionId   Int                @map("id_edicion")
   isActive    Boolean            @default(true) @map("activo")
   isSenior    Boolean            @default(false) @map("es_jurado_senior")
+  contentHash String             @default("") @map("content_hash")
+  idempotencyKey String?         @map("idempotency_key")
   details     EvaluationDetail[]
   Edition     Edition            @relation(fields: [editionId], references: [id])
   juror       User               @relation("JurorEvaluations", fields: [jurorId], references: [id])
@@ -370,6 +372,17 @@ model Evaluation {
 
   @@unique([jurorId, videogameId], name: "jurado_videojuego_unique")
   @@map("evaluacion")
+}
+
+model EvaluationIdempotency {
+  id             Int    @id @default(autoincrement())
+  jurorId        String @map("juror_id")
+  key            String
+  contentHash    String @map("content_hash")
+  response       Json
+
+  @@unique([jurorId, key])
+  @@map("evaluation_idempotency")
 }
 
 model JurorAssignmentAuditLog {
