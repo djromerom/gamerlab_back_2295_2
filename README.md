@@ -150,7 +150,7 @@ Let's break down the environment variables:
 - **`REGISTRATION_TOKEN_EXPIRATION`**: Token expiration time in hours for email verification (default: 24)
 - **`USER_PROFILE_CACHE_TTL`**: Cache time-to-live for user profiles in minutes (default: 15)
 - **`RECAPTCHA_*`** Google ReCAPTCHA configuration for signup form
-- **`ACS_*`**: Azure Communication Services configuration (`ACS_CONNECTION_STRING`, `ACS_SENDER_ADDRESS`) for sending confirmation and password reset emails. Without them the email service runs in simulation mode
+- **`ACS_CONNECTION_STRING`** / **`ACS_SENDER_ADDRESS`**: Azure Communication Services credentials and verified sender address for confirmation, password reset, team and certificate emails. If missing, emails are only simulated when `NODE_ENV=development`; in any other environment sending fails with 503
 - **`AZURE_*`**: Azure Blob Storage configuration (`AZURE_BLOB_SAS_URL`, `AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`) for file uploads
 - **`TRUST_PROXY`**: Set it when the API runs behind a reverse proxy or load balancer (for example `1` for one proxy hop). Without it every request looks like it comes from the proxy's IP, and all users share one rate limit (see [Rate limiting](#rate-limiting)).
 

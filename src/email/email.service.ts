@@ -577,12 +577,18 @@ export class EmailService {
       }
 
       if (this.emailClient) {
+        const client = this.emailClient;
         this.logger.log(`Enviando carga útil a ACS apuntando a ${to}...`);
 
-        const poller = await this.emailClient.beginSend(message, {
-          abortSignal: AbortSignal.timeout(15_000), // 15 segundos máximo
-        });
-        const result = await poller.pollUntilDone();
+        const result = await this.withRetry(
+          async () => {
+            const poller = await client.beginSend(message, {
+              abortSignal: AbortSignal.timeout(15_000), // 15 segundos máximo
+            });
+            return poller.pollUntilDone();
+          },
+          to,
+        );
 
         if (!result || result.status !== 'Succeeded') {
           this.logger.error(`[ACS] Envío no exitoso: ${result?.status}`);
@@ -591,7 +597,13 @@ export class EmailService {
           );
         }
 
-        this.logger.log(`✅ Correo disparado vía Azure ACS.`);
+        this.logger.log(`✅ Correo disparado vía Azure ACS (operación ${result.id}).`);
+      } else if (this.configService.get<string>('NODE_ENV') !== 'development') {
+        // Fuera de desarrollo, simular un envío haría que el usuario crea que el correo salió.
+        this.logger.error(
+          `[ACS] Sin credenciales (ACS_CONNECTION_STRING / ACS_SENDER_ADDRESS): no se envió el correo a ${to}.`,
+        );
+        throw new ServiceUnavailableException('El servicio de correo no está configurado.');
       } else {
         this.logger.warn(
           `⚠️ [MODO DEV] Plantilla compilada correctamente. Cancelando interred (Falso Positivo) al no detectar llaves de ACS.`,
@@ -626,6 +638,38 @@ export class EmailService {
         error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException('Error inesperado enviando correo');
+    }
+  }
+
+  /**
+   * Reintenta solo fallos transitorios de ACS (429, timeout, 5xx) con backoff exponencial.
+   * Cada intento fallido queda en el log; el último error se propaga a sendEmail.
+   */
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    to: string,
+    maxAttempts = 3,
+    baseDelayMs = 1_000,
+  ): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const statusCode = (error as any)?.statusCode;
+        const transient =
+          statusCode === 429 ||
+          (typeof statusCode === 'number' && statusCode >= 500) ||
+          (error instanceof Error && error.name === 'AbortError') ||
+          (error instanceof RestError && error.code === 'ETIMEDOUT');
+
+        if (!transient || attempt >= maxAttempts) throw error;
+
+        const delay = baseDelayMs * 2 ** (attempt - 1);
+        this.logger.warn(
+          `[ACS] Intento ${attempt}/${maxAttempts} falló para ${to} (${statusCode ?? (error as Error)?.name ?? 'unknown'}). Reintentando en ${delay} ms.`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
   }
 
