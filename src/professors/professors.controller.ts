@@ -175,15 +175,15 @@ export class ProfessorsController {
     return this.professorsService.findForSelect();
   }
   /**
-   * Download grading template for all subjects/NRCs.
+   * Export grading results for all subjects/NRCs.
    * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members.
    * Use query parameter `?final=true` to include the "Calificación Feria" column (final export).
-   * The template is intended to be filled and re-uploaded using the upload endpoint which will parse and persist senior grades.
+   * This workbook is an export for consultation and does not serve as an editable grading template.
    */
   @Get('download-grading-template-all')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportToExcel')
-  @ApiOperation({ summary: 'Download grading template for all subjects/NRCs' })
+  @ApiOperation({ summary: 'Export grading results for all subjects/NRCs' })
   @ApiQuery({
     name: 'final',
     required: false,
