@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
@@ -8,6 +9,7 @@ import { CriterionService } from 'src/criterion/criterion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class EvaluationService {
@@ -34,7 +36,13 @@ export class EvaluationService {
   async createEvaluationWithDetails(
     jurorId: string,
     evaluationPayload: CreateEvaluationDto,
+    idempotencyKey?: string,
   ) {
+    const contentHash = this.contentHash(evaluationPayload);
+    if (idempotencyKey) {
+      const prior = await this.prisma.evaluationIdempotency.findUnique({ where: { jurorId_key: { jurorId, key: idempotencyKey } } });
+      if (prior) return this.replayRequest(prior, contentHash);
+    }
     await this.checkEvaluationsOpen();
 
     const { date, comments, videogameId, details } = evaluationPayload;
@@ -122,18 +130,37 @@ export class EvaluationService {
       videogameId,
       editionId: activeEdition.id,
       isSenior,
+      contentHash,
+      idempotencyKey: idempotencyKey ?? null,
       totalScore: calculatedTotalScore,
       details: {
         create: detailsData,
       },
     };
 
-    const evaluation = await this.prisma.evaluation.create({
-      data: createData,
-      select: {
-        id: true,
-      },
-    });
+    let evaluation;
+    try {
+      evaluation = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.evaluation.create({ data: createData, select: { id: true } });
+        const response = { evaluationId: created.id, message: 'Evaluación y detalles guardados correctamente' };
+        if (idempotencyKey) await tx.evaluationIdempotency.create({ data: { jurorId, key: idempotencyKey, contentHash, response } });
+        return created;
+      });
+    } catch (error) {
+      const existing = await this.prisma.evaluation.findUnique({
+        where: { jurado_videojuego_unique: { jurorId, videogameId } },
+        select: { id: true, contentHash: true },
+      });
+      if (existing) {
+        if (existing.contentHash === contentHash) return { evaluationId: existing.id, message: 'Evaluación y detalles guardados correctamente' };
+        throw new ConflictException('Ya existe una evaluación para este videojuego con contenido distinto.');
+      }
+      if (idempotencyKey) {
+        const replay = await this.prisma.evaluationIdempotency.findUnique({ where: { jurorId_key: { jurorId, key: idempotencyKey } } });
+        if (replay) return this.replayRequest(replay, contentHash);
+      }
+      throw error;
+    }
 
     return {
       evaluationId: evaluation.id,
@@ -182,7 +209,9 @@ export class EvaluationService {
   async createBatchEvaluations(
     jurorId: string,
     batchPayload: BatchEvaluationDto,
+    idempotencyKey?: string,
   ) {
+    const contentHash = this.contentHash(batchPayload);
     await this.checkEvaluationsOpen();
 
     const results = {
@@ -233,9 +262,18 @@ export class EvaluationService {
     });
     // ---------------------------------------------------------------------
 
-    for (const evaluationPayload of batchPayload.evaluations) {
-      try {
-        const result = await this.prisma.$transaction(async (tx) => {
+    const processBatch = async (tx: any) => {
+      // A transaction-scoped advisory lock serializes requests using the same key,
+      // including the first request that has not inserted its durable receipt yet.
+      if (idempotencyKey) {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${jurorId}), hashtext(${idempotencyKey}))`;
+        const prior = await tx.evaluationIdempotency.findUnique({ where: { jurorId_key: { jurorId, key: idempotencyKey } } });
+        if (prior) return this.replayRequest(prior, contentHash);
+      }
+
+      for (const evaluationPayload of batchPayload.evaluations) {
+        const rowHash = this.contentHash(evaluationPayload);
+        try {
           let calculatedTotalScore = 0;
 
           const detailsData = evaluationPayload.details.map((detail) => {
@@ -266,6 +304,16 @@ export class EvaluationService {
 
           calculatedTotalScore = parseFloat(calculatedTotalScore.toFixed(4));
 
+          const existing = await tx.evaluation.findUnique({
+            where: { jurado_videojuego_unique: { jurorId, videogameId: evaluationPayload.videogameId } },
+            select: { id: true, contentHash: true },
+          });
+          if (existing) {
+            if (existing.contentHash !== rowHash) throw new ConflictException(`Ya existe una evaluación distinta para el videojuego ${evaluationPayload.videogameId}.`);
+            results.successful.push({ videogameId: evaluationPayload.videogameId, evaluationId: existing.id });
+            continue;
+          }
+
           const evaluation = await tx.evaluation.create({
             data: {
               jurorId,
@@ -274,6 +322,8 @@ export class EvaluationService {
               videogameId: evaluationPayload.videogameId,
               editionId: activeEdition.id,
               isSenior,
+              contentHash: this.contentHash(evaluationPayload),
+              idempotencyKey: null,
               totalScore: calculatedTotalScore,
               details: {
                 create: detailsData,
@@ -284,24 +334,35 @@ export class EvaluationService {
             },
           });
 
-          return {
+          results.successful.push({
             videogameId: evaluationPayload.videogameId,
             evaluationId: evaluation.id,
-          };
-        });
-
-        results.successful.push(result);
+          });
       } catch (error: any) {
+        if (error instanceof ConflictException) throw error;
         results.failed.push({
           videogameId: evaluationPayload.videogameId,
           error: error.message || 'Error desconocido al guardar la evaluación',
         });
       }
-    }
+      }
 
-    return {
-      results,
-      message: `Procesadas ${batchPayload.evaluations.length} evaluaciones: ${results.successful.length} exitosas, ${results.failed.length} fallidas`,
+      const response = {
+        results,
+        message: `Procesadas ${batchPayload.evaluations.length} evaluaciones: ${results.successful.length} exitosas, ${results.failed.length} fallidas`,
+      };
+      if (idempotencyKey) await tx.evaluationIdempotency.create({ data: { jurorId, key: idempotencyKey, contentHash, response } });
+      return response;
     };
+    return this.prisma.$transaction(processBatch, { isolationLevel: 'Serializable' });
+  }
+
+  private contentHash(value: unknown): string {
+    return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  }
+
+  private replayRequest(prior: { contentHash: string; response: any }, hash: string) {
+    if (prior.contentHash !== hash) throw new ConflictException('Idempotency-Key ya fue usada con contenido distinto.');
+    return prior.response;
   }
 }
