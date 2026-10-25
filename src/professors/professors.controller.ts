@@ -545,8 +545,11 @@ export class ProfessorsController {
 
   /**
    * Upload an XLSX file containing senior juror grades.
-   * Legacy XLSX upload endpoint retained for integrations. The export endpoint
-   * produces a consultation report and is not an editable upload template.
+   * The uploaded file is expected to be the grading template previously
+   * downloaded from `GET /professors/download-grading-template-all`.
+   * Each sheet corresponds to a subject/NRC and rows should contain the
+   * videogame identifiers and the professor's grades. The service parses
+   * the workbook and upserts senior evaluations accordingly.
    */
   @Post('upload-senior-grades')
   @UseGuards(RolePermissionGuard)
@@ -555,12 +558,12 @@ export class ProfessorsController {
   @ApiOperation({
     summary: 'Upload an XLSX with senior juror grades',
     description:
-      "Legacy XLSX upload endpoint retained for integrations. Provide a workbook with subject/NRC sheets, videogame identifiers, and grades; the export endpoint produces a consultation report and is not an editable template.",
+      "Upload the grading template previously downloaded from `GET /professors/download-grading-template-all`. Each sheet represents a subject/NRC and rows must contain the videogame identifier and the professor's grade. The server will parse the workbook and upsert senior evaluations accordingly.",
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description:
-      'Binary XLSX file with subject/NRC sheets, videogame identifiers, and grades.',
+      'Binary XLSX file: grading template downloaded from the server (one sheet per subject/NRC).',
     schema: {
       type: 'object',
       properties: { file: { type: 'string', format: 'binary' } },
