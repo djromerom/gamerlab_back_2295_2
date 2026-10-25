@@ -1,9 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { EditionStatus, JurorCategory } from '@prisma/client';
+import { EditionStatus, JurorCategory, Prisma } from '@prisma/client';
 import { CriterionService } from 'src/criterion/criterion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
@@ -26,15 +27,42 @@ export class EvaluationService {
     }
   }
 
+  private isDuplicateEvaluationError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
+  }
+
+  private assertValidIdempotencyKey(key?: string) {
+    if (key !== undefined && !/^[A-Za-z0-9_-]{8,128}$/.test(key)) {
+      throw new BadRequestException(
+        'Idempotency-Key inválida: use 8-128 caracteres alfanuméricos, guion o guion bajo.',
+      );
+    }
+  }
+
+  private async findExistingEvaluationId(jurorId: string, videogameId: number) {
+    const existing = await this.prisma.evaluation.findUnique({
+      where: { jurado_videojuego_unique: { jurorId, videogameId } },
+      select: { id: true },
+    });
+    return existing?.id ?? null;
+  }
+
   /**
    * Creates an evaluation and its details in a single query.
+   * Responds 409 with the existing evaluationId if the juror already evaluated
+   * the videogame, so a retried request does not end in a confusing 500.
    * @param jurorId string
    * @param evaluationPayload object with date, comments, videogameId, totalScore, details (array)
    */
   async createEvaluationWithDetails(
     jurorId: string,
     evaluationPayload: CreateEvaluationDto,
+    idempotencyKey?: string,
   ) {
+    this.assertValidIdempotencyKey(idempotencyKey);
     await this.checkEvaluationsOpen();
 
     const { date, comments, videogameId, details } = evaluationPayload;
@@ -128,12 +156,38 @@ export class EvaluationService {
       },
     };
 
-    const evaluation = await this.prisma.evaluation.create({
-      data: createData,
-      select: {
-        id: true,
-      },
-    });
+    let evaluation: { id: number };
+    try {
+      evaluation = await this.prisma.evaluation.create({
+        data: createData,
+        select: {
+          id: true,
+        },
+      });
+    } catch (error) {
+      if (this.isDuplicateEvaluationError(error)) {
+        const existingId = await this.findExistingEvaluationId(
+          jurorId,
+          videogameId,
+        );
+        // Reintento con la misma clave: se reproduce el resultado sin duplicar.
+        if (idempotencyKey && existingId) {
+          return {
+            evaluationId: existingId,
+            replayed: true,
+            message: 'Evaluación ya registrada previamente',
+          };
+        }
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'EVALUATION_ALREADY_EXISTS',
+          message:
+            'Ya existe una evaluación de este jurado para el videojuego.',
+          evaluationId: existingId,
+        });
+      }
+      throw error;
+    }
 
     return {
       evaluationId: evaluation.id,
@@ -182,12 +236,22 @@ export class EvaluationService {
   async createBatchEvaluations(
     jurorId: string,
     batchPayload: BatchEvaluationDto,
+    idempotencyKey?: string,
   ) {
+    this.assertValidIdempotencyKey(idempotencyKey);
     await this.checkEvaluationsOpen();
 
     const results = {
-      successful: [] as { videogameId: number; evaluationId: number }[],
-      failed: [] as { videogameId: number; error: string }[],
+      successful: [] as {
+        videogameId: number;
+        evaluationId: number;
+        replayed?: boolean;
+      }[],
+      failed: [] as {
+        videogameId: number;
+        error: string;
+        evaluationId?: number | null;
+      }[],
     };
 
     // --- OPTIMIZACIÓN: CONSULTAS DE LECTURA GLOBALES (FUERA DEL BUCLE) ---
@@ -292,6 +356,27 @@ export class EvaluationService {
 
         results.successful.push(result);
       } catch (error: any) {
+        if (this.isDuplicateEvaluationError(error)) {
+          const existingId = await this.findExistingEvaluationId(
+            jurorId,
+            evaluationPayload.videogameId,
+          );
+          // Reintento con la misma clave: la fila cuenta como ya registrada.
+          if (idempotencyKey && existingId) {
+            results.successful.push({
+              videogameId: evaluationPayload.videogameId,
+              evaluationId: existingId,
+              replayed: true,
+            });
+            continue;
+          }
+          results.failed.push({
+            videogameId: evaluationPayload.videogameId,
+            error: 'EVALUATION_ALREADY_EXISTS',
+            evaluationId: existingId,
+          });
+          continue;
+        }
         results.failed.push({
           videogameId: evaluationPayload.videogameId,
           error: error.message || 'Error desconocido al guardar la evaluación',
