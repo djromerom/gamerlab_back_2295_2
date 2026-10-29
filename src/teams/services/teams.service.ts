@@ -310,8 +310,9 @@ export class TeamsService {
   }
 
   /**
-   * @param includePersonalData true only for callers with the ListTeams permission.
-   * Anonymous callers get the list without member emails, student codes or leader email (BG-02).
+   * @param includePersonalData true only when the caller has the Administrador role (the controller
+   * resolves it with OptionalAdminRoleGuard). Everyone else, logged in or not, gets the list without
+   * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
    */
   async findAll(sortByLikes: boolean, includePersonalData = false) {
     const teams = await this.teamRepository.findAll(sortByLikes);

@@ -33,7 +33,8 @@ import { HistoricalsModule } from './historicals/historicals.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // Only routes with @PublicThrottle use it; the default below is overridden per route (BG-02)
+    // Only routes with @PublicThrottle use it; the default below is overridden per route (BG-02).
+    // In-memory storage: counters reset on restart and are not shared between replicas (see public-throttle.ts).
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
     PrismaModule,
     AuthModule,
