@@ -1253,6 +1253,9 @@ export class ProfessorsService {
         canEdit: Boolean(activeEdition && activeEdition.id === t.editionId && activeEdition.eventConfiguration?.evaluationsOpen && ownsGameNrc),
       });
     }
+    // Historical grading teams are intentionally global for every professor.
+    // This read-only view does not filter them by professor ownership, and
+    // exposes only names, team metadata and final fair score.
     // NRC identity and code come from the immutable snapshot copied at archive time.
     const historical = await this.prisma.historicalTeam.findMany({
       where: {
@@ -1287,6 +1290,8 @@ export class ProfessorsService {
   }
 
   async getGradingFilterOptions(professorId: string) {
+    // Historical NRC options are intentionally not filtered by professor:
+    // each professor can browse the global, read-only historical teams view.
     type GradingNrcOption = { id: number; code: number; editionId: number; source: 'current' | 'historical' };
     const nrcs = await this.prisma.nRC.findMany({ where: { professorId }, select: { id: true, code: true, editionId: true } });
     const editionIds = [...new Set(nrcs.map(n => n.editionId))];
