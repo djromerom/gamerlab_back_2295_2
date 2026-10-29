@@ -39,7 +39,18 @@ export class JurorBadgesController {
   @ApiResponse({
     status: 201,
     schema: {
-      example: { editionId: 3, created: 12, existing: 30, skipped: [] },
+      example: {
+        editionId: 3,
+        created: 12,
+        existing: 30,
+        skipped: [
+          {
+            jurorId: '5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01',
+            name: 'Ana',
+            reason: 'Falta el nombre o el apellido del jurado',
+          },
+        ],
+      },
     },
   })
   generate(@Body() dto: GenerateBadgesDto) {

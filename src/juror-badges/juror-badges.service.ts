@@ -25,6 +25,8 @@ type BadgeJuror = Prisma.UserGetPayload<{ select: typeof jurorSelect }>;
 
 export interface SkippedBadge {
   jurorId: string;
+  /** Null cuando el id no corresponde a un jurado o profesor activo. */
+  name: string | null;
   reason: string;
 }
 
@@ -100,6 +102,7 @@ export class JurorBadgesService {
         if (!found.has(id)) {
           skipped.push({
             jurorId: id,
+            name: null,
             reason: 'No es un jurado o profesor activo',
           });
         }
@@ -109,8 +112,13 @@ export class JurorBadgesService {
     const valid: BadgeJuror[] = [];
     for (const juror of jurors) {
       const problem = this.missingData(juror);
-      if (problem) skipped.push({ jurorId: juror.id, reason: problem });
-      else valid.push(juror);
+      if (problem) {
+        skipped.push({
+          jurorId: juror.id,
+          name: this.fullName(juror) || null,
+          reason: problem,
+        });
+      } else valid.push(juror);
     }
 
     const existingBadges = await this.prisma.jurorBadge.findMany({

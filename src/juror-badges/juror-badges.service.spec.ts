@@ -113,9 +113,19 @@ describe('JurorBadgesService', () => {
         prisma.jurorBadge.createMany,
       );
       expect(data.map((d) => d.jurorId)).toEqual(['u2']);
-      expect(result.skipped.map((s) => s.jurorId).sort()).toEqual([
-        'ghost',
-        'u1',
+      expect(
+        [...result.skipped].sort((x, y) => x.jurorId.localeCompare(y.jurorId)),
+      ).toEqual([
+        {
+          jurorId: 'ghost',
+          name: null,
+          reason: 'No es un jurado o profesor activo',
+        },
+        {
+          jurorId: 'u1',
+          name: 'Ana',
+          reason: 'Falta el nombre o el apellido del jurado',
+        },
       ]);
     });
 
