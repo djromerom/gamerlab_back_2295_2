@@ -3,6 +3,8 @@ import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Importar CACHE_MANAGER
 import { Reflector } from '@nestjs/core'; // Importar Reflector
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { OptionalAdminRoleGuard } from '../auth/guards/admin-role.guard';
 
 describe('ReportsController', () => {
   let controller: ReportsController;
@@ -44,7 +46,12 @@ describe('ReportsController', () => {
           useValue: mockReflector,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(RolePermissionGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(OptionalAdminRoleGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<ReportsController>(ReportsController);
   });

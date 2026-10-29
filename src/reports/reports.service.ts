@@ -3,6 +3,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 
+// ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
+const ROL_JURADO_ID = 4;
+
 @Injectable()
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -343,7 +346,6 @@ async getJuradosData(): Promise<
   // 1. Obtener todos los usuarios que tienen el rol de "Jurado"
   //    Asumimos que tienes un ID o nombre específico para el rol de jurado.
   //    Por ejemplo, si el rol "Jurado" tiene id_rol = 3
-  const ROL_JURADO_ID = 4; // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 
   const juradosUsuarios = await this.prisma.user.findMany({
     where: {
@@ -425,6 +427,52 @@ async getJuradosData(): Promise<
 
   return resultado;
 }
+
+  /**
+   * Jurados asignados al equipo que lidera el usuario (página "Mis jurados" del estudiante).
+   * Mismo formato que getJuradosData, pero sin los jurados de otros equipos (BG-02).
+   */
+  async getJuradosDataForTeamLeader(userId: string) {
+    const team = await this.prisma.team.findFirst({
+      where: { userId, isActive: true },
+      select: { id: true, videogame: { select: { id: true, name: true, isActive: true } } },
+    });
+    const videogame = team?.videogame;
+    if (!team || !videogame?.isActive) return [];
+
+    // Se cruza por ids (equipo y videojuego), no por nombre: dos juegos pueden llamarse igual.
+    const jurados = await this.prisma.user.findMany({
+      where: {
+        roleId: ROL_JURADO_ID,
+        isActive: true,
+        teamsToEvaluate: { some: { id: team.id } },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        isActive: true,
+        confirmationStatus: { select: { status: true } },
+        evaluationsSubmitted: {
+          where: { isActive: true, videogameId: videogame.id },
+          select: { id: true },
+        },
+      },
+    });
+
+    return jurados.map((user) => {
+      const nombreCompleto = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+      return {
+        id: user.id,
+        nombre: nombreCompleto || 'Nombre no disponible',
+        correo: user.email,
+        estado: user.isActive ? (user.confirmationStatus?.status ?? 'Activo') : 'Inactivo',
+        videojuegosAsignados: [videogame.name],
+        videojuegosCompletos: user.evaluationsSubmitted.length > 0 ? [videogame.name] : [],
+      };
+    });
+  }
 
   async getVideogamesDataFilter(
     materia?: string,
