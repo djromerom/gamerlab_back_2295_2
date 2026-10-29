@@ -966,43 +966,6 @@ export class ProfessorsService {
     );
   }
 
-  async downloadGradingReportGrouped(
-    professorId: string,
-    res: Response,
-    final: boolean = false,
-  ): Promise<void> {
-    const subjects = await this.findSubjects(professorId, true);
-    if (!subjects || subjects.length === 0) {
-      throw new NotFoundException(
-        'No se encontraron materias/NRCs para este profesor.',
-      );
-    }
-
-    const sheets = await this.buildSheets(subjects, professorId);
-    const date = new Date().toISOString().slice(0, 10);
-    const fileName = `reporte-agrupado-${date}.xlsx`;
-
-    await this.excelExport.generateAndStream(
-      {
-        final,
-        professorId,
-        fileName,
-        sheets,
-        getFeriaScore: (vgId) => this.getFinalScoreByVideogameId(vgId),
-        getJuniorScore: (vgId) => this.getAvgJuniorByVideogameId(vgId),
-        getDocenteScore: async (vgId, pid) => {
-          const ev = await this.prisma.evaluation.findFirst({
-            where: { videogameId: vgId, jurorId: pid },
-            select: { totalScore: true },
-          });
-          return ev?.totalScore ?? null;
-        },
-        resolveVideogameId: (tc, vn) => this.resolveVideogameId(tc, vn),
-      },
-      res,
-    );
-  }
-
   // ── Excel helpers (used by buildSheets) ───────────────────────────────────
 
   private async fetchMembersForExport(

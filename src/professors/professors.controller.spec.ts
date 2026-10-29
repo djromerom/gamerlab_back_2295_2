@@ -2,11 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProfessorsController } from './professors.controller';
 import { ProfessorsService } from './professors.service';
 import { ExcelExportService } from './excel-export.service';
+import { GradingReportExportService } from './grading-report-export.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { ConfigService } from '@nestjs/config';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { Reflector } from '@nestjs/core';
+import { Response } from 'express';
+import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
 
 // Smoke test to ensure the controller can be instantiated without errors
 describe('ProfessorsController', () => {
@@ -22,14 +25,17 @@ describe('ProfessorsController', () => {
     update: jest.fn(),
     remove: jest.fn(),
     getNRCreport: jest.fn(),
+    getJurorEvaluations: jest.fn(),
     GetSignatureReport: jest.fn(),
     downloadGradingTemplateAll: jest.fn(),
-    downloadGradingReportGrouped: jest.fn(),
     processSeniorGradesExcel: jest.fn(),
     updateTeamEvaluation: jest.fn(),
   };
   const mockExcelExportService = {
     generateAndStream: jest.fn(),
+  };
+  const mockGradingReportExport = {
+    exportFiltered: jest.fn(),
   };
   const mockPrismaService = {};
   const mockCacheService = {
@@ -64,6 +70,10 @@ describe('ProfessorsController', () => {
           useValue: mockExcelExportService,
         },
         {
+          provide: GradingReportExportService,
+          useValue: mockGradingReportExport,
+        },
+        {
           provide: CacheService,
           useValue: mockCacheService,
         },
@@ -87,6 +97,26 @@ describe('ProfessorsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('downloadGradingReportGrouped delega los filtros en GradingReportExportService', async () => {
+    const res = {} as Response;
+    const query = {
+      editionId: 3,
+      nrcId: 5,
+      search: 'bosque',
+      sortBy: 'student',
+      sortOrder: 'desc',
+      final: true,
+    } as GradingReportQueryDto;
+
+    await controller.downloadGradingReportGrouped('prof-1', res, query);
+
+    expect(mockGradingReportExport.exportFiltered).toHaveBeenCalledWith(
+      'prof-1',
+      query,
+      res,
+    );
   });
 });
 
