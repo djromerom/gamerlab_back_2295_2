@@ -22,6 +22,7 @@ import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
 import { ROLE_IDS } from '../../auth/constants/roles';
+import { stripPersonalData } from '../../common/utils/strip-personal-data';
 
 @Injectable()
 export class TeamsService {
@@ -309,8 +310,14 @@ export class TeamsService {
     return await this.authService.registerUser(authRegisterPayload);
   }
 
-  async findAll(sortByLikes: boolean) {
-    return this.teamRepository.findAll(sortByLikes);
+  /**
+   * @param includePersonalData true only when the caller has the Administrador role (the controller
+   * resolves it with OptionalAdminRoleGuard). Everyone else, logged in or not, gets the list without
+   * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
+   */
+  async findAll(sortByLikes: boolean, includePersonalData = false) {
+    const teams = await this.teamRepository.findAll(sortByLikes);
+    return includePersonalData ? teams : stripPersonalData(teams);
   }
 
   async findOne(id: number): Promise<unknown> {
@@ -806,8 +813,9 @@ export class TeamsService {
     return sortedRanking;
   }
 
-  async findPaged(page: number, limit: number, sortByLikes: boolean) {
-    return await this.teamRepository.findPaged(page, limit, sortByLikes);
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false) {
+    const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+    return includePersonalData ? result : stripPersonalData(result);
   }
 
   async getLeaderStatus(email: string) {

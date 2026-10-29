@@ -7,6 +7,7 @@ import { HistoricalsService } from './historicals.service';
 import { Public } from '../auth/decorators/public.decorator';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
+import { stripPersonalData } from '../common/utils/strip-personal-data';
 
 @Controller('historicals')
 export class HistoricalsController {
@@ -53,6 +54,7 @@ export class HistoricalsController {
     return this.historicalsService.getHistoricalVideogamesByEdition(editionId);
   }
 
+  // Público: lo usa la página de ediciones pasadas. Sale sin correos ni códigos de los integrantes (BG-02)
   @Public()
   @Get('historical-teams-with-scores/:editionId')
   @ApiOperation({ summary: 'Get historical teams of a specific edition, sorted by finalScore DESC' })
@@ -60,7 +62,9 @@ export class HistoricalsController {
   @ApiNotFoundResponse({ description: 'Edition not found or no historical teams available' })
   @ApiBadRequestResponse({ description: 'Invalid edition ID' })
   getHistoricalTeamsWithScores(@Param('editionId') editionId: number) {
-    return this.historicalsService.getHistoricalTeamsWithScores(editionId);
+    return this.historicalsService
+      .getHistoricalTeamsWithScores(editionId)
+      .then((teams) => stripPersonalData(teams));
   }
 
   @Post('create-historical-edition-dump/:editionId')

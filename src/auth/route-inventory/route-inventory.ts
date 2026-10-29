@@ -29,6 +29,8 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
     'Cualquier usuario con sesión puede consultar si ya dio like a un juego.',
   'POST /videogames/:id/toggle-like':
     'Cualquier usuario con sesión puede dar o quitar su propio like.',
+  'GET /reports/JuradosData':
+    'La usa la página "Mis jurados": el administrador ve todos los jurados y cualquier otro usuario solo los de su propio equipo (OptionalAdminRoleGuard, BG-02).',
 };
 
 /**
@@ -49,13 +51,13 @@ export const ROUTE_NOTES: Record<string, string> = {
   'GET /juror/teams/:teamId/evaluation-stats':
     'Estudiante: solo las estadísticas de su propio equipo (BG-01).',
   'GET /teams/:id':
-    '⚠️ Observación: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
   'GET /teams/:id/full':
-    '⚠️ Observación: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
   'POST /upload':
-    '⚠️ BG-02: pública (subida de archivos sin sesión); la usa el registro de equipos.',
+    'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':
-    '⚠️ BG-02: pública (subida de archivos sin sesión); la usa el registro de equipos.',
+    'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'GET /reports/videojuegoData':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
   'GET /reports/materiaData':
@@ -63,7 +65,7 @@ export const ROUTE_NOTES: Record<string, string> = {
   'GET /reports/NRCData':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
   'GET /reports/JuradosData':
-    '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
+    'Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol.',
   'GET /reports/DatosGraficoMateria':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
 };

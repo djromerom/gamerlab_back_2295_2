@@ -29,7 +29,7 @@ export class EditionsController {
   @RequiredService('ManageEditions')
   @ApiOperation({ summary: 'Create a new edition' })
   @ApiResponse({ status: 201, description: 'Edition created successfully.' })
-  @ApiResponse({ status: 400, description: 'Duplicate year/semester.' })
+  @ApiResponse({ status: 409, description: 'An edition with that year and semester already exists.' })
   create(@Body() createEditionDto: CreateEditionDto) {
     return this.editionsService.create(createEditionDto);
   }
@@ -59,6 +59,7 @@ export class EditionsController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Edition updated.' })
   @ApiResponse({ status: 404, description: 'Edition not found.' })
+  @ApiResponse({ status: 409, description: 'Another edition already has that year and semester.' })
   update(@Param('id', ParseIntPipe) id: number, @Body() updateEditionDto: UpdateEditionDto) {
     return this.editionsService.update(id, updateEditionDto);
   }
