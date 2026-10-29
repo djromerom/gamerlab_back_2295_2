@@ -28,7 +28,8 @@
     "prisma:seed": "ts-node seed.ts",
     "db:seed": "npm run prisma:seed",
     "db:setup": "npm run prisma:migrate && npm run prisma:seed",
-    "db:reset": "npm run prisma:migrate:reset && npm run prisma:seed"
+    "db:reset": "npm run prisma:migrate:reset && npm run prisma:seed",
+    "routes:inventory": "ts-node -T -r tsconfig-paths/register scripts/generate-route-inventory.ts"
   },
   "dependencies": {
     "@azure/communication-email": "^1.1.0",

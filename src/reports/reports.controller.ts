@@ -59,6 +59,8 @@ export class ReportsController {
   }
 
   @Get('exportExcel')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export videogame report to Excel' })
   @ApiQuery({ name: 'materia', required: false, description: 'Subject name to filter' })
   @ApiQuery({ name: 'nrc', required: false, description: 'NRC code to filter', type: Number })
@@ -214,7 +216,7 @@ export class ReportsController {
 
   @Get('exportJurados')
   @UseGuards(RolePermissionGuard)
-  @RequiredService('ListJurors')
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export jurors report to Excel' })
   @ApiOkResponse({ description: 'Excel file with jurors and their status' })
   async exportJurados(

@@ -44,6 +44,8 @@ export class TeamsController {
   }
 
   @Post('admin')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('RegisterTeam')
   createAsAdmin(
     @Body() CreateTeamDto: CreateTeamDto,
     @GetUser() user?: AppUser,
@@ -180,6 +182,8 @@ export class TeamsController {
   }
 
   @Get('leader/:email/status')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ViewTeamLeaderStatus')
   getStatus(@Param('email') email: string) {
     return this.teamsService.getLeaderStatus(email);
   }

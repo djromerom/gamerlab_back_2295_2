@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Body, Patch, Param, Delete,
   ParseIntPipe, Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth,
@@ -10,6 +11,8 @@ import { CreateEducationalFocusDto } from '../../educational-focuses/dto/create-
 import { UpdateEducationalFocusDto } from '../../educational-focuses/dto/update-educational-focus.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { RolePermissionGuard } from '../../auth/guards/role-permission.guard';
+import { RequiredService } from '../../auth/decorators/required-service.decorator';
 
 @ApiTags('Educational Focuses')
 @ApiBearerAuth()
@@ -18,6 +21,8 @@ export class EducationalFocusesController {
   constructor(private readonly educationalFocusesService: EducationalFocusesService) { }
 
   @Post()
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageEducationalFocuses')
   @ApiOperation({ summary: 'Create an educational focus for an edition' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiResponse({ status: 201, description: 'Educational focus created.' })
@@ -56,6 +61,8 @@ export class EducationalFocusesController {
   }
 
   @Patch(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageEducationalFocuses')
   @ApiOperation({ summary: 'Update an educational focus' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiParam({ name: 'id', type: Number })
@@ -70,6 +77,8 @@ export class EducationalFocusesController {
   }
 
   @Delete(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageEducationalFocuses')
   @ApiOperation({ summary: 'Delete an educational focus' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiParam({ name: 'id', type: Number })

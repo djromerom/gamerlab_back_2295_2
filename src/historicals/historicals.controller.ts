@@ -5,7 +5,8 @@ import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
 import { UpdateHistoricalVideogameDto } from './dto/update-historical-videogame.dto';
 import { HistoricalsService } from './historicals.service';
 import { Public } from '../auth/decorators/public.decorator';
-import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { stripPersonalData } from '../common/utils/strip-personal-data';
 
 @Controller('historicals')
@@ -13,6 +14,8 @@ export class HistoricalsController {
   constructor(private readonly historicalsService: HistoricalsService) {}
 
   @Get('historical-teams')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Get all historical teams' })
   @ApiOkResponse({ description: 'Historical teams retrieved successfully' })
   getAllHistoricalTeams() {
@@ -20,6 +23,8 @@ export class HistoricalsController {
   }
 
   @Get('historical-teams/:editionId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Get historical teams of a specific edition' })
   @ApiOkResponse({ description: 'Historical teams retrieved successfully' })
   @ApiNotFoundResponse({ description: 'Edition not found' })
@@ -29,7 +34,8 @@ export class HistoricalsController {
   }
   
   @Get('historical-members/:TeamId')
-  @UseGuards(AdminRoleGuard)
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Get historical members of a specific team' })
   @ApiOkResponse({ description: 'Historical members retrieved successfully' })
   @ApiNotFoundResponse({ description: 'Team not found' })
@@ -62,6 +68,8 @@ export class HistoricalsController {
   }
 
   @Post('create-historical-edition-dump/:editionId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Create a historical dump (Teams, team members and videogames) for a specific edition' })
   @ApiOkResponse({ description: 'Dump created successfully' })
   @ApiNotFoundResponse({ description: 'Edition not found' })
@@ -72,6 +80,8 @@ export class HistoricalsController {
   }
 
   @Patch('update-historical-team/:historicalTeamId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Update a historical team' })
   @ApiBody({ type: UpdateHistoricalTeamDto })
   @ApiOkResponse({ description: 'Historical team updated successfully' })
@@ -82,6 +92,8 @@ export class HistoricalsController {
   }
 
   @Patch('update-historical-member/:historicalMemberId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Update a historical member' })
   @ApiBody({ type: UpdateHistoricalMemberDto })
   @ApiOkResponse({ description: 'Historical member updated successfully' })
@@ -92,6 +104,8 @@ export class HistoricalsController {
   }
 
   @Patch('update-historical-videogame/:historicalVideogameId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Update a historical videogame' })
   @ApiBody({ type: UpdateHistoricalVideogameDto })
   @ApiOkResponse({ description: 'Historical videogame updated successfully' })
@@ -102,6 +116,8 @@ export class HistoricalsController {
   }
 
   @Delete('remove-historical-team/:historicalTeamId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Remove a historical team' })
   @ApiOkResponse({ description: 'Historical team removed successfully' })
   @ApiNotFoundResponse({ description: 'Historical team not found' })
@@ -111,6 +127,8 @@ export class HistoricalsController {
   }
 
   @Delete('remove-historical-member/:historicalMemberId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Remove a historical member' })
   @ApiOkResponse({ description: 'Historical member removed successfully' })
   @ApiNotFoundResponse({ description: 'Historical member not found' })
@@ -120,6 +138,8 @@ export class HistoricalsController {
   }
 
   @Delete('remove-historical-videogame/:historicalVideogameId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageHistoricals')
   @ApiOperation({ summary: 'Remove a historical videogame' })
   @ApiOkResponse({ description: 'Historical videogame removed successfully' })
   @ApiNotFoundResponse({ description: 'Historical videogame not found' })

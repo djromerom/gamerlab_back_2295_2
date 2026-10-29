@@ -1,9 +1,11 @@
-import { Controller, Get, Param, Post, UploadedFile, UseInterceptors, Query, Delete, BadRequestException, PayloadTooLargeException, UseFilters } from '@nestjs/common';
+import { Controller, Get, Param, Post, UploadedFile, UseInterceptors, Query, Delete, BadRequestException, PayloadTooLargeException, UseFilters, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AzureStorageService } from './azure-storage.service';
 import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator'; // Add this import
 import { MulterExceptionFilter } from './multer-exception.filter';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
 import { isAllowedImage, isZip } from './file-signature';
 
@@ -135,6 +137,8 @@ export class UploadController {
   }
 
   @Get(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageUploads')
   @ApiOperation({ summary: 'Consultar un registro por ID' })
   @ApiParam({ name: 'id', description: 'UUID del registro en Postgres' })
   @ApiResponse({ status: 200, description: 'Registro encontrado' })
@@ -154,6 +158,8 @@ export class UploadController {
   }
 
   @Post(':id/public')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageUploads')
   @ApiOperation({ summary: 'Marcar/Desmarcar un blob como público (flag en BD, no guarda SAS)' })
   @ApiParam({ name: 'id', description: 'UUID del registro' })
   @ApiQuery({ name: 'value', required: false, description: 'true/false (por defecto true)' })
@@ -163,6 +169,8 @@ export class UploadController {
   }
 
   @Delete(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageUploads')
   @ApiOperation({ summary: 'Eliminar blob en Azure y registro en la BD' })
   @ApiParam({ name: 'id', description: 'UUID del registro' })
   @ApiResponse({ status: 200, description: 'Eliminado', schema: { example: { id: 'uuid', deleted: true } } })

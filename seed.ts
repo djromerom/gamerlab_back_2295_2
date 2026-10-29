@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const prisma = new PrismaClient();
@@ -24,6 +24,33 @@ async function resetSequence(tableName: string, idColumn: string) {
 interface SeedData {
   table: string;
   data: any[];
+}
+
+/**
+ * BG-01: aplica los servicios/permisos de las rutas administrativas ejecutando la
+ * MISMA migración que se corre en Arkad-test y producción
+ * (`prisma/migrations/*_add_admin_route_permissions`). Así hay una sola definición.
+ *
+ * Es necesario porque en una base nueva la migración corre antes del seed, cuando
+ * la tabla `roles` aún está vacía y la migración no hace nada. Es idempotente.
+ */
+async function applyAdminRoutePermissions() {
+  const migrationsDir = join(process.cwd(), 'prisma', 'migrations');
+  const migrationName = readdirSync(migrationsDir)
+    .filter((dir) => dir.endsWith('_add_admin_route_permissions'))
+    .sort()[0];
+
+  if (!migrationName) {
+    console.log('⚠️ Migration *_add_admin_route_permissions not found. Skipping...');
+    return;
+  }
+
+  const sql = readFileSync(
+    join(migrationsDir, migrationName, 'migration.sql'),
+    'utf-8',
+  );
+  await prisma.$executeRawUnsafe(sql);
+  console.log(`🔐 Admin route permissions applied from ${migrationName}`);
 }
 
 async function main() {
@@ -418,6 +445,8 @@ async function main() {
     } else {
       console.warn('⚠️ Could not find professor or team 500 for assignment');
     }
+
+    await applyAdminRoutePermissions();
 
     console.log('🌱 Synchronizing database sequences...');
     await resetSequence('ediciones', 'id_edicion');

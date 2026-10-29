@@ -21,6 +21,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
+import { ROLE_IDS } from '../../auth/constants/roles';
 import { stripPersonalData } from '../../common/utils/strip-personal-data';
 
 @Injectable()
@@ -852,19 +853,45 @@ export class TeamsService {
     }
   }
 
+  /**
+   * BG-01: el permiso `UpdateTeam` lo tienen los estudiantes, por lo que sin esta
+   * verificación podrían tocar cualquier equipo. Solo el líder o un administrador.
+   */
+  private async assertLeaderOrAdmin(
+    teamId: number,
+    user: AppUser,
+  ): Promise<void> {
+    const team = await this.teamRepository.findOne(teamId);
+
+    if (!team) {
+      throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+    }
+
+    const isLeader = team.userId === user.id;
+    const isAdmin = user.roleId === ROLE_IDS.ADMIN;
+
+    if (!isLeader && !isAdmin) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource.',
+      );
+    }
+  }
+
   async addMember(
     id: number,
     memberDto: MemberDto,
-    user: User,
+    user: AppUser,
   ): Promise<Member | undefined> {
+    await this.assertLeaderOrAdmin(id, user);
     return await this.teamRepository.addMember(id, memberDto);
   }
 
   async deleteMember(
     teamId: number,
     memberId: number,
-    user: User,
+    user: AppUser,
   ): Promise<{ message: string; member: Member | null } | undefined> {
+    await this.assertLeaderOrAdmin(teamId, user);
     return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }

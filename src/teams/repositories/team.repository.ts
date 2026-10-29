@@ -744,6 +744,13 @@ export class TeamRepository implements ITeamRepository {
         if (!member) {
           throw new NotFoundException(`Miembro con ID ${memberId} no encontrado`);
         }
+        // BG-01: el miembro debe pertenecer al equipo indicado en la ruta; si no,
+        // quien tenga permiso sobre SU equipo podría borrar miembros de otro.
+        if (member.teamId !== teamId) {
+          throw new NotFoundException(
+            `Miembro con ID ${memberId} no encontrado en el equipo ${teamId}`,
+          );
+        }
         if (member?.email === leader?.email) {
           throw new BadRequestException(
             'No se puede eliminar al líder del equipo',
