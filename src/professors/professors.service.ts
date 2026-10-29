@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
+import { EditionStatus, Prisma, User, Role, NRC, Subject } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
@@ -569,11 +569,17 @@ export class ProfessorsService {
     professorId: string,
   ) {
     const offset = (page - 1) * limit;
+    const activeEdition = await this.prisma.edition.findFirst({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
 
     const nrcInfo = await this.prisma.nRC.findFirst({
       where: {
         code: nrcCode,
         professorId,
+        ...(activeEdition ? { editionId: activeEdition.id } : { id: -1 }),
         ...(includeInactive ? {} : { isActive: true }),
       },
       select: { code: true, subject: { select: { name: true } } },
@@ -585,8 +591,17 @@ export class ProfessorsService {
     const subjectName = nrcInfo.subject.name;
 
     const teamWhere: Prisma.TeamWhereInput = {
+      editionId: activeEdition?.id ?? -1,
       members: {
-        some: { nrcs: { some: { code: nrcCode, professorId } } },
+        some: {
+          nrcs: {
+            some: {
+              code: nrcCode,
+              professorId,
+              ...(activeEdition ? { editionId: activeEdition.id } : {}),
+            },
+          },
+        },
       },
     };
 

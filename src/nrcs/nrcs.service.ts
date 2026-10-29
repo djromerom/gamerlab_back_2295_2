@@ -59,9 +59,16 @@ export class NrcsService {
   async findForSelect(
     includeSubjects: boolean = false,
   ): Promise<SelectOption[]> {
+    const activeEdition = await this.prisma.edition.findFirst({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+
     let selectClause: Prisma.NRCSelect = {
       id: true,
       code: true,
+      editionId: true,
     };
 
     if (includeSubjects)
@@ -70,7 +77,10 @@ export class NrcsService {
       };
 
     const nrcs = await this.prisma.nRC.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(activeEdition ? { editionId: activeEdition.id } : { id: -1 }),
+      },
       select: selectClause,
     });
 
