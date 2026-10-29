@@ -23,9 +23,10 @@ describe('TeamVerificationService', () => {
   const prismaMock = {
     team: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     videogame: { findMany: jest.fn() },
-    teamVerification: { findUnique: jest.fn(), upsert: jest.fn() },
+    teamVerification: { findUnique: jest.fn(), create: jest.fn() },
     teamVerificationLog: { create: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(),
+    $executeRaw: jest.fn(),
   };
 
   const universityTeam = {
@@ -38,7 +39,11 @@ describe('TeamVerificationService', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    prismaMock.$transaction.mockResolvedValue([]);
+    // Forma interactiva (verify) y forma de arreglo (regenerate).
+    prismaMock.$transaction.mockImplementation(
+      (arg: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+        typeof arg === 'function' ? arg(prismaMock) : Promise.resolve([]),
+    );
     service = new TeamVerificationService(prismaMock as any);
   });
 
@@ -53,11 +58,10 @@ describe('TeamVerificationService', () => {
       const result = await service.verify(jurorId, dto);
 
       expect(result).toEqual({ verified: true, required: true });
-      expect(prismaMock.teamVerification.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: { teamId: 10, jurorId },
-        }),
-      );
+      expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(prismaMock.teamVerification.create).toHaveBeenCalledWith({
+        data: { teamId: 10, jurorId },
+      });
       expect(prismaMock.teamVerificationLog.create).toHaveBeenCalledWith({
         data: {
           action: TeamVerificationAction.ATTEMPT_SUCCESS,
@@ -83,7 +87,7 @@ describe('TeamVerificationService', () => {
           userId: jurorId,
         },
       });
-      expect(prismaMock.teamVerification.upsert).not.toHaveBeenCalled();
+      expect(prismaMock.teamVerification.create).not.toHaveBeenCalled();
     });
 
     it('bloquea con 429 tras el máximo de intentos fallidos sin comparar el código', async () => {
@@ -100,6 +104,62 @@ describe('TeamVerificationService', () => {
       expect(error).toBeInstanceOf(HttpException);
       expect((error as HttpException).getStatus()).toBe(429);
       expect(prismaMock.teamVerificationLog.create).not.toHaveBeenCalled();
+      expect(prismaMock.teamVerification.create).not.toHaveBeenCalled();
+    });
+
+    it('toma el candado por (equipo, jurado) antes de contar los intentos', async () => {
+      prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+      prismaMock.teamVerification.findUnique.mockResolvedValue(null);
+      prismaMock.teamVerificationLog.count.mockResolvedValue(0);
+
+      await service.verify(jurorId, dto);
+
+      const [sql, ...values] = prismaMock.$executeRaw.mock.calls[0] as [
+        TemplateStringsArray,
+        ...unknown[],
+      ];
+      expect(sql.join('?')).toContain('pg_advisory_xact_lock');
+      expect(values).toEqual([10, jurorId]);
+      expect(prismaMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        prismaMock.teamVerificationLog.count.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('con peticiones simultáneas no acepta más de MAX_FAILED_ATTEMPTS intentos fallidos', async () => {
+      // Simula el candado de PostgreSQL: cada transacción espera a que termine la anterior.
+      let queue: Promise<unknown> = Promise.resolve();
+      prismaMock.$transaction.mockImplementation(
+        (fn: (tx: typeof prismaMock) => Promise<unknown>) => {
+          const run = queue.then(() => fn(prismaMock));
+          queue = run.catch(() => undefined);
+          return run;
+        },
+      );
+      let failedLogs = 0;
+      prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+      prismaMock.teamVerification.findUnique.mockResolvedValue(null);
+      prismaMock.teamVerificationLog.count.mockImplementation(() =>
+        Promise.resolve(failedLogs),
+      );
+      prismaMock.teamVerificationLog.create.mockImplementation(() => {
+        failedLogs++;
+        return Promise.resolve({});
+      });
+
+      const results = await Promise.allSettled(
+        Array.from({ length: 8 }, () =>
+          service.verify(jurorId, { teamId: 10, code: 'ZZZZZZ' }),
+        ),
+      );
+      const errors = results.map((r) =>
+        r.status === 'rejected' ? (r.reason as HttpException) : null,
+      );
+
+      expect(failedLogs).toBe(MAX_FAILED_ATTEMPTS);
+      expect(
+        errors.filter((e) => e instanceof BadRequestException),
+      ).toHaveLength(MAX_FAILED_ATTEMPTS);
+      expect(errors.filter((e) => e?.getStatus() === 429)).toHaveLength(3);
     });
 
     it('no vuelve a pedir el código si el jurado ya verificó el grupo', async () => {

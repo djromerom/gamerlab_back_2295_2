@@ -7,7 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { EditionStatus, TeamVerificationAction } from '@prisma/client';
+import { EditionStatus, Prisma, TeamVerificationAction } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerifyTeamDto } from './dto/verify-team.dto';
 import {
@@ -57,54 +57,69 @@ export class TeamVerificationService {
       throw new ForbiddenException('Este grupo no está asignado al jurado');
     }
 
-    const alreadyVerified = await this.prisma.teamVerification.findUnique({
-      where: { teamId_jurorId: { teamId: team.id, jurorId } },
-      select: { id: true },
-    });
-    if (alreadyVerified) {
-      return { verified: true, required: true };
-    }
+    const verificationCode = team.verificationCode;
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      // Candado por (equipo, jurado) hasta el fin de la transacción: los intentos simultáneos del
+      // mismo jurado sobre el mismo grupo se atienden en fila, así el conteo y el registro del
+      // intento son atómicos y no se pueden pasar de MAX_FAILED_ATTEMPTS con peticiones en paralelo.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${team.id}::int, hashtext(${jurorId}))`;
 
-    const failedAttempts = await this.countRecentFailedAttempts(
-      team.id,
-      jurorId,
-    );
-    if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-      throw new HttpException(
-        `Demasiados intentos fallidos. Espera ${ATTEMPT_WINDOW_MINUTES} minutos para volver a intentarlo.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    if (dto.code !== team.verificationCode) {
-      await this.prisma.teamVerificationLog.create({
-        data: {
-          action: TeamVerificationAction.ATTEMPT_FAILED,
-          teamId: team.id,
-          userId: jurorId,
-        },
-      });
-      const remaining = MAX_FAILED_ATTEMPTS - failedAttempts - 1;
-      throw new BadRequestException(
-        `El código no coincide con el grupo. Intentos restantes: ${remaining}.`,
-      );
-    }
-
-    await this.prisma.$transaction([
-      this.prisma.teamVerification.upsert({
+      const alreadyVerified = await tx.teamVerification.findUnique({
         where: { teamId_jurorId: { teamId: team.id, jurorId } },
-        create: { teamId: team.id, jurorId },
-        update: {},
-      }),
-      this.prisma.teamVerificationLog.create({
+        select: { id: true },
+      });
+      if (alreadyVerified) {
+        return { status: 'verified' as const };
+      }
+
+      const failedAttempts = await this.countRecentFailedAttempts(
+        tx,
+        team.id,
+        jurorId,
+      );
+      if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+        return { status: 'locked' as const };
+      }
+
+      if (dto.code !== verificationCode) {
+        await tx.teamVerificationLog.create({
+          data: {
+            action: TeamVerificationAction.ATTEMPT_FAILED,
+            teamId: team.id,
+            userId: jurorId,
+          },
+        });
+        return {
+          status: 'wrong' as const,
+          remaining: MAX_FAILED_ATTEMPTS - failedAttempts - 1,
+        };
+      }
+
+      await tx.teamVerification.create({
+        data: { teamId: team.id, jurorId },
+      });
+      await tx.teamVerificationLog.create({
         data: {
           action: TeamVerificationAction.ATTEMPT_SUCCESS,
           teamId: team.id,
           userId: jurorId,
         },
-      }),
-    ]);
+      });
+      return { status: 'verified' as const };
+    });
 
+    // Las excepciones se lanzan fuera de la transacción para que el intento fallido quede guardado.
+    if (outcome.status === 'locked') {
+      throw new HttpException(
+        `Demasiados intentos fallidos. Espera ${ATTEMPT_WINDOW_MINUTES} minutos para volver a intentarlo.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    if (outcome.status === 'wrong') {
+      throw new BadRequestException(
+        `El código no coincide con el grupo. Intentos restantes: ${outcome.remaining}.`,
+      );
+    }
     return { verified: true, required: true };
   }
 
@@ -265,9 +280,13 @@ export class TeamVerificationService {
     return team;
   }
 
-  private countRecentFailedAttempts(teamId: number, userId: string) {
+  private countRecentFailedAttempts(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    userId: string,
+  ) {
     const since = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60 * 1000);
-    return this.prisma.teamVerificationLog.count({
+    return tx.teamVerificationLog.count({
       where: {
         teamId,
         userId,

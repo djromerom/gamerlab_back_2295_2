@@ -242,14 +242,14 @@ enum TeamVerificationAction {
 
 // Registro de intentos y acciones del administrador sobre el código de verificación.
 model TeamVerificationLog {
-  id        Int                    @id @default(autoincrement())
-  action    TeamVerificationAction
-  teamId    Int                    @map("team_id")
-  userId    String                 @map("user_id")
-  createdAt DateTime               @default(now()) @map("created_at")
+  id        Int                    @id @default(autoincrement()) @map("id_registro")
+  action    TeamVerificationAction @map("accion")
+  teamId    Int                    @map("id_equipo")
+  userId    String                 @map("id_usuario")
+  createdAt DateTime               @default(now()) @map("creado_en")
 
-  @@index([teamId, userId, action, createdAt])
-  @@map("team_verification_logs")
+  @@index([teamId, userId, action, createdAt], map: "registro_verificacion_equipo_intentos_idx")
+  @@map("registro_verificacion_equipo")
 }
 
 model HistoricalTeam {

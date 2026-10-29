@@ -15,21 +15,21 @@ CREATE TABLE "verificacion_equipo" (
 );
 
 -- CreateTable
-CREATE TABLE "team_verification_logs" (
-    "id" SERIAL NOT NULL,
-    "action" "TeamVerificationAction" NOT NULL,
-    "team_id" INTEGER NOT NULL,
-    "user_id" TEXT NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE "registro_verificacion_equipo" (
+    "id_registro" SERIAL NOT NULL,
+    "accion" "TeamVerificationAction" NOT NULL,
+    "id_equipo" INTEGER NOT NULL,
+    "id_usuario" TEXT NOT NULL,
+    "creado_en" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "team_verification_logs_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "registro_verificacion_equipo_pkey" PRIMARY KEY ("id_registro")
 );
 
 -- CreateIndex
 CREATE UNIQUE INDEX "verificacion_equipo_id_equipo_id_jurado_key" ON "verificacion_equipo"("id_equipo", "id_jurado");
 
 -- CreateIndex
-CREATE INDEX "team_verification_logs_team_id_user_id_action_created_at_idx" ON "team_verification_logs"("team_id", "user_id", "action", "created_at");
+CREATE INDEX "registro_verificacion_equipo_intentos_idx" ON "registro_verificacion_equipo"("id_equipo", "id_usuario", "accion", "creado_en");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "equipos_codigo_verificacion_id_edicion_key" ON "equipos"("codigo_verificacion", "id_edicion");
