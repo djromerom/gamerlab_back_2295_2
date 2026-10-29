@@ -12,15 +12,11 @@ import {
   Post,
   Query,
   Res,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
-  ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOperation,
@@ -175,54 +171,6 @@ export class ProfessorsController {
   async findSelectOptions(): Promise<SelectOption[]> {
     return this.professorsService.findForSelect();
   }
-  /**
-   * Export grading results for all subjects/NRCs.
-   * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members.
-   * Use query parameter `?final=true` to include the "Calificación Feria" column (final export).
-   * This workbook is an export for consultation and does not serve as an editable grading template.
-   */
-  @Get('download-grading-template-all')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ExportToExcel')
-  @ApiOperation({ summary: 'Export grading results for all subjects/NRCs' })
-  @ApiQuery({
-    name: 'final',
-    required: false,
-    description: 'Set to true to include column: Calificación Feria',
-    example: 'true',
-  })
-  @ApiQuery({ name: 'editionId', required: false, type: Number })
-  @ApiQuery({ name: 'nrcId', required: false, type: Number })
-  @ApiQuery({ name: 'student', required: false })
-  @ApiQuery({ name: 'team', required: false })
-  @ApiQuery({ name: 'sortBy', required: false, enum: ['student', 'team'] })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
-  @ApiResponse({
-    status: 200,
-    description:
-      'XLSX file stream. The generated workbook contains one sheet per subject/NRC (only teams with members). Columns include: NRC, Subject, Student(s), Team, Videogame, Calificación Docente (prefilled, non-editable in final export), Calificación Feria (purple header), Grade',
-  })
-  async downloadGradingTemplateAll(
-    @GetUser('id') professorId: string,
-    @Res({ passthrough: true }) res: Response,
-    @Query('final') finalParam?: string,
-    @Query('editionId') editionId?: string,
-    @Query('nrcId') nrcId?: string,
-    @Query('student') student?: string,
-    @Query('team') team?: string,
-    @Query('sortBy') sortBy?: 'student' | 'team',
-    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-  ) {
-    // Permitir ?final=true o ?final=1 para activar el modo final
-    const final = finalParam === 'true' || finalParam === '1';
-    await this.professorsService.downloadGradingTemplateAll(
-      professorId,
-      res,
-      final,
-      { editionId: editionId === undefined ? undefined : Number(editionId), nrcId: nrcId === undefined ? undefined : Number(nrcId), student, team, sortBy, sortOrder },
-    );
-  }
-
   @Get('download-grading-report-grouped')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportToExcel')
@@ -542,44 +490,6 @@ export class ProfessorsController {
   }
 
   // Endpoint `exportSubject/:subjectName` removed — frontend does not use it.
-
-  /**
-   * Upload an XLSX file containing senior juror grades.
-   * The uploaded file is expected to be the grading template previously
-   * downloaded from `GET /professors/download-grading-template-all`.
-   * Each sheet corresponds to a subject/NRC and rows should contain the
-   * videogame identifiers and the professor's grades. The service parses
-   * the workbook and upserts senior evaluations accordingly.
-   */
-  @Post('upload-senior-grades')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('UploadSeniorGrades')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({
-    summary: 'Upload an XLSX with senior juror grades',
-    description:
-      "Upload the grading template previously downloaded from `GET /professors/download-grading-template-all`. Each sheet represents a subject/NRC and rows must contain the videogame identifier and the professor's grade. The server will parse the workbook and upsert senior evaluations accordingly.",
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description:
-      'Binary XLSX file: grading template downloaded from the server (one sheet per subject/NRC).',
-    schema: {
-      type: 'object',
-      properties: { file: { type: 'string', format: 'binary' } },
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Processing results',
-    schema: { example: { processed: 10, created: 8, updated: 2, errors: [] } },
-  })
-  async uploadSeniorGrades(
-    @UploadedFile() file: Express.Multer.File,
-    @GetUser('id') professorId: string,
-  ) {
-    return this.professorsService.processSeniorGradesExcel(file, professorId);
-  }
 
   /**
    * Create or update (upsert) an evaluation for a team's videogame (inline edit from the frontend).

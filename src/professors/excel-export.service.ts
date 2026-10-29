@@ -52,37 +52,6 @@ export interface ExcelExportOptions {
 export class ExcelExportService {
   private readonly logger = new Logger(ExcelExportService.name);
 
-  async generateGradingGames(rows: any[], options: { final: boolean; fileName: string }, res: Response): Promise<void> {
-    const workbook = this.createWorkbook();
-    const sheets = new Map<string, ExcelJS.Worksheet>();
-    for (const item of rows) {
-      const key = `Edición ${item.editionId} · NRC ${item.nrc ?? 'Sin NRC'}`;
-      let worksheet = sheets.get(key);
-      if (!worksheet) {
-        const safeName = key.replace(/[\\/?*\[\]:]/g, ' ').slice(0, 31) || 'Calificaciones';
-        worksheet = workbook.addWorksheet(safeName);
-        sheets.set(key, worksheet);
-        const headers = options.final
-          ? ['Código de Equipo', 'Edición', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Feria', 'Calificación Docente', 'Editable']
-          : ['Código de Equipo', 'Edición', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Docente', 'Editable'];
-        worksheet.addRow(headers).font = { bold: true };
-        worksheet.views = [{ state: 'frozen', ySplit: 1 }];
-      }
-      const values = [item.teamCode, item.editionId, item.nrc ?? '', item.team ?? '', item.integrantes ?? '', item.videogame ?? ''];
-      if (options.final) values.push(item.calificacionFeria ?? '', item.canEdit ? item.calificacionDocente ?? '' : '', item.canEdit ? 'Sí' : 'No (histórico)');
-      else values.push(item.canEdit ? item.calificacionDocente ?? '' : '', item.canEdit ? 'Sí' : 'No (histórico)');
-      worksheet.addRow(values);
-    }
-    for (const worksheet of sheets.values()) {
-      worksheet.columns.forEach((column) => { column.width = 22; });
-      worksheet.getColumn(5).width = 38;
-    }
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${options.fileName}"`);
-    await workbook.xlsx.write(res);
-    res.end();
-  }
-
   // ── Public entry point ────────────────────────────────────────────────────
 
   async generateAndStream(options: ExcelExportOptions, res: Response): Promise<void> {

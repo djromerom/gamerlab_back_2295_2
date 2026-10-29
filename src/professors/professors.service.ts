@@ -13,7 +13,6 @@ import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
-import * as ExcelJS from 'exceljs';
 import { Response } from 'express';
 import { EditionStatus } from '@prisma/client';
 import { ExcelExportService, NrcSheetData } from './excel-export.service';
@@ -997,23 +996,6 @@ export class ProfessorsService {
     return result;
   }
 
-  async downloadGradingTemplateAll(
-    professorId: string,
-    res: Response,
-    final: boolean = false,
-    filters: { editionId?: number; nrcId?: number; student?: string; team?: string; sortBy?: 'student' | 'team'; sortOrder?: 'asc' | 'desc' } = {},
-  ): Promise<void> {
-    const result = await this.getGradingGames(professorId, { ...filters, page: 1, limit: 1000000 });
-    if (result.data.length === 0) {
-      throw new NotFoundException(
-        'No se encontraron equipos para los filtros seleccionados.',
-      );
-    }
-    const date = new Date().toISOString().slice(0, 10);
-    const fileName = `plantilla-calificaciones-${date}.xlsx`;
-    await this.excelExport.generateGradingGames(result.data, { final, fileName }, res);
-  }
-
   async downloadGradingReportGrouped(
     professorId: string,
     res: Response,
@@ -1144,149 +1126,6 @@ export class ProfessorsService {
   }
 
   // ── Upload & evaluation ───────────────────────────────────────────────────
-
-  async processSeniorGradesExcel(
-    file: Express.Multer.File,
-    professorId: string,
-  ) {
-    if (!file || !file.buffer) {
-      throw new BadRequestException('No se recibió archivo válido.');
-    }
-
-    const workbook = new ExcelJS.Workbook();
-    await (workbook.xlsx as any).load(file.buffer as any);
-
-    const latestEdition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-    });
-    const editionId = latestEdition?.id ?? 1;
-
-    const results = {
-      processed: 0,
-      created: 0,
-      updated: 0,
-      errors: [] as string[],
-    };
-
-    for (const sheet of workbook.worksheets) {
-      const headerRow = sheet.getRow(1);
-      const headerMap: Record<string, number> = {};
-      headerRow.eachCell((cell, colNumber) => {
-        const normalized = (cell.value ?? '')
-          .toString()
-          .toLowerCase()
-          .replace(/\s+/g, '')
-          .replace(/[^a-z0-9]/g, '');
-        headerMap[normalized] = colNumber;
-      });
-
-      for (let r = 2; r <= sheet.rowCount; r++) {
-        const row = sheet.getRow(r);
-        const teamCode = (
-          row.getCell(headerMap['codigodeequipo'] ?? headerMap['codigo'] ?? 1)
-            .value ?? ''
-        )
-          .toString()
-          .trim();
-        const videogameName = (
-          row.getCell(headerMap['videojuego'] ?? headerMap['videogame'] ?? 6)
-            .value ?? ''
-        )
-          .toString()
-          .trim();
-        const scoreRaw = (
-          row.getCell(
-            headerMap['calificaciondocente'] ?? headerMap['calificacion'] ?? 7,
-          ).value ?? ''
-        )
-          .toString()
-          .trim();
-        const editableRaw = (
-          row.getCell(headerMap['editable'] ?? 0).value ?? ''
-        ).toString().trim().toLowerCase();
-
-        if (!teamCode && !videogameName && !scoreRaw) continue;
-
-        results.processed++;
-
-        try {
-          if (editableRaw.startsWith('no')) {
-            results.errors.push(`Hoja "${sheet.name}" fila ${r}: Las filas históricas son de solo lectura.`);
-            continue;
-          }
-          let videogame: any = null;
-          if (teamCode && !isNaN(Number(teamCode))) {
-            videogame = await this.prisma.videogame.findFirst({
-              where: { teamId: Number(teamCode) },
-            });
-          }
-          if (!videogame && videogameName) {
-            videogame = await this.prisma.videogame.findFirst({
-              where: { name: videogameName },
-            });
-          }
-
-          if (!videogame) {
-            results.errors.push(
-              `Hoja "${sheet.name}" fila ${r}: No se encontró videojuego para teamCode='${teamCode}' name='${videogameName}'.`,
-            );
-            continue;
-          }
-
-          const editableTeam = await this.prisma.team.findFirst({
-            where: { id: videogame.teamId, editionId: latestEdition?.id, members: { some: { nrcs: { some: { professorId, editionId: latestEdition?.id } } } } },
-            select: { id: true },
-          });
-          if (!latestEdition || !editableTeam) {
-            results.errors.push(`Hoja "${sheet.name}" fila ${r}: El equipo es histórico o no pertenece a un NRC del profesor en la edición vigente.`);
-            continue;
-          }
-
-          const score = parseFloat(scoreRaw.replace(',', '.'));
-          if (isNaN(score)) {
-            results.errors.push(
-              `Hoja "${sheet.name}" fila ${r}: Calificación inválida: '${scoreRaw}'.`,
-            );
-            continue;
-          }
-
-          const whereUnique = {
-            jurado_videojuego_unique: {
-              jurorId: professorId,
-              videogameId: videogame.id,
-            },
-          } as any;
-          const exists = await this.prisma.evaluation.findUnique({
-            where: whereUnique,
-          });
-          await this.prisma.evaluation.upsert({
-            where: whereUnique,
-            update: { totalScore: score, isSenior: true },
-            create: {
-              jurorId: professorId,
-              videogameId: videogame.id,
-              totalScore: score,
-              isSenior: true,
-              editionId,
-            },
-          });
-          if (exists) results.updated++;
-          else results.created++;
-        } catch (err) {
-          const msg = (err as any)?.message ?? String(err);
-          this.logger.error(
-            `Error processing sheet ${sheet.name} row ${r}: ${msg}`,
-          );
-          results.errors.push(
-            `Hoja "${sheet.name}" fila ${r}: Error al procesar: ${msg}`,
-          );
-        }
-      }
-    }
-
-    return results;
-  }
 
   async updateTeamEvaluation(
     videogameId: number,

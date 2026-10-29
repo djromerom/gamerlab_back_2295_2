@@ -23,9 +23,7 @@ describe('ProfessorsController', () => {
     remove: jest.fn(),
     getNRCreport: jest.fn(),
     GetSignatureReport: jest.fn(),
-    downloadGradingTemplateAll: jest.fn(),
     downloadGradingReportGrouped: jest.fn(),
-    processSeniorGradesExcel: jest.fn(),
     updateTeamEvaluation: jest.fn(),
   };
   const mockExcelExportService = {

@@ -1050,7 +1050,7 @@
       {
         "id": 51,
         "name": "UploadSeniorGrades",
-        "description": "Upload grading template and persist senior juror grades (professors)",
+        "description": "Update senior juror grades for professor evaluations",
         "url": null,
         "method": "POST",
         "createdAt": "2025-11-14T06:00:00.000Z",
