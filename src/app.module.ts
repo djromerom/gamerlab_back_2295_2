@@ -28,6 +28,7 @@ import { TestimonialsModule } from './testimonials/testimonials.module';
 import { EducationalFocusesModule } from './educational-focuses/educational-focuses.module';
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
 import { HistoricalsModule } from './historicals/historicals.module';
+import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { HistoricalsModule } from './historicals/historicals.module';
     EducationalFocusesModule,
     HighlightedGamesModule,
     HistoricalsModule,
+    JurorBadgesModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
