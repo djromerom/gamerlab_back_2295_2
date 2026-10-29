@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EditionStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   PanelSortField,
@@ -103,6 +104,9 @@ export function sortPanelTeams(
 /**
  * Consulta común del panel de profesores: NRC del profesor (filtrados por feria
  * y NRC) con sus equipos (filtrados por búsqueda y ordenados).
+ * Solo la feria activa: las ferias archivadas o inactivas no se muestran ni se
+ * exportan (decisión de producto, 2026-10-29). `editionId` sigue aceptándose,
+ * pero otra feria no devuelve resultados.
  * La usan la exportación (HU-02) y debe usarla el listado (HU-03).
  */
 @Injectable()
@@ -119,6 +123,7 @@ export class ProfessorPanelQueryService {
       where: {
         professorId,
         isActive: true,
+        edition: { status: EditionStatus.ACTIVE },
         ...(editionId ? { editionId } : {}),
         ...(nrcId ? { id: nrcId } : {}),
       },
@@ -141,7 +146,7 @@ export class ProfessorPanelQueryService {
 
     if (nrcId && nrcs.length === 0) {
       throw new NotFoundException(
-        'El NRC no existe o no pertenece al profesor en la feria seleccionada.',
+        'El NRC no existe o no pertenece al profesor en la feria activa.',
       );
     }
     if (nrcs.length === 0) return [];

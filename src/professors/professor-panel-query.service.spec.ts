@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { EditionStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
@@ -138,7 +139,7 @@ describe('ProfessorPanelQueryService', () => {
     service = module.get(ProfessorPanelQueryService);
   });
 
-  it('filtra NRC por profesor, feria, NRC e isActive', async () => {
+  it('filtra NRC por profesor, feria activa, feria, NRC e isActive', async () => {
     prisma.nRC.findMany.mockResolvedValue([nrcA]);
     prisma.team.findMany.mockResolvedValue([]);
 
@@ -149,7 +150,13 @@ describe('ProfessorPanelQueryService', () => {
 
     expect(prisma.nRC.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { professorId: 'prof-1', isActive: true, editionId: 3, id: 10 },
+        where: {
+          professorId: 'prof-1',
+          isActive: true,
+          edition: { status: EditionStatus.ACTIVE },
+          editionId: 3,
+          id: 10,
+        },
       }),
     );
     expect(prisma.team.findMany).toHaveBeenCalledWith(
@@ -164,21 +171,45 @@ describe('ProfessorPanelQueryService', () => {
     );
   });
 
-  it('sin filtros consulta todos los NRC activos del profesor', async () => {
+  it('sin filtros consulta solo los NRC activos del profesor en la feria activa', async () => {
     prisma.nRC.findMany.mockResolvedValue([]);
 
     const result = await service.findPanelGroups('prof-1', filters());
 
     expect(prisma.nRC.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { professorId: 'prof-1', isActive: true },
+        where: {
+          professorId: 'prof-1',
+          isActive: true,
+          edition: { status: EditionStatus.ACTIVE },
+        },
       }),
     );
     expect(result).toEqual([]);
     expect(prisma.team.findMany).not.toHaveBeenCalled();
   });
 
-  it('NRC de otro profesor (o de otra feria) ⇒ NotFoundException', async () => {
+  it('una feria archivada o inactiva no devuelve resultados', async () => {
+    // Prisma no encuentra NRC: la feria pedida no cumple status = ACTIVE
+    prisma.nRC.findMany.mockResolvedValue([]);
+
+    const result = await service.findPanelGroups(
+      'prof-1',
+      filters({ editionId: 1 }),
+    );
+
+    expect(prisma.nRC.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          edition: { status: EditionStatus.ACTIVE },
+          editionId: 1,
+        }) as unknown,
+      }),
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('NRC de otro profesor, de otra feria o de una feria no activa ⇒ NotFoundException', async () => {
     prisma.nRC.findMany.mockResolvedValue([]);
 
     await expect(

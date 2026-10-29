@@ -39,7 +39,11 @@ const toTrimmedOrUndefined = ({ value }: { value: unknown }) => {
  * contenga exactamente lo que se ve en pantalla.
  */
 export class ProfessorPanelQueryDto {
-  @ApiPropertyOptional({ description: 'ID de la feria (edición)', example: 3 })
+  @ApiPropertyOptional({
+    description:
+      'ID de la feria (edición). Solo se consulta la feria activa: otra feria no devuelve resultados.',
+    example: 3,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'editionId debe ser un entero.' })
