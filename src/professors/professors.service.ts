@@ -8,13 +8,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthService } from 'src/auth/auth.service';
-import { Prisma, User, Role, NRC, Subject } from '@prisma/client';
+import { EditionStatus, Prisma, User, Role, NRC, Subject } from '@prisma/client';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 import { Response } from 'express';
-import { EditionStatus } from '@prisma/client';
 import { ExcelExportService, NrcSheetData } from './excel-export.service';
 
 @Injectable()
@@ -568,10 +567,17 @@ export class ProfessorsService {
     page: number,
     professorId: string,
   ) {
+    const activeEdition = await this.prisma.edition.findFirst({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+
     const matchingNrcs = await this.prisma.nRC.findMany({
       where: {
         code: nrcCode,
         professorId,
+        ...(activeEdition ? { editionId: activeEdition.id } : { id: -1 }),
         ...(includeInactive ? {} : { isActive: true }),
       },
       select: { id: true, editionId: true },
