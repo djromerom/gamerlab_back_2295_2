@@ -211,7 +211,7 @@ export class ProfessorsController {
   @ApiQuery({
     name: 'editionId',
     required: true,
-    description: 'Edition database ID that owns the NRC',
+    description: 'Active edition database ID that owns the NRC',
     type: Number,
   })
   @ApiQuery({ name: 'page', required: false, example: 1 })

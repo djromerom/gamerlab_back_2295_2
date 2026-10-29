@@ -586,11 +586,6 @@ export class ProfessorsService {
     if (matchingNrcs.length === 0) {
       throw new NotFoundException(`NRC ${nrcCode} not found for professor`);
     }
-    if (matchingNrcs.length > 1) {
-      throw new BadRequestException(
-        `NRC code ${nrcCode} exists in multiple editions; use GET /professors/nrc-report/by-id/:nrcId?editionId=:editionId`,
-      );
-    }
 
     return this.getNrcReportById(
       matchingNrcs[0].id,
@@ -611,6 +606,17 @@ export class ProfessorsService {
     professorId: string,
   ) {
     const offset = (page - 1) * limit;
+    const activeEdition = await this.prisma.edition.findFirst({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+
+    if (!activeEdition || editionId !== activeEdition.id) {
+      throw new NotFoundException(
+        `NRC ${nrcId} does not belong to the active edition`,
+      );
+    }
 
     const nrcInfo = await this.prisma.nRC.findFirst({
       where: {
