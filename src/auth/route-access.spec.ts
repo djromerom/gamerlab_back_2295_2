@@ -48,6 +48,7 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   SendEmail: [],
   RegisterTeam: [],
   ListJurors: [],
+  ManageTeamVerificationCode: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],

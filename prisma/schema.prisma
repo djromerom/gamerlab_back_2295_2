@@ -191,6 +191,7 @@ model User {
   likedVideogames      VideogameLike[]
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
   jurorBadges          JurorBadge[]
+  teamVerifications    TeamVerification[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -206,15 +207,51 @@ model Team {
   isActive         Boolean         @default(true) @map("activo")
   isExternal       Boolean         @default(false) @map("externo")
   teamCode         String          @map("codigo_equipo") @db.VarChar(12)
+  // Código que el estudiante ve en su panel y el jurado digita para calificar (HU-19). Null en equipos N0 (colegios).
+  verificationCode String?         @map("codigo_verificacion") @db.VarChar(8)
   edition          Edition         @relation(fields: [editionId], references: [id])
   user             User            @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]        @relation("TeamMembers")
   videogame        Videogame?
   assignedJurors   User[]          @relation("JurorTeamAssignment")
   rankingResults   RankingResult[]
+  verifications    TeamVerification[]
 
   @@unique([teamCode, editionId])
+  @@unique([verificationCode, editionId])
   @@map("equipos")
+}
+
+// Jurado que ya digitó el código de verificación de un equipo (se pide una sola vez por grupo).
+model TeamVerification {
+  id        Int      @id @default(autoincrement()) @map("id_verificacion")
+  teamId    Int      @map("id_equipo")
+  jurorId   String   @map("id_jurado")
+  createdAt DateTime @default(now()) @map("creado_en")
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  juror     User     @relation(fields: [jurorId], references: [id])
+
+  @@unique([teamId, jurorId])
+  @@map("verificacion_equipo")
+}
+
+enum TeamVerificationAction {
+  ATTEMPT_SUCCESS
+  ATTEMPT_FAILED
+  CODE_VIEWED
+  CODE_REGENERATED
+}
+
+// Registro de intentos y acciones del administrador sobre el código de verificación.
+model TeamVerificationLog {
+  id        Int                    @id @default(autoincrement()) @map("id_registro")
+  action    TeamVerificationAction @map("accion")
+  teamId    Int                    @map("id_equipo")
+  userId    String                 @map("id_usuario")
+  createdAt DateTime               @default(now()) @map("creado_en")
+
+  @@index([teamId, userId, action, createdAt], map: "registro_verificacion_equipo_intentos_idx")
+  @@map("registro_verificacion_equipo")
 }
 
 model HistoricalTeam {

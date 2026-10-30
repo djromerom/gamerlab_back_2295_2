@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { EditionStatus, JurorCategory } from '@prisma/client';
 import { CriterionService } from 'src/criterion/criterion.service';
+import {
+  TeamVerificationService,
+  UNVERIFIED_TEAM_MESSAGE,
+} from '../team-verification/team-verification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
@@ -16,6 +20,7 @@ export class EvaluationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly criterionService: CriterionService,
+    private readonly teamVerification: TeamVerificationService,
   ) {}
 
   private async checkEvaluationsOpen() {
@@ -46,6 +51,9 @@ export class EvaluationService {
     await this.checkEvaluationsOpen();
 
     const { date, comments, videogameId, details } = evaluationPayload;
+
+    // HU-19: el jurado debe haber digitado el código del grupo
+    await this.teamVerification.assertVerified(jurorId, videogameId);
 
     const activeEdition = await this.prisma.edition.findFirst({
       where: {
@@ -219,6 +227,13 @@ export class EvaluationService {
       failed: [] as { videogameId: number; error: string }[],
     };
 
+    // HU-19: grupos cuyo código el jurado aún no digitó (una sola consulta para todo el lote)
+    const unverifiedVideogameIds =
+      await this.teamVerification.findUnverifiedVideogameIds(
+        jurorId,
+        batchPayload.evaluations.map((e) => e.videogameId),
+      );
+
     // --- OPTIMIZACIÓN: CONSULTAS DE LECTURA GLOBALES (FUERA DEL BUCLE) ---
     const activeEdition = await this.prisma.edition.findFirst({
       where: { status: EditionStatus.ACTIVE },
@@ -272,6 +287,15 @@ export class EvaluationService {
       }
 
       for (const evaluationPayload of batchPayload.evaluations) {
+        // HU-19: una repetición idempotente ya respondió arriba; aquí se rechaza la fila sin verificar
+        if (unverifiedVideogameIds.has(evaluationPayload.videogameId)) {
+          results.failed.push({
+            videogameId: evaluationPayload.videogameId,
+            error: UNVERIFIED_TEAM_MESSAGE,
+          });
+          continue;
+        }
+
         const rowHash = this.contentHash(evaluationPayload);
         try {
           let calculatedTotalScore = 0;

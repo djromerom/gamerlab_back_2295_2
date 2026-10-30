@@ -4,6 +4,7 @@ import { CriterionService } from '../src/criterion/criterion.service';
 import { BatchEvaluationDto } from '../src/evaluation/dto/batchEvaluation.dto';
 import { EvaluationService } from '../src/evaluation/evaluation.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { TeamVerificationService } from '../src/team-verification/team-verification.service';
 
 type BatchResponse = {
   results: { successful: unknown[]; failed: unknown[] };
@@ -27,9 +28,11 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
   const service = new EvaluationService(
     prisma as unknown as PrismaService,
     {} as CriterionService,
+    new TeamVerificationService(prisma as unknown as PrismaService),
   );
   const runId = Date.now().toString(36);
   const jurorIds: string[] = [];
+  let teamIds: number[] = [];
   let payload: BatchEvaluationDto;
 
   const send = (jurorId: string, body: BatchEvaluationDto = payload) =>
@@ -53,6 +56,10 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
       },
     });
     jurorIds.push(juror.id);
+    // HU-19: el jurado ya digitó el código de los grupos que va a calificar
+    await prisma.teamVerification.createMany({
+      data: teamIds.map((teamId) => ({ teamId, jurorId: juror.id })),
+    });
     return juror.id;
   }
 
@@ -74,6 +81,7 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
     if (videogames.length < 2) {
       throw new Error('La base de prueba necesita al menos dos videojuegos.');
     }
+    teamIds = videogames.map((v) => v.teamId);
     const now = '2026-11-26T10:00:00.000Z';
     payload = {
       evaluations: videogames.map((v) => ({
@@ -103,6 +111,9 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
       where: { jurorId: { in: jurorIds } },
     });
     await prisma.evaluationIdempotency.deleteMany({
+      where: { jurorId: { in: jurorIds } },
+    });
+    await prisma.teamVerification.deleteMany({
       where: { jurorId: { in: jurorIds } },
     });
     await prisma.user.deleteMany({ where: { id: { in: jurorIds } } });

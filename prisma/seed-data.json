@@ -549,6 +549,14 @@
         "createdAt": "2026-10-24T06:00:00.000Z",
         "updatedAt": "2026-10-24T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 56,
+        "name": "MANAGE_TEAM_VERIFICATION_CODE",
+        "description": "Permite consultar y regenerar el código de verificación de un equipo (solo Administrador)",
+        "createdAt": "2026-10-25T06:00:00.000Z",
+        "updatedAt": "2026-10-25T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1114,6 +1122,16 @@
         "createdAt": "2026-10-24T06:00:00.000Z",
         "updatedAt": "2026-10-24T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 57,
+        "name": "ManageTeamVerificationCode",
+        "description": "Consultar y regenerar el código de verificación de un equipo",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-10-25T06:00:00.000Z",
+        "updatedAt": "2026-10-25T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1517,6 +1535,13 @@
         "permissionId": 54,
         "createdAt": "2026-10-24T06:00:00.000Z",
         "updatedAt": "2026-10-24T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 57,
+        "permissionId": 56,
+        "createdAt": "2026-10-25T06:00:00.000Z",
+        "updatedAt": "2026-10-25T06:00:00.000Z",
         "isActive": true
       }
     ]
@@ -2047,6 +2072,7 @@
         "isActive": true,
         "isExternal": false,
         "teamCode": "N10-ABC-1001",
+        "verificationCode": "VERF01",
         "registrationDate": "2025-01-01T00:00:00.000Z"
       },
       {
@@ -2057,6 +2083,7 @@
         "isActive": true,
         "isExternal": false,
         "teamCode": "N10-ABC-1002",
+        "verificationCode": "VERF02",
         "registrationDate": "2025-01-01T00:00:00.000Z"
       },
       {
@@ -2067,6 +2094,7 @@
         "isActive": true,
         "isExternal": false,
         "teamCode": "N10-ABC-1003",
+        "verificationCode": "VERF03",
         "registrationDate": "2025-01-01T00:00:00.000Z"
       },
       {
@@ -2077,6 +2105,7 @@
         "isActive": true,
         "isExternal": false,
         "teamCode": "N2-ABC-201",
+        "verificationCode": "VERF04",
         "registrationDate": "2025-01-01T00:00:00.000Z"
       },
       {

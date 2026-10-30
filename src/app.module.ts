@@ -30,6 +30,7 @@ import { EducationalFocusesModule } from './educational-focuses/educational-focu
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
 import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './juror-badges/juror-badges.module';
+import { TeamVerificationModule } from './team-verification/team-verification.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { JurorBadgesModule } from './juror-badges/juror-badges.module';
     EditionsModule,
     TestimonialsModule,
     EducationalFocusesModule,
+    TeamVerificationModule,
     HighlightedGamesModule,
     HistoricalsModule,
     JurorBadgesModule,

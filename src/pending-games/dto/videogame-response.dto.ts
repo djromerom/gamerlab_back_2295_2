@@ -24,6 +24,12 @@ export class VideogameResponseDto {
   @IsString()
   teamName: string;
 
+  // Id del equipo: el front lo envía a /team-verification/verify y /status (HU-19).
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  teamId?: number;
+
   // [MODIFICACIÓN]: Agregado campo teamCode para enviarlo al frontend y extraer el fragmento numérico.
   // [AUTOR]: IA  |  [FECHA]: 2026-05-27
   @Type(() => String)

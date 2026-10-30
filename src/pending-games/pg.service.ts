@@ -85,6 +85,7 @@ export class VideogamesService {
         description: true,
         team: {
           select: {
+            id: true, // teamId: lo necesita el front para /team-verification (HU-19)
             teamName: true,
             teamCode: true, // [MODIFICACIÓN]: Agregado teamCode para enviar al frontend
             members: {
@@ -130,6 +131,7 @@ export class VideogamesService {
         id: videogame.id,
         nombre: videogame.name,
         equipo: videogame.team?.teamName || 'Sin equipo',
+        teamId: videogame.team?.id,
         teamCode: videogame.team?.teamCode, // [MODIFICACIÓN]: Mapeo de teamCode
         materia: firstSubject,
         nrc: Array.from(nrcCodes).join(', ') || 'Sin NRC',
@@ -189,6 +191,7 @@ export class VideogamesService {
           description: true,
           team: {
             select: {
+              id: true, // teamId: lo necesita el front para /team-verification (HU-19)
               teamName: true,
               teamCode: true, // [MODIFICACIÓN]: Agregado teamCode para enviar al frontend
               members: {
@@ -242,6 +245,7 @@ export class VideogamesService {
         logoUrl: videogame.logoUrl ?? undefined,
         description: videogame.description || 'Sin descripción',
         teamName: videogame.team?.teamName || 'Sin equipo',
+        teamId: videogame.team?.id,
         teamCode: videogame.team?.teamCode, // [MODIFICACIÓN]: Mapeo de teamCode
         members: videogame.team?.members?.map(member => ({
           fullName: `${member.firstName} ${member.lastName}`,

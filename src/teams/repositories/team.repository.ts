@@ -18,6 +18,10 @@ import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
 import { AuthService } from 'src/auth/auth.service';
+import {
+  generateUniqueVerificationCode,
+  isCollegeTeamCode,
+} from '../../team-verification/verification-code.util';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -854,12 +858,18 @@ export class TeamRepository implements ITeamRepository {
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
     const teamCode = await this.generateTeamCode(firstMemberNrcCode);
 
+    // HU-19: los equipos universitarios nacen con código de verificación; los de colegios (N0) no
+    const verificationCode = isCollegeTeamCode(teamCode)
+      ? null
+      : await generateUniqueVerificationCode(tx, activeEdition.id);
+
     return await tx.team.create({
       data: {
         teamName: dto.teamName,
         isExternal: dto.isExternal,
         userId,
         teamCode,
+        verificationCode,
         editionId: activeEdition.id,
       },
     });
