@@ -164,7 +164,7 @@ export class RolePermissionGuard implements CanActivate {
   /**
    * Check if the role is an admin role with caching
    */
-  private async isAdminRole(roleId: number): Promise<boolean> {
+  protected async isAdminRole(roleId: number): Promise<boolean> {
     const cacheKey = this.getAdminRoleCacheKey(roleId);
 
     let isAdmin = await this.cacheService.get(cacheKey);

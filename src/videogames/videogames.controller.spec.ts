@@ -4,6 +4,7 @@ import { VideogamesController } from './videogames.controller';
 import { VideogamesService } from './videogames.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { VideogamesGateway } from './videogames.gateway';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 
 describe('VideogamesController', () => {
   let controller: VideogamesController;
@@ -36,7 +37,12 @@ describe('VideogamesController', () => {
           useValue: mockVideogamesGateway 
         },
       ],
-    }).compile();
+    })
+      // La autorización (permisos por rol) se prueba aparte en
+      // `auth/route-access.spec.ts`; aquí solo se prueba la lógica del controlador.
+      .overrideGuard(RolePermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<VideogamesController>(VideogamesController);
   });

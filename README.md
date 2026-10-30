@@ -152,8 +152,22 @@ Let's break down the environment variables:
 - **`RECAPTCHA_*`** Google ReCAPTCHA configuration for signup form
 - **`EMAIL_*`**: EmailJS configuration for sending confirmation and password reset emails
 - **`AZURE_STORAGE_*`**: Azure Blob Storage configuration for file uploads
+- **`TRUST_PROXY`**: Set it when the API runs behind a reverse proxy or load balancer (for example `1` for one proxy hop). Without it every request looks like it comes from the proxy's IP, and all users share one rate limit (see [Rate limiting](#rate-limiting)).
 
 **Note:** If you're part of the development team, you can ask for these keys from the team lead.
+
+### Rate limiting
+<a name="rate-limiting"></a>
+
+Some public routes have a per-IP request limit (`@nestjs/throttler`): `POST /upload`, `POST /upload/zip` and `POST /teams/validate-emails`. The limits are defined in `src/common/throttle/public-throttle.ts`; a client that exceeds one gets `429 Too Many Requests`.
+
+> **Warning: the counters are kept in memory, per process.**
+> - Restarting or redeploying the container resets them.
+> - They are **not shared between replicas**. With more than one instance of the API, each one counts separately, so the effective limit is multiplied by the number of replicas.
+>
+> This is fine for the current deployment (a single container). Before scaling the API horizontally, move the counters to a shared store such as Redis.
+
+Behind a proxy, also set `TRUST_PROXY` so the limit applies to each user's IP and not to the proxy.
 
 ## Modules
 <a name="modules"></a>

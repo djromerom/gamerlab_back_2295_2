@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { EvaluationService } from './evaluation.service';
 import { UNVERIFIED_TEAM_MESSAGE } from '../team-verification/team-verification.service';
 
@@ -11,7 +11,9 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
     role: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
     criterion: { findMany: jest.fn() },
-    evaluation: { create: jest.fn() },
+    evaluation: { create: jest.fn(), findUnique: jest.fn() },
+    evaluationIdempotency: { findUnique: jest.fn(), create: jest.fn() },
+    $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   };
   const criterionServiceMock = { findForSelect: jest.fn() };
@@ -49,6 +51,8 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       { id: 1, weight: 1 },
     ]);
     prismaMock.evaluation.create.mockResolvedValue({ id: 99 });
+    prismaMock.evaluation.findUnique.mockResolvedValue(null);
+    prismaMock.evaluationIdempotency.findUnique.mockResolvedValue(null);
     prismaMock.$transaction.mockImplementation((cb: any) => cb(prismaMock));
 
     service = new EvaluationService(
@@ -81,6 +85,25 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
     expect(verificationMock.assertVerified).toHaveBeenCalledWith('juror-1', 7);
   });
 
+  it('individual: una repetición con la misma Idempotency-Key responde antes de verificar', async () => {
+    const payload = evaluation(7);
+    const stored = { evaluationId: 41, message: 'guardada' };
+    prismaMock.evaluationIdempotency.findUnique.mockResolvedValue({
+      contentHash: (service as any).contentHash(payload),
+      response: stored,
+    });
+
+    const result = await service.createEvaluationWithDetails(
+      'juror-1',
+      payload as any,
+      'key-1',
+    );
+
+    expect(result).toEqual(stored);
+    expect(verificationMock.assertVerified).not.toHaveBeenCalled();
+    expect(prismaMock.evaluation.create).not.toHaveBeenCalled();
+  });
+
   it('lote: reporta por fila los grupos sin verificar y guarda el resto', async () => {
     verificationMock.findUnverifiedVideogameIds.mockResolvedValue(
       new Set([8]),
@@ -99,5 +122,123 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       'juror-1',
       [7, 8],
     );
+  });
+
+  it('lote: una repetición con la misma Idempotency-Key devuelve la respuesta guardada sin filtrar filas', async () => {
+    const payload = { evaluations: [evaluation(7), evaluation(8)] } as any;
+    const stored = {
+      results: {
+        successful: [
+          { videogameId: 7, evaluationId: 1 },
+          { videogameId: 8, evaluationId: 2 },
+        ],
+        failed: [],
+      },
+      message: 'Procesadas 2 evaluaciones: 2 exitosas, 0 fallidas',
+    };
+    // Entre el primer envío y el reintento cambió la verificación del grupo 8
+    verificationMock.findUnverifiedVideogameIds.mockResolvedValue(
+      new Set([8]),
+    );
+    prismaMock.evaluationIdempotency.findUnique.mockResolvedValue({
+      contentHash: (service as any).contentHash(payload),
+      response: stored,
+    });
+
+    const result = await service.createBatchEvaluations(
+      'juror-1',
+      payload,
+      'key-1',
+    );
+
+    expect(result).toEqual(stored);
+    expect(prismaMock.evaluation.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('EvaluationService batch idempotency', () => {
+  const payload: any = {
+    evaluations: [1, 2].map((videogameId) => ({
+      videogameId,
+      date: '2026-10-24T12:00:00.000Z',
+      comments: `game-${videogameId}`,
+      details: [{ criterionId: 1, score: 4, createdAt: '2026-10-24T12:00:00.000Z', updatedAt: '2026-10-24T12:00:00.000Z' }],
+    })),
+  };
+
+  function setup() {
+    const evaluations = new Map<number, { id: number; contentHash: string }>();
+    const receipts = new Map<string, any>();
+    let nextId = 1;
+    let transactionTail = Promise.resolve();
+    const prisma: any = {
+      eventConfiguration: { findFirst: jest.fn().mockResolvedValue({ evaluationsOpen: true }) },
+      edition: { findFirst: jest.fn().mockResolvedValue({ id: 1 }) },
+      role: { findUnique: jest.fn().mockResolvedValue({ id: 1 }) },
+      user: { findUnique: jest.fn().mockResolvedValue({ roleId: 1, jurorCategory: null }) },
+      criterion: { findMany: jest.fn().mockResolvedValue([{ id: 1, weight: 1 }]) },
+      $transaction: jest.fn((callback: any) => {
+        const current = transactionTail.then(() => callback(tx));
+        transactionTail = current.then(() => undefined, () => undefined);
+        return current;
+      }),
+    };
+    const tx: any = {
+      $executeRaw: jest.fn().mockResolvedValue(0),
+      evaluationIdempotency: {
+        findUnique: jest.fn(async ({ where }: any) => receipts.get(where.jurorId_key.key) ?? null),
+        create: jest.fn(async ({ data }: any) => { receipts.set(data.key, data); return data; }),
+      },
+      evaluation: {
+        findUnique: jest.fn(async ({ where }: any) => evaluations.get(where.jurado_videojuego_unique.videogameId) ?? null),
+        create: jest.fn(async ({ data }: any) => {
+          const row = { id: nextId++, contentHash: data.contentHash };
+          evaluations.set(data.videogameId, row);
+          return row;
+        }),
+      },
+    };
+    // HU-19: en estas pruebas todos los grupos están verificados
+    const verification = { findUnverifiedVideogameIds: jest.fn().mockResolvedValue(new Set()) };
+    const service = new EvaluationService(prisma, { findForSelect: jest.fn() } as any, verification as any);
+    return { service, prisma, tx, evaluations, receipts };
+  }
+
+  it('recovers rows left by an interrupted attempt and completes the response', async () => {
+    const { service, prisma, evaluations, receipts } = setup();
+    // Simulate durable rows from a process that died before writing its receipt.
+    const hash = (service as any).contentHash(payload.evaluations[0]);
+    evaluations.set(1, { id: 41, contentHash: hash });
+    const response = await service.createBatchEvaluations('juror-1', payload, 'retry-key');
+    expect(response.results.successful).toEqual([
+      { videogameId: 1, evaluationId: 41 },
+      { videogameId: 2, evaluationId: 1 },
+    ]);
+    expect(receipts.has('retry-key')).toBe(true);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('serializes concurrent requests with a key and replays the stored response', async () => {
+    const { service, prisma, tx } = setup();
+    const [first, second] = await Promise.all([
+      service.createBatchEvaluations('juror-1', payload, 'same-key'),
+      service.createBatchEvaluations('juror-1', payload, 'same-key'),
+    ]);
+    expect(first).toEqual(second);
+    expect(tx.evaluation.create).toHaveBeenCalledTimes(2);
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects changed content for a completed key or an existing row', async () => {
+    const { service } = setup();
+    await service.createBatchEvaluations('juror-1', payload, 'same-key');
+    await expect(service.createBatchEvaluations('juror-1', { evaluations: [payload.evaluations[0]] } as any, 'same-key'))
+      .rejects.toBeInstanceOf(ConflictException);
+
+    const changed = structuredClone(payload);
+    changed.evaluations[0].comments = 'different';
+    await expect(service.createBatchEvaluations('juror-1', changed))
+      .rejects.toThrow(/evaluación distinta/i);
   });
 });

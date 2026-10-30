@@ -43,7 +43,14 @@ import {
 class AuthTokensDoc {
   message: string;
   access: string;
-  refresh: string
+  refresh: string;
+  accessTokenExpiresIn: number;
+}
+
+class RefreshTokensDoc {
+  message: string;
+  accessToken: string;
+  accessTokenExpiresIn: number;
 }
 
 @ApiTags('Authentication')
@@ -83,7 +90,8 @@ export class AuthController {
       example: {
         message: 'Login successful',
         access: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        accessTokenExpiresIn: 900,
       }
     }
   })
@@ -129,11 +137,12 @@ export class AuthController {
   @ApiBearerAuth('refresh')
   @ApiCreatedResponse({
     description: 'Refresh successful',
-    type: AuthTokensDoc,
+    type: RefreshTokensDoc,
     schema: {
       example: {
-        access: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+        message: 'Session refreshed',
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        accessTokenExpiresIn: 900,
       }
     }
   })
@@ -299,6 +308,8 @@ export class AuthController {
   }
 
   @Post('reset-token-expiration')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageAuthTokens')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset Expiration of Token' })
   @ApiBearerAuth('access')

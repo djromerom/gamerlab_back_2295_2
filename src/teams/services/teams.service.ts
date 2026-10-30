@@ -21,6 +21,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
+import { ROLE_IDS } from '../../auth/constants/roles';
+import { stripPersonalData } from '../../common/utils/strip-personal-data';
 
 @Injectable()
 export class TeamsService {
@@ -308,8 +310,14 @@ export class TeamsService {
     return await this.authService.registerUser(authRegisterPayload);
   }
 
-  async findAll(sortByLikes: boolean) {
-    return this.teamRepository.findAll(sortByLikes);
+  /**
+   * @param includePersonalData true only when the caller has the Administrador role (the controller
+   * resolves it with OptionalAdminRoleGuard). Everyone else, logged in or not, gets the list without
+   * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
+   */
+  async findAll(sortByLikes: boolean, includePersonalData = false) {
+    const teams = await this.teamRepository.findAll(sortByLikes);
+    return includePersonalData ? teams : stripPersonalData(teams);
   }
 
   async findOne(id: number): Promise<unknown> {
@@ -805,8 +813,9 @@ export class TeamsService {
     return sortedRanking;
   }
 
-  async findPaged(page: number, limit: number, sortByLikes: boolean) {
-    return await this.teamRepository.findPaged(page, limit, sortByLikes);
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false) {
+    const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+    return includePersonalData ? result : stripPersonalData(result);
   }
 
   async getLeaderStatus(email: string) {
@@ -844,19 +853,45 @@ export class TeamsService {
     }
   }
 
+  /**
+   * BG-01: el permiso `UpdateTeam` lo tienen los estudiantes, por lo que sin esta
+   * verificación podrían tocar cualquier equipo. Solo el líder o un administrador.
+   */
+  private async assertLeaderOrAdmin(
+    teamId: number,
+    user: AppUser,
+  ): Promise<void> {
+    const team = await this.teamRepository.findOne(teamId);
+
+    if (!team) {
+      throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+    }
+
+    const isLeader = team.userId === user.id;
+    const isAdmin = user.roleId === ROLE_IDS.ADMIN;
+
+    if (!isLeader && !isAdmin) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource.',
+      );
+    }
+  }
+
   async addMember(
     id: number,
     memberDto: MemberDto,
-    user: User,
+    user: AppUser,
   ): Promise<Member | undefined> {
+    await this.assertLeaderOrAdmin(id, user);
     return await this.teamRepository.addMember(id, memberDto);
   }
 
   async deleteMember(
     teamId: number,
     memberId: number,
-    user: User,
+    user: AppUser,
   ): Promise<{ message: string; member: Member | null } | undefined> {
+    await this.assertLeaderOrAdmin(teamId, user);
     return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }

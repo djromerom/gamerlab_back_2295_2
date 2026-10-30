@@ -45,8 +45,9 @@ model Edition {
   testimonials       Testimonial[]
   rankingResults     RankingResult[]
   HistoricalTeam     HistoricalTeam[]
+  jurorBadges        JurorBadge[]
 
-  @@index([year, semester])
+  @@unique([year, semester])
   @@map("ediciones")
 }
 
@@ -189,6 +190,7 @@ model User {
   role                 Role               @relation(fields: [roleId], references: [id])
   likedVideogames      VideogameLike[]
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
+  jurorBadges          JurorBadge[]
   teamVerifications    TeamVerification[]
 
   @@index([jurorCategory])
@@ -290,8 +292,23 @@ model HistoricalMember {
   studentCode String         @map("codigo_estudiantil") @db.VarChar(100)
   teamId      Int            @map("id_equipo_historico")
   team        HistoricalTeam @relation("HistoricalTeamMembers", fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nrcs        HistoricalMemberNrc[]
 
   @@map("integrante_historico")
+}
+
+// Immutable NRC association copied at archive time; nrcId is a snapshot value,
+// intentionally without a foreign key to the mutable current NRC table.
+model HistoricalMemberNrc {
+  id                Int              @id @default(autoincrement())
+  historicalMemberId Int              @map("id_integrante_historico")
+  nrcId             Int              @map("id_nrc")
+  code              Int              @map("codigo")
+  member            HistoricalMember @relation(fields: [historicalMemberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([historicalMemberId, nrcId])
+  @@index([nrcId])
+  @@map("integrante_historico_nrc")
 }
 
 model VideogameStatus {
@@ -383,6 +400,8 @@ model Evaluation {
   editionId   Int                @map("id_edicion")
   isActive    Boolean            @default(true) @map("activo")
   isSenior    Boolean            @default(false) @map("es_jurado_senior")
+  contentHash String             @default("") @map("content_hash")
+  idempotencyKey String?         @map("idempotency_key")
   details     EvaluationDetail[]
   Edition     Edition            @relation(fields: [editionId], references: [id])
   juror       User               @relation("JurorEvaluations", fields: [jurorId], references: [id])
@@ -390,6 +409,17 @@ model Evaluation {
 
   @@unique([jurorId, videogameId], name: "jurado_videojuego_unique")
   @@map("evaluacion")
+}
+
+model EvaluationIdempotency {
+  id             Int    @id @default(autoincrement())
+  jurorId        String @map("juror_id")
+  key            String
+  contentHash    String @map("content_hash")
+  response       Json
+
+  @@unique([jurorId, key])
+  @@map("evaluation_idempotency")
 }
 
 model JurorAssignmentAuditLog {
@@ -408,6 +438,23 @@ model JurorAssignmentAuditLog {
   @@index([jurorId])
   @@index([createdAt])
   @@map("juror_assignment_audit_logs")
+}
+
+// Escarapela de un jurado en una edición. El token es el contenido opaco del QR.
+// La unicidad de (jurorId, editionId) entre activas se garantiza con un índice
+// parcial creado a mano en la migración (Prisma no lo soporta).
+model JurorBadge {
+  id        Int      @id @default(autoincrement()) @map("id_escarapela")
+  jurorId   String   @map("id_usuario")
+  editionId Int      @map("id_edicion")
+  token     String   @unique @map("token")
+  isActive  Boolean  @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("creado_en")
+  juror     User     @relation(fields: [jurorId], references: [id])
+  edition   Edition  @relation(fields: [editionId], references: [id])
+
+  @@index([editionId])
+  @@map("escarapelas_jurado")
 }
 
 model Subject {

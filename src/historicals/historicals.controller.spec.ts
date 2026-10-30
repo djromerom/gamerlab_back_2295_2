@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HistoricalsController } from './historicals.controller';
 import { HistoricalsService } from './historicals.service';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 
 describe('HistoricalsController', () => {
   let controller: HistoricalsController;
@@ -29,7 +30,12 @@ describe('HistoricalsController', () => {
           useValue: mockHistoricalsService,
         },
       ],
-    }).compile();
+    })
+      // La autorización (permisos por rol) se prueba aparte en
+      // `auth/route-access.spec.ts`; aquí solo se prueba la lógica del controlador.
+      .overrideGuard(RolePermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<HistoricalsController>(HistoricalsController);
   });
