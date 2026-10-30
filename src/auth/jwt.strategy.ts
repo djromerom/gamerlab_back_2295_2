@@ -66,12 +66,6 @@ export class JwtStrategy extends PassportStrategy(
       throw new UnauthorizedException('Invalid token payload (missing sub)');
     }
 
-    // A refresh token must never work as an access token.
-    if (payload.type === 'refresh') {
-      this.logger.warn('VALIDATE - Refresh token used as access token');
-      throw new UnauthorizedException('Invalid token type.');
-    }
-
     let user: User | null = null;
     try {
       this.logger.debug(`VALIDATE - Calling syncLocalUser for user: ${payload.sub}`);

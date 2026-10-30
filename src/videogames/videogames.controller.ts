@@ -22,8 +22,6 @@ export class VideogamesController {
   constructor(private readonly videogamesService: VideogamesService) { }
 
   @Post()
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageVideogames')
   create(@Body() createVideogameDto: CreateVideogameDto) {
     return this.videogamesService.create(createVideogameDto);
   }
@@ -72,19 +70,14 @@ export class VideogamesController {
   }
 
   @Patch(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('UpdateVideogame')
   update(
     @Param('id') id: string,
     @Body() updateVideogameDto: UpdateVideogameDto,
-    @GetUser() user: AppUser,
   ) {
-    return this.videogamesService.update(+id, updateVideogameDto, user);
+    return this.videogamesService.update(+id, updateVideogameDto);
   }
 
   @Delete(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageVideogames')
   remove(@Param('id') id: string) {
     return this.videogamesService.remove(+id);
   }

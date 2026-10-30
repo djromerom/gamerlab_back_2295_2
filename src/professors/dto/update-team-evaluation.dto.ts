@@ -1,4 +1,4 @@
-import { IsInt, IsNumber, IsOptional, Min, Max, IsBoolean } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, Min, IsBoolean } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 
 export class UpdateTeamEvaluationDto {
@@ -8,10 +8,9 @@ export class UpdateTeamEvaluationDto {
   @Min(1)
   videogameId: number;
 
-  @ApiProperty({ example: 4.75, description: 'Score from 0 to 5, with at most two decimal places' })
-  @IsNumber({ maxDecimalPlaces: 2 })
+  @ApiProperty({ example: 8.5, description: 'Numeric score to assign to the evaluation' })
+  @IsNumber()
   @Min(0)
-  @Max(5)
   score: number;
 
   @ApiPropertyOptional({ example: true, description: 'Flag indicating this evaluation is by a senior juror' })

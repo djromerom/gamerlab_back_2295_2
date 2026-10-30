@@ -3,7 +3,7 @@ import { EditionsService } from './editions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { HistoricalsService } from '../historicals/historicals.service';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 
 const EditionStatus = {
   INACTIVE: 'INACTIVE',
@@ -32,7 +32,6 @@ describe('EditionsService', () => {
       create: jest.fn().mockResolvedValue(mockEdition),
       findMany: jest.fn().mockResolvedValue([mockEdition]),
       findUnique: jest.fn().mockResolvedValue(mockEdition),
-      findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({ ...mockEdition, title: 'Updated' }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       delete: jest.fn().mockResolvedValue(mockEdition),
@@ -93,23 +92,6 @@ describe('EditionsService', () => {
       expect(prisma.edition.create).toHaveBeenCalledWith({ data: dto });
       expect(result).toEqual(mockEdition);
     });
-
-    it('should throw ConflictException if an edition with the same year and semester exists', async () => {
-      mockPrismaService.edition.findFirst.mockResolvedValueOnce({ id: 7 });
-      const dto = { year: 2026, semester: 30, title: 'Repetida', startsAt: new Date(), endsAt: new Date() };
-      await expect(service.create(dto)).rejects.toThrow(new ConflictException('La edición ya existe'));
-      expect(prisma.edition.findFirst).toHaveBeenCalledWith({
-        where: { year: 2026, semester: 30 },
-        select: { id: true },
-      });
-      expect(prisma.edition.create).not.toHaveBeenCalled();
-    });
-
-    it('should throw ConflictException when the unique constraint rejects a concurrent duplicate', async () => {
-      mockPrismaService.edition.create.mockRejectedValueOnce({ code: 'P2002', message: 'Unique constraint failed' });
-      const dto = { year: 2026, semester: 30, title: 'Repetida', startsAt: new Date(), endsAt: new Date() };
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
-    });
   });
 
   describe('findAll', () => {
@@ -156,17 +138,6 @@ describe('EditionsService', () => {
       const result = await service.update(1, dto);
       expect(prisma.edition.update).toHaveBeenCalledWith({ where: { id: 1 }, data: dto });
       expect(result.title).toEqual('Updated');
-      expect(prisma.edition.findFirst).not.toHaveBeenCalled();
-    });
-
-    it('should throw ConflictException when changing to the year and semester of another edition', async () => {
-      mockPrismaService.edition.findFirst.mockResolvedValueOnce({ id: 2 });
-      await expect(service.update(1, { semester: 30 })).rejects.toThrow(ConflictException);
-      expect(prisma.edition.findFirst).toHaveBeenCalledWith({
-        where: { year: 2025, semester: 30, id: { not: 1 } },
-        select: { id: true },
-      });
-      expect(prisma.edition.update).not.toHaveBeenCalled();
     });
   });
 

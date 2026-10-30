@@ -1,7 +1,6 @@
 import {
   Controller, Get, Post, Body, Patch, Param, Delete,
   ParseIntPipe, Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth,
@@ -11,8 +10,6 @@ import { CreateTestimonialDto } from '../../testimonials/dto/create-testimonial.
 import { UpdateTestimonialDto } from '../../testimonials/dto/update-testimonial.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
-import { RolePermissionGuard } from '../../auth/guards/role-permission.guard';
-import { RequiredService } from '../../auth/decorators/required-service.decorator';
 
 @ApiTags('Testimonials')
 @ApiBearerAuth()
@@ -21,8 +18,6 @@ export class TestimonialsController {
   constructor(private readonly testimonialsService: TestimonialsService) { }
 
   @Post()
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageTestimonials')
   @ApiOperation({ summary: 'Create a testimonial for an edition' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiResponse({ status: 201, description: 'Testimonial created.' })
@@ -61,8 +56,6 @@ export class TestimonialsController {
   }
 
   @Patch(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageTestimonials')
   @ApiOperation({ summary: 'Update a testimonial' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiParam({ name: 'id', type: Number })
@@ -77,8 +70,6 @@ export class TestimonialsController {
   }
 
   @Delete(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageTestimonials')
   @ApiOperation({ summary: 'Delete a testimonial' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiParam({ name: 'id', type: Number })

@@ -22,9 +22,7 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { CreateNrcDto } from './dto/create-nrc.dto';
 import { UpdateNrcDto } from './dto/update-nrc.dto';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('NRCs')
 @Controller('nrcs')
 export class NrcsController {
   constructor(private readonly nrcService: NrcsService) { }
@@ -39,25 +37,6 @@ export class NrcsController {
 
   @Public()
   @Get('select-options')
-  @ApiOperation({
-    summary: 'List NRC select options with subject and edition IDs',
-  })
-  @ApiQuery({
-    name: 'includeSubjects',
-    required: false,
-    type: Boolean,
-    description: 'Also include subject.id and subject.name',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Active NRCs; this endpoint is public.',
-    schema: {
-      example: [
-        { id: 3, code: 2501, subjectId: 1, editionId: 1 },
-        { id: 5, code: 2501, subjectId: 1, editionId: 3 },
-      ],
-    },
-  })
   async findSelectOptions(
     @Query('includeSubjects', new DefaultValuePipe(false), ParseBoolPipe)
     includeSubjects: boolean,

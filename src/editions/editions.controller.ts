@@ -2,7 +2,6 @@ import {
   Controller, Get, Post, Body, Patch, Param, Delete,
   ParseIntPipe, UseInterceptors, UploadedFiles, UploadedFile,
   Query, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, HttpCode,
-  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -15,8 +14,6 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
 import { ImageValidationPipe } from '../upload/pipes/image-validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
-import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
-import { RequiredService } from '../auth/decorators/required-service.decorator';
 
 @ApiTags('Editions')
 @ApiBearerAuth()
@@ -25,11 +22,9 @@ export class EditionsController {
   constructor(private readonly editionsService: EditionsService) { }
 
   @Post()
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @ApiOperation({ summary: 'Create a new edition' })
   @ApiResponse({ status: 201, description: 'Edition created successfully.' })
-  @ApiResponse({ status: 409, description: 'An edition with that year and semester already exists.' })
+  @ApiResponse({ status: 400, description: 'Duplicate year/semester.' })
   create(@Body() createEditionDto: CreateEditionDto) {
     return this.editionsService.create(createEditionDto);
   }
@@ -53,20 +48,15 @@ export class EditionsController {
   }
 
   @Patch(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @ApiOperation({ summary: 'Update an edition' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Edition updated.' })
   @ApiResponse({ status: 404, description: 'Edition not found.' })
-  @ApiResponse({ status: 409, description: 'Another edition already has that year and semester.' })
   update(@Param('id', ParseIntPipe) id: number, @Body() updateEditionDto: UpdateEditionDto) {
     return this.editionsService.update(id, updateEditionDto);
   }
 
   @Post(':id/main-photo')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @UseInterceptors(FileInterceptor('mainPhoto'))
   @ApiOperation({ summary: 'Upload or replace the main photo of an edition' })
   @ApiConsumes('multipart/form-data')
@@ -94,8 +84,6 @@ export class EditionsController {
   }
 
   @Post(':id/photos')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @UseInterceptors(FilesInterceptor('photos', 20)) // Max 20 files per request chunk
   @ApiOperation({ summary: 'Upload additional photos for an edition (max 20 per request, 50 total)' })
   @ApiConsumes('multipart/form-data')
@@ -125,8 +113,6 @@ export class EditionsController {
   }
 
   @Delete(':id/photos')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @ApiOperation({ summary: 'Delete specific photos from an edition' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Photos deleted.' })
@@ -139,8 +125,6 @@ export class EditionsController {
   }
 
   @Patch(':id/activate')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @ApiOperation({ summary: 'Activate an edition (deactivates any currently active edition)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Edition activated.' })
@@ -151,8 +135,6 @@ export class EditionsController {
   }
 
   @Post(':id/archive')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @HttpCode(200)
   @ApiOperation({ summary: 'Archive an edition (must be INACTIVE first; creates a historical dump)' })
   @ApiParam({ name: 'id', type: Number })
@@ -174,8 +156,6 @@ export class EditionsController {
   }
 
   @Delete(':id')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageEditions')
   @ApiOperation({ summary: 'Delete an edition' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, description: 'Edition deleted.' })

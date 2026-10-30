@@ -35,7 +35,6 @@ import { AuditLogQueryDto } from './dto/audit-log-query.dto';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { AppUser } from '../auth/jwt.strategy';
 import { AuthService } from '../auth/auth.service';
 
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -309,8 +308,6 @@ export class JurorController {
   // ─── Team-level queries ──────────────────────────────────────────────────────
 
   @Get('teams/:teamId/evaluation-stats')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ViewTeamEvaluationStats')
   @ApiOperation({
     summary: 'Obtener estadísticas de evaluación de un equipo',
     description:
@@ -327,27 +324,17 @@ export class JurorController {
   })
   @ApiBadRequestResponse({ description: 'ID de equipo inválido' })
   @ApiNotFoundResponse({ description: 'Equipo no encontrado' })
-  async getTeamEvaluationStats(
-    @Param('teamId') teamId: string,
-    @GetUser() user: AppUser,
-  ) {
+  getTeamEvaluationStats(@Param('teamId') teamId: string) {
     const teamIdNumber = parseInt(teamId, 10);
 
     if (isNaN(teamIdNumber)) {
       throw new BadRequestException('ID de equipo inválido');
     }
 
-    await this.jurorService.assertCanViewTeamEvaluationStats(
-      user,
-      teamIdNumber,
-    );
-
     return this.jurorService.getTeamEvaluationStats(teamIdNumber);
   }
 
   @Get('teams/:teamId/jurors-status')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ListJurors')
   @ApiOperation({
     summary: 'Obtener estado de evaluación de los jurados de un equipo',
     description:

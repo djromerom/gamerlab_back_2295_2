@@ -98,7 +98,7 @@ export class HistoricalsService {
     const teamsToDump = await this.prisma.team.findMany({
       where: { editionId },
       include: {
-        members: { include: { nrcs: { where: { editionId } } } },
+        members: true,
         videogame: {
           include: {
             _count: { select: { likedBy: true } },
@@ -130,9 +130,6 @@ export class HistoricalsService {
               lastName: member.lastName,
               email: member.email,
               studentCode: member.studentCode,
-              nrcs: {
-                create: member.nrcs.map((nrc) => ({ nrcId: nrc.id, code: nrc.code })),
-              },
             })),
           },
           ...(team.videogame && {

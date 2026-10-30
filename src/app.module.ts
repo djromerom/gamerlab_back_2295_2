@@ -1,5 +1,4 @@
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppController } from './app.controller';
@@ -29,14 +28,10 @@ import { TestimonialsModule } from './testimonials/testimonials.module';
 import { EducationalFocusesModule } from './educational-focuses/educational-focuses.module';
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
 import { HistoricalsModule } from './historicals/historicals.module';
-import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // Only routes with @PublicThrottle use it; the default below is overridden per route (BG-02).
-    // In-memory storage: counters reset on restart and are not shared between replicas (see public-throttle.ts).
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
     PrismaModule,
     AuthModule,
     EmailModule,
@@ -61,7 +56,6 @@ import { JurorBadgesModule } from './juror-badges/juror-badges.module';
     EducationalFocusesModule,
     HighlightedGamesModule,
     HistoricalsModule,
-    JurorBadgesModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

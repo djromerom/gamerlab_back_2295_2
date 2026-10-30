@@ -21,10 +21,6 @@ import { UpdateMemberEmailDto } from '../dto/update-member-email.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 import { RolePermissionGuard } from '../../auth/guards/role-permission.guard';
 import { RequiredService } from '../../auth/decorators/required-service.decorator';
-import { OptionalJwtAuthGuard } from '../../auth/guards/optional-jwt-auth.guard';
-import { OptionalAdminRoleGuard } from '../../auth/guards/admin-role.guard';
-import { IsAdmin } from '../../auth/decorators/is-admin.decorator';
-import { PUBLIC_LIMITS, PublicThrottle } from '../../common/throttle/public-throttle';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
@@ -44,8 +40,6 @@ export class TeamsController {
   }
 
   @Post('admin')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('RegisterTeam')
   createAsAdmin(
     @Body() CreateTeamDto: CreateTeamDto,
     @GetUser() user?: AppUser,
@@ -53,12 +47,10 @@ export class TeamsController {
     return this.teamsService.createAsAdmin(CreateTeamDto, user);
   }
 
-  // Público para la galería; solo un administrador recibe correos y códigos (BG-02)
   @Public()
   @Get('')
-  @UseGuards(OptionalJwtAuthGuard, OptionalAdminRoleGuard)
+  @RequiredService('ListTeams')
   getTeams(
-    @IsAdmin() includePersonalData: boolean,
     @Query('page') @Optional() page?: string,
     @Query('limit') @Optional() limit?: string,
     @Query('sortByLikes') @Optional() sortByLikes?: boolean,
@@ -70,10 +62,10 @@ export class TeamsController {
       const pageNum = parseInt(page, 10);
       const limitNum = parseInt(limit, 10);
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
-        return this.teamsService.findPaged(pageNum, limitNum, sortByLikes, includePersonalData);
+        return this.teamsService.findPaged(pageNum, limitNum, sortByLikes);
       }
     }
-    return this.teamsService.findAll(sortByLikes, includePersonalData);
+    return this.teamsService.findAll(sortByLikes);
   }
 
   @Get('incomplete-jurors')
@@ -175,15 +167,12 @@ export class TeamsController {
   }
 
   @Public()
-  @PublicThrottle(PUBLIC_LIMITS.validateEmails)
   @Post('validate-emails')
   validateEmails(@Body() validateEmailsDto: ValidateEmailsDto) {
     return this.teamsService.validateEmails(validateEmailsDto);
   }
 
   @Get('leader/:email/status')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ViewTeamLeaderStatus')
   getStatus(@Param('email') email: string) {
     return this.teamsService.getLeaderStatus(email);
   }

@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EditionsController } from './editions.controller';
 import { EditionsService } from './editions.service';
-import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 
 describe('EditionsController', () => {
   let controller: EditionsController;
@@ -27,12 +26,7 @@ describe('EditionsController', () => {
           useValue: mockEditionsService 
         },
       ],
-    })
-      // La autorización (permisos por rol) se prueba aparte en
-      // `auth/route-access.spec.ts`; aquí solo se prueba la lógica del controlador.
-      .overrideGuard(RolePermissionGuard)
-      .useValue({ canActivate: () => true })
-      .compile();
+    }).compile();
 
     controller = module.get<EditionsController>(EditionsController);
   });

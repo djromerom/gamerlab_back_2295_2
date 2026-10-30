@@ -1,7 +1,6 @@
 import {
   Controller, Get, Post, Body, Param, Delete,
   ParseIntPipe, Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth,
@@ -10,8 +9,6 @@ import { HighlightedGamesService } from '../../highlighted-games/highlighted-gam
 import { CreateHighlightedGameDto } from '../../highlighted-games/dto/create-highlighted-game.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
-import { RolePermissionGuard } from '../../auth/guards/role-permission.guard';
-import { RequiredService } from '../../auth/decorators/required-service.decorator';
 
 @ApiTags('Highlighted Games')
 @ApiBearerAuth()
@@ -20,8 +17,6 @@ export class HighlightedGamesController {
   constructor(private readonly highlightedGamesService: HighlightedGamesService) { }
 
   @Post()
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageHighlightedGames')
   @ApiOperation({ summary: 'Highlight a confirmed videogame within an edition' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiResponse({ status: 201, description: 'Videogame highlighted.' })
@@ -47,8 +42,6 @@ export class HighlightedGamesController {
   }
 
   @Delete(':videogameId')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ManageHighlightedGames')
   @ApiOperation({ summary: 'Remove a highlighted game from an edition' })
   @ApiParam({ name: 'editionId', type: Number })
   @ApiParam({ name: 'videogameId', type: Number })

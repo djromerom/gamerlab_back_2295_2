@@ -8,7 +8,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { HttpModule } from '@nestjs/axios';
 import { EmailModule } from '../email/email.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { getTokenExpiration } from './token-expiration';
 
 @Module({
   imports: [
@@ -21,9 +20,7 @@ import { getTokenExpiration } from './token-expiration';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: getTokenExpiration(configService).accessTokenSeconds,
-        },
+        signOptions: { expiresIn: '15m' },
       }),
     }),
   ],
