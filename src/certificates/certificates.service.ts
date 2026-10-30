@@ -117,7 +117,7 @@ export class CertificatesService {
   // SHARED
   // ─────────────────────────────────────────────
 
-  private async convertHtmlToPdf(htmlContent: string): Promise<Buffer> {
+  async convertHtmlToPdf(htmlContent: string): Promise<Buffer> {
     const gotenbergUrl = this.configService.get<string>('GOTENBERG_URL');
 
     if (!gotenbergUrl) {

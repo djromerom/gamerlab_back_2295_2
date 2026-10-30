@@ -12,15 +12,11 @@ import {
   Post,
   Query,
   Res,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
-  ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOperation,
@@ -42,6 +38,7 @@ import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { UpdateTeamEvaluationDto } from './dto/update-team-evaluation.dto';
 import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
 import { GradingReportExportService } from './grading-report-export.service';
+import { BatchTeamEvaluationDto } from './dto/batch-team-evaluation.dto';
 import { ProfessorsService } from './professors.service';
 import { SelectOption } from './types/select-option.type';
 
@@ -179,41 +176,6 @@ export class ProfessorsController {
   async findSelectOptions(): Promise<SelectOption[]> {
     return this.professorsService.findForSelect();
   }
-  /**
-   * Download grading template for all subjects/NRCs.
-   * Generates an XLSX workbook with one sheet per subject/NRC containing only teams that have members.
-   * Use query parameter `?final=true` to include the "Calificación Feria" column (final export).
-   * The template is intended to be filled and re-uploaded using the upload endpoint which will parse and persist senior grades.
-   */
-  @Get('download-grading-template-all')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('ExportToExcel')
-  @ApiOperation({ summary: 'Download grading template for all subjects/NRCs' })
-  @ApiQuery({
-    name: 'final',
-    required: false,
-    description: 'Set to true to include column: Calificación Feria',
-    example: 'true',
-  })
-  @ApiResponse({
-    status: 200,
-    description:
-      'XLSX file stream. The generated workbook contains one sheet per subject/NRC (only teams with members). Columns include: NRC, Subject, Student(s), Team, Videogame, Calificación Docente (prefilled, non-editable in final export), Calificación Feria (purple header), Grade',
-  })
-  async downloadGradingTemplateAll(
-    @GetUser('id') professorId: string,
-    @Res({ passthrough: true }) res: Response,
-    @Query('final') finalParam?: string,
-  ) {
-    // Permitir ?final=true o ?final=1 para activar el modo final
-    const final = finalParam === 'true' || finalParam === '1';
-    await this.professorsService.downloadGradingTemplateAll(
-      professorId,
-      res,
-      final,
-    );
-  }
-
   @Get('download-grading-report-grouped')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportToExcel')
@@ -243,6 +205,74 @@ export class ProfessorsController {
   /**
    * Get signature report grouped by team for a NRC.
    * */
+  @Get('nrc-report/by-id/:nrcId')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('NrcReport')
+  @ApiOperation({ summary: 'Get team-centric report by NRC ID and edition' })
+  @ApiParam({ name: 'nrcId', description: 'NRC database ID', type: Number })
+  @ApiQuery({
+    name: 'editionId',
+    required: true,
+    description: 'Active edition database ID that owns the NRC',
+    type: Number,
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'includeInactive', required: false, example: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Projects associated with this NRC and edition only',
+    schema: {
+      example: {
+        filter: {
+          nrcId: 3,
+          nrcCode: 2501,
+          editionId: 1,
+          year: 2025,
+          semester: 10,
+        },
+        data: [
+          {
+            teamCode: 'D25N2501-01',
+            nrc: '2501',
+            team: 'Demo 2025 NRC 2501 - Mision Naturaleza',
+            subject: 'Colegios',
+            integrantes: 'Isabella Mora',
+            videogame: 'Mision Naturaleza',
+            calificacionFeria: null,
+            calificacionDocente: null,
+            videogameId: 1,
+            editionId: 1,
+            nrcId: 3,
+          },
+        ],
+        metadata: {
+          totalItems: 1,
+          itemsOnCurrentPage: 1,
+          currentPage: 1,
+          itemsPerPage: 20,
+          totalPages: 1,
+        },
+      },
+    },
+  })
+  async GetReportByNRCId(
+    @Param('nrcId', ParseIntPipe) nrcId: number,
+    @Query('editionId', ParseIntPipe) editionId: number,
+    @Query() query: PaginationQueryDto,
+    @GetUser('id') professorId: string,
+  ) {
+    const { includeInactive, limit, page } = query;
+    return this.professorsService.getNrcReportById(
+      nrcId,
+      editionId,
+      includeInactive,
+      limit,
+      page,
+      professorId,
+    );
+  }
+
   @Get('nrc-report/:nrcCode')
   @UseGuards(RolePermissionGuard)
   @RequiredService('NrcReport')
@@ -464,44 +494,6 @@ export class ProfessorsController {
   // Endpoint `exportSubject/:subjectName` removed — frontend does not use it.
 
   /**
-   * Upload an XLSX file containing senior juror grades.
-   * The uploaded file is expected to be the grading template previously
-   * downloaded from `GET /professors/download-grading-template-all`.
-   * Each sheet corresponds to a subject/NRC and rows should contain the
-   * videogame identifiers and the professor's grades. The service parses
-   * the workbook and upserts senior evaluations accordingly.
-   */
-  @Post('upload-senior-grades')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('UploadSeniorGrades')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({
-    summary: 'Upload an XLSX with senior juror grades',
-    description:
-      "Upload the grading template previously downloaded from `GET /professors/download-grading-template-all`. Each sheet represents a subject/NRC and rows must contain the videogame identifier and the professor's grade. The server will parse the workbook and upsert senior evaluations accordingly.",
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description:
-      'Binary XLSX file: grading template downloaded from the server (one sheet per subject/NRC).',
-    schema: {
-      type: 'object',
-      properties: { file: { type: 'string', format: 'binary' } },
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Processing results',
-    schema: { example: { processed: 10, created: 8, updated: 2, errors: [] } },
-  })
-  async uploadSeniorGrades(
-    @UploadedFile() file: Express.Multer.File,
-    @GetUser('id') professorId: string,
-  ) {
-    return this.professorsService.processSeniorGradesExcel(file, professorId);
-  }
-
-  /**
    * Create or update (upsert) an evaluation for a team's videogame (inline edit from the frontend).
    * The frontend sends { videogameId, score, isSenior? } and the server uses the authenticated user as the jurorId.
    * Returns 201 Created when a new evaluation is created, or 200 OK when an existing evaluation is updated.
@@ -585,6 +577,78 @@ export class ProfessorsController {
       res.status(HttpStatus.OK);
     }
     return result;
+  }
+
+  @Post('team-evaluation/batch')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UploadSeniorGrades')
+  @ApiOperation({ summary: 'Save professor evaluations in batch' })
+  @ApiBody({ type: BatchTeamEvaluationDto })
+  @ApiResponse({ status: 200, schema: { example: { results: [
+    { videogameId: 24, success: true },
+    { videogameId: 25, success: false, message: 'Score must be between 0 and 5, with at most two decimal places' },
+  ] } } })
+  async updateTeamEvaluationBatch(
+    @Body() dto: BatchTeamEvaluationDto,
+    @GetUser('id') professorId: string,
+  ) {
+    const results = await Promise.all((Array.isArray(dto?.evaluations) ? dto.evaluations : []).map(async (row) => {
+      const videogameId = row?.videogameId;
+      try {
+        if (!Number.isInteger(videogameId) || videogameId < 1) {
+          throw new Error('videogameId must be a positive integer');
+        }
+        await this.professorsService.updateTeamEvaluation(videogameId, professorId, row?.score, true);
+        return { videogameId, success: true as const };
+      } catch (error) {
+        const message = (error as any)?.response;
+        return {
+          videogameId,
+          success: false as const,
+          message: typeof message === 'string' ? message : message?.message ?? (error as any)?.message ?? 'Could not save evaluation',
+        };
+      }
+    }));
+    return { results };
+  }
+
+  @Get('grading-games')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MySubjects')
+  @ApiOperation({ summary: 'List current and historical games for professor grading panel' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 25 })
+  @ApiQuery({ name: 'editionId', required: false, type: Number })
+  @ApiQuery({ name: 'nrcId', required: false, type: Number })
+  @ApiQuery({ name: 'team', required: false })
+  @ApiQuery({ name: 'student', required: false })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['student', 'team'] })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+  @ApiResponse({ status: 200, description: 'Paginated games with canEdit authorization flag' })
+  async getGradingGames(
+    @GetUser('id') professorId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '25',
+    @Query('editionId') editionId?: string,
+    @Query('nrcId') nrcId?: string,
+    @Query('team') team?: string,
+    @Query('student') student?: string,
+    @Query('sortBy') sortBy?: 'student' | 'team',
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+  ) {
+    return this.professorsService.getGradingGames(professorId, {
+      page: Number(page), limit: Number(limit),
+      editionId: editionId === undefined ? undefined : Number(editionId),
+      nrcId: nrcId === undefined ? undefined : Number(nrcId), team, student, sortBy, sortOrder,
+    });
+  }
+
+  @Get('grading-games/filter-options')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('MySubjects')
+  @ApiOperation({ summary: 'Get professor-specific edition and NRC filters for grading games' })
+  async getGradingGamesFilterOptions(@GetUser('id') professorId: string) {
+    return this.professorsService.getGradingFilterOptions(professorId);
   }
 
   @Get(':id')

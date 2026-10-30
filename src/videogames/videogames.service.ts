@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -11,6 +12,8 @@ import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { VideogamesGateway } from './videogames.gateway';
 import { Prisma } from '@prisma/client';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 
 @Injectable()
 export class VideogamesService {
@@ -236,13 +239,38 @@ export class VideogamesService {
     };
   }
 
-  async update(videogameId: number, videogameData: UpdateVideogameDto) {
+  async update(
+    videogameId: number,
+    videogameData: UpdateVideogameDto,
+    user: AppUser,
+  ) {
     const vg = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
+      include: { team: { select: { userId: true } } },
     });
 
     if (!vg) {
       throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
+    }
+
+    // BG-01: el permiso `UpdateVideogame` lo tienen los estudiantes, pero solo
+    // pueden modificar el videojuego de SU equipo (el líder). El administrador
+    // puede modificar cualquiera.
+    const isAdmin = user.roleId === ROLE_IDS.ADMIN;
+    const isOwner = vg.team.userId === user.id;
+
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException(
+        'You do not have permission to modify this videogame.',
+      );
+    }
+
+    // El estado de aprobación (CONFIRMADO / PENDIENTE / RECHAZADO) lo decide
+    // un administrador: un estudiante no puede aprobar ni ocultar su propio juego.
+    if (!isAdmin && videogameData.videogameStatusId !== undefined) {
+      throw new ForbiddenException(
+        'Only an administrator can change the status of a videogame.',
+      );
     }
 
     const { vgName, ...restData } = videogameData;
