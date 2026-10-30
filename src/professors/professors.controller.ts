@@ -36,6 +36,8 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 import { CreateProfessorDto } from './dto/create-professor.dto';
 import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { UpdateTeamEvaluationDto } from './dto/update-team-evaluation.dto';
+import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
+import { GradingReportExportService } from './grading-report-export.service';
 import { BatchTeamEvaluationDto } from './dto/batch-team-evaluation.dto';
 import { ProfessorsService } from './professors.service';
 import { SelectOption } from './types/select-option.type';
@@ -44,7 +46,10 @@ import { SelectOption } from './types/select-option.type';
 @ApiBearerAuth()
 @Controller('professors')
 export class ProfessorsController {
-  constructor(private readonly professorsService: ProfessorsService) {}
+  constructor(
+    private readonly professorsService: ProfessorsService,
+    private readonly gradingReportExport: GradingReportExportService,
+  ) {}
 
   @Post()
   @UseGuards(RolePermissionGuard)
@@ -174,30 +179,27 @@ export class ProfessorsController {
   @Get('download-grading-report-grouped')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportToExcel')
-  @ApiOperation({ summary: 'Download grouped grading report by NRC and team' })
-  @ApiQuery({
-    name: 'final',
-    required: false,
+  @ApiOperation({
+    summary: 'Download grading report with the panel filters (HU-02)',
     description:
-      'Set to true to include Calificación Feria and Calificación Jurado Junior',
-    example: 'true',
+      'Exports only what matches the active filters (feria, NRC, search, order). Without filters, exports everything the professor can see.',
   })
   @ApiResponse({
     status: 200,
     description:
-      'XLSX file stream. One worksheet per NRC with one row per team and consolidated members.',
+      'XLSX file stream. One worksheet per NRC with results, one row per team, in the same order as the panel. File name includes feria and NRC.',
+  })
+  @ApiResponse({
+    status: 404,
+    description:
+      'No hay datos para exportar, or the NRC does not belong to the professor',
   })
   async downloadGradingReportGrouped(
     @GetUser('id') professorId: string,
     @Res({ passthrough: true }) res: Response,
-    @Query('final') finalParam?: string,
+    @Query() query: GradingReportQueryDto,
   ) {
-    const final = finalParam === 'true' || finalParam === '1';
-    await this.professorsService.downloadGradingReportGrouped(
-      professorId,
-      res,
-      final,
-    );
+    await this.gradingReportExport.exportFiltered(professorId, query, res);
   }
 
   /**

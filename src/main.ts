@@ -36,6 +36,8 @@ async function bootstrap() {
       'http://localhost:5173',
     ],
     credentials: true,
+    // Permite al frontend leer el nombre del archivo en las descargas (HU-02)
+    exposedHeaders: ['Content-Disposition'],
   });
 
   const env = configService.get<string>('NODE_ENV');
