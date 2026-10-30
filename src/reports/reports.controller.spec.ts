@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Importar CACHE_MANAGER
 import { Reflector } from '@nestjs/core'; // Importar Reflector
+import { OptionalAdminRoleGuard } from '../auth/guards/admin-role.guard';
 
 describe('ReportsController', () => {
   let controller: ReportsController;
@@ -44,7 +46,14 @@ describe('ReportsController', () => {
           useValue: mockReflector,
         },
       ],
-    }).compile();
+    })
+      // La autorización (permisos por rol) se prueba aparte en
+      // `auth/route-access.spec.ts`; aquí solo se prueba la lógica del controlador.
+      .overrideGuard(RolePermissionGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(OptionalAdminRoleGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<ReportsController>(ReportsController);
   });

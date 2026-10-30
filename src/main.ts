@@ -10,6 +10,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useWebSocketAdapter(new IoAdapter(app));
   const configService: ConfigService = app.get(ConfigService);
+
+  // Behind nginx/Azure, TRUST_PROXY (e.g. 1 = one proxy hop) makes req.ip the real client IP,
+  // which the request limits of the public routes depend on (BG-02).
+  const trustProxy = configService.get<string>('TRUST_PROXY');
+  if (trustProxy) {
+    const hops = Number(trustProxy);
+    app.getHttpAdapter().getInstance().set('trust proxy', Number.isNaN(hops) ? trustProxy : hops);
+  }
   app.use(cookieParser());
 
   app.useGlobalPipes(

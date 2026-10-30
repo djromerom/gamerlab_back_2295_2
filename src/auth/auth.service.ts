@@ -26,6 +26,7 @@ import { JwtService } from '@nestjs/jwt';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { EmailService } from '../email/email.service';
+import { getTokenExpiration, TokenExpiration } from './token-expiration';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -53,6 +54,9 @@ export class AuthService {
   private readonly USER_PROFILE_CACHE_PREFIX = 'user_profile:';
   private USER_PROFILE_CACHE_TTL: number;
 
+  // Token lifetimes (JWT exp and cookie maxAge), from ACCESS_TOKEN_EXPIRATION_MINUTES / REFRESH_TOKEN_EXPIRATION_DAYS
+  private readonly tokenExpiration: TokenExpiration;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -60,7 +64,9 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly httpService: HttpService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {
+    this.tokenExpiration = getTokenExpiration(this.configService);
+  }
 
   async onModuleInit() {
     this.logger.log(
@@ -480,7 +486,7 @@ export class AuthService {
   }
 
   // done locally
-  async login(loginDto: LoginDto, logintType: LoginType, res: Response): Promise<{ message: string, access: string; refresh: string }> {
+  async login(loginDto: LoginDto, logintType: LoginType, res: Response): Promise<{ message: string; access: string; refresh: string; accessTokenExpiresIn: number }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
 
     // Find user in local database
@@ -565,19 +571,42 @@ export class AuthService {
       throw new UnauthorizedException('User account is currently inactive.');
     }
 
-    // Generate JWT tokens
-    const payload = { sub: user.id, email: user.email };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-    this.setAuthCookies(res, accessToken, refreshToken);
+    const { accessToken, refreshToken } = this.issueSession(res, user);
     this.logger.log(
       `Local authentication successful for user: ${loginDto.email}`,
     );
 
     this.updateLastSignIn(loginDto.email);
 
-    return { message: 'Login successful', access: accessToken, refresh: refreshToken };
+    return {
+      message: 'Login successful',
+      access: accessToken,
+      refresh: refreshToken,
+      accessTokenExpiresIn: this.tokenExpiration.accessTokenSeconds,
+    };
+  }
+
+  /**
+   * Signs a new access/refresh token pair and sets both auth cookies.
+   * Every flow that starts or renews a session (password login, Microsoft login, refresh)
+   * must go through here so they all use the same lifetimes.
+   */
+  private issueSession(
+    res: Response,
+    user: Pick<User, 'id' | 'email'>,
+  ): { accessToken: string; refreshToken: string } {
+    const payload = { sub: user.id, email: user.email };
+    const accessToken = this.jwtService.sign(
+      { ...payload, type: 'access' },
+      { expiresIn: this.tokenExpiration.accessTokenSeconds },
+    );
+    const refreshToken = this.jwtService.sign(
+      { ...payload, type: 'refresh' },
+      { expiresIn: this.tokenExpiration.refreshTokenSeconds },
+    );
+
+    this.setAuthCookies(res, accessToken, refreshToken);
+    return { accessToken, refreshToken };
   }
 
   async updateLastSignIn(emailUser: string) {
@@ -701,10 +730,7 @@ export class AuthService {
 
         this.logger.log(`Password user authenticated via Microsoft: ${user.email}`);
 
-        const payload = { sub: user.id, email: user.email };
-        const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-        const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-        this.setAuthCookies(res, accessToken, refreshToken);
+        this.issueSession(res, user);
         this.updateLastSignIn(user.email);
 
         const REDIRECT_TO = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
@@ -763,7 +789,7 @@ export class AuthService {
   async refresh(
     req: Request,
     res: Response,
-  ): Promise<{ message: string; accessToken: string }> {
+  ): Promise<{ message: string; accessToken: string; accessTokenExpiresIn: number }> {
     const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (!refreshToken) {
       this.logger.warn('Refresh attempt without refresh token cookie.');
@@ -777,7 +803,8 @@ export class AuthService {
       // Verify the refresh token using our local JWT service
       const payload = this.jwtService.verify(refreshToken);
 
-      if (!payload || !payload.sub || !payload.email) {
+      // An access token must never work as a refresh token.
+      if (!payload || !payload.sub || !payload.email || payload.type === 'access') {
         this.logger.warn('Invalid refresh token payload');
         this.clearAuthCookies(res);
         throw new UnauthorizedException('Invalid refresh token.');
@@ -796,19 +823,15 @@ export class AuthService {
         throw new UnauthorizedException('User account is no longer active.');
       }
 
-      // Generate new tokens
-      const newPayload = { sub: user.id, email: user.email };
-      const newAccessToken = this.jwtService.sign(newPayload, {
-        expiresIn: '15m',
-      });
-      const newRefreshToken = this.jwtService.sign(newPayload, {
-        expiresIn: '7d',
-      });
-
-      this.setAuthCookies(res, newAccessToken, newRefreshToken);
+      // Rotate: new access AND refresh token (sliding refresh window)
+      const { accessToken } = this.issueSession(res, user);
       this.logger.log(`Session refreshed successfully for user: ${user.email}`);
 
-      return { message: 'Session refreshed', accessToken: newAccessToken };
+      return {
+        message: 'Session refreshed',
+        accessToken,
+        accessTokenExpiresIn: this.tokenExpiration.accessTokenSeconds,
+      };
     } catch (error) {
       if (
         error instanceof UnauthorizedException ||
@@ -950,16 +973,9 @@ export class AuthService {
     refresh_token: string,
   ) {
     const secure = this.configService.get<string>('NODE_ENV') !== 'development';
-    const accessTokenMaxAge =
-      this.configService.get<number>('ACCESS_TOKEN_EXPIRATION_MINUTES', 15) *
-      1000 *
-      60; // So if 15 minutes -> 15*60*1000 = 900.000 seconds
-    const refreshTokenMaxAge =
-      this.configService.get<number>('REFRESH_TOKEN_EXPIRATION_DAYS', 7) *
-      1000 *
-      60 *
-      60 *
-      24; // So if 7 days -> 1000*(60^2)*24*7 = 604.800.000 seconds
+    // Same lifetimes as the JWTs, in milliseconds
+    const accessTokenMaxAge = this.tokenExpiration.accessTokenSeconds * 1000;
+    const refreshTokenMaxAge = this.tokenExpiration.refreshTokenSeconds * 1000;
 
     res.cookie(ACCESS_TOKEN_COOKIE, access_token, {
       httpOnly: true,

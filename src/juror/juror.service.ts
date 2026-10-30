@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 import {
   JurorCategory,
   ManualJurorAssignmentAction,
@@ -2156,6 +2159,30 @@ export class JurorService {
 
       throw new InternalServerErrorException(
         'Error al obtener estado de evaluación de jurados del equipo',
+      );
+    }
+  }
+
+  /**
+   * BG-01: `ViewTeamEvaluationStats` lo tienen estudiantes, profesores y jurados.
+   * Un estudiante solo puede consultar las estadísticas de SU equipo (donde es
+   * líder); el resto de roles con el permiso pueden consultar cualquier equipo.
+   * Si el equipo no existe o no es suyo, responde 403 para no revelar su existencia.
+   */
+  async assertCanViewTeamEvaluationStats(
+    user: AppUser,
+    teamId: number,
+  ): Promise<void> {
+    if (user.roleId !== ROLE_IDS.STUDENT) return;
+
+    const team = await this.prisma.team.findUnique({
+      where: { id: teamId },
+      select: { userId: true },
+    });
+
+    if (!team || team.userId !== user.id) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource.',
       );
     }
   }

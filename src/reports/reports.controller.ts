@@ -1,8 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { OptionalAdminRoleGuard } from 'src/auth/guards/admin-role.guard';
+import { IsAdmin } from 'src/auth/decorators/is-admin.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import * as ExcelJS from 'exceljs';
 import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse } from '@nestjs/swagger';
 
@@ -41,14 +46,21 @@ export class ReportsController {
     return this.reportsService.getSubjectAverageScores();
   }
 
-  @Public()
+  // Devuelve correos de jurados: requiere sesión (BG-02).
+  // El administrador ve todos; cualquier otro usuario solo los jurados de su propio equipo (página "Mis jurados").
   @Get('JuradosData')
-  @ApiOperation({ summary: 'Get jurors data' })
-  async getJuradosData() {
-    return this.reportsService.getJuradosData();
+  @UseGuards(OptionalAdminRoleGuard)
+  @ApiOperation({ summary: 'Get jurors data (admin: all jurors; team leader: only the jurors of their team)' })
+  async getJuradosData(@IsAdmin() isAdmin: boolean, @GetUser('id') userId: string) {
+    if (isAdmin) {
+      return this.reportsService.getJuradosData();
+    }
+    return this.reportsService.getJuradosDataForTeamLeader(userId);
   }
 
   @Get('exportExcel')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export videogame report to Excel' })
   @ApiQuery({ name: 'materia', required: false, description: 'Subject name to filter' })
   @ApiQuery({ name: 'nrc', required: false, description: 'NRC code to filter', type: Number })
@@ -203,6 +215,8 @@ export class ReportsController {
   }
 
   @Get('exportJurados')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export jurors report to Excel' })
   @ApiOkResponse({ description: 'Excel file with jurors and their status' })
   async exportJurados(

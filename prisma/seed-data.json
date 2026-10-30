@@ -541,6 +541,14 @@
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 54,
+        "name": "MANAGE_JUROR_BADGES",
+        "description": "Permite generar y consultar las escarapelas con QR de los jurados (solo Administrador)",
+        "createdAt": "2026-10-24T06:00:00.000Z",
+        "updatedAt": "2026-10-24T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1050,7 +1058,7 @@
       {
         "id": 51,
         "name": "UploadSeniorGrades",
-        "description": "Upload grading template and persist senior juror grades (professors)",
+        "description": "Update senior juror grades for professor evaluations",
         "url": null,
         "method": "POST",
         "createdAt": "2025-11-14T06:00:00.000Z",
@@ -1095,6 +1103,16 @@
         "method": "PUT",
         "createdAt": "2025-11-25T06:00:00.000Z",
         "updatedAt": "2025-11-25T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 55,
+        "name": "ManageJurorBadges",
+        "description": "Generar y consultar escarapelas con QR de jurados",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-10-24T06:00:00.000Z",
+        "updatedAt": "2026-10-24T06:00:00.000Z",
         "isActive": true
       }
     ]
@@ -1492,6 +1510,13 @@
         "permissionId": 53,
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 55,
+        "permissionId": 54,
+        "createdAt": "2026-10-24T06:00:00.000Z",
+        "updatedAt": "2026-10-24T06:00:00.000Z",
         "isActive": true
       }
     ]
@@ -1965,7 +1990,7 @@
         "lastName": "Three"
       },
       {
-        "id": "juror-senior",
+        "id": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01",
         "email": "jurorsenior@uninorte.edu.co",
         "confirmationStatusId": 1,
         "isActive": true,
@@ -1974,7 +1999,7 @@
         "lastName": "Senior"
       },
       {
-        "id": "juror-junior",
+        "id": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c02",
         "email": "jurorjunior@uninorte.edu.co",
         "confirmationStatusId": 1,
         "isActive": true,
@@ -2001,7 +2026,7 @@
         "lastName": "Five"
       },
       {
-        "id": "profesor-colegios",
+        "id": "a1b2c3d4-e5f6-4789-a012-345678901234",
         "email": "profesorcolegios@uninorte.edu.co",
         "confirmationStatusId": 1,
         "isActive": true,
@@ -2117,7 +2142,7 @@
       {
         "id": 100,
         "videogameId": 100,
-        "jurorId": "juror-senior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01",
         "editionId": 3,
         "totalScore": 4.8,
         "isSenior": true,
@@ -2127,7 +2152,7 @@
       {
         "id": 200,
         "videogameId": 200,
-        "jurorId": "juror-senior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01",
         "editionId": 3,
         "totalScore": 4.5,
         "isSenior": true,
@@ -2137,7 +2162,7 @@
       {
         "id": 300,
         "videogameId": 300,
-        "jurorId": "juror-senior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01",
         "editionId": 3,
         "totalScore": 4.2,
         "isSenior": true,
@@ -2147,7 +2172,7 @@
       {
         "id": 400,
         "videogameId": 100,
-        "jurorId": "juror-junior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c02",
         "editionId": 3,
         "totalScore": 4.0,
         "isSenior": false,
@@ -2157,7 +2182,7 @@
       {
         "id": 500,
         "videogameId": 200,
-        "jurorId": "juror-junior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c02",
         "editionId": 3,
         "totalScore": 3.5,
         "isSenior": false,
@@ -2167,7 +2192,7 @@
       {
         "id": 600,
         "videogameId": 300,
-        "jurorId": "juror-junior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c02",
         "editionId": 3,
         "totalScore": 3.0,
         "isSenior": false,
@@ -2177,7 +2202,7 @@
       {
         "id": 700,
         "videogameId": 400,
-        "jurorId": "juror-senior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01",
         "editionId": 3,
         "totalScore": 4.6,
         "isSenior": true,
@@ -2187,7 +2212,7 @@
       {
         "id": 800,
         "videogameId": 500,
-        "jurorId": "juror-senior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01",
         "editionId": 3,
         "totalScore": 4.1,
         "isSenior": true,
@@ -2197,7 +2222,7 @@
       {
         "id": 900,
         "videogameId": 400,
-        "jurorId": "juror-junior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c02",
         "editionId": 3,
         "totalScore": 3.8,
         "isSenior": false,
@@ -2207,7 +2232,7 @@
       {
         "id": 1000,
         "videogameId": 500,
-        "jurorId": "juror-junior",
+        "jurorId": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c02",
         "editionId": 3,
         "totalScore": 3.2,
         "isSenior": false,
