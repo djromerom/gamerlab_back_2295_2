@@ -1,0 +1,30 @@
+# Dependencias y artefactos de build (se generan dentro de la imagen)
+node_modules
+dist
+coverage
+
+# Control de versiones y CI
+.git
+.github
+.gitignore
+
+# Variables de entorno y secretos: nunca deben entrar al contexto ni a la imagen
+.env
+.env.*
+!.env.example
+cookies.txt
+
+# Archivos locales y volcados que no forman parte del build
+*.log
+output.sql
+init-db.sql
+big-seed.py
+.vscode
+.idea
+.DS_Store
+*.md
+
+# Archivos de Docker/compose (no se necesitan dentro de la imagen)
+Dockerfile
+docker-compose*.yml
+.dockerignore
