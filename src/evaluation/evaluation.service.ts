@@ -266,7 +266,7 @@ export class EvaluationService {
       // A transaction-scoped advisory lock serializes requests using the same key,
       // including the first request that has not inserted its durable receipt yet.
       if (idempotencyKey) {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${jurorId}), hashtext(${idempotencyKey}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${jurorId}), hashtext(${idempotencyKey}))`;
         const prior = await tx.evaluationIdempotency.findUnique({ where: { jurorId_key: { jurorId, key: idempotencyKey } } });
         if (prior) return this.replayRequest(prior, contentHash);
       }

@@ -29,7 +29,7 @@ describe('EvaluationService batch idempotency', () => {
       }),
     };
     const tx: any = {
-      $queryRaw: jest.fn().mockResolvedValue([{}]),
+      $executeRaw: jest.fn().mockResolvedValue(0),
       evaluationIdempotency: {
         findUnique: jest.fn(async ({ where }: any) => receipts.get(where.jurorId_key.key) ?? null),
         create: jest.fn(async ({ data }: any) => { receipts.set(data.key, data); return data; }),
@@ -69,7 +69,7 @@ describe('EvaluationService batch idempotency', () => {
     ]);
     expect(first).toEqual(second);
     expect(tx.evaluation.create).toHaveBeenCalledTimes(2);
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
