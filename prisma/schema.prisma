@@ -255,8 +255,23 @@ model HistoricalMember {
   studentCode String         @map("codigo_estudiantil") @db.VarChar(100)
   teamId      Int            @map("id_equipo_historico")
   team        HistoricalTeam @relation("HistoricalTeamMembers", fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nrcs        HistoricalMemberNrc[]
 
   @@map("integrante_historico")
+}
+
+// Immutable NRC association copied at archive time; nrcId is a snapshot value,
+// intentionally without a foreign key to the mutable current NRC table.
+model HistoricalMemberNrc {
+  id                Int              @id @default(autoincrement())
+  historicalMemberId Int              @map("id_integrante_historico")
+  nrcId             Int              @map("id_nrc")
+  code              Int              @map("codigo")
+  member            HistoricalMember @relation(fields: [historicalMemberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([historicalMemberId, nrcId])
+  @@index([nrcId])
+  @@map("integrante_historico_nrc")
 }
 
 model VideogameStatus {
