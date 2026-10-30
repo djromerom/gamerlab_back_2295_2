@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Headers, Post, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
@@ -18,10 +18,12 @@ export class EvaluationController {
   async createEvaluationWithDetails(
     @Body() evaluationPayload: CreateEvaluationDto,
     @GetUser() user: AppUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     return this.evaluationService.createEvaluationWithDetails(
       user.id,
       evaluationPayload,
+      idempotencyKey,
     );
   }
 
@@ -51,7 +53,8 @@ export class EvaluationController {
   async createBatchEvaluations(
     @Body() batchPayload: BatchEvaluationDto,
     @GetUser() user: AppUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.evaluationService.createBatchEvaluations(user.id, batchPayload);
+    return this.evaluationService.createBatchEvaluations(user.id, batchPayload, idempotencyKey);
   }
 }
