@@ -209,6 +209,8 @@ describe('JurorService', () => {
           lastName: 'Prueba',
           roleId: jurorRoleId,
           isActive: true,
+          jurorCategory: 'JUNIOR',
+          jurorType: 'OFFICIAL',
         },
       });
 
@@ -216,6 +218,8 @@ describe('JurorService', () => {
         id: baseJuror.id,
         firstName: baseJuror.firstName,
         lastName: baseJuror.lastName,
+        jurorCategory: baseJuror.jurorCategory,
+        jurorType: baseJuror.jurorType,
         email: baseJuror.email,
         confirmationStatusId: baseJuror.confirmationStatusId,
         lastSignInAt: baseJuror.lastSignInAt,

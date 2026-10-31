@@ -679,6 +679,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         expect(result[0].teamId).toBe(n1Team.id);
         expect(result[0].totalJuradosAsignados).toBe(2);
         expect(result[0].juradosQueEvaluaron).toBe(1);
-        expect(result[0].juradosPendientes).toBe(1);
+        // Siempre se requieren 3 evaluaciones: pendientes = 3 - evaluaron.
+        expect(result[0].juradosPendientes).toBe(2);
     });
 });
