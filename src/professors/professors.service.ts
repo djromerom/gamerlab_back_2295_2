@@ -1268,7 +1268,7 @@ export class ProfessorsService {
     // Historical NRC options are intentionally not filtered by professor:
     // each professor can browse the global, read-only historical teams view.
     type GradingNrcOption = { id: number; code: number; editionId: number; source: 'current' | 'historical' };
-    const nrcs = await this.prisma.nRC.findMany({ where: { professorId }, select: { id: true, code: true, editionId: true } });
+    const nrcs = await this.prisma.nRC.findMany({ where: { professorId, isActive: true }, select: { id: true, code: true, editionId: true } });
     const editionIds = [...new Set(nrcs.map(n => n.editionId))];
     const historical = await this.prisma.historicalMemberNrc.findMany({
       where: { member: { team: { editionId: { in: editionIds } } } },
@@ -1282,7 +1282,15 @@ export class ProfessorsService {
       ...nrcs.map((n): GradingNrcOption => ({ id: n.id, code: n.code, editionId: n.editionId, source: 'current' })),
       ...historical.map((n): GradingNrcOption => ({ id: n.nrcId, code: n.code, editionId: n.member.team.editionId, source: 'historical' })),
     ];
-    return { editions, nrcs: options };
+    // Deduplicar por NRC+edicion conservando `current` (current va primero).
+    const seen = new Set<string>();
+    const unique = options.filter((o) => {
+      const key = `${o.id}:${o.editionId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { editions, nrcs: unique };
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
