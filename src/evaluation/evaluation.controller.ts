@@ -1,5 +1,6 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Headers, Post, Query, UseGuards } from '@nestjs/common';
+import { Public } from 'src/auth/decorators/public.decorator';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { AppUser } from 'src/auth/jwt.strategy';
@@ -12,16 +13,37 @@ import { EvaluationService } from './evaluation.service';
 export class EvaluationController {
   constructor(private readonly evaluationService: EvaluationService) {}
 
+  @Public()
+  @Get('progress')
+  @ApiOperation({
+    summary: 'Progreso de evaluación de la edición',
+    description:
+      'completed = evaluaciones con puntaje de jurados actualmente asignados; assigned = asignaciones vigentes (jurados activos). completed <= assigned. Sin editionId usa la edición activa.',
+  })
+  @ApiQuery({ name: 'editionId', required: false, type: Number })
+  async getProgress(@Query('editionId') editionId?: string) {
+    let id: number | undefined;
+    if (editionId !== undefined && editionId !== '') {
+      id = Number(editionId);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new BadRequestException('editionId debe ser un entero positivo');
+      }
+    }
+    return this.evaluationService.getEvaluationProgressForEdition(id);
+  }
+
   @Post('with-details')
   @UseGuards(RolePermissionGuard)
   @RequiredService('Create Evaluation')
   async createEvaluationWithDetails(
     @Body() evaluationPayload: CreateEvaluationDto,
     @GetUser() user: AppUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     return this.evaluationService.createEvaluationWithDetails(
       user.id,
       evaluationPayload,
+      idempotencyKey,
     );
   }
 
@@ -51,7 +73,8 @@ export class EvaluationController {
   async createBatchEvaluations(
     @Body() batchPayload: BatchEvaluationDto,
     @GetUser() user: AppUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.evaluationService.createBatchEvaluations(user.id, batchPayload);
+    return this.evaluationService.createBatchEvaluations(user.id, batchPayload, idempotencyKey);
   }
 }

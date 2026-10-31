@@ -1,29 +1,49 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { SettingsService } from '../settings/settings.service';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
+import { countProgress } from '../evaluation/evaluation-progress';
 
 // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 const ROL_JURADO_ID = 4;
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+    private readonly blobRefs: BlobReferenceService,
+  ) {}
 
-  async getVideogamesData(): Promise<
+  private async signLogo(value?: string | null): Promise<string | null> {
+    return (await this.blobRefs.resolve(value)) ?? null;
+  }
+
+  /**
+   * Lista pública de juegos (home). Con `showRanking=false` y un usuario que no es
+   * Administrador se omiten las notas: promedio, criterios, finalScore, avgJunior, avgSenior.
+   */
+  async getVideogamesData(user?: AppUser): Promise<
     {
       id: number | string;
       nombre: string;
       logoUrl?: string | null;
       materia?: string | null;
       nrc?: number | string | null;
-      promedio: number;
-      criterios: { [nombreCriterio: string]: number };
+      promedio?: number;
+      criterios?: { [nombreCriterio: string]: number };
       evaluacionesCompletadas?: number;
       totalJuradosAsignados?: number;
       codigoEquipo?: string | null;
     }[]
   > {
+    const hideRanking =
+      user?.roleId !== ROLE_IDS.ADMIN &&
+      !(await this.settingsService.isRankingVisible());
     const videojuegos = await this.prisma.videogame.findMany({
       where: { isActive: true },
       include: {
@@ -39,7 +59,7 @@ export class ReportsService {
                 },
               },
             },
-            assignedJurors: true,
+            assignedJurors: { where: { isActive: true }, select: { id: true } },
           },
         },
         evaluations: {
@@ -58,17 +78,25 @@ export class ReportsService {
 
     // Batch fetch final-score rows and evaluation counts to avoid N+1 queries
     const vgIds = videojuegos.map((v) => v.id);
-    const finalRows = await this.prisma.teamFinalScore.findMany({ where: { videogameId: { in: vgIds } as any } });
+    const finalRows = hideRanking
+      ? []
+      : await this.prisma.teamFinalScore.findMany({ where: { videogameId: { in: vgIds } as any } });
     const finalMap = new Map<number, any>();
     finalRows.forEach((r: any) => finalMap.set(Number(r.videogameId), r));
 
-    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, isSenior: true, totalScore: true } });
+    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, jurorId: true, isSenior: true, totalScore: true } });
+    // Progreso: solo cuentan las evaluaciones de jurados actualmente asignados (ver evaluation-progress.ts)
+    const scoredJurorsByVg = new Map<number, string[]>();
     const countsMap = new Map<number, { juniorCount: number; seniorCount: number; completedCount: number }>();
     vgIds.forEach((id) => countsMap.set(Number(id), { juniorCount: 0, seniorCount: 0, completedCount: 0 }));
     for (const e of evals) {
       const id = Number((e as any).videogameId);
       const entry = countsMap.get(id)!;
-      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) entry.completedCount++;
+      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) {
+        const list = scoredJurorsByVg.get(id) ?? [];
+        list.push((e as any).jurorId);
+        scoredJurorsByVg.set(id, list);
+      }
       if ((e as any).isSenior) entry.seniorCount++; else entry.juniorCount++;
     }
 
@@ -123,6 +151,10 @@ export class ReportsService {
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
       const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
 
+      const progress = countProgress(
+        (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
+        scoredJurorsByVg.get(Number(v.id)) ?? [],
+      );
       const counts = countsMap.get(Number(v.id)) ?? { juniorCount: 0, seniorCount: 0, completedCount: evaluacionesCompletadas };
 
       // build integrantes (members list)
@@ -143,26 +175,31 @@ export class ReportsService {
         }
       };
 
-      return {
+      const base = {
         id: v.id,
         nombre: v.name,
-        logoUrl: v.logoUrl ?? null,
+        logoUrl: await this.signLogo(v.logoUrl),
         teamCode: v.team?.teamCode ?? null,
         teamName: v.team?.teamName ?? null,
         integrantes,
         semestre: computeSemestre(v.team),
         materia: materiaList || null,
         nrc: nrcList || null,
-        promedio: finalPromedio,
-        criterios,
-        evaluacionesCompletadas: counts.completedCount,
-        totalJuradosAsignados: v.team.assignedJurors.length,
-        finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
-        avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
-        avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
+        evaluacionesCompletadas: progress.completed,
+        totalJuradosAsignados: progress.assigned,
         juniorCount: counts.juniorCount,
         seniorCount: counts.seniorCount,
         codigoEquipo: v.team.teamCode ?? null,
+      };
+      if (hideRanking) return base;
+
+      return {
+        ...base,
+        promedio: finalPromedio,
+        criterios,
+        finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
+        avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
+        avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
       };
     }));
   }
@@ -177,7 +214,23 @@ export class ReportsService {
     });
   }
 
-  async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
+  /**
+   * Promedio por materia (gráficas públicas). Con el ranking oculto (o sin edición activa)
+   * y un usuario que no es Administrador devuelve las mismas materias con `value: null`.
+   */
+  async getSubjectAverageScores(
+    user?: AppUser,
+  ): Promise<{ name: string; value: number | null }[]> {
+    const hideRanking =
+      user?.roleId !== ROLE_IDS.ADMIN &&
+      !(await this.settingsService.isRankingVisible());
+    if (hideRanking) {
+      const names = await this.prisma.subject.findMany({
+        where: { isActive: true },
+        select: { name: true },
+      });
+      return names.map((s) => ({ name: s.name, value: null }));
+    }
     const subjects = await this.prisma.subject.findMany({
       where: { isActive: true },
       include: {
@@ -206,7 +259,7 @@ export class ReportsService {
       },
     });
 
-    const results: { name: string; value: number }[] = [];
+    const results: { name: string; value: number | null }[] = [];
 
     for (const subject of subjects) {
       let totalScore = 0;
@@ -237,9 +290,18 @@ export class ReportsService {
     return results;
   }
 
-async getNrcWithSubjectNameAndAverage(): Promise<
-  { id: number; codigo: number; materiaNombre: string; promedioxNRC?: number }[]
+/**
+ * Promedio por NRC (gráficas públicas). Con el ranking oculto (o sin edición activa)
+ * y un usuario que no es Administrador devuelve los mismos NRC con `promedioxNRC: null`.
+ */
+async getNrcWithSubjectNameAndAverage(
+  user?: AppUser,
+): Promise<
+  { id: number; codigo: number; materiaNombre: string; promedioxNRC?: number | null }[]
 > {
+  const hideRanking =
+    user?.roleId !== ROLE_IDS.ADMIN &&
+    !(await this.settingsService.isRankingVisible());
   // 1. Obtener TODOS los NRCs activos con su información básica
   const todosLosNrcsActivos = await this.prisma.nRC.findMany({
     where: { isActive: true },
@@ -258,6 +320,15 @@ async getNrcWithSubjectNameAndAverage(): Promise<
   });
 
   if (!todosLosNrcsActivos.length) return [];
+
+  if (hideRanking) {
+    return todosLosNrcsActivos.map((n) => ({
+      id: n.id,
+      codigo: n.code,
+      materiaNombre: n.subject.name,
+      promedioxNRC: null,
+    }));
+  }
 
   // 2. Obtener videojuegos y sus evaluaciones para calcular promedios por NRC
   const videojuegosConInfo = await this.prisma.videogame.findMany({
@@ -525,7 +596,7 @@ async getJuradosData(): Promise<
                 },
               },
             },
-            assignedJurors: true,
+            assignedJurors: { where: { isActive: true }, select: { id: true } },
           },
         },
         evaluations: {
@@ -548,13 +619,19 @@ async getJuradosData(): Promise<
     const finalMap = new Map<number, any>();
     finalRows.forEach((r: any) => finalMap.set(Number(r.videogameId), r));
 
-    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, isSenior: true, totalScore: true } });
+    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, jurorId: true, isSenior: true, totalScore: true } });
+    // Progreso: solo cuentan las evaluaciones de jurados actualmente asignados (ver evaluation-progress.ts)
+    const scoredJurorsByVg = new Map<number, string[]>();
     const countsMap = new Map<number, { juniorCount: number; seniorCount: number; completedCount: number }>();
     vgIds.forEach((id) => countsMap.set(Number(id), { juniorCount: 0, seniorCount: 0, completedCount: 0 }));
     for (const e of evals) {
       const id = Number((e as any).videogameId);
       const entry = countsMap.get(id)!;
-      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) entry.completedCount++;
+      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) {
+        const list = scoredJurorsByVg.get(id) ?? [];
+        list.push((e as any).jurorId);
+        scoredJurorsByVg.set(id, list);
+      }
       if ((e as any).isSenior) entry.seniorCount++; else entry.juniorCount++;
     }
 
@@ -608,6 +685,10 @@ async getJuradosData(): Promise<
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
       const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
 
+      const progress = countProgress(
+        (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
+        scoredJurorsByVg.get(Number(v.id)) ?? [],
+      );
       const counts = countsMap.get(Number(v.id)) ?? { juniorCount: 0, seniorCount: 0, completedCount: evaluacionesCompletadas };
   
       // build integrantes (members list)
@@ -631,7 +712,7 @@ async getJuradosData(): Promise<
       return {
         id: v.id,
         nombre: v.name,
-        logoUrl: v.logoUrl ?? null,
+        logoUrl: await this.signLogo(v.logoUrl),
         teamCode: v.team?.teamCode ?? null,
         teamName: v.team?.teamName ?? null,
         integrantes,
@@ -640,8 +721,8 @@ async getJuradosData(): Promise<
         nrc: nrcList || null,
         promedio: finalPromedio,
         criterios,
-        evaluacionesCompletadas: counts.completedCount,
-        totalJuradosAsignados: v.team.assignedJurors.length,
+        evaluacionesCompletadas: progress.completed,
+        totalJuradosAsignados: progress.assigned,
         finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
         avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
         avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,

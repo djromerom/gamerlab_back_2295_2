@@ -18,6 +18,7 @@ async function bootstrap() {
     const hops = Number(trustProxy);
     app.getHttpAdapter().getInstance().set('trust proxy', Number.isNaN(hops) ? trustProxy : hops);
   }
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
   app.use(cookieParser());
 
   app.useGlobalPipes(
@@ -36,6 +37,8 @@ async function bootstrap() {
       'http://localhost:5173',
     ],
     credentials: true,
+    // Permite al frontend leer el nombre del archivo en las descargas (HU-02)
+    exposedHeaders: ['Content-Disposition'],
   });
 
   const env = configService.get<string>('NODE_ENV');

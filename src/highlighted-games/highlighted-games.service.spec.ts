@@ -1,7 +1,8 @@
+import { blobRefsProvider } from '../upload/blob-reference.mock';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HighlightedGamesService } from './highlighted-games.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('HighlightedGamesService', () => {
   let service: HighlightedGamesService;
@@ -14,6 +15,9 @@ describe('HighlightedGamesService', () => {
   };
 
   const mockPrismaService = {
+    videogame: {
+      findUnique: jest.fn().mockResolvedValue({ id: 1, videogameStatusId: 1 }),
+    },
     highlightedGame: {
       create: jest.fn().mockResolvedValue(mockGame),
       findMany: jest.fn().mockResolvedValue([mockGame]),
@@ -29,6 +33,7 @@ describe('HighlightedGamesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         HighlightedGamesService,
+        blobRefsProvider,
         { provide: PrismaService, useValue: mockPrismaService },
       ],
     }).compile();
@@ -53,6 +58,12 @@ describe('HighlightedGamesService', () => {
         data: { editionId: 1, videogameId: dto.videogameId },
       });
       expect(result).toEqual(mockGame);
+    });
+
+    it('should reject highlighting a videogame that is not confirmed', async () => {
+      mockPrismaService.videogame.findUnique.mockResolvedValueOnce({ id: 1, videogameStatusId: 2 });
+      await expect(service.create(1, { videogameId: 1 })).rejects.toThrow(BadRequestException);
+      expect(prisma.highlightedGame.create).not.toHaveBeenCalled();
     });
   });
 
@@ -88,7 +99,7 @@ describe('HighlightedGamesService', () => {
       expect(prisma.highlightedGame.delete).toHaveBeenCalledWith({
         where: { editionId_videogameId: { editionId: 1, videogameId: 1 } },
       });
-      expect(result).toEqual(mockGame);
+      expect(result).toBeUndefined();
     });
 
     it('should throw NotFoundException if highlighted game does not exist', async () => {

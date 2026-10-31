@@ -112,7 +112,7 @@ describe('TestimonialsService', () => {
     it('should remove a testimonial', async () => {
       const result = await service.remove(1, 1);
       expect(prisma.testimonial.delete).toHaveBeenCalledWith({ where: { id: 1 } });
-      expect(result).toEqual(mockTestimonial);
+      expect(result).toBeUndefined();
     });
   });
 });

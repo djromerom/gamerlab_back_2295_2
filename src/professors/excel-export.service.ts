@@ -34,6 +34,10 @@ export interface NrcSheetData {
   subjectName: string;
   nrcCode:     string;
   groups:      Map<string | number, GroupRow>;
+  // Si alguna hoja lo trae, se agrega la columna "Feria" (HU-02)
+  editionLabel?: string;
+  // Dueño del NRC: su nota es la docente de la hoja (si no viene, options.professorId)
+  professorId?: string;
 }
 
 export interface ExcelExportOptions {
@@ -56,15 +60,16 @@ export class ExcelExportService {
 
   async generateAndStream(options: ExcelExportOptions, res: Response): Promise<void> {
     const { fileName, sheets, final } = options;
+    const withEdition = sheets.some((s) => s.editionLabel !== undefined);
 
     try {
       const workbook = this.createWorkbook();
 
       for (const sheet of sheets) {
         const worksheet = workbook.addWorksheet(sheet.sheetName);
-        this.addGroupHeader(worksheet, sheet.subjectName, sheet.nrcCode);
-        const columnKeys = this.getColumnKeys(final);
-        const headers    = this.getHeaders(final);
+        this.addGroupHeader(worksheet, sheet.subjectName, sheet.nrcCode, sheet.editionLabel);
+        const columnKeys = this.getColumnKeys(final, withEdition);
+        const headers    = this.getHeaders(final, withEdition);
         worksheet.columns = columnKeys.map((k) => ({ key: k }));
         const maxLens = this.addStyledHeader(worksheet, headers, final);
         await this.addDataRows(worksheet, sheet, options, columnKeys, maxLens);
@@ -73,7 +78,7 @@ export class ExcelExportService {
       }
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Disposition', ExcelExportService.buildContentDisposition(fileName));
       await workbook.xlsx.write(res);
       res.end();
     } catch (error) {
@@ -98,8 +103,9 @@ export class ExcelExportService {
 
   // ── Sheet title block (Materia + NRC) ────────────────────────────────────
 
-  private addGroupHeader(worksheet: ExcelJS.Worksheet, subjectName: string, nrcCode: string) {
-    const titleRow = worksheet.addRow([`${subjectName}  ·  NRC ${nrcCode}`]);
+  private addGroupHeader(worksheet: ExcelJS.Worksheet, subjectName: string, nrcCode: string, editionLabel?: string) {
+    const parts = [subjectName, `NRC ${nrcCode}`, ...(editionLabel ? [editionLabel] : [])];
+    const titleRow = worksheet.addRow([parts.join('  ·  ')]);
     titleRow.height = 22;
     titleRow.eachCell((cell) => {
       cell.font = { bold: true, size: 13, color: { argb: COLORS.groupTitleFg } } as any;
@@ -114,19 +120,16 @@ export class ExcelExportService {
 
   // ── Column definitions ────────────────────────────────────────────────────
 
-  private getColumnKeys(final: boolean): string[] {
-    if (final) {
-      return ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'feriaScore', 'juniorScore', 'docenteScore'];
-    }
-    return ['teamCode', 'subject', 'nrc', 'team', 'members', 'videogame', 'score'];
+  private getColumnKeys(final: boolean, withEdition = false): string[] {
+    const base = ['teamCode', 'subject', 'nrc', ...(withEdition ? ['edition'] : []), 'team', 'members', 'videogame'];
+    return final ? [...base, 'feriaScore', 'juniorScore', 'docenteScore'] : [...base, 'score'];
   }
 
-  private getHeaders(final: boolean): string[] {
-    if (final) {
-      return ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego',
-              'Calificación Feria', 'Calificación Jurado Junior', 'Calificación Docente'];
-    }
-    return ['Código de Equipo', 'Materia', 'NRC', 'Equipo', 'Integrantes', 'Videojuego', 'Calificación Docente'];
+  private getHeaders(final: boolean, withEdition = false): string[] {
+    const base = ['Código de Equipo', 'Materia', 'NRC', ...(withEdition ? ['Feria'] : []), 'Equipo', 'Integrantes', 'Videojuego'];
+    return final
+      ? [...base, 'Calificación Feria', 'Calificación Jurado Junior', 'Calificación Docente']
+      : [...base, 'Calificación Docente'];
   }
 
   // ── Header row styling ────────────────────────────────────────────────────
@@ -198,7 +201,10 @@ export class ExcelExportService {
         }
 
         if (vgId) {
-          const ds = await getDocenteScore(vgId, professorId);
+          const ds = await getDocenteScore(
+            vgId,
+            sheet.professorId ?? professorId,
+          );
           if (ds !== null) {
             docenteScore = ds.toFixed(1);
             g.grade = ds;
@@ -218,6 +224,7 @@ export class ExcelExportService {
         teamCode:  g.teamCode ?? '',
         subject:   sheet.subjectName,
         nrc:       sheet.nrcCode,
+        edition:   sheet.editionLabel ?? '',
         team:      g.teamName,
         members:   Array.from(g.members).join('\n'),
         videogame: g.videogameName,
@@ -284,7 +291,7 @@ export class ExcelExportService {
 
     if (!anyRow) {
       const emptyRow: Record<string, any> = {
-        teamCode: '', subject: sheet.subjectName, nrc: sheet.nrcCode,
+        teamCode: '', subject: sheet.subjectName, nrc: sheet.nrcCode, edition: sheet.editionLabel ?? '',
         team: 'Sin equipos registrados', members: '', videogame: '',
       };
       if (final) {
@@ -328,6 +335,18 @@ export class ExcelExportService {
   private thinBorder(): Partial<ExcelJS.Borders> {
     const side = { style: 'thin' as const, color: { argb: COLORS.borderColor } };
     return { top: side, left: side, bottom: side, right: side };
+  }
+
+  // ── Content-Disposition (static, reusable) ────────────────────────────────
+
+  /** `filename` ASCII de respaldo + `filename*` UTF-8 (RFC 5987) para tildes. */
+  static buildContentDisposition(fileName: string): string {
+    const ascii = fileName
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/[^\x20-\x7E]/g, '_')
+      .replace(/["\\]/g, '_');
+    return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
   }
 
   // ── Sheet name builder (static, reusable) ─────────────────────────────────

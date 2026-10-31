@@ -59,6 +59,7 @@ model EventConfiguration {
   editionId       Int      @unique @map("id_edicion")
   showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   showRanking     Boolean  @default(false) @map("mostrar_ranking")
+  registrationsOpen Boolean @default(false) @map("inscripciones_abiertas")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -88,6 +89,28 @@ model VerificationToken {
 
   @@index([email, tokenTypeId])
   @@map("token_verificacion")
+}
+
+// Refresh tokens emitidos (solo el sha256, nunca el token). Permite rotarlos y revocarlos.
+model RefreshToken {
+  id            String                    @id @default(uuid())
+  userId        String                    @map("user_id")
+  tokenHash     String                    @unique @map("token_hash")
+  expiresAt     DateTime                  @map("expira_en")
+  revokedAt     DateTime?                 @map("revocado_en")
+  // ROTATED tiene ventana de gracia (reintentos del front); LOGOUT y REUSE no.
+  revokedReason RefreshTokenRevokeReason? @map("motivo_revocacion")
+  createdAt     DateTime                  @default(now()) @map("creado_en")
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_token")
+}
+
+enum RefreshTokenRevokeReason {
+  ROTATED
+  LOGOUT
+  REUSE
 }
 
 model Role {
@@ -175,7 +198,7 @@ model User {
   roleId               Int                @map("id_rol")
   createdAt            DateTime           @default(now()) @map("creado_en")
   updatedAt            DateTime           @updatedAt @map("actualizado_en")
-  lastSignInAt         DateTime           @default(now()) @map("ultimoInicioSesion")
+  lastSignInAt         DateTime?          @map("ultimoInicioSesion")
   firstName            String             @db.VarChar(50)
   lastName             String             @db.VarChar(50)
   password             String?            @map("contrasena")
@@ -191,6 +214,8 @@ model User {
   likedVideogames      VideogameLike[]
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
   jurorBadges          JurorBadge[]
+  teamVerifications    TeamVerification[]
+  refreshTokens        RefreshToken[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -206,15 +231,51 @@ model Team {
   isActive         Boolean         @default(true) @map("activo")
   isExternal       Boolean         @default(false) @map("externo")
   teamCode         String          @map("codigo_equipo") @db.VarChar(12)
+  // Código que el estudiante ve en su panel y el jurado digita para calificar (HU-19). Null en equipos N0 (colegios).
+  verificationCode String?         @map("codigo_verificacion") @db.VarChar(8)
   edition          Edition         @relation(fields: [editionId], references: [id])
   user             User            @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]        @relation("TeamMembers")
   videogame        Videogame?
   assignedJurors   User[]          @relation("JurorTeamAssignment")
   rankingResults   RankingResult[]
+  verifications    TeamVerification[]
 
   @@unique([teamCode, editionId])
+  @@unique([verificationCode, editionId])
   @@map("equipos")
+}
+
+// Jurado que ya digitó el código de verificación de un equipo (se pide una sola vez por grupo).
+model TeamVerification {
+  id        Int      @id @default(autoincrement()) @map("id_verificacion")
+  teamId    Int      @map("id_equipo")
+  jurorId   String   @map("id_jurado")
+  createdAt DateTime @default(now()) @map("creado_en")
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  juror     User     @relation(fields: [jurorId], references: [id])
+
+  @@unique([teamId, jurorId])
+  @@map("verificacion_equipo")
+}
+
+enum TeamVerificationAction {
+  ATTEMPT_SUCCESS
+  ATTEMPT_FAILED
+  CODE_VIEWED
+  CODE_REGENERATED
+}
+
+// Registro de intentos y acciones del administrador sobre el código de verificación.
+model TeamVerificationLog {
+  id        Int                    @id @default(autoincrement()) @map("id_registro")
+  action    TeamVerificationAction @map("accion")
+  teamId    Int                    @map("id_equipo")
+  userId    String                 @map("id_usuario")
+  createdAt DateTime               @default(now()) @map("creado_en")
+
+  @@index([teamId, userId, action, createdAt], map: "registro_verificacion_equipo_intentos_idx")
+  @@map("registro_verificacion_equipo")
 }
 
 model HistoricalTeam {
@@ -255,8 +316,23 @@ model HistoricalMember {
   studentCode String         @map("codigo_estudiantil") @db.VarChar(100)
   teamId      Int            @map("id_equipo_historico")
   team        HistoricalTeam @relation("HistoricalTeamMembers", fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nrcs        HistoricalMemberNrc[]
 
   @@map("integrante_historico")
+}
+
+// Immutable NRC association copied at archive time; nrcId is a snapshot value,
+// intentionally without a foreign key to the mutable current NRC table.
+model HistoricalMemberNrc {
+  id                Int              @id @default(autoincrement())
+  historicalMemberId Int              @map("id_integrante_historico")
+  nrcId             Int              @map("id_nrc")
+  code              Int              @map("codigo")
+  member            HistoricalMember @relation(fields: [historicalMemberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([historicalMemberId, nrcId])
+  @@index([nrcId])
+  @@map("integrante_historico_nrc")
 }
 
 model VideogameStatus {
@@ -348,6 +424,8 @@ model Evaluation {
   editionId   Int                @map("id_edicion")
   isActive    Boolean            @default(true) @map("activo")
   isSenior    Boolean            @default(false) @map("es_jurado_senior")
+  contentHash String             @default("") @map("content_hash")
+  idempotencyKey String?         @map("idempotency_key")
   details     EvaluationDetail[]
   Edition     Edition            @relation(fields: [editionId], references: [id])
   juror       User               @relation("JurorEvaluations", fields: [jurorId], references: [id])
@@ -355,6 +433,17 @@ model Evaluation {
 
   @@unique([jurorId, videogameId], name: "jurado_videojuego_unique")
   @@map("evaluacion")
+}
+
+model EvaluationIdempotency {
+  id             Int    @id @default(autoincrement())
+  jurorId        String @map("juror_id")
+  key            String
+  contentHash    String @map("content_hash")
+  response       Json
+
+  @@unique([jurorId, key])
+  @@map("evaluation_idempotency")
 }
 
 model JurorAssignmentAuditLog {

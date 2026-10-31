@@ -24,6 +24,14 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Build
+        run: npm run build
+
+      # TODO: la deuda actual de lint (~1000 errores sin contar prettier) impide hacerlo bloqueante;
+      # quitar continue-on-error cuando se limpie.
+      - name: Lint
+        run: npx eslint src
+        continue-on-error: true
+
       - name: Run tests
         run: npm run test:ci
-        continue-on-error: true

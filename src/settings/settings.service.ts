@@ -77,6 +77,19 @@ export class SettingsService {
     return { showRanking: activeCnfg.showRanking };
   }
 
+  /**
+   * Regla de visibilidad pública del ranking: sin configuración de edición ACTIVE
+   * (periodo entre ediciones) se considera oculto, en lugar de lanzar 404.
+   * `getShowRanking` conserva su contrato.
+   */
+  async isRankingVisible(): Promise<boolean> {
+    const cfg = await this.prisma.eventConfiguration.findFirst({
+      where: { edition: { status: EditionStatus.ACTIVE } },
+      select: { showRanking: true },
+    });
+    return cfg?.showRanking === true;
+  }
+
   async setShowRanking(show: boolean): Promise<{ showRanking: boolean }> {
     if (show === undefined || show === null)
       throw new BadRequestException("Missing 'show' parameter");
@@ -109,6 +122,27 @@ export class SettingsService {
       select: { showEvaluations: true },
     });
     return updated;
+  }
+
+  // Sin configuración de la edición activa se considera cerrada: la lee el front público y no debe fallar con 404
+  async getRegistrationsOpen(): Promise<{ registrationsOpen: boolean }> {
+    const activeCnfg = await this.prisma.eventConfiguration.findFirst({
+      where: { edition: { status: EditionStatus.ACTIVE } },
+      select: { registrationsOpen: true },
+    });
+    return { registrationsOpen: activeCnfg?.registrationsOpen ?? false };
+  }
+
+  async setRegistrationsOpen(open: boolean): Promise<{ registrationsOpen: boolean }> {
+    if (typeof open !== 'boolean')
+      throw new BadRequestException("Missing 'open' parameter");
+    const activeCnfg = await this.getActiveConfig();
+
+    return this.prisma.eventConfiguration.update({
+      where: { id: activeCnfg.id },
+      data: { registrationsOpen: open },
+      select: { registrationsOpen: true },
+    });
   }
 
   private async getActiveConfig(): Promise<EventConfiguration> {

@@ -2,14 +2,17 @@ import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorE
 import { PrismaService } from "../prisma/prisma.service";
 import { StudentsEvaluations, StudentsGrade} from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
+import { findNrcIdsByCodes } from "src/nrcs/nrc-lookup";
 import { Member, Prisma } from "@prisma/client";
+import { AppUser } from "../auth/jwt.strategy";
+import { ROLE_IDS } from "../auth/constants/roles";
 
 @Injectable()
 export class StudentsService {
     constructor(private readonly prisma: PrismaService) { }
 
     async editNrc(
-        userId: string,
+        user: AppUser,
         memberId: number,
         nrcCodes: number[],
     ): Promise<Member> {
@@ -34,7 +37,7 @@ export class StudentsService {
                     select: {
                         id: true,
                         team: {
-                            select: { userId: true }
+                            select: { userId: true, editionId: true }
                         }
                     }
                 });
@@ -42,19 +45,20 @@ export class StudentsService {
                 if (!member)
                     throw new NotFoundException("The provided member does not exist or is inactive")
 
-                if (member.team.userId !== userId) {
+                if (member.team.userId !== user.id && user.roleId !== ROLE_IDS.ADMIN) {
                     throw new ForbiddenException(
                         'You are not authorized to modify NRCs for this member.',
                     );
                 }
 
 
-                const newNrc = await tx.nRC.findMany({
-                    where: { code: { in: nrcCodes }, isActive: true },
-                    select: { id: true }
-                });
+                const newNrc = await findNrcIdsByCodes(
+                    tx,
+                    nrcCodes,
+                    member.team.editionId,
+                );
 
-                if (newNrc.length !== nrcCodes.length) {
+                if (newNrc.missing.length > 0) {
                     throw new NotFoundException("One or more NRCs not found");
                 }
 
@@ -62,7 +66,7 @@ export class StudentsService {
                     where: { id: memberId },
                     data: {
                         nrcs: {
-                            set: newNrc.map(nrc => ({ id: nrc.id }))
+                            set: newNrc.ids.map(id => ({ id }))
                         }
                     },
                     select: selectClause,

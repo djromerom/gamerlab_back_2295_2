@@ -30,13 +30,18 @@ export class RecaptchaService {
       throw new InternalServerErrorException(
         `Server configuration error: Missing required status 'reCAPTCHA'.`,
       );
-    } else if (!RECAPTCHA_URL) {
-      this.logger.warn(`No 'RECAPTCHA_URL' variable was found in the environment. Using default url`);
-      this.verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
-    } else if (!RECAPTCHA_SCORE) {
-      this.logger.warn(`No 'RECAPTCHA_SCORE' variable was found in the environment. Using '0.5' as default`);
-      this.threshold = 0.5;
     }
+
+    if (!RECAPTCHA_URL) {
+      this.logger.warn(`No 'RECAPTCHA_URL' variable was found in the environment. Using default url`);
+    }
+    this.verifyUrl = RECAPTCHA_URL || 'https://www.google.com/recaptcha/api/siteverify';
+
+    const parsedScore = Number(RECAPTCHA_SCORE);
+    if (!parsedScore) {
+      this.logger.warn(`No valid 'RECAPTCHA_SCORE' variable was found in the environment. Using '0.5' as default`);
+    }
+    this.threshold = parsedScore || 0.5;
 
     this.recaptchaSecret = RECAPTCHA_SECRET_KEY;
   }

@@ -1,3 +1,4 @@
+import { findUserByEmailCaseInsensitive } from '../../common/utils/find-user-by-email';
 // src/teams/repositories/team.repository.ts
 import {
   Injectable,
@@ -8,6 +9,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { escapeLike } from '../../common/utils/escape-like';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { Team, Member, Videogame, Prisma, User, EditionStatus } from '@prisma/client';
@@ -18,6 +20,11 @@ import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
 import { AuthService } from 'src/auth/auth.service';
+import { findNrcIdsByCodes } from 'src/nrcs/nrc-lookup';
+import {
+  generateUniqueVerificationCode,
+  isCollegeTeamCode,
+} from '../../team-verification/verification-code.util';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -33,7 +40,7 @@ export class TeamRepository implements ITeamRepository {
     const team = await this.prisma.team.findFirst({
       where: {
         teamName: {
-          equals: teamName,
+          equals: escapeLike(teamName),
           mode: 'insensitive',
         },
       },
@@ -45,7 +52,7 @@ export class TeamRepository implements ITeamRepository {
     const videogame = await this.prisma.videogame.findFirst({
       where: {
         name: {
-          equals: videogameName,
+          equals: escapeLike(videogameName),
           mode: 'insensitive',
         },
       },
@@ -164,6 +171,7 @@ export class TeamRepository implements ITeamRepository {
         const members = await this.createMembers(
           tx,
           team.id,
+          team.editionId,
           createTeamDto.members,
         );
         const videogame = await this.createVideogame(
@@ -446,7 +454,7 @@ export class TeamRepository implements ITeamRepository {
         const existingTeam = await tx.team.findFirst({
           where: {
             teamName: {
-              equals: teamName,
+              equals: escapeLike(teamName),
               mode: 'insensitive',
             },
             id: {
@@ -717,7 +725,12 @@ export class TeamRepository implements ITeamRepository {
         if (!team)
           throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
 
-        const members = await this.createMembers(tx, teamId, [memberDto]);
+        const members = await this.createMembers(
+          tx,
+          teamId,
+          team.editionId,
+          [memberDto],
+        );
 
         return members[0];
       });
@@ -778,9 +791,12 @@ export class TeamRepository implements ITeamRepository {
     });
     if (!studentRole) throw new Error('Role "Estudiante" not found');
 
-    const existingUser = await tx.user.findUnique({
-      where: { email: firstMember.memberEmail },
-    });
+    // Case-insensitive: a user stored with capitals before emails were lowercased is the same
+    // user. `_`/`%` are literal (C1): `a_b@` must never reuse the account of `axb@`.
+    const existingUser = await findUserByEmailCaseInsensitive(
+      tx,
+      firstMember.memberEmail,
+    );
 
     if (existingUser) {
       const hasTeam = await tx.team.findUnique({
@@ -854,12 +870,18 @@ export class TeamRepository implements ITeamRepository {
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
     const teamCode = await this.generateTeamCode(firstMemberNrcCode);
 
+    // HU-19: los equipos universitarios nacen con código de verificación; los de colegios (N0) no
+    const verificationCode = isCollegeTeamCode(teamCode)
+      ? null
+      : await generateUniqueVerificationCode(tx, activeEdition.id);
+
     return await tx.team.create({
       data: {
         teamName: dto.teamName,
         isExternal: dto.isExternal,
         userId,
         teamCode,
+        verificationCode,
         editionId: activeEdition.id,
       },
     });
@@ -936,6 +958,7 @@ export class TeamRepository implements ITeamRepository {
   private async createMembers(
     tx: Prisma.TransactionClient,
     teamId: number,
+    editionId: number,
     members: MemberDto[],
   ) {
     const createdMembers: Member[] = [];
@@ -948,13 +971,12 @@ export class TeamRepository implements ITeamRepository {
           `El correo ${member.memberEmail} ya está registrado en un equipo`,
         );
 
-      const nrcRecords = await tx.nRC.findMany({
-        where: {
-          code: { in: member.nrc.map(Number) },
-        },
-        select: { id: true },
-      });
-      if (nrcRecords.length === 0) {
+      const nrcRecords = await findNrcIdsByCodes(
+        tx,
+        member.nrc.map(Number),
+        editionId,
+      );
+      if (nrcRecords.ids.length === 0) {
         throw new NotFoundException({
           statusCode: 400,
           message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
@@ -970,7 +992,7 @@ export class TeamRepository implements ITeamRepository {
           studentCode: member.studentCode,
           teamId,
           nrcs: {
-            connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+            connect: nrcRecords.ids.map((id) => ({ id })),
           },
         },
         include: { nrcs: true },
@@ -1031,6 +1053,11 @@ export class TeamRepository implements ITeamRepository {
     members: UpdateMemberDto[],
   ) {
     const updatedMembers: UpdateMemberDto[] = [];
+    const team = await tx.team.findUnique({
+      where: { id },
+      select: { editionId: true },
+    });
+    if (!team) throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     for (const member of members) {
       const dbMember = await tx.member.findUnique({
         where: { id: member.id },
@@ -1056,14 +1083,18 @@ export class TeamRepository implements ITeamRepository {
           `Ya existe un registro con el correo ${existingEmail.email}`,
         );
 
-      const nrcRecords = await tx.nRC.findMany({
-        where: {
-          code: {
-            in: (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
-          },
-        },
-        select: { id: true },
-      });
+      const nrcRecords = await findNrcIdsByCodes(
+        tx,
+        (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
+        team.editionId,
+      );
+      if (member.nrc && member.nrc.length > 0 && nrcRecords.ids.length === 0) {
+        throw new NotFoundException({
+          statusCode: 400,
+          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
+          field: `nrc`,
+        });
+      }
 
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },
@@ -1075,7 +1106,7 @@ export class TeamRepository implements ITeamRepository {
           nrcs: member.nrc
             ? {
               set: [],
-              connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+              connect: nrcRecords.ids.map((id) => ({ id })),
             }
             : undefined,
         },
