@@ -1,7 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, Inject } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { SettingsService } from '../settings/settings.service';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
@@ -14,15 +19,29 @@ import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse } from '@nestjs/swagger'
 @ApiTags('reports')
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) { }
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly settingsService: SettingsService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+  ) { }
 
+  // Caché de 10 min con el estado de showRanking en la clave: al ocultar el ranking no se
+  // sirven notas viejas. El administrador con el ranking oculto ve las notas y no usa la caché pública.
   @Public()
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(600000)
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('videojuegoData')
   @ApiOperation({ summary: 'Get videogames with subject and NRC' })
-  async getWithMateriaYNRC() {
-    return this.reportsService.getVideogamesData();
+  async getWithMateriaYNRC(@GetUser() user?: AppUser) {
+    const { showRanking } = await this.settingsService.getShowRanking();
+    if (!showRanking && user?.roleId === ROLE_IDS.ADMIN) {
+      return this.reportsService.getVideogamesData(user);
+    }
+    const key = `reports:videojuegoData:showRanking=${showRanking}`;
+    const cached = await this.cacheManager.get(key);
+    if (cached !== undefined && cached !== null) return cached;
+    const data = await this.reportsService.getVideogamesData(user);
+    await this.cacheManager.set(key, data, 600000);
+    return data;
   }
 
   @Public()

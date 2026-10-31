@@ -78,7 +78,7 @@ export class TeamsController {
 
   @Get('incomplete-jurors')
   @UseGuards(RolePermissionGuard)
-  @RequiredService('ListTeams')
+  @RequiredService('AssignJurors')
   getTeamsWithIncompleteJurors() {
     return this.teamsService.getTeamsWithLessThanThreeJurors();
   }
@@ -97,6 +97,7 @@ export class TeamsController {
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('final-score/videogame/:videogameId')
   @ApiOperation({ summary: 'Get final scores for all teams for a videogame' })
   @ApiOkResponse({
@@ -117,11 +118,15 @@ export class TeamsController {
       ]
     }
   })
-  getFinalScoreByVideogame(@Param('videogameId', ParseIntPipe) videogameId: number) {
-    return this.teamsService.getFinalScoreByVideogame(videogameId);
+  getFinalScoreByVideogame(
+    @Param('videogameId', ParseIntPipe) videogameId: number,
+    @GetUser() user?: AppUser,
+  ) {
+    return this.teamsService.getFinalScoreByVideogame(videogameId, user);
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('final-score/team/:teamId')
   @ApiOperation({ summary: 'Get final score(s) for a specific team' })
   @ApiOkResponse({
@@ -142,8 +147,11 @@ export class TeamsController {
       ]
     }
   })
-  getFinalScoreByTeam(@Param('teamId', ParseIntPipe) teamId: number) {
-    return this.teamsService.getFinalScoreByTeam(teamId);
+  getFinalScoreByTeam(
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @GetUser() user?: AppUser,
+  ) {
+    return this.teamsService.getFinalScoreByTeam(teamId, user);
   }
 
   @Public()

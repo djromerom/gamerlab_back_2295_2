@@ -22,6 +22,7 @@ import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
 import { ROLE_IDS } from '../../auth/constants/roles';
+import { SettingsService } from '../../settings/settings.service';
 import { stripPersonalData } from '../../common/utils/strip-personal-data';
 
 @Injectable()
@@ -33,6 +34,7 @@ export class TeamsService {
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
   ) { }
 
   async findByTeamName(teamName: string): Promise<any> {
@@ -466,10 +468,23 @@ export class TeamsService {
     return this.teamRepository.getTeamsWithLessThanThreeJurors();
   }
 
-  async getFinalScoreByVideogame(videogameId: number): Promise<any[] | null> {
+  /**
+   * Con `showRanking=false` solo el Administrador puede ver las notas finales.
+   * (`by-n/:n` no pasa por aquí: su contrato no cambia.)
+   */
+  private async assertRankingVisible(user?: AppUser): Promise<void> {
+    if (user?.roleId === ROLE_IDS.ADMIN) return;
+    const { showRanking } = await this.settingsService.getShowRanking();
+    if (!showRanking) {
+      throw new ForbiddenException('El ranking no está disponible');
+    }
+  }
+
+  async getFinalScoreByVideogame(videogameId: number, user?: AppUser): Promise<any[] | null> {
     if (!Number.isInteger(videogameId) || videogameId <= 0) {
       throw new BadRequestException('Invalid videogame id');
     }
+    await this.assertRankingVisible(user);
 
     const client: any = (this.prisma as any).teamFinalScore;
 
@@ -480,10 +495,11 @@ export class TeamsService {
     });
   }
 
-  async getFinalScoreByTeam(teamId: number): Promise<any[] | null> {
+  async getFinalScoreByTeam(teamId: number, user?: AppUser): Promise<any[] | null> {
     if (!Number.isInteger(teamId) || teamId <= 0) {
       throw new BadRequestException('Invalid team id');
     }
+    await this.assertRankingVisible(user);
 
     const client: any = (this.prisma as any).teamFinalScore;
 

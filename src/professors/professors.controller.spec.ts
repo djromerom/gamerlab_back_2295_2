@@ -10,6 +10,8 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { Reflector } from '@nestjs/core';
 import { Response } from 'express';
 import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
+import { ForbiddenException } from '@nestjs/common';
+import { ROLE_IDS } from '../auth/constants/roles';
 
 // Smoke test to ensure the controller can be instantiated without errors
 describe('ProfessorsController', () => {
@@ -115,6 +117,34 @@ describe('ProfessorsController', () => {
       query,
       res,
     );
+  });
+
+  // ARK-SP1 #12: un Profesor solo puede leer su propio registro.
+  describe('findOne (ARK-SP1 #12)', () => {
+    const ownId = '11111111-1111-4111-8111-111111111111';
+    const otherId = '22222222-2222-4222-8222-222222222222';
+
+    beforeEach(() => {
+      mockProfessorsService.findOne.mockReset();
+      mockProfessorsService.findOne.mockResolvedValue({ id: ownId });
+    });
+
+    it('Profesor consultando otro id => 403', () => {
+      const user = { id: ownId, roleId: ROLE_IDS.PROFESSOR } as any;
+      expect(() => controller.findOne(otherId, user)).toThrow(ForbiddenException);
+      expect(mockProfessorsService.findOne).not.toHaveBeenCalled();
+    });
+
+    it('Profesor consultando su propio id => 200', async () => {
+      const user = { id: ownId, roleId: ROLE_IDS.PROFESSOR } as any;
+      await expect(controller.findOne(ownId, user)).resolves.toEqual({ id: ownId });
+    });
+
+    it('Administrador consultando cualquier id => 200', async () => {
+      const user = { id: 'admin', roleId: ROLE_IDS.ADMIN } as any;
+      await expect(controller.findOne(otherId, user)).resolves.toEqual({ id: ownId });
+      expect(mockProfessorsService.findOne).toHaveBeenCalledWith(otherId);
+    });
   });
 });
 

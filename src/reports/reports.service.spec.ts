@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportsService } from './reports.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 
 describe('ReportsService', () => {
   let service: ReportsService;
@@ -17,7 +18,8 @@ describe('ReportsService', () => {
         { 
           provide: PrismaService, 
           useValue: mockPrismaService 
-        }],
+        },
+        { provide: SettingsService, useValue: { getShowRanking: jest.fn() } }],
     }).compile();
 
     service = module.get<ReportsService>(ReportsService);

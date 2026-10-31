@@ -17,6 +17,7 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
     repository as any,
     {} as any,
     {} as any,
+    {} as any,
   );
 
   const team = { id: 10, userId: 'leader-1' };
