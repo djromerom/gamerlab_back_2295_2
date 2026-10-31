@@ -8,6 +8,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { escapeLike } from '../../common/utils/escape-like';
 import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { Team, Member, Videogame, Prisma, User, EditionStatus } from '@prisma/client';
@@ -37,7 +38,7 @@ export class TeamRepository implements ITeamRepository {
     const team = await this.prisma.team.findFirst({
       where: {
         teamName: {
-          equals: teamName,
+          equals: escapeLike(teamName),
           mode: 'insensitive',
         },
       },
@@ -49,7 +50,7 @@ export class TeamRepository implements ITeamRepository {
     const videogame = await this.prisma.videogame.findFirst({
       where: {
         name: {
-          equals: videogameName,
+          equals: escapeLike(videogameName),
           mode: 'insensitive',
         },
       },
@@ -450,7 +451,7 @@ export class TeamRepository implements ITeamRepository {
         const existingTeam = await tx.team.findFirst({
           where: {
             teamName: {
-              equals: teamName,
+              equals: escapeLike(teamName),
               mode: 'insensitive',
             },
             id: {

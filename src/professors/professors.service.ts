@@ -1177,12 +1177,15 @@ export class ProfessorsService {
     filters: { page: number; limit: number; editionId?: number; nrcId?: number; team?: string; student?: string; sortBy?: 'student' | 'team'; sortOrder?: 'asc' | 'desc' },
   ) {
     const { page, limit, editionId, nrcId, team, student, sortBy = 'team', sortOrder = 'asc' } = filters;
-    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 ||
-      (editionId !== undefined && (!Number.isInteger(editionId) || editionId < 1)) ||
-      (nrcId !== undefined && (!Number.isInteger(nrcId) || nrcId < 1)) ||
-      !['team', 'student'].includes(sortBy) || !['asc', 'desc'].includes(sortOrder)) {
-      throw new BadRequestException('Invalid pagination, editionId or nrcId');
+    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1) {
+      throw new BadRequestException('página/límite inválidos');
     }
+    if ((editionId !== undefined && (!Number.isInteger(editionId) || editionId < 1)) ||
+      (nrcId !== undefined && (!Number.isInteger(nrcId) || nrcId < 1))) {
+      throw new BadRequestException('editionId/nrcId inválido');
+    }
+    if (!['team', 'student'].includes(sortBy)) throw new BadRequestException('sortBy inválido');
+    if (!['asc', 'desc'].includes(sortOrder)) throw new BadRequestException('sortOrder inválido');
     const activeEdition = await this.prisma.edition.findFirst({
       where: { status: EditionStatus.ACTIVE }, include: { eventConfiguration: true }, orderBy: { id: 'desc' },
     });

@@ -30,6 +30,7 @@ import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { MemberDto } from '../dto/member.dto';
+import { MAX_PAGE_LIMIT } from '../../common/dto/pagination-query.dto';
 
 @Controller('teams')
 @ApiTags('Teams')
@@ -66,11 +67,11 @@ export class TeamsController {
     if (sortByLikes === undefined) {
       sortByLikes = false;
     }
-    if (page && limit) {
-      const pageNum = parseInt(page, 10);
+    if (limit) {
+      const pageNum = page ? parseInt(page, 10) : 1;
       const limitNum = parseInt(limit, 10);
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
-        return this.teamsService.findPaged(pageNum, limitNum, sortByLikes, includePersonalData);
+        return this.teamsService.findPaged(pageNum, Math.min(limitNum, MAX_PAGE_LIMIT), sortByLikes, includePersonalData);
       }
     }
     return this.teamsService.findAll(sortByLikes, includePersonalData);

@@ -31,8 +31,9 @@ export class VideogamesService {
     throw new NotImplementedException('Method create not implemented yet');
   }
 
-  async findAll() {
+  async findAll(limit?: number, page = 1) {
     const videogames = await this.prisma.videogame.findMany({
+      ...(limit ? { orderBy: { id: 'asc' as const }, skip: (page - 1) * limit, take: limit } : {}),
       include: {
         team: {
           select: {

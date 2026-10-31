@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiOkResponse, ApiNotFoundResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { UpdateHistoricalTeamDto } from './dto/update-historical-team.dto';
 import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
@@ -50,7 +50,7 @@ export class HistoricalsController {
   @ApiOkResponse({ description: 'Historical videogames retrieved successfully' })
   @ApiNotFoundResponse({ description: 'Edition not found or no historical videogames available' })
   @ApiBadRequestResponse({ description: 'Invalid edition ID' })
-  getHistoricalVideogames(@Param('editionId') editionId: number) {
+  getHistoricalVideogames(@Param('editionId', ParseIntPipe) editionId: number) {
     return this.historicalsService.getHistoricalVideogamesByEdition(editionId);
   }
 
