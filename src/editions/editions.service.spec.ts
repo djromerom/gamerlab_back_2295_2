@@ -94,6 +94,12 @@ describe('EditionsService', () => {
       expect(result).toEqual(mockEdition);
     });
 
+    it('rechaza con 400 una edición cuyo fin es anterior al inicio (M7)', async () => {
+      const dto = { year: 2026, semester: 10, title: 'Mal', startsAt: new Date('2026-06-01'), endsAt: new Date('2026-01-01') };
+      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+      expect(prisma.edition.create).not.toHaveBeenCalled();
+    });
+
     it('should throw ConflictException if an edition with the same year and semester exists', async () => {
       mockPrismaService.edition.findFirst.mockResolvedValueOnce({ id: 7 });
       const dto = { year: 2026, semester: 30, title: 'Repetida', startsAt: new Date(), endsAt: new Date() };
@@ -157,6 +163,35 @@ describe('EditionsService', () => {
       expect(prisma.edition.update).toHaveBeenCalledWith({ where: { id: 1 }, data: dto });
       expect(result.title).toEqual('Updated');
       expect(prisma.edition.findFirst).not.toHaveBeenCalled();
+    });
+
+    describe('fechas (M7)', () => {
+      const withDates = (startsAt: Date, endsAt: Date) =>
+        mockPrismaService.edition.findUnique.mockResolvedValueOnce({ ...mockEdition, startsAt, endsAt });
+
+      it('rechaza un endsAt anterior al startsAt enviados juntos', async () => {
+        await expect(
+          service.update(1, { startsAt: new Date('2026-06-01'), endsAt: new Date('2026-01-01') }),
+        ).rejects.toThrow(BadRequestException);
+        expect(prisma.edition.update).not.toHaveBeenCalled();
+      });
+
+      it('rechaza un endsAt parcial anterior al startsAt existente', async () => {
+        withDates(new Date('2026-03-01'), new Date('2026-09-01'));
+        await expect(service.update(1, { endsAt: new Date('2026-01-01') })).rejects.toThrow(BadRequestException);
+        expect(prisma.edition.update).not.toHaveBeenCalled();
+      });
+
+      it('rechaza un startsAt parcial posterior al endsAt existente', async () => {
+        withDates(new Date('2026-03-01'), new Date('2026-09-01'));
+        await expect(service.update(1, { startsAt: new Date('2026-12-01') })).rejects.toThrow(BadRequestException);
+      });
+
+      it('un PATCH que no toca fechas no falla aunque la edición ya tenga el fin antes del inicio', async () => {
+        withDates(new Date('2026-09-01'), new Date('2026-03-01'));
+        await expect(service.update(1, { title: 'Updated' })).resolves.toBeDefined();
+        expect(prisma.edition.update).toHaveBeenCalled();
+      });
     });
 
     it('should throw ConflictException when changing to the year and semester of another edition', async () => {

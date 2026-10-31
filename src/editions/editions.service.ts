@@ -24,6 +24,7 @@ export class EditionsService {
   async create(createEditionDto: CreateEditionDto) {
     this.logger.log(`Creating new edition`);
     this.logger.debug(`Payload: ${JSON.stringify(createEditionDto)}`);
+    this.ensureDatesInOrder(createEditionDto.startsAt, createEditionDto.endsAt);
     await this.ensureYearSemesterIsFree(createEditionDto.year, createEditionDto.semester);
     try {
       const result = await this.prisma.edition.create({
@@ -37,6 +38,12 @@ export class EditionsService {
         throw new ConflictException(DUPLICATE_EDITION_MESSAGE);
       }
       throw new InternalServerErrorException('Error interno al crear la edición.');
+    }
+  }
+
+  private ensureDatesInOrder(startsAt?: Date | null, endsAt?: Date | null) {
+    if (startsAt && endsAt && new Date(endsAt).getTime() < new Date(startsAt).getTime()) {
+      throw new BadRequestException('La fecha de finalización no puede ser anterior a la de inicio');
     }
   }
 
@@ -115,6 +122,13 @@ export class EditionsService {
     this.logger.log(`Updating edition #${id}`);
     this.logger.debug(`Update payload: ${JSON.stringify(updateEditionDto)}`);
     const current = await this.findOne(id);
+    // Solo se valida si el PATCH toca alguna fecha; así una edición ya inconsistente sigue editable.
+    if (updateEditionDto.startsAt !== undefined || updateEditionDto.endsAt !== undefined) {
+      this.ensureDatesInOrder(
+        updateEditionDto.startsAt ?? current.startsAt,
+        updateEditionDto.endsAt ?? current.endsAt,
+      );
+    }
     if (updateEditionDto.year !== undefined || updateEditionDto.semester !== undefined) {
       await this.ensureYearSemesterIsFree(
         updateEditionDto.year ?? current.year,

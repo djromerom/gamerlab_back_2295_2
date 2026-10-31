@@ -78,4 +78,12 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
       expect(repository.deleteMember).not.toHaveBeenCalled();
     });
   });
+
+  describe('updateMemberEmail (I2)', () => {
+    it('responde 403 (no 401) a quien no es el líder: el front interpreta 401 como sesión vencida', async () => {
+      await expect(
+        service.updateMemberEmail(10, 55, { email: 'x@uninorte.edu.co' } as any, 'otro-estudiante'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
 });

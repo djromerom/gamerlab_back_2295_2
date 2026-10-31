@@ -432,7 +432,7 @@ export class TeamsService {
     }
 
     if (team.userId !== userId) {
-      throw new UnauthorizedException(
+      throw new ForbiddenException(
         'Solo el líder del equipo puede actualizar los emails de los integrantes',
       );
     }

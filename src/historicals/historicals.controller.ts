@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, UseGuards, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiOkResponse, ApiNotFoundResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { UpdateHistoricalTeamDto } from './dto/update-historical-team.dto';
 import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
@@ -8,6 +8,10 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { stripPersonalData } from '../common/utils/strip-personal-data';
+
+const ID_PIPE = new ParseIntPipe({
+  exceptionFactory: () => new BadRequestException('El identificador debe ser un número entero'),
+});
 
 @Controller('historicals')
 export class HistoricalsController {
@@ -50,7 +54,7 @@ export class HistoricalsController {
   @ApiOkResponse({ description: 'Historical videogames retrieved successfully' })
   @ApiNotFoundResponse({ description: 'Edition not found or no historical videogames available' })
   @ApiBadRequestResponse({ description: 'Invalid edition ID' })
-  getHistoricalVideogames(@Param('editionId') editionId: number) {
+  getHistoricalVideogames(@Param('editionId', ID_PIPE) editionId: number) {
     return this.historicalsService.getHistoricalVideogamesByEdition(editionId);
   }
 

@@ -31,6 +31,12 @@ import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { MemberDto } from '../dto/member.dto';
 
+/**
+ * Tope de `limit` en GET /teams. Más alto que el común (100) porque la vista «Todos» de la tabla de
+ * administración pide `limit=999999` y debe recibir todos los equipos; evita `limit=100000000` (M9).
+ */
+export const MAX_TEAMS_LIST_LIMIT = 1000;
+
 @Controller('teams')
 @ApiTags('Teams')
 @ApiExtraModels(UpdateTeamDto)
@@ -66,11 +72,11 @@ export class TeamsController {
     if (sortByLikes === undefined) {
       sortByLikes = false;
     }
-    if (page && limit) {
-      const pageNum = parseInt(page, 10);
+    if (limit) {
+      const pageNum = page ? parseInt(page, 10) : 1;
       const limitNum = parseInt(limit, 10);
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
-        return this.teamsService.findPaged(pageNum, limitNum, sortByLikes, includePersonalData);
+        return this.teamsService.findPaged(pageNum, Math.min(limitNum, MAX_TEAMS_LIST_LIMIT), sortByLikes, includePersonalData);
       }
     }
     return this.teamsService.findAll(sortByLikes, includePersonalData);
