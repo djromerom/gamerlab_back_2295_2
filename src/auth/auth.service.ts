@@ -967,6 +967,42 @@ export class AuthService {
     return this.emailService.resendAuthEmailOfType(email, typeOfEmail);
   }
 
+  /**
+   * Public entry point (reset-password / resend-confirmation). It answers the same body whether
+   * the account exists, is already confirmed or sending fails, so the response does not reveal
+   * which emails are registered. The email is only sent when the account exists and applies.
+   */
+  async sendPublicAuthEmail(
+    email: string,
+    typeOfEmail: AuthEmailType,
+  ): Promise<{ message: string }> {
+    const response = {
+      message: 'If the account exists and applies, an email has been sent.',
+    };
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { confirmationStatus: true },
+    });
+    if (!user) return response;
+    if (
+      typeOfEmail === 'VERIFICACION_EMAIL' &&
+      user.confirmationStatus?.status === this.CONFIRMED_STATUS_NAME
+    ) {
+      return response;
+    }
+    // Fire and forget: awaiting the send would make existing accounts answer much slower
+    // than unknown ones and reveal which emails are registered (timing leak).
+    void this.emailService
+      .resendAuthEmailOfType(email, typeOfEmail)
+      .catch((error: unknown) => {
+        // Includes ACS rate limits (503 RATE_LIMIT_EXCEEDED); logged without the email address.
+        this.logger.error(
+          `Failed to send ${typeOfEmail} email: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    return response;
+  }
+
   private setAuthCookies(
     res: Response,
     access_token: string,

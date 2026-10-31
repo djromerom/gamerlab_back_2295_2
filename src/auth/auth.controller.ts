@@ -13,6 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { LoginThrottle, PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
@@ -60,6 +61,7 @@ export class AuthController {
 
   // Login
   @Public()
+  @LoginThrottle()
   @Post('login')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({ summary: 'Log in' })
@@ -156,6 +158,7 @@ export class AuthController {
 
   // Resend confirmation email
   @Public()
+  @PublicThrottle(PUBLIC_LIMITS.resendConfirmation)
   @Post('resend-confirmation')
   @ApiOperation({ summary: 'Resend confirmation email' })
   @HttpCode(HttpStatus.OK)
@@ -168,14 +171,13 @@ export class AuthController {
       },
     },
   })
-  @ApiOkResponse({ description: 'Confirmation email sent successfully.' })
-  @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
-  @ApiConflictResponse({ description: 'User is already confirmed.' })
+  @ApiOkResponse({ description: 'Same response whether or not the account exists or is already confirmed.' })
   async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendAuthEmailOfType(body.email, 'VERIFICACION_EMAIL');
+    return await this.authService.sendPublicAuthEmail(body.email, 'VERIFICACION_EMAIL');
   }
 
   @Public()
+  @PublicThrottle(PUBLIC_LIMITS.resetPassword)
   @Post('reset-password')
   @ApiOperation({ summary: 'Send password reset email' })
   @HttpCode(HttpStatus.OK)
@@ -188,10 +190,9 @@ export class AuthController {
       },
     },
   })
-  @ApiOkResponse({ description: 'Password reset email sent successfully.' })
-  @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
+  @ApiOkResponse({ description: 'Same response whether or not the account exists.' })
   async sendResetPasswordEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendAuthEmailOfType(
+    return await this.authService.sendPublicAuthEmail(
       body.email,
       'RESETEAR_CONTRASENA',
     );
