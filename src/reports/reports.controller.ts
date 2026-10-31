@@ -51,18 +51,21 @@ export class ReportsController {
     return this.reportsService.getSubjects();
   }
 
+  // Sin caché. Con el ranking oculto el promedio va en null salvo para el administrador (ARK-SP1 T29).
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('NRCData')
   @ApiOperation({ summary: 'Get NRCs with average per NRC' })
-  async getNrcWithSubjectNameAndAverage() {
-    return this.reportsService.getNrcWithSubjectNameAndAverage();
+  async getNrcWithSubjectNameAndAverage(@GetUser() user?: AppUser) {
+    return this.reportsService.getNrcWithSubjectNameAndAverage(user);
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('DatosGraficoMateria')
   @ApiOperation({ summary: 'Get average score per subject (for charts)' })
-  async getAverageScorePerSubject() {
-    return this.reportsService.getSubjectAverageScores();
+  async getAverageScorePerSubject(@GetUser() user?: AppUser) {
+    return this.reportsService.getSubjectAverageScores(user);
   }
 
   // Devuelve correos de jurados: requiere sesión (BG-02).
