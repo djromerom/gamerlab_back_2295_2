@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -30,6 +31,8 @@ import { Response } from 'express';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
@@ -670,7 +673,11 @@ export class ProfessorsController {
       },
     },
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: AppUser) {
+    // ARK-SP1 #12: un Profesor (GetProfessor) solo lee su propio registro
+    if (user.roleId === ROLE_IDS.PROFESSOR && user.id !== id) {
+      throw new ForbiddenException('Solo puedes consultar tu propio perfil');
+    }
     return this.professorsService.findOne(id);
   }
 

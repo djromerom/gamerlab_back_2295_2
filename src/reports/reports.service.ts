@@ -2,28 +2,41 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { SettingsService } from '../settings/settings.service';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 
 // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 const ROL_JURADO_ID = 4;
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+  ) {}
 
-  async getVideogamesData(): Promise<
+  /**
+   * Lista pública de juegos (home). Con `showRanking=false` y un usuario que no es
+   * Administrador se omiten las notas: promedio, criterios, finalScore, avgJunior, avgSenior.
+   */
+  async getVideogamesData(user?: AppUser): Promise<
     {
       id: number | string;
       nombre: string;
       logoUrl?: string | null;
       materia?: string | null;
       nrc?: number | string | null;
-      promedio: number;
-      criterios: { [nombreCriterio: string]: number };
+      promedio?: number;
+      criterios?: { [nombreCriterio: string]: number };
       evaluacionesCompletadas?: number;
       totalJuradosAsignados?: number;
       codigoEquipo?: string | null;
     }[]
   > {
+    const hideRanking =
+      user?.roleId !== ROLE_IDS.ADMIN &&
+      !(await this.settingsService.isRankingVisible());
     const videojuegos = await this.prisma.videogame.findMany({
       where: { isActive: true },
       include: {
@@ -58,7 +71,9 @@ export class ReportsService {
 
     // Batch fetch final-score rows and evaluation counts to avoid N+1 queries
     const vgIds = videojuegos.map((v) => v.id);
-    const finalRows = await this.prisma.teamFinalScore.findMany({ where: { videogameId: { in: vgIds } as any } });
+    const finalRows = hideRanking
+      ? []
+      : await this.prisma.teamFinalScore.findMany({ where: { videogameId: { in: vgIds } as any } });
     const finalMap = new Map<number, any>();
     finalRows.forEach((r: any) => finalMap.set(Number(r.videogameId), r));
 
@@ -143,7 +158,7 @@ export class ReportsService {
         }
       };
 
-      return {
+      const base = {
         id: v.id,
         nombre: v.name,
         logoUrl: v.logoUrl ?? null,
@@ -153,16 +168,21 @@ export class ReportsService {
         semestre: computeSemestre(v.team),
         materia: materiaList || null,
         nrc: nrcList || null,
-        promedio: finalPromedio,
-        criterios,
         evaluacionesCompletadas: counts.completedCount,
         totalJuradosAsignados: v.team.assignedJurors.length,
-        finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
-        avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
-        avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
         juniorCount: counts.juniorCount,
         seniorCount: counts.seniorCount,
         codigoEquipo: v.team.teamCode ?? null,
+      };
+      if (hideRanking) return base;
+
+      return {
+        ...base,
+        promedio: finalPromedio,
+        criterios,
+        finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
+        avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
+        avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
       };
     }));
   }

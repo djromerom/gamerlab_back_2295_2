@@ -5,6 +5,7 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Importar CACHE_MANAGER
 import { Reflector } from '@nestjs/core'; // Importar Reflector
 import { OptionalAdminRoleGuard } from '../auth/guards/admin-role.guard';
+import { SettingsService } from '../settings/settings.service';
 
 describe('ReportsController', () => {
   let controller: ReportsController;
@@ -36,6 +37,10 @@ describe('ReportsController', () => {
         {
           provide: ReportsService,
           useValue: mockReportsService,
+        },
+        {
+          provide: SettingsService,
+          useValue: { getShowRanking: jest.fn() },
         },
         {
           provide: CACHE_MANAGER, // Usar el token correcto

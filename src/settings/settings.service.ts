@@ -77,6 +77,19 @@ export class SettingsService {
     return { showRanking: activeCnfg.showRanking };
   }
 
+  /**
+   * Regla de visibilidad pública del ranking: sin configuración de edición ACTIVE
+   * (periodo entre ediciones) se considera oculto, en lugar de lanzar 404.
+   * `getShowRanking` conserva su contrato.
+   */
+  async isRankingVisible(): Promise<boolean> {
+    const cfg = await this.prisma.eventConfiguration.findFirst({
+      where: { edition: { status: EditionStatus.ACTIVE } },
+      select: { showRanking: true },
+    });
+    return cfg?.showRanking === true;
+  }
+
   async setShowRanking(show: boolean): Promise<{ showRanking: boolean }> {
     if (show === undefined || show === null)
       throw new BadRequestException("Missing 'show' parameter");
