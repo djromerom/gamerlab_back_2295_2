@@ -1,6 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsInt } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsOptional,
+} from 'class-validator';
 
 export class TeamStatusQueryDto {
   @ApiProperty({
@@ -21,4 +28,18 @@ export class TeamStatusQueryDto {
   @ArrayMaxSize(100)
   @IsInt({ each: true })
   teamIds: number[];
+
+  @ApiPropertyOptional({
+    description: 'Si es true, la respuesta es { status, locks }',
+    example: 'true',
+  })
+  // Con enableImplicitConversion el `value` ya llegó como Boolean("false") === true; se lee el crudo.
+  // Solo el literal `true` activa el parámetro; cualquier otro valor es false.
+  @Transform(
+    ({ obj }: { obj: Record<string, unknown> }): boolean =>
+      obj.includeLocks === 'true' || obj.includeLocks === true,
+  )
+  @IsOptional()
+  @IsBoolean()
+  includeLocks?: boolean;
 }

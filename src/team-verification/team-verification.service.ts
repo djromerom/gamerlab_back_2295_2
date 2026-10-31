@@ -72,14 +72,11 @@ export class TeamVerificationService {
         return { status: 'verified' as const };
       }
 
-      const failedAttempts = await this.countRecentFailedAttempts(
-        tx,
-        team.id,
-        jurorId,
-      );
-      if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+      const failures = await this.findRecentFailures(tx, [team.id], jurorId);
+      if (this.computeLock(failures).locked) {
         return { status: 'locked' as const };
       }
+      const failedAttempts = failures.length;
 
       if (dto.code !== verificationCode) {
         await tx.teamVerificationLog.create({
@@ -89,10 +86,11 @@ export class TeamVerificationService {
             userId: jurorId,
           },
         });
-        return {
-          status: 'wrong' as const,
-          remaining: MAX_FAILED_ATTEMPTS - failedAttempts - 1,
-        };
+        const remaining = MAX_FAILED_ATTEMPTS - failedAttempts - 1;
+        // El último intento permitido ya deja el grupo bloqueado: responde 429, no 400.
+        return remaining <= 0
+          ? { status: 'locked' as const }
+          : { status: 'wrong' as const, remaining };
       }
 
       await tx.teamVerification.create({
@@ -189,6 +187,35 @@ export class TeamVerificationService {
     return status;
   }
 
+  /**
+   * Bloqueo por intentos de cada equipo pedido para el jurado de la sesión. Los grupos ya
+   * verificados y los sin fallos recientes salen `locked: false`.
+   */
+  async getLocks(
+    jurorId: string,
+    teamIds: number[],
+  ): Promise<Record<number, { locked: boolean; lockedUntil: string | null }>> {
+    const [verified, failures] = await Promise.all([
+      this.prisma.teamVerification.findMany({
+        where: { jurorId, teamId: { in: teamIds } },
+        select: { teamId: true },
+      }),
+      this.findRecentFailures(this.prisma, teamIds, jurorId),
+    ]);
+    const verifiedIds = new Set(verified.map((v) => v.teamId));
+
+    const locks: Record<
+      number,
+      { locked: boolean; lockedUntil: string | null }
+    > = {};
+    for (const id of teamIds) {
+      locks[id] = verifiedIds.has(id)
+        ? { locked: false, lockedUntil: null }
+        : this.computeLock(failures.filter((f) => f.teamId === id));
+    }
+    return locks;
+  }
+
   async assertVerified(jurorId: string, videogameId: number) {
     const unverified = await this.findUnverifiedVideogameIds(jurorId, [
       videogameId,
@@ -280,19 +307,43 @@ export class TeamVerificationService {
     return team;
   }
 
-  private countRecentFailedAttempts(
-    tx: Prisma.TransactionClient,
-    teamId: number,
+  /** Fallos de la ventana de bloqueo, del más reciente al más antiguo, por equipo. */
+  private async findRecentFailures(
+    client: Prisma.TransactionClient | PrismaService,
+    teamIds: number[],
     userId: string,
-  ) {
+  ): Promise<{ teamId: number; createdAt: Date }[]> {
     const since = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60 * 1000);
-    return tx.teamVerificationLog.count({
+    return client.teamVerificationLog.findMany({
       where: {
-        teamId,
+        teamId: { in: teamIds },
         userId,
         action: TeamVerificationAction.ATTEMPT_FAILED,
         createdAt: { gte: since },
       },
+      select: { teamId: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Regla única de bloqueo (la usan `verify` y `getLocks`): bloqueado con MAX_FAILED_ATTEMPTS
+   * fallos dentro de la ventana. Se libera cuando el 5.º fallo más reciente sale de la ventana.
+   * `failures` debe ser de un solo equipo y venir del más reciente al más antiguo.
+   */
+  private computeLock(failures: { createdAt: Date }[]): {
+    locked: boolean;
+    lockedUntil: string | null;
+  } {
+    if (failures.length < MAX_FAILED_ATTEMPTS) {
+      return { locked: false, lockedUntil: null };
+    }
+    const decisive = failures[MAX_FAILED_ATTEMPTS - 1].createdAt;
+    return {
+      locked: true,
+      lockedUntil: new Date(
+        decisive.getTime() + ATTEMPT_WINDOW_MINUTES * 60 * 1000,
+      ).toISOString(),
+    };
   }
 }
