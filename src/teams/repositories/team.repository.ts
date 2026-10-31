@@ -18,6 +18,7 @@ import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
 import { AuthService } from 'src/auth/auth.service';
+import { findNrcIdsByCodes } from 'src/nrcs/nrc-lookup';
 import {
   generateUniqueVerificationCode,
   isCollegeTeamCode,
@@ -168,6 +169,7 @@ export class TeamRepository implements ITeamRepository {
         const members = await this.createMembers(
           tx,
           team.id,
+          team.editionId,
           createTeamDto.members,
         );
         const videogame = await this.createVideogame(
@@ -721,7 +723,12 @@ export class TeamRepository implements ITeamRepository {
         if (!team)
           throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
 
-        const members = await this.createMembers(tx, teamId, [memberDto]);
+        const members = await this.createMembers(
+          tx,
+          teamId,
+          team.editionId,
+          [memberDto],
+        );
 
         return members[0];
       });
@@ -946,6 +953,7 @@ export class TeamRepository implements ITeamRepository {
   private async createMembers(
     tx: Prisma.TransactionClient,
     teamId: number,
+    editionId: number,
     members: MemberDto[],
   ) {
     const createdMembers: Member[] = [];
@@ -958,13 +966,12 @@ export class TeamRepository implements ITeamRepository {
           `El correo ${member.memberEmail} ya está registrado en un equipo`,
         );
 
-      const nrcRecords = await tx.nRC.findMany({
-        where: {
-          code: { in: member.nrc.map(Number) },
-        },
-        select: { id: true },
-      });
-      if (nrcRecords.length === 0) {
+      const nrcRecords = await findNrcIdsByCodes(
+        tx,
+        member.nrc.map(Number),
+        editionId,
+      );
+      if (nrcRecords.ids.length === 0) {
         throw new NotFoundException({
           statusCode: 400,
           message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
@@ -980,7 +987,7 @@ export class TeamRepository implements ITeamRepository {
           studentCode: member.studentCode,
           teamId,
           nrcs: {
-            connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+            connect: nrcRecords.ids.map((id) => ({ id })),
           },
         },
         include: { nrcs: true },
@@ -1041,6 +1048,11 @@ export class TeamRepository implements ITeamRepository {
     members: UpdateMemberDto[],
   ) {
     const updatedMembers: UpdateMemberDto[] = [];
+    const team = await tx.team.findUnique({
+      where: { id },
+      select: { editionId: true },
+    });
+    if (!team) throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     for (const member of members) {
       const dbMember = await tx.member.findUnique({
         where: { id: member.id },
@@ -1066,14 +1078,18 @@ export class TeamRepository implements ITeamRepository {
           `Ya existe un registro con el correo ${existingEmail.email}`,
         );
 
-      const nrcRecords = await tx.nRC.findMany({
-        where: {
-          code: {
-            in: (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
-          },
-        },
-        select: { id: true },
-      });
+      const nrcRecords = await findNrcIdsByCodes(
+        tx,
+        (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
+        team.editionId,
+      );
+      if (member.nrc && member.nrc.length > 0 && nrcRecords.ids.length === 0) {
+        throw new NotFoundException({
+          statusCode: 400,
+          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
+          field: `nrc`,
+        });
+      }
 
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },
@@ -1085,7 +1101,7 @@ export class TeamRepository implements ITeamRepository {
           nrcs: member.nrc
             ? {
               set: [],
-              connect: nrcRecords.map((nrc) => ({ id: nrc.id })),
+              connect: nrcRecords.ids.map((id) => ({ id })),
             }
             : undefined,
         },
