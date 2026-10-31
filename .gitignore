@@ -139,3 +139,8 @@ dist
 api-tests
 env
 .vscode/
+
+# Archivos locales/generados
+cookies.txt
+output.sql
+big-seed.py

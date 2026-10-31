@@ -71,7 +71,7 @@ This project follows the standard modular architecture promoted by NestJS. Under
 <a name="development-workflow"></a>
 When adding a new feature or fixing a bug:
 
-1.  **Create a Branch:** Branch off the main development branch (`dev` in our case). Use a descriptive name (e.g., `feat/add-game-evaluation`, `fix/login-error`).
+1.  **Create a Branch:** Branch off the main development branch (`dev` in our case). Use a descriptive name (`<type>/ARK-NN-short-description`, e.g. `feat/ARK-12-add-game-evaluation`; see `BRANCHING.md`).
 2.  **Setup Development Environment:** Use the Docker development setup: `docker-compose -f docker-compose.dev.yml up`
 3.  **Identify/Create Module:** Determine if the changes belong to an existing module or if a new module is needed (use `npx nest g module <module-name>`).
 4.  **Update Prisma Schema (if needed):** Define or modify models in `prisma/schema.prisma`. It's likely that you DO NOT need to make changes here.
@@ -271,8 +271,8 @@ src/
 Make sure your `.env` file is properly configured. Key variables include:
 - `DATABASE_URL`: Database connection (automatically set for Docker)
 - `JWT_SECRET`: Secret for JWT token signing
-- `EMAIL_*`: EmailJS configuration for sending emails
-- `AZURE_*`: Azure Blob Storage configuration for file uploads
+- `ACS_*`: Azure Communication Services configuration (`ACS_CONNECTION_STRING`, `ACS_SENDER_ADDRESS`) for sending emails
+- `AZURE_*`: Azure Blob Storage configuration for file uploads (`AZURE_BLOB_SAS_URL`, `AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`)
 
 ## Pushing Changes
 <a name="pushing-changes"></a>
@@ -281,7 +281,7 @@ To push your changes to the remote repository, follow these steps:
 1. **Test your changes locally** using the Docker development environment
 2. **Commit your changes** locally using `git commit -m "Your descriptive commit message"`
 3. **Push your changes** to the remote repository using `git push origin your-branch-name`
-4. **Create a Pull Request** to `dev` or `main` through GitHub
+4. **Create a Pull Request** to `dev` through GitHub (`main` only receives promotions from `dev`; see `BRANCHING.md`)
 
 **Important:** 
 - Please **do not merge** your branch into `dev` or `main` directly
