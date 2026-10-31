@@ -1103,6 +1103,49 @@ export class ProfessorsService {
 
   // ── Upload & evaluation ───────────────────────────────────────────────────
 
+  /**
+   * Guarda en lote las evaluaciones senior del profesor (HU-01). Cada fila se
+   * procesa por separado: un fallo no detiene las demas.
+   */
+  async updateTeamEvaluationBatch(
+    professorId: string,
+    evaluations: { videogameId: number; score: number }[] | undefined,
+  ) {
+    const rows = Array.isArray(evaluations) ? evaluations : [];
+    const results = await Promise.all(
+      rows.map(async (row) => {
+        const videogameId = row?.videogameId;
+        try {
+          if (!Number.isInteger(videogameId) || videogameId < 1) {
+            throw new Error('videogameId must be a positive integer');
+          }
+          await this.updateTeamEvaluation(
+            videogameId,
+            professorId,
+            row?.score,
+            true,
+          );
+          return { videogameId, success: true as const };
+        } catch (error) {
+          const response = (error as { response?: unknown })?.response;
+          const fromResponse =
+            typeof response === 'string'
+              ? response
+              : (response as { message?: string } | undefined)?.message;
+          return {
+            videogameId,
+            success: false as const,
+            message:
+              fromResponse ??
+              (error as { message?: string })?.message ??
+              'Could not save evaluation',
+          };
+        }
+      }),
+    );
+    return { results };
+  }
+
   async updateTeamEvaluation(
     videogameId: number,
     professorId: string,

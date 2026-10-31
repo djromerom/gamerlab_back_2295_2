@@ -47,6 +47,7 @@ import { GradingGamesService } from './grading-games.service';
 import { BatchTeamEvaluationDto } from './dto/batch-team-evaluation.dto';
 import { ProfessorsService } from './professors.service';
 import { SelectOption } from './types/select-option.type';
+import * as EX from './professors.swagger-examples';
 
 @ApiTags('Professors')
 @ApiBearerAuth()
@@ -65,29 +66,11 @@ export class ProfessorsController {
   @ApiCreatedResponse({ description: 'Professor created' })
   @ApiBody({
     type: CreateProfessorDto,
-    examples: {
-      default: {
-        summary: 'Create professor example',
-        value: {
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john.doe@uninorte.edu.co',
-        },
-      },
-    },
+    examples: EX.CREATE_PROFESSOR_REQUEST_EXAMPLES,
   })
   @ApiCreatedResponse({
     description: 'Professor created',
-    schema: {
-      example: {
-        id: 'a1b2c3d4-uuid-example',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@uninorte.edu.co',
-        roleId: 3,
-        isActive: true,
-      },
-    },
+    schema: { example: EX.CREATE_PROFESSOR_RESPONSE_EXAMPLE },
   })
   create(@Body() createProfessorDto: CreateProfessorDto) {
     return this.professorsService.create(createProfessorDto);
@@ -100,27 +83,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Paginated list of professors',
-    schema: {
-      example: {
-        data: [
-          {
-            id: 'uuid-1',
-            firstName: 'John',
-            lastName: 'Doe',
-            email: 'john@example.com',
-            roleId: 3,
-            isActive: true,
-          },
-        ],
-        metadata: {
-          totalItems: 1,
-          itemsOnCurrentPage: 1,
-          currentPage: 1,
-          itemsPerPage: 25,
-          totalPages: 1,
-        },
-      },
-    },
+    schema: { example: EX.LIST_PROFESSORS_RESPONSE_EXAMPLE },
   })
   findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<User>> {
     const { includeInactive, limit, page } = query;
@@ -141,27 +104,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'List of subjects with NRCs',
-    schema: {
-      example: [
-        {
-          id: 1,
-          name: 'Algoritmia y Programación I',
-          code: 'IST1234',
-          semester: 1,
-          nrcs: [
-            { id: 1, code: 2496, isActive: true },
-            { id: 2, code: 2498, isActive: true },
-          ],
-        },
-        {
-          id: 2,
-          name: 'Estructura de Datos I',
-          code: 'IST2050',
-          semester: 3,
-          nrcs: [{ id: 3, code: 5025, isActive: true }],
-        },
-      ],
-    },
+    schema: { example: EX.MY_SUBJECTS_RESPONSE_EXAMPLE },
   })
   async findProfessorSubjects(
     @GetUser('id') professorId: string,
@@ -178,7 +121,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Select options',
-    schema: { example: [{ id: 'uuid-1', label: 'John Doe' }] },
+    schema: { example: EX.SELECT_OPTIONS_RESPONSE_EXAMPLE },
   })
   async findSelectOptions(): Promise<SelectOption[]> {
     return this.professorsService.findForSelect();
@@ -235,39 +178,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Projects associated with this NRC and edition only',
-    schema: {
-      example: {
-        filter: {
-          nrcId: 3,
-          nrcCode: 2501,
-          editionId: 1,
-          year: 2025,
-          semester: 10,
-        },
-        data: [
-          {
-            teamCode: 'D25N2501-01',
-            nrc: '2501',
-            team: 'Demo 2025 NRC 2501 - Mision Naturaleza',
-            subject: 'Colegios',
-            integrantes: 'Isabella Mora',
-            videogame: 'Mision Naturaleza',
-            calificacionFeria: null,
-            calificacionDocente: null,
-            videogameId: 1,
-            editionId: 1,
-            nrcId: 3,
-          },
-        ],
-        metadata: {
-          totalItems: 1,
-          itemsOnCurrentPage: 1,
-          currentPage: 1,
-          itemsPerPage: 20,
-          totalPages: 1,
-        },
-      },
-    },
+    schema: { example: EX.NRC_REPORT_BY_ID_RESPONSE_EXAMPLE },
   })
   async GetReportByNRCId(
     @Param('nrcId', ParseIntPipe) nrcId: number,
@@ -317,30 +228,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Team report for NRC (team-centric, paginated)',
-    schema: {
-      example: {
-        data: [
-          {
-            teamCode: 'N1-IST-101',
-            nrc: '2498, 2496',
-            team: 'Warriors',
-            subject: 'Algoritmia y Programación I',
-            integrantes: 'Camilo Gómez, Laura Mendoza, Valentina Ramírez',
-            videogame: 'Stella',
-            calificacionFeria: 4.8,
-            calificacionDocente: 4.8,
-            videogameId: 24,
-          },
-        ],
-        metadata: {
-          totalItems: 1,
-          itemsOnCurrentPage: 1,
-          currentPage: 1,
-          itemsPerPage: 20,
-          totalPages: 1,
-        },
-      },
-    },
+    schema: { example: EX.NRC_REPORT_BY_CODE_RESPONSE_EXAMPLE },
   })
   async GetReportByNRC(
     @Param('nrcCode', ParseIntPipe) nrcCode: number,
@@ -382,31 +270,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Juror evaluations for university teams',
-    schema: {
-      example: {
-        data: [
-          {
-            teamCode: 'ABC-123',
-            nrc: '2496',
-            team: 'Warriors',
-            subject: 'Algoritmia y Programación I',
-            integrantes: 'Camilo Gómez, Laura Mendoza',
-            videogame: 'Stella',
-            calificacionFeria: 4.5,
-            calificacionDocente: null,
-            videogameId: 24,
-            isExternal: false,
-          },
-        ],
-        metadata: {
-          totalItems: 1,
-          itemsOnCurrentPage: 1,
-          currentPage: 1,
-          itemsPerPage: 20,
-          totalPages: 1,
-        },
-      },
-    },
+    schema: { example: EX.JUROR_EVALUATIONS_RESPONSE_EXAMPLE },
   })
   async getJurorEvaluations(
     @Query() query: PaginationQueryDto,
@@ -453,41 +317,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Signature report data (team-centric)',
-    schema: {
-      example: {
-        data: [
-          {
-            teamCode: 'N1-IST-101',
-            nrc: '2498',
-            team: 'Nebula',
-            subject: 'Algoritmia y Programación I',
-            integrantes: 'Natalia Suárez, Julián Castro, Mariana Ortiz',
-            videogame: 'Nebula Clash',
-            calificacionFeria: 5,
-            calificacionDocente: 5,
-            videogameId: 25,
-          },
-          {
-            teamCode: 'N1-IST-101',
-            nrc: '2496, 2498',
-            team: 'Warriors',
-            subject: 'Algoritmia y Programación I',
-            integrantes: 'Valentina Ramírez, Camilo Gómez, Laura Mendoza',
-            videogame: 'Stella',
-            calificacionFeria: 4.8,
-            calificacionDocente: 4.8,
-            videogameId: 24,
-          },
-        ],
-        metadata: {
-          totalItems: 2,
-          itemsOnCurrentPage: 2,
-          currentPage: 1,
-          itemsPerPage: 20,
-          totalPages: 1,
-        },
-      },
-    },
+    schema: { example: EX.SIGNATURE_REPORT_RESPONSE_EXAMPLE },
   })
   async getSignatureReport(
     @Param('subjectName') subjectName: string,
@@ -517,56 +347,17 @@ export class ProfessorsController {
   @ApiOperation({ summary: 'Inline upsert for team evaluation' })
   @ApiBody({
     type: UpdateTeamEvaluationDto,
-    examples: {
-      updateExample: {
-        summary: 'Update example',
-        value: { videogameId: 24, score: 4.7, isSenior: true },
-      },
-      upsertExample: {
-        summary: 'Upsert (create) example',
-        value: { videogameId: 27, score: 4.5, isSenior: true },
-      },
-    },
+    examples: EX.TEAM_EVALUATION_REQUEST_EXAMPLES,
   })
   @ApiResponse({
     status: 201,
     description: 'Evaluation created',
-    schema: {
-      example: {
-        action: 'created',
-        evaluation: {
-          id: 11,
-          date: '2025-11-14T06:12:40.992Z',
-          comments: null,
-          totalScore: 4.5,
-          jurorId: 'f777c17a-3390-4830-bf21-fb92235a679b',
-          videogameId: 27,
-          editionId: 2,
-          isSenior: true,
-          isActive: true,
-        },
-      },
-    },
+    schema: { example: EX.TEAM_EVALUATION_CREATED_EXAMPLE },
   })
   @ApiResponse({
     status: 200,
     description: 'Evaluation updated',
-    schema: {
-      example: {
-        action: 'updated',
-        evaluation: {
-          id: 1,
-          date: '2025-11-08T22:57:51.792Z',
-          comments: null,
-          totalScore: 4.7,
-          jurorId: 'f777c17a-3390-4830-bf21-fb92235a679b',
-          videogameId: 24,
-          editionId: 2,
-          isSenior: true,
-          isActive: true,
-        },
-      },
-    },
+    schema: { example: EX.TEAM_EVALUATION_UPDATED_EXAMPLE },
   })
   async updateTeamEvaluationInline(
     @Body() dto: UpdateTeamEvaluationDto,
@@ -597,32 +388,18 @@ export class ProfessorsController {
   @RequiredService('UploadSeniorGrades')
   @ApiOperation({ summary: 'Save professor evaluations in batch' })
   @ApiBody({ type: BatchTeamEvaluationDto })
-  @ApiResponse({ status: 200, schema: { example: { results: [
-    { videogameId: 24, success: true },
-    { videogameId: 25, success: false, message: 'Score must be between 0 and 5, with at most two decimal places' },
-  ] } } })
+  @ApiResponse({
+    status: 200,
+    schema: { example: EX.BATCH_TEAM_EVALUATION_RESPONSE_EXAMPLE },
+  })
   async updateTeamEvaluationBatch(
     @Body() dto: BatchTeamEvaluationDto,
     @GetUser('id') professorId: string,
   ) {
-    const results = await Promise.all((Array.isArray(dto?.evaluations) ? dto.evaluations : []).map(async (row) => {
-      const videogameId = row?.videogameId;
-      try {
-        if (!Number.isInteger(videogameId) || videogameId < 1) {
-          throw new Error('videogameId must be a positive integer');
-        }
-        await this.professorsService.updateTeamEvaluation(videogameId, professorId, row?.score, true);
-        return { videogameId, success: true as const };
-      } catch (error) {
-        const message = (error as any)?.response;
-        return {
-          videogameId,
-          success: false as const,
-          message: typeof message === 'string' ? message : message?.message ?? (error as any)?.message ?? 'Could not save evaluation',
-        };
-      }
-    }));
-    return { results };
+    return this.professorsService.updateTeamEvaluationBatch(
+      professorId,
+      dto?.evaluations,
+    );
   }
 
   @Get('grading-games')
@@ -673,16 +450,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Professor data',
-    schema: {
-      example: {
-        id: 'uuid-1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        roleId: 3,
-        isActive: true,
-      },
-    },
+    schema: { example: EX.PROFESSOR_RESPONSE_EXAMPLE },
   })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.professorsService.findOne(id);
@@ -695,16 +463,7 @@ export class ProfessorsController {
   @ApiResponse({
     status: 200,
     description: 'Updated professor',
-    schema: {
-      example: {
-        id: 'uuid-1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        roleId: 3,
-        isActive: true,
-      },
-    },
+    schema: { example: EX.UPDATED_PROFESSOR_RESPONSE_EXAMPLE },
   })
   update(
     @Param('id', ParseUUIDPipe) id: string,
