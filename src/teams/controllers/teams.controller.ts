@@ -30,6 +30,7 @@ import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { MemberDto } from '../dto/member.dto';
+import { RegistrationsOpenGuard } from '../../settings/registrations-open.guard';
 
 @Controller('teams')
 @ApiTags('Teams')
@@ -38,6 +39,7 @@ export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenGuard)
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);

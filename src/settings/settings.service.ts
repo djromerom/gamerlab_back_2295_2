@@ -111,6 +111,27 @@ export class SettingsService {
     return updated;
   }
 
+  // Sin configuración de la edición activa se considera cerrada: la lee el front público y no debe fallar con 404
+  async getRegistrationsOpen(): Promise<{ registrationsOpen: boolean }> {
+    const activeCnfg = await this.prisma.eventConfiguration.findFirst({
+      where: { edition: { status: EditionStatus.ACTIVE } },
+      select: { registrationsOpen: true },
+    });
+    return { registrationsOpen: activeCnfg?.registrationsOpen ?? false };
+  }
+
+  async setRegistrationsOpen(open: boolean): Promise<{ registrationsOpen: boolean }> {
+    if (typeof open !== 'boolean')
+      throw new BadRequestException("Missing 'open' parameter");
+    const activeCnfg = await this.getActiveConfig();
+
+    return this.prisma.eventConfiguration.update({
+      where: { id: activeCnfg.id },
+      data: { registrationsOpen: open },
+      select: { registrationsOpen: true },
+    });
+  }
+
   private async getActiveConfig(): Promise<EventConfiguration> {
     const activeCnfg = await this.prisma.eventConfiguration.findFirst({
       where: { edition: { status: EditionStatus.ACTIVE } },

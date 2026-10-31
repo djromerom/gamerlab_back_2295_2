@@ -8,6 +8,8 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
 import { isAllowedImage, isZip } from './file-signature';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { RegistrationsOpenGuard } from '../settings/registrations-open.guard';
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -17,6 +19,7 @@ export class UploadController {
   // Público porque lo usa la inscripción web antes de crear la cuenta; con límite de peticiones (BG-02)
   @Public()
   @PublicThrottle(PUBLIC_LIMITS.imageUpload)
+  @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenGuard)
   @Post()
   @UseFilters(MulterExceptionFilter)
   @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
@@ -94,6 +97,7 @@ export class UploadController {
 
   @Public()
   @PublicThrottle(PUBLIC_LIMITS.zipUpload)
+  @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenGuard)
   @Post('zip')
   @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
   @ApiBody({
