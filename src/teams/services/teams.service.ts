@@ -478,12 +478,11 @@ export class TeamsService {
 
   /**
    * Con `showRanking=false` solo el Administrador puede ver las notas finales.
-   * (`by-n/:n` no pasa por aquí: su contrato no cambia.)
+   * `by-n/:n` también pasa por aquí, pero convierte el Forbidden en `[]` (su contrato).
    */
   private async assertRankingVisible(user?: AppUser): Promise<void> {
     if (user?.roleId === ROLE_IDS.ADMIN) return;
-    const { showRanking } = await this.settingsService.getShowRanking();
-    if (!showRanking) {
+    if (!(await this.settingsService.isRankingVisible())) {
       throw new ForbiddenException('El ranking no está disponible');
     }
   }

@@ -36,7 +36,7 @@ export class ReportsService {
   > {
     const hideRanking =
       user?.roleId !== ROLE_IDS.ADMIN &&
-      !(await this.settingsService.getShowRanking()).showRanking;
+      !(await this.settingsService.isRankingVisible());
     const videojuegos = await this.prisma.videogame.findMany({
       where: { isActive: true },
       include: {

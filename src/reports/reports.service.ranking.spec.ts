@@ -11,7 +11,7 @@ describe('ReportsService.getVideogamesData — ranking oculto (ARK-SP1 #1)', () 
     teamFinalScore: { findMany: jest.fn() },
     evaluation: { findMany: jest.fn() },
   };
-  const settings = { getShowRanking: jest.fn() };
+  const settings = { isRankingVisible: jest.fn() };
   const service = new ReportsService(prisma as any, settings as any);
 
   const admin = { id: 'a', roleId: ROLE_IDS.ADMIN } as any;
@@ -54,14 +54,14 @@ describe('ReportsService.getVideogamesData — ranking oculto (ARK-SP1 #1)', () 
   ];
 
   it('con showRanking=false y sin usuario lista los juegos sin notas', async () => {
-    settings.getShowRanking.mockResolvedValue({ showRanking: false });
+    settings.isRankingVisible.mockResolvedValue(false);
     const [game] = await service.getVideogamesData(undefined);
     expect(game).toMatchObject({ id: 2, nombre: 'Stella', logoUrl: 'x.png' });
     for (const k of hiddenKeys) expect(game).not.toHaveProperty(k);
   });
 
   it('con showRanking=false y administrador devuelve las notas', async () => {
-    settings.getShowRanking.mockResolvedValue({ showRanking: false });
+    settings.isRankingVisible.mockResolvedValue(false);
     const [game] = await service.getVideogamesData(admin);
     expect(game).toMatchObject({
       promedio: 4.5,
@@ -73,14 +73,14 @@ describe('ReportsService.getVideogamesData — ranking oculto (ARK-SP1 #1)', () 
   });
 
   it('con showRanking=true y sin usuario devuelve las notas', async () => {
-    settings.getShowRanking.mockResolvedValue({ showRanking: true });
+    settings.isRankingVisible.mockResolvedValue(true);
     const [game] = await service.getVideogamesData(undefined);
     expect(game).toMatchObject({ promedio: 4.5, finalScore: 4.5 });
     expect(game).toHaveProperty('criterios');
   });
 
   it('con el ranking oculto no consulta las notas finales', async () => {
-    settings.getShowRanking.mockResolvedValue({ showRanking: false });
+    settings.isRankingVisible.mockResolvedValue(false);
     await service.getVideogamesData(undefined);
     expect(prisma.teamFinalScore.findMany).not.toHaveBeenCalled();
   });

@@ -32,7 +32,7 @@ export class ReportsController {
   @Get('videojuegoData')
   @ApiOperation({ summary: 'Get videogames with subject and NRC' })
   async getWithMateriaYNRC(@GetUser() user?: AppUser) {
-    const { showRanking } = await this.settingsService.getShowRanking();
+    const showRanking = await this.settingsService.isRankingVisible();
     if (!showRanking && user?.roleId === ROLE_IDS.ADMIN) {
       return this.reportsService.getVideogamesData(user);
     }

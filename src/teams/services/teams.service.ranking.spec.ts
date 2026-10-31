@@ -13,7 +13,7 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
     teamFinalScore: finalScore,
     edition: { findFirst: jest.fn() },
   };
-  const settings = { getShowRanking: jest.fn() };
+  const settings = { isRankingVisible: jest.fn() };
   const service = new TeamsService(
     {} as any,
     {} as any,
@@ -38,23 +38,23 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
 
   describe.each(cases)('%s', (_name, call) => {
     it('con showRanking=false y sin usuario lanza Forbidden', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      settings.isRankingVisible.mockResolvedValue(false);
       await expect(call(undefined)).rejects.toThrow(ForbiddenException);
       expect(finalScore.findMany).not.toHaveBeenCalled();
     });
 
     it('con showRanking=false y un estudiante lanza Forbidden', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      settings.isRankingVisible.mockResolvedValue(false);
       await expect(call(student)).rejects.toThrow(ForbiddenException);
     });
 
     it('con showRanking=false y administrador devuelve datos', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      settings.isRankingVisible.mockResolvedValue(false);
       await expect(call(admin)).resolves.toEqual(rows);
     });
 
     it('con showRanking=true y sin usuario devuelve datos', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: true });
+      settings.isRankingVisible.mockResolvedValue(true);
       await expect(call(undefined)).resolves.toEqual(rows);
     });
   });
@@ -75,7 +75,7 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
     });
 
     it('con showRanking=false y sin usuario devuelve []', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      settings.isRankingVisible.mockResolvedValue(false);
       await expect(
         service.getFinalScoreByTeamCodePrefix('N1', undefined),
       ).resolves.toEqual([]);
@@ -83,28 +83,28 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
     });
 
     it('con showRanking=false y un estudiante devuelve []', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      settings.isRankingVisible.mockResolvedValue(false);
       await expect(
         service.getFinalScoreByTeamCodePrefix('N1', student),
       ).resolves.toEqual([]);
     });
 
     it('con showRanking=false y administrador devuelve datos', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      settings.isRankingVisible.mockResolvedValue(false);
       await expect(
         service.getFinalScoreByTeamCodePrefix('all', admin),
       ).resolves.toHaveLength(1);
     });
 
     it('con showRanking=true y sin usuario devuelve datos', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: true });
+      settings.isRankingVisible.mockResolvedValue(true);
       await expect(
         service.getFinalScoreByTeamCodePrefix('N1', undefined),
       ).resolves.toHaveLength(1);
     });
 
     it('prefix inválido sigue dando 400', async () => {
-      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      settings.isRankingVisible.mockResolvedValue(false);
       await expect(
         service.getFinalScoreByTeamCodePrefix('', undefined),
       ).rejects.toThrow(BadRequestException);
@@ -115,6 +115,6 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
     await expect(
       (service as any).assertRankingVisible(admin),
     ).resolves.toBeUndefined();
-    expect(settings.getShowRanking).not.toHaveBeenCalled();
+    expect(settings.isRankingVisible).not.toHaveBeenCalled();
   });
 });
