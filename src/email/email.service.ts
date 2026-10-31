@@ -29,9 +29,6 @@ import { RestError } from '@azure/core-rest-pipeline';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
-  // TODO: reemplazar por feature de fechas por edición
-  private readonly EVENT_DATE = '28 de mayo';
-
   private emailClient: EmailClient | null = null;
   private senderAddress: string = '';
 
@@ -48,6 +45,43 @@ export class EmailService {
     private readonly certificatesService: CertificatesService,
     private readonly configService: ConfigService,
   ) { }
+
+  /**
+   * Fecha, hora y lugar del evento, leídos de EVENT_DATE_TEXT, EVENT_TIME_TEXT
+   * y EVENT_PLACE_TEXT. Sin valores por defecto: si falta alguna se falla con
+   * un mensaje claro en lugar de enviar un dato fijo desactualizado.
+   */
+  getEventInfo(): { eventDate: string; eventTime: string; eventPlace: string } {
+    const read = (name: string): string => {
+      const value = this.configService.get<string>(name)?.trim();
+      if (!value) {
+        throw new InternalServerErrorException(
+          `Configuración faltante: defina la variable de entorno ${name} (fecha, hora y lugar del evento).`,
+        );
+      }
+      return value;
+    };
+    return {
+      eventDate: read('EVENT_DATE_TEXT'),
+      eventTime: read('EVENT_TIME_TEXT'),
+      eventPlace: read('EVENT_PLACE_TEXT'),
+    };
+  }
+
+  /** Fecha del evento con el año de la edición activa, p. ej. "27 de noviembre de 2026". */
+  private async getEventDateWithYear(): Promise<string> {
+    const { eventDate } = this.getEventInfo();
+    const edition = await this.prisma.edition.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { year: true },
+    });
+    if (!edition) {
+      throw new InternalServerErrorException(
+        'Configuración faltante: no hay una edición activa para determinar el año del evento.',
+      );
+    }
+    return `${eventDate} de ${edition.year}`;
+  }
 
   /**
    * INICIALIZACIÓN DEL MÓDULO (Ejecutado por NestJS al arrancar el servidor)
@@ -188,7 +222,7 @@ export class EmailService {
       if (typeOfEmail === 'VERIFICACION_EMAIL') {
         templateParams = {
           confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-          eventDate: this.EVENT_DATE,
+          ...this.getEventInfo(),
         };
       } else {
         const userName = user.firstName
@@ -244,7 +278,7 @@ export class EmailService {
           select: { name: true },
         });
         templateParams['videogameName'] = videogame?.name || '';
-        templateParams['eventDate'] = this.EVENT_DATE;
+        templateParams['eventDate'] = this.getEventInfo().eventDate;
       }
 
       if (params) {
@@ -355,6 +389,9 @@ export class EmailService {
       return { message: 'No hay jurados activos para enviar certificados.', sent: 0, failed: 0, errors: [] };
     }
 
+    // Falla antes de generar PDFs si falta la configuración del evento.
+    const eventDateWithYear = await this.getEventDateWithYear();
+
     this.logger.log(`Found ${jurors.length} active jurors. Sending certificates...`);
 
     let sent = 0;
@@ -377,7 +414,7 @@ export class EmailService {
           juror.email,
           'Tu certificado de participación — V Feria Gamer',
           'juror_certificate',
-          { jurorName },
+          { jurorName, eventDateWithYear },
           attachments,
         );
 
@@ -422,6 +459,7 @@ export class EmailService {
       }
 
       const jurorName = `${user.firstName} ${user.lastName}`;
+      const eventDateWithYear = await this.getEventDateWithYear();
 
       // 2. Generar el PDF
       const pdfBuffer = await this.certificatesService.generateJurorCertificateHtml(userId);
@@ -437,7 +475,7 @@ export class EmailService {
         user.email,
         'Tu certificado de participación — V Feria Gamer',
         'juror_certificate',   // → src/email/templates/juror_certificate.hbs
-        { jurorName },
+        { jurorName, eventDateWithYear },
         attachments,
       );
 
