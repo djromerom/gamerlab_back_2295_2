@@ -1,4 +1,4 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 /*
@@ -45,12 +45,27 @@ describe('AuthService.sendPublicAuthEmail', () => {
     expect(c).toEqual(a);
   });
 
-  it('si el envío falla para una cuenta existente, responde igual (el error solo se registra)', async () => {
+  it('la respuesta no espera el envío (no hay filtración por tiempo)', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(confirmed);
-    emailService.resendAuthEmailOfType.mockRejectedValueOnce(new InternalServerErrorException('boom'));
-    prisma.user.findUnique.mockResolvedValueOnce(null);
-    const failed = await service.sendPublicAuthEmail('a@x.co', 'RESETEAR_CONTRASENA');
-    const missing = await service.sendPublicAuthEmail('no@x.co', 'RESETEAR_CONTRASENA');
-    expect(failed).toEqual(missing);
+    emailService.resendAuthEmailOfType.mockReturnValueOnce(new Promise(() => undefined));
+    const result = await service.sendPublicAuthEmail('a@x.co', 'RESETEAR_CONTRASENA');
+    expect(result).toBeDefined();
+    expect(emailService.resendAuthEmailOfType).toHaveBeenCalledTimes(1);
+  });
+
+  it('un rechazo del envío en segundo plano se registra sin excepción no controlada', async () => {
+    const errorSpy = jest.spyOn((service as unknown as { logger: Logger }).logger, 'error').mockImplementation(() => undefined);
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    prisma.user.findUnique.mockResolvedValueOnce(confirmed);
+    emailService.resendAuthEmailOfType.mockRejectedValueOnce(new ServiceUnavailableException('RATE_LIMIT_EXCEEDED'));
+    const result = await service.sendPublicAuthEmail('a@x.co', 'RESETEAR_CONTRASENA');
+    await new Promise((r) => setImmediate(r));
+    process.off('unhandledRejection', unhandled);
+    expect(typeof result.message).toBe('string');
+    expect(unhandled).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(String(errorSpy.mock.calls[0][0])).not.toContain('a@x.co');
+    expect(String(errorSpy.mock.calls[0][0])).toContain('RATE_LIMIT_EXCEEDED');
   });
 });

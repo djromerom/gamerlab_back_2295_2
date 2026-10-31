@@ -13,7 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
+import { LoginThrottle, PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
@@ -61,7 +61,7 @@ export class AuthController {
 
   // Login
   @Public()
-  @PublicThrottle(PUBLIC_LIMITS.login)
+  @LoginThrottle()
   @Post('login')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({ summary: 'Log in' })

@@ -990,13 +990,16 @@ export class AuthService {
     ) {
       return response;
     }
-    try {
-      await this.emailService.resendAuthEmailOfType(email, typeOfEmail);
-    } catch (error) {
-      this.logger.error(
-        `Failed to send ${typeOfEmail} email: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    // Fire and forget: awaiting the send would make existing accounts answer much slower
+    // than unknown ones and reveal which emails are registered (timing leak).
+    void this.emailService
+      .resendAuthEmailOfType(email, typeOfEmail)
+      .catch((error: unknown) => {
+        // Includes ACS rate limits (503 RATE_LIMIT_EXCEEDED); logged without the email address.
+        this.logger.error(
+          `Failed to send ${typeOfEmail} email: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
     return response;
   }
 
