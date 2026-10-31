@@ -338,7 +338,10 @@ export class TeamsService {
     return await this.teamRepository.findOne(id);
   }
 
-  async findOneWithDetails(identifier: string): Promise<unknown> {
+  async findOneWithDetails(
+    identifier: string,
+    user: AppUser,
+  ): Promise<unknown> {
     let team =
       await this.teamRepository.findOneWithDetailsByLeaderId(identifier);
 
@@ -351,6 +354,24 @@ export class TeamsService {
       throw new NotFoundException(
         `Equipo con líder o ID ${identifier} no encontrado`,
       );
+    }
+
+    // F1/BG-07: el detalle incluye correos y códigos estudiantiles. Un estudiante
+    // solo lo ve si es el líder o un integrante activo del equipo.
+    if (user.roleId === ROLE_IDS.STUDENT) {
+      const email = user.email?.toLowerCase();
+      const isLeader = team.userId === user.id;
+      const isMember =
+        !!email &&
+        (team.members ?? []).some(
+          (m: { email: string }) => m.email?.toLowerCase() === email,
+        );
+
+      if (!isLeader && !isMember) {
+        throw new ForbiddenException(
+          'You do not have permission to access this resource.',
+        );
+      }
     }
 
     return team;
