@@ -5,6 +5,8 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam } from '@nestjs/swagger';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { AdminRoleGuard } from 'src/auth/guards/admin-role.guard';
+import { UpdateRegistrationsDto } from './dto/update-registrations.dto';
 
 @ApiTags('Settings')
 @Controller('settings')
@@ -168,5 +170,30 @@ export class SettingsController {
   })
   setShowEvaluations(@Body() dto: { show: boolean }) {
     return this.settingsService.setShowEvaluation(dto.show);
+  }
+
+  @Public()
+  @Get('registrations')
+  @ApiOperation({ summary: 'Get if team registrations are open (public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns whether registrations are open; false when the active edition has no configuration',
+    schema: { example: { registrationsOpen: true } },
+  })
+  getRegistrationsOpen() {
+    return this.settingsService.getRegistrationsOpen();
+  }
+
+  @Patch('registrations')
+  @UseGuards(AdminRoleGuard)
+  @ApiOperation({ summary: 'Open or close team registrations (administrators only)' })
+  @ApiBody({ schema: { example: { open: true } }, type: UpdateRegistrationsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the updated registrations status',
+    schema: { example: { registrationsOpen: true } },
+  })
+  setRegistrationsOpen(@Body() dto: UpdateRegistrationsDto) {
+    return this.settingsService.setRegistrationsOpen(dto.open);
   }
 }

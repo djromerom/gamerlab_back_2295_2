@@ -13,6 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { LoginThrottle, PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
@@ -24,6 +25,7 @@ import { SetPasswordDto } from './dto/set-password.dto';
 import { VerifyTokenDto } from './dto/verify-token.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ConfigService } from '@nestjs/config';
+import { opaqueUserKey } from '../common/utils/opaque-user-key';
 import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 import {
   ApiTags,
@@ -40,13 +42,6 @@ import {
   ApiInternalServerErrorResponse,
 } from '@nestjs/swagger';
 
-class AuthTokensDoc {
-  message: string;
-  access: string;
-  refresh: string;
-  accessTokenExpiresIn: number;
-}
-
 class RefreshTokensDoc {
   message: string;
   accessToken: string;
@@ -60,6 +55,7 @@ export class AuthController {
 
   // Login
   @Public()
+  @LoginThrottle()
   @Post('login')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({ summary: 'Log in' })
@@ -85,12 +81,11 @@ export class AuthController {
     },
   })
   @ApiCreatedResponse({
-    description: 'Successful login',
+    description:
+      'Successful login. The tokens are only set as HttpOnly cookies (access-token, refresh-token).',
     schema: {
       example: {
         message: 'Login successful',
-        access: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         accessTokenExpiresIn: 900,
       }
     }
@@ -132,7 +127,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh tokens',
     description:
-      'Requires a valid refresh token in the request cookies to issue new access and refresh tokens.',
+      'Requires a valid, non-revoked refresh token in the request cookies. Rotates it: the old one stops working, and replaying it revokes every session of the user.',
   })
   @ApiBearerAuth('refresh')
   @ApiCreatedResponse({
@@ -156,6 +151,7 @@ export class AuthController {
 
   // Resend confirmation email
   @Public()
+  @PublicThrottle(PUBLIC_LIMITS.resendConfirmation)
   @Post('resend-confirmation')
   @ApiOperation({ summary: 'Resend confirmation email' })
   @HttpCode(HttpStatus.OK)
@@ -168,14 +164,13 @@ export class AuthController {
       },
     },
   })
-  @ApiOkResponse({ description: 'Confirmation email sent successfully.' })
-  @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
-  @ApiConflictResponse({ description: 'User is already confirmed.' })
+  @ApiOkResponse({ description: 'Same response whether or not the account exists or is already confirmed.' })
   async sendconfirmationEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendAuthEmailOfType(body.email, 'VERIFICACION_EMAIL');
+    return await this.authService.sendPublicAuthEmail(body.email, 'VERIFICACION_EMAIL');
   }
 
   @Public()
+  @PublicThrottle(PUBLIC_LIMITS.resetPassword)
   @Post('reset-password')
   @ApiOperation({ summary: 'Send password reset email' })
   @HttpCode(HttpStatus.OK)
@@ -188,10 +183,9 @@ export class AuthController {
       },
     },
   })
-  @ApiOkResponse({ description: 'Password reset email sent successfully.' })
-  @ApiNotFoundResponse({ description: 'User with the provided email does not exist.' })
+  @ApiOkResponse({ description: 'Same response whether or not the account exists.' })
   async sendResetPasswordEmail(@Body() body: ResendConfirmationDto) {
-    return await this.authService.resendAuthEmailOfType(
+    return await this.authService.sendPublicAuthEmail(
       body.email,
       'RESETEAR_CONTRASENA',
     );
@@ -303,8 +297,8 @@ export class AuthController {
       }
     }
   })
-  async logout(@Res({ passthrough: true }) res: Response) {
-    return this.authService.logout(res);
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    return this.authService.logout(req, res);
   }
 
   @Post('reset-token-expiration')
@@ -362,6 +356,8 @@ export class AuthController {
   @ApiNotFoundResponse({ description: 'User profile not found' })
   @ApiUnauthorizedResponse({ description: 'No access token provided' })
   async getMyProfile(@GetUser() user: AppUser) {
-    return this.authService.getMyProfile(user.id);
+    const profile = await this.authService.getMyProfile(user.id);
+    // Se calcula aquí y no en el servicio para no guardar la clave en la caché del perfil.
+    return { ...profile, likeKey: opaqueUserKey(user.id) };
   }
 }

@@ -23,8 +23,16 @@ describe('TeamVerificationService', () => {
   const prismaMock = {
     team: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     videogame: { findMany: jest.fn() },
-    teamVerification: { findUnique: jest.fn(), create: jest.fn() },
-    teamVerificationLog: { create: jest.fn(), count: jest.fn() },
+    teamVerification: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    teamVerificationLog: {
+      create: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
+    },
     $transaction: jest.fn(),
     $executeRaw: jest.fn(),
   };
@@ -36,6 +44,9 @@ describe('TeamVerificationService', () => {
     verificationCode: 'K7M2QX',
     assignedJurors: [{ id: jurorId }],
   };
+
+  const failedAt = (n: number, at = new Date()) =>
+    Array.from({ length: n }, () => ({ createdAt: at }));
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -53,7 +64,7 @@ describe('TeamVerificationService', () => {
     it('guarda la verificación cuando el código coincide', async () => {
       prismaMock.team.findFirst.mockResolvedValue(universityTeam);
       prismaMock.teamVerification.findUnique.mockResolvedValue(null);
-      prismaMock.teamVerificationLog.count.mockResolvedValue(0);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue([]);
 
       const result = await service.verify(jurorId, dto);
 
@@ -74,7 +85,7 @@ describe('TeamVerificationService', () => {
     it('rechaza un código incorrecto, lo registra e indica los intentos restantes', async () => {
       prismaMock.team.findFirst.mockResolvedValue(universityTeam);
       prismaMock.teamVerification.findUnique.mockResolvedValue(null);
-      prismaMock.teamVerificationLog.count.mockResolvedValue(1);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue(failedAt(1));
 
       await expect(
         service.verify(jurorId, { teamId: 10, code: 'ZZZZZZ' }),
@@ -93,8 +104,8 @@ describe('TeamVerificationService', () => {
     it('bloquea con 429 tras el máximo de intentos fallidos sin comparar el código', async () => {
       prismaMock.team.findFirst.mockResolvedValue(universityTeam);
       prismaMock.teamVerification.findUnique.mockResolvedValue(null);
-      prismaMock.teamVerificationLog.count.mockResolvedValue(
-        MAX_FAILED_ATTEMPTS,
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue(
+        failedAt(MAX_FAILED_ATTEMPTS),
       );
 
       const error: unknown = await service
@@ -110,7 +121,7 @@ describe('TeamVerificationService', () => {
     it('toma el candado por (equipo, jurado) antes de contar los intentos', async () => {
       prismaMock.team.findFirst.mockResolvedValue(universityTeam);
       prismaMock.teamVerification.findUnique.mockResolvedValue(null);
-      prismaMock.teamVerificationLog.count.mockResolvedValue(0);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue([]);
 
       await service.verify(jurorId, dto);
 
@@ -121,7 +132,7 @@ describe('TeamVerificationService', () => {
       expect(sql.join('?')).toContain('pg_advisory_xact_lock');
       expect(values).toEqual([10, jurorId]);
       expect(prismaMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
-        prismaMock.teamVerificationLog.count.mock.invocationCallOrder[0],
+        prismaMock.teamVerificationLog.findMany.mock.invocationCallOrder[0],
       );
     });
 
@@ -138,8 +149,8 @@ describe('TeamVerificationService', () => {
       let failedLogs = 0;
       prismaMock.team.findFirst.mockResolvedValue(universityTeam);
       prismaMock.teamVerification.findUnique.mockResolvedValue(null);
-      prismaMock.teamVerificationLog.count.mockImplementation(() =>
-        Promise.resolve(failedLogs),
+      prismaMock.teamVerificationLog.findMany.mockImplementation(() =>
+        Promise.resolve(failedAt(failedLogs)),
       );
       prismaMock.teamVerificationLog.create.mockImplementation(() => {
         failedLogs++;
@@ -158,8 +169,8 @@ describe('TeamVerificationService', () => {
       expect(failedLogs).toBe(MAX_FAILED_ATTEMPTS);
       expect(
         errors.filter((e) => e instanceof BadRequestException),
-      ).toHaveLength(MAX_FAILED_ATTEMPTS);
-      expect(errors.filter((e) => e?.getStatus() === 429)).toHaveLength(3);
+      ).toHaveLength(MAX_FAILED_ATTEMPTS - 1);
+      expect(errors.filter((e) => e?.getStatus() === 429)).toHaveLength(4);
     });
 
     it('no vuelve a pedir el código si el jurado ya verificó el grupo', async () => {
@@ -172,7 +183,7 @@ describe('TeamVerificationService', () => {
       });
 
       expect(result).toEqual({ verified: true, required: true });
-      expect(prismaMock.teamVerificationLog.count).not.toHaveBeenCalled();
+      expect(prismaMock.teamVerificationLog.findMany).not.toHaveBeenCalled();
     });
 
     it('rechaza con 403 si el grupo no está asignado al jurado', async () => {
@@ -206,6 +217,162 @@ describe('TeamVerificationService', () => {
       await expect(service.verify(jurorId, dto)).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+
+    it('del 1.º al 4.º fallo responde 400 con los intentos restantes y el 5.º responde 429', async () => {
+      prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+      prismaMock.teamVerification.findUnique.mockResolvedValue(null);
+      let failed = 0;
+      prismaMock.teamVerificationLog.findMany.mockImplementation(() =>
+        Promise.resolve(failedAt(failed)),
+      );
+      prismaMock.teamVerificationLog.create.mockImplementation(() => {
+        failed++;
+        return Promise.resolve({});
+      });
+
+      for (let n = 1; n < MAX_FAILED_ATTEMPTS; n++) {
+        const error: unknown = await service
+          .verify(jurorId, { teamId: 10, code: 'ZZZZZZ' })
+          .catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as HttpException).message).toContain(
+          `Intentos restantes: ${MAX_FAILED_ATTEMPTS - n}`,
+        );
+      }
+
+      const fifth: unknown = await service
+        .verify(jurorId, { teamId: 10, code: 'ZZZZZZ' })
+        .catch((e: unknown) => e);
+      expect((fifth as HttpException).getStatus()).toBe(429);
+      expect((fifth as HttpException).message).toContain(
+        'Demasiados intentos fallidos. Espera 10 minutos',
+      );
+      expect(failed).toBe(MAX_FAILED_ATTEMPTS);
+    });
+
+    it('5 fallos repartidos en más de 10 minutos no bloquean (la ventana filtra por fecha)', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-10-30T12:00:00.000Z'));
+      try {
+        const min = (m: number) => new Date(Date.now() - m * 60 * 1000);
+        // 3 fallos viejos (fuera de ventana) y 2 recientes.
+        const all = [1, 2, 3, 11, 12].map((m) => ({
+          teamId: 10,
+          createdAt: min(m),
+        }));
+        prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+        prismaMock.teamVerification.findUnique.mockResolvedValue(null);
+        prismaMock.teamVerificationLog.findMany.mockImplementation(
+          ({ where }: { where: { createdAt: { gte: Date } } }) =>
+            Promise.resolve(
+              all.filter((f) => f.createdAt >= where.createdAt.gte),
+            ),
+        );
+
+        await expect(service.verify(jurorId, dto)).resolves.toEqual({
+          verified: true,
+          required: true,
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('verifica correctamente cuando el bloqueo ya expiró', async () => {
+      prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+      prismaMock.teamVerification.findUnique.mockResolvedValue(null);
+      // La consulta ya filtra por ventana: fallos viejos no vuelven.
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue([]);
+
+      await expect(service.verify(jurorId, dto)).resolves.toEqual({
+        verified: true,
+        required: true,
+      });
+      const where = (
+        prismaMock.teamVerificationLog.findMany.mock.calls[0] as [
+          { where: { createdAt: { gte: Date } } },
+        ]
+      )[0].where;
+      expect(where.createdAt.gte).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('getLocks', () => {
+    const now = new Date('2026-10-30T12:00:00.000Z');
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(now);
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('con 5 fallos recientes marca locked y lockedUntil = ahora + 10 min', async () => {
+      prismaMock.teamVerification.findMany.mockResolvedValue([]);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue(
+        failedAt(5, now).map((f) => ({ ...f, teamId: 10 })),
+      );
+
+      const locks = await service.getLocks(jurorId, [10]);
+
+      expect(locks).toEqual({
+        10: { locked: true, lockedUntil: '2026-10-30T12:10:00.000Z' },
+      });
+    });
+
+    it('pasada la ventana el bloqueo caduca (la consulta excluye fallos viejos)', async () => {
+      prismaMock.teamVerification.findMany.mockResolvedValue([]);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue([]);
+
+      const locks = await service.getLocks(jurorId, [10]);
+
+      expect(locks).toEqual({ 10: { locked: false, lockedUntil: null } });
+      const { where } = (
+        prismaMock.teamVerificationLog.findMany.mock.calls[0] as [
+          { where: { createdAt: { gte: Date } } },
+        ]
+      )[0];
+      expect(where.createdAt.gte.toISOString()).toBe(
+        '2026-10-30T11:50:00.000Z',
+      );
+    });
+
+    it('lockedUntil usa el 5.º fallo más reciente (se libera al salir de la ventana el más antiguo)', async () => {
+      prismaMock.teamVerification.findMany.mockResolvedValue([]);
+      const old = new Date(now.getTime() - 9 * 60 * 1000);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue([
+        { teamId: 10, createdAt: now },
+        { teamId: 10, createdAt: now },
+        { teamId: 10, createdAt: now },
+        { teamId: 10, createdAt: now },
+        { teamId: 10, createdAt: old },
+      ]);
+
+      const locks = await service.getLocks(jurorId, [10]);
+
+      expect(locks[10].lockedUntil).toBe('2026-10-30T12:01:00.000Z');
+    });
+
+    it('no mezcla grupos: bloqueado en uno no implica bloqueado en otro', async () => {
+      prismaMock.teamVerification.findMany.mockResolvedValue([]);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue([
+        ...failedAt(5, now).map((f) => ({ ...f, teamId: 10 })),
+        ...failedAt(2, now).map((f) => ({ ...f, teamId: 11 })),
+      ]);
+
+      const locks = await service.getLocks(jurorId, [10, 11, 12]);
+
+      expect(locks[10].locked).toBe(true);
+      expect(locks[11]).toEqual({ locked: false, lockedUntil: null });
+      expect(locks[12]).toEqual({ locked: false, lockedUntil: null });
+    });
+
+    it('un grupo ya verificado no figura bloqueado', async () => {
+      prismaMock.teamVerification.findMany.mockResolvedValue([{ teamId: 10 }]);
+      prismaMock.teamVerificationLog.findMany.mockResolvedValue(
+        failedAt(5, now).map((f) => ({ ...f, teamId: 10 })),
+      );
+
+      const locks = await service.getLocks(jurorId, [10]);
+
+      expect(locks[10]).toEqual({ locked: false, lockedUntil: null });
     });
   });
 

@@ -11,9 +11,13 @@ import {
   PanelEdition,
   PanelNrcGroup,
   ProfessorPanelQueryService,
+  seesAllProfessors,
 } from './professor-panel-query.service';
 
 export const NO_DATA_TO_EXPORT_MESSAGE = 'No hay datos para exportar';
+
+const docenteKey = (jurorId: string, videogameId: number) =>
+  `${jurorId}:${videogameId}`;
 
 /** Etiqueta de feria para archivo y hojas, p. ej. `2026-30`. */
 export function editionPeriod(edition: PanelEdition): string {
@@ -44,6 +48,8 @@ export function buildGradingReportFileName(
 /**
  * Exportación del panel de profesores con los filtros activos (HU-02).
  * Una fila por equipo; una hoja por NRC con resultados.
+ * El Administrador exporta todos los NRC activos de la feria activa (M4); la
+ * nota docente de cada hoja es la del profesor dueño del NRC.
  */
 @Injectable()
 export class GradingReportExportService {
@@ -57,16 +63,20 @@ export class GradingReportExportService {
     professorId: string,
     query: GradingReportQueryDto,
     res: Response,
+    roleId?: number,
   ): Promise<void> {
     const groups = (
-      await this.panelQuery.findPanelGroups(professorId, query)
+      await this.panelQuery.findPanelGroups(professorId, query, roleId)
     ).filter((g) => g.teams.length > 0);
 
     if (groups.length === 0) {
       throw new NotFoundException(NO_DATA_TO_EXPORT_MESSAGE);
     }
 
-    const scores = await this.loadScores(groups, professorId);
+    const scores = await this.loadScores(
+      groups,
+      seesAllProfessors(roleId) ? null : professorId,
+    );
 
     await this.excelExport.generateAndStream(
       {
@@ -78,8 +88,10 @@ export class GradingReportExportService {
           Promise.resolve(scores.feria.get(vgId) ?? null),
         getJuniorScore: (vgId) =>
           Promise.resolve(scores.junior.get(vgId) ?? null),
-        getDocenteScore: (vgId) =>
-          Promise.resolve(scores.docente.get(vgId) ?? null),
+        getDocenteScore: (vgId, sheetProfessorId) =>
+          Promise.resolve(
+            scores.docente.get(docenteKey(sheetProfessorId, vgId)) ?? null,
+          ),
         // Los equipos sin videojuego activo no tienen nota que resolver
         resolveVideogameId: () => Promise.resolve(null),
       },
@@ -113,14 +125,21 @@ export class GradingReportExportService {
         ),
         subjectName: group.subjectName,
         nrcCode: String(group.nrcCode),
+        professorId: group.professorId,
         editionLabel: `${group.edition.title} (${editionPeriod(group.edition)})`,
         groups: rows,
       };
     });
   }
 
-  /** Precarga todas las notas en una consulta por tipo (evita N+1). */
-  private async loadScores(groups: PanelNrcGroup[], professorId: string) {
+  /**
+   * Precarga todas las notas en una consulta por tipo (evita N+1).
+   * `professorId` null (Administrador): notas docentes de los dueños de los NRC.
+   */
+  private async loadScores(
+    groups: PanelNrcGroup[],
+    professorId: string | null,
+  ) {
     const videogameIds = [
       ...new Set(
         groups.flatMap((g) =>
@@ -133,7 +152,7 @@ export class GradingReportExportService {
 
     const feria = new Map<number, number>();
     const junior = new Map<number, number>();
-    const docente = new Map<number, number>();
+    const docente = new Map<string, number>();
     if (videogameIds.length === 0) return { feria, junior, docente };
 
     const [finalScores, evaluations] = await Promise.all([
@@ -144,10 +163,12 @@ export class GradingReportExportService {
       this.prisma.evaluation.findMany({
         where: {
           videogameId: { in: videogameIds },
-          jurorId: professorId,
+          jurorId: professorId ?? {
+            in: [...new Set(groups.map((g) => g.professorId))],
+          },
           isActive: true,
         },
-        select: { videogameId: true, totalScore: true },
+        select: { videogameId: true, jurorId: true, totalScore: true },
         orderBy: { id: 'asc' },
       }),
     ]);
@@ -158,8 +179,9 @@ export class GradingReportExportService {
     }
     for (const ev of evaluations) {
       // Igual que antes: la primera evaluación del profesor para ese videojuego
-      if (ev.totalScore !== null && !docente.has(ev.videogameId)) {
-        docente.set(ev.videogameId, ev.totalScore);
+      const key = docenteKey(ev.jurorId, ev.videogameId);
+      if (ev.totalScore !== null && !docente.has(key)) {
+        docente.set(key, ev.totalScore);
       }
     }
     return { feria, junior, docente };

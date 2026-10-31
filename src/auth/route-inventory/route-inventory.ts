@@ -25,6 +25,8 @@ export const ADMIN_ROLE_NAME = 'Administrador';
  * si no, la prueba `route-access.spec.ts` falla. Así ninguna ruta queda sin decidir.
  */
 export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
+  'PATCH /settings/registrations':
+    'Solo el Administrador (AdminRoleGuard): abre o cierra las inscripciones.',
   'GET /videogames/:id/my-like':
     'Cualquier usuario con sesión puede consultar si ya dio like a un juego.',
   'POST /videogames/:id/toggle-like':
@@ -57,7 +59,7 @@ export const ROUTE_NOTES: Record<string, string> = {
   'POST /upload':
     'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':
-    'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
+    'Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 100 MB, 3 por 10 min y verificación del tipo de archivo (I6).',
   'GET /reports/videojuegoData':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
   'GET /reports/materiaData':

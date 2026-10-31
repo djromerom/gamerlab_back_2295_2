@@ -539,6 +539,28 @@ describe('JurorAssignmentService - manual assignment module', () => {
         );
     });
     
+    it('unassignAll también desasigna a los jurados desactivados (sin filas residuales)', async () => {
+        prismaMock.team.findMany.mockResolvedValueOnce([
+            { id: colegioTeam.id, assignedJurors: [{ id: 'inactivo-1' }] },
+        ]);
+        const tx = { team: { update: jest.fn().mockResolvedValue({}) } };
+        prismaMock.$transaction.mockImplementationOnce(async (callback: any) =>
+            callback(tx),
+        );
+        auditMock.create.mockResolvedValueOnce({ id: 9 });
+
+        const result = await service.unassignAll(actorUserId);
+
+        const query = prismaMock.team.findMany.mock.calls.at(-1)[0];
+        expect(query.where.assignedJurors.some).not.toHaveProperty('isActive');
+        expect(query.include.assignedJurors.where).not.toHaveProperty('isActive');
+        expect(result.asignacionesEliminadas).toBe(1);
+        expect(tx.team.update).toHaveBeenCalledWith({
+            where: { id: colegioTeam.id },
+            data: { assignedJurors: { set: [] } },
+        });
+    });
+
     /*
     it('debe devolver 0 si unassignAll no encuentra asignaciones', async () => {
         prismaMock.team.findMany.mockResolvedValueOnce([]);
@@ -679,6 +701,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         expect(result[0].teamId).toBe(n1Team.id);
         expect(result[0].totalJuradosAsignados).toBe(2);
         expect(result[0].juradosQueEvaluaron).toBe(1);
-        expect(result[0].juradosPendientes).toBe(1);
+        // Siempre se requieren 3 evaluaciones: pendientes = 3 - evaluaron.
+        expect(result[0].juradosPendientes).toBe(2);
     });
 });

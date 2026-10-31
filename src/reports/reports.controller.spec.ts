@@ -5,6 +5,7 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Importar CACHE_MANAGER
 import { Reflector } from '@nestjs/core'; // Importar Reflector
 import { OptionalAdminRoleGuard } from '../auth/guards/admin-role.guard';
+import { SettingsService } from '../settings/settings.service';
 
 describe('ReportsController', () => {
   let controller: ReportsController;
@@ -38,6 +39,10 @@ describe('ReportsController', () => {
           useValue: mockReportsService,
         },
         {
+          provide: SettingsService,
+          useValue: { getShowRanking: jest.fn() },
+        },
+        {
           provide: CACHE_MANAGER, // Usar el token correcto
           useValue: mockCacheManager,
         },
@@ -60,5 +65,27 @@ describe('ReportsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('exportJurados responde con Content-Type de hoja de cálculo y Content-Disposition', async () => {
+    mockReportsService.getJuradosData.mockResolvedValue([]);
+    const headers: Record<string, string> = {};
+    const { PassThrough } = await import('stream');
+    const res: any = new PassThrough();
+    res.setHeader = (k: string, v: string) => {
+      headers[k] = v;
+    };
+    res.status = jest.fn().mockReturnValue(res);
+    res.send = jest.fn();
+    res.resume();
+
+    await controller.exportJurados(res);
+
+    expect(headers['Content-Type']).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(headers['Content-Disposition']).toBe(
+      'attachment; filename=reporte_jurados.xlsx',
+    );
   });
 });

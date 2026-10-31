@@ -30,6 +30,13 @@ import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { MemberDto } from '../dto/member.dto';
+import { RegistrationsOpenGuard } from '../../settings/registrations-open.guard';
+
+/**
+ * Tope de `limit` en GET /teams. Más alto que el común (100) porque la vista «Todos» de la tabla de
+ * administración pide `limit=999999` y debe recibir todos los equipos; evita `limit=100000000` (M9).
+ */
+export const MAX_TEAMS_LIST_LIMIT = 1000;
 
 @Controller('teams')
 @ApiTags('Teams')
@@ -38,6 +45,7 @@ export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenGuard)
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);
@@ -59,6 +67,7 @@ export class TeamsController {
   @UseGuards(OptionalJwtAuthGuard, OptionalAdminRoleGuard)
   getTeams(
     @IsAdmin() includePersonalData: boolean,
+    @GetUser('id') currentUserId: string | undefined,
     @Query('page') @Optional() page?: string,
     @Query('limit') @Optional() limit?: string,
     @Query('sortByLikes') @Optional() sortByLikes?: boolean,
@@ -66,19 +75,19 @@ export class TeamsController {
     if (sortByLikes === undefined) {
       sortByLikes = false;
     }
-    if (page && limit) {
-      const pageNum = parseInt(page, 10);
+    if (limit) {
+      const pageNum = page ? parseInt(page, 10) : 1;
       const limitNum = parseInt(limit, 10);
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
-        return this.teamsService.findPaged(pageNum, limitNum, sortByLikes, includePersonalData);
+        return this.teamsService.findPaged(pageNum, Math.min(limitNum, MAX_TEAMS_LIST_LIMIT), sortByLikes, includePersonalData, currentUserId);
       }
     }
-    return this.teamsService.findAll(sortByLikes, includePersonalData);
+    return this.teamsService.findAll(sortByLikes, includePersonalData, currentUserId);
   }
 
   @Get('incomplete-jurors')
   @UseGuards(RolePermissionGuard)
-  @RequiredService('ListTeams')
+  @RequiredService('AssignJurors')
   getTeamsWithIncompleteJurors() {
     return this.teamsService.getTeamsWithLessThanThreeJurors();
   }
@@ -97,6 +106,7 @@ export class TeamsController {
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('final-score/videogame/:videogameId')
   @ApiOperation({ summary: 'Get final scores for all teams for a videogame' })
   @ApiOkResponse({
@@ -117,11 +127,15 @@ export class TeamsController {
       ]
     }
   })
-  getFinalScoreByVideogame(@Param('videogameId', ParseIntPipe) videogameId: number) {
-    return this.teamsService.getFinalScoreByVideogame(videogameId);
+  getFinalScoreByVideogame(
+    @Param('videogameId', ParseIntPipe) videogameId: number,
+    @GetUser() user?: AppUser,
+  ) {
+    return this.teamsService.getFinalScoreByVideogame(videogameId, user);
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('final-score/team/:teamId')
   @ApiOperation({ summary: 'Get final score(s) for a specific team' })
   @ApiOkResponse({
@@ -142,11 +156,15 @@ export class TeamsController {
       ]
     }
   })
-  getFinalScoreByTeam(@Param('teamId', ParseIntPipe) teamId: number) {
-    return this.teamsService.getFinalScoreByTeam(teamId);
+  getFinalScoreByTeam(
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @GetUser() user?: AppUser,
+  ) {
+    return this.teamsService.getFinalScoreByTeam(teamId, user);
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('final-score/by-n/:n')
   @ApiOperation({ summary: 'Get final scores for teams filtered by teamCode prefix (e.g., N1, N0, N2)' })
   @ApiParam({ name: 'n', required: true, description: "Team code prefix to filter by (N0..N4). Example: 'N1' or 'N1-'" })
@@ -170,8 +188,8 @@ export class TeamsController {
       ]
     }
   })
-  getFinalScoresByN(@Param('n') n: string) {
-    return this.teamsService.getFinalScoreByTeamCodePrefix(n);
+  getFinalScoresByN(@Param('n') n: string, @GetUser() user?: AppUser) {
+    return this.teamsService.getFinalScoreByTeamCodePrefix(n, user);
   }
 
   @Public()
@@ -191,8 +209,8 @@ export class TeamsController {
   @Get(':id/full')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetTeam')
-  findOneFull(@Param('id') id: string) {
-    return this.teamsService.findOneWithDetails(id);
+  findOneFull(@Param('id') id: string, @GetUser() user: AppUser) {
+    return this.teamsService.findOneWithDetails(id, user);
   }
 
   @Get(':id')

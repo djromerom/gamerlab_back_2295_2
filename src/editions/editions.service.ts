@@ -8,6 +8,7 @@ import { Edition, EditionStatus } from '@prisma/client';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
 import { HistoricalsService } from '../historicals/historicals.service';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 
 const DUPLICATE_EDITION_MESSAGE = 'La edición ya existe';
 
@@ -19,11 +20,13 @@ export class EditionsService {
     private readonly prisma: PrismaService,
     private readonly azureStorageService: AzureStorageService,
     private readonly historicalsService: HistoricalsService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
 
   async create(createEditionDto: CreateEditionDto) {
     this.logger.log(`Creating new edition`);
     this.logger.debug(`Payload: ${JSON.stringify(createEditionDto)}`);
+    this.ensureDatesInOrder(createEditionDto.startsAt, createEditionDto.endsAt);
     await this.ensureYearSemesterIsFree(createEditionDto.year, createEditionDto.semester);
     try {
       const result = await this.prisma.edition.create({
@@ -37,6 +40,12 @@ export class EditionsService {
         throw new ConflictException(DUPLICATE_EDITION_MESSAGE);
       }
       throw new InternalServerErrorException('Error interno al crear la edición.');
+    }
+  }
+
+  private ensureDatesInOrder(startsAt?: Date | null, endsAt?: Date | null) {
+    if (startsAt && endsAt && new Date(endsAt).getTime() < new Date(startsAt).getTime()) {
+      throw new BadRequestException('La fecha de finalización no puede ser anterior a la de inicio');
     }
   }
 
@@ -115,6 +124,13 @@ export class EditionsService {
     this.logger.log(`Updating edition #${id}`);
     this.logger.debug(`Update payload: ${JSON.stringify(updateEditionDto)}`);
     const current = await this.findOne(id);
+    // Solo se valida si el PATCH toca alguna fecha; así una edición ya inconsistente sigue editable.
+    if (updateEditionDto.startsAt !== undefined || updateEditionDto.endsAt !== undefined) {
+      this.ensureDatesInOrder(
+        updateEditionDto.startsAt ?? current.startsAt,
+        updateEditionDto.endsAt ?? current.endsAt,
+      );
+    }
     if (updateEditionDto.year !== undefined || updateEditionDto.semester !== undefined) {
       await this.ensureYearSemesterIsFree(
         updateEditionDto.year ?? current.year,
@@ -329,6 +345,7 @@ export class EditionsService {
       orderBy: { name: 'asc' },
     });
     this.logger.log(`Found ${videogames.length} videogame(s) for edition #${id}`);
+    await this.blobRefs.resolveInPlace(videogames);
     return videogames.map((vg) => ({
       id: vg.id,
       name: vg.name,

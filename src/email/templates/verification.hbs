@@ -134,9 +134,9 @@
     <p>Estás a un paso de vivir la experiencia más esperada del semestre.</p>
 
     <p>
-      <strong>📅 Fecha:</strong> {{eventDate}}<br />
-      <strong>🕗 Hora:</strong> 8:00 am - 12:00 pm<br />
-      <strong>📍 Lugar:</strong> Coliseo Universidad del Norte
+      {{#if eventDate}}<strong>📅 Fecha:</strong> {{eventDate}}<br />{{/if}}
+      {{#if eventTime}}<strong>🕗 Hora:</strong> {{eventTime}}<br />{{/if}}
+      {{#if eventPlace}}<strong>📍 Lugar:</strong> {{eventPlace}}{{/if}}
     </p>
 
     <p>

@@ -1,3 +1,4 @@
+import { blobRefsPassthrough } from '../../upload/blob-reference.mock';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { ROLE_IDS } from '../../auth/constants/roles';
@@ -17,6 +18,8 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
     repository as any,
     {} as any,
     {} as any,
+    {} as any,
+    blobRefsPassthrough(),
   );
 
   const team = { id: 10, userId: 'leader-1' };
@@ -75,6 +78,14 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
         ForbiddenException,
       );
       expect(repository.deleteMember).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateMemberEmail (I2)', () => {
+    it('responde 403 (no 401) a quien no es el líder: el front interpreta 401 como sesión vencida', async () => {
+      await expect(
+        service.updateMemberEmail(10, 55, { email: 'x@uninorte.edu.co' } as any, 'otro-estudiante'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

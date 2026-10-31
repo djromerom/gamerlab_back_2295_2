@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EditionStatus } from '@prisma/client';
+import { ROLE_IDS } from 'src/auth/constants/roles';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   PanelSortField,
@@ -33,9 +34,20 @@ export interface PanelTeam {
 export interface PanelNrcGroup {
   nrcId: number;
   nrcCode: number;
+  /** Profesor dueño del NRC (con el Administrador puede ser otro). */
+  professorId: string;
   subjectName: string;
   edition: PanelEdition;
   teams: PanelTeam[];
+}
+
+/**
+ * M4: el Administrador ve y exporta todos los NRC activos de la feria activa;
+ * cualquier otro rol, solo los suyos. Mismo criterio que el resto de servicios
+ * (`roleId === ROLE_IDS.ADMIN`).
+ */
+export function seesAllProfessors(roleId?: number): boolean {
+  return roleId === ROLE_IDS.ADMIN;
 }
 
 const collator = new Intl.Collator('es', {
@@ -107,7 +119,8 @@ export function sortPanelTeams(
  * Solo la feria activa: las ferias archivadas o inactivas no se muestran ni se
  * exportan (decisión de producto, 2026-10-29). `editionId` sigue aceptándose,
  * pero otra feria no devuelve resultados.
- * La usan la exportación (HU-02) y debe usarla el listado (HU-03).
+ * La usan la exportación (HU-02) y el listado (HU-03, `GradingGamesService`).
+ * Con `roleId` de Administrador no filtra por profesor (M4).
  */
 @Injectable()
 export class ProfessorPanelQueryService {
@@ -116,12 +129,13 @@ export class ProfessorPanelQueryService {
   async findPanelGroups(
     professorId: string,
     filters: ProfessorPanelQueryDto,
+    roleId?: number,
   ): Promise<PanelNrcGroup[]> {
     const { editionId, nrcId, search, sortBy, sortOrder } = filters;
 
     const nrcs = await this.prisma.nRC.findMany({
       where: {
-        professorId,
+        ...(seesAllProfessors(roleId) ? {} : { professorId }),
         isActive: true,
         edition: { status: EditionStatus.ACTIVE },
         ...(editionId ? { editionId } : {}),
@@ -131,6 +145,7 @@ export class ProfessorPanelQueryService {
         id: true,
         code: true,
         editionId: true,
+        professorId: true,
         subject: { select: { name: true } },
         edition: {
           select: { id: true, title: true, year: true, semester: true },
@@ -190,6 +205,7 @@ export class ProfessorPanelQueryService {
       return {
         nrcId: nrc.id,
         nrcCode: nrc.code,
+        professorId: nrc.professorId,
         subjectName: nrc.subject.name,
         edition: nrc.edition,
         teams: sortPanelTeams(nrcTeams, sortBy, sortOrder),

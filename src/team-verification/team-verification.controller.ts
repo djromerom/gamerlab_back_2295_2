@@ -56,13 +56,21 @@ export class TeamVerificationController {
     summary: 'Estado de verificación de varios grupos para el jurado',
     description:
       'Devuelve { [teamId]: boolean }: true si el jurado ya verificó el grupo o si no exige código (N0). ' +
-      'Un id que no existe en la edición activa sale como false.',
+      'Un id que no existe en la edición activa sale como false. ' +
+      'Con ?includeLocks=true devuelve { status, locks }, con locks[teamId] = { locked, lockedUntil (ISO 8601 o null) }.',
   })
-  getStatus(
+  async getStatus(
     @Query() query: TeamStatusQueryDto,
     @GetUser('id') jurorId: string,
   ) {
-    return this.service.getStatus(jurorId, query.teamIds);
+    if (!query.includeLocks) {
+      return this.service.getStatus(jurorId, query.teamIds);
+    }
+    const [status, locks] = await Promise.all([
+      this.service.getStatus(jurorId, query.teamIds),
+      this.service.getLocks(jurorId, query.teamIds),
+    ]);
+    return { status, locks };
   }
 
   @Get(':teamId')

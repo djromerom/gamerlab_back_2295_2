@@ -527,7 +527,7 @@
         "isActive": true
       },
       {
-        "id": 52,
+        "id": 55,
         "name": "MANAGE_WEIGHT",
         "description": "Permite crear/editar la configuraci\u00f3n de ponderado por edici\u00f3n",
         "createdAt": "2025-11-14T06:00:00.000Z",
@@ -1084,7 +1084,7 @@
         "isActive": true
       },
       {
-        "id": 52,
+        "id": 56,
         "name": "GetWeight",
         "description": "Obtener configuraci\u00f3n de ponderado por edici\u00f3n (SettingsController.getWeight)",
         "url": null,
@@ -1504,13 +1504,13 @@
       },
       {
         "serviceId": 52,
-        "permissionId": 51,
+        "permissionId": 52,
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true
       },
       {
-        "serviceId": 52,
+        "serviceId": 56,
         "permissionId": 51,
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
@@ -1518,7 +1518,7 @@
       },
       {
         "serviceId": 53,
-        "permissionId": 52,
+        "permissionId": 55,
         "createdAt": "2025-11-14T06:00:00.000Z",
         "updatedAt": "2025-11-14T06:00:00.000Z",
         "isActive": true

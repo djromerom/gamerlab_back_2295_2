@@ -23,6 +23,7 @@ const group = (
 ): PanelNrcGroup => ({
   nrcId: nrcCode,
   nrcCode,
+  professorId: 'prof-1',
   subjectName: 'Programación Orientada a Objetos',
   edition: ed,
   teams: teamIds.map((id) => ({
@@ -131,7 +132,11 @@ describe('GradingReportExportService', () => {
 
     await service.exportFiltered('prof-1', q, res);
 
-    expect(panelQuery.findPanelGroups).toHaveBeenCalledWith('prof-1', q);
+    expect(panelQuery.findPanelGroups).toHaveBeenCalledWith(
+      'prof-1',
+      q,
+      undefined,
+    );
     const [options] = excelExport.generateAndStream.mock.calls[0];
     expect(options.sheets).toHaveLength(1);
     const sheet = options.sheets[0];
@@ -153,8 +158,8 @@ describe('GradingReportExportService', () => {
       { videogameId: 100, finalScore: 4.25, avgJunior: 3.5 },
     ]);
     prisma.evaluation.findMany.mockResolvedValue([
-      { videogameId: 100, totalScore: 4.8 },
-      { videogameId: 100, totalScore: 1 },
+      { videogameId: 100, jurorId: 'prof-1', totalScore: 4.8 },
+      { videogameId: 100, jurorId: 'prof-1', totalScore: 1 },
     ]);
 
     await service.exportFiltered('prof-1', query({ final: true }), res);

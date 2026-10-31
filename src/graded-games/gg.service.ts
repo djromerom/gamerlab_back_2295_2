@@ -4,11 +4,15 @@ import { VideogameResponseDto } from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
 import { ForbiddenException } from '@nestjs/common';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 
 
 @Injectable()
 export class GradedGamesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly blobRefs: BlobReferenceService,
+  ) {}
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
     if (!config?.evaluationsOpen) {
@@ -89,6 +93,7 @@ export class GradedGamesService {
       take: 100,
     });
 
+    await this.blobRefs.resolveInPlace(videogames as any[]);
     const data = videogames.map((videogame) => {
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
@@ -180,6 +185,7 @@ export class GradedGamesService {
 
     const totalPages = Math.ceil(totalItems / limit);
 
+    await this.blobRefs.resolveInPlace(videogames as any[]);
     const data = videogames.map((videogame) => {
       const uniqueNrcs = Array.from(
         new Set(

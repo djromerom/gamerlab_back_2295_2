@@ -9,7 +9,10 @@ import {
   Delete,
   UseGuards,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import { omitPassword } from '../common/utils/omit-password';
 
 import {
   ApiTags,
@@ -405,8 +408,8 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetJuror')
   @ApiOperation({ summary: 'Obtener jurado por ID' })
-  findOne(@Param('id') id: string) {
-    return this.jurorService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    return omitPassword(await this.jurorService.findOne(id));
   }
 
   @Patch(':id')
@@ -421,7 +424,8 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('DeleteJurror')
   @ApiOperation({ summary: 'Eliminar jurado' })
-  softdelete(@Param('id') id: string) {
-    return this.jurorService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async softdelete(@Param('id') id: string): Promise<void> {
+    await this.jurorService.remove(id);
   }
 }

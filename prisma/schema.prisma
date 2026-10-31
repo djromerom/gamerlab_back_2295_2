@@ -59,6 +59,7 @@ model EventConfiguration {
   editionId       Int      @unique @map("id_edicion")
   showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   showRanking     Boolean  @default(false) @map("mostrar_ranking")
+  registrationsOpen Boolean @default(false) @map("inscripciones_abiertas")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -88,6 +89,28 @@ model VerificationToken {
 
   @@index([email, tokenTypeId])
   @@map("token_verificacion")
+}
+
+// Refresh tokens emitidos (solo el sha256, nunca el token). Permite rotarlos y revocarlos.
+model RefreshToken {
+  id            String                    @id @default(uuid())
+  userId        String                    @map("user_id")
+  tokenHash     String                    @unique @map("token_hash")
+  expiresAt     DateTime                  @map("expira_en")
+  revokedAt     DateTime?                 @map("revocado_en")
+  // ROTATED tiene ventana de gracia (reintentos del front); LOGOUT y REUSE no.
+  revokedReason RefreshTokenRevokeReason? @map("motivo_revocacion")
+  createdAt     DateTime                  @default(now()) @map("creado_en")
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_token")
+}
+
+enum RefreshTokenRevokeReason {
+  ROTATED
+  LOGOUT
+  REUSE
 }
 
 model Role {
@@ -175,7 +198,7 @@ model User {
   roleId               Int                @map("id_rol")
   createdAt            DateTime           @default(now()) @map("creado_en")
   updatedAt            DateTime           @updatedAt @map("actualizado_en")
-  lastSignInAt         DateTime           @default(now()) @map("ultimoInicioSesion")
+  lastSignInAt         DateTime?          @map("ultimoInicioSesion")
   firstName            String             @db.VarChar(50)
   lastName             String             @db.VarChar(50)
   password             String?            @map("contrasena")
@@ -192,6 +215,7 @@ model User {
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
   jurorBadges          JurorBadge[]
   teamVerifications    TeamVerification[]
+  refreshTokens        RefreshToken[]
 
   @@index([jurorCategory])
   @@index([jurorType])
