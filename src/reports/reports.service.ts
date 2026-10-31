@@ -197,7 +197,23 @@ export class ReportsService {
     });
   }
 
-  async getSubjectAverageScores(): Promise<{ name: string; value: number }[]> {
+  /**
+   * Promedio por materia (gráficas públicas). Con el ranking oculto (o sin edición activa)
+   * y un usuario que no es Administrador devuelve las mismas materias con `value: null`.
+   */
+  async getSubjectAverageScores(
+    user?: AppUser,
+  ): Promise<{ name: string; value: number | null }[]> {
+    const hideRanking =
+      user?.roleId !== ROLE_IDS.ADMIN &&
+      !(await this.settingsService.isRankingVisible());
+    if (hideRanking) {
+      const names = await this.prisma.subject.findMany({
+        where: { isActive: true },
+        select: { name: true },
+      });
+      return names.map((s) => ({ name: s.name, value: null }));
+    }
     const subjects = await this.prisma.subject.findMany({
       where: { isActive: true },
       include: {
@@ -226,7 +242,7 @@ export class ReportsService {
       },
     });
 
-    const results: { name: string; value: number }[] = [];
+    const results: { name: string; value: number | null }[] = [];
 
     for (const subject of subjects) {
       let totalScore = 0;
@@ -257,9 +273,18 @@ export class ReportsService {
     return results;
   }
 
-async getNrcWithSubjectNameAndAverage(): Promise<
-  { id: number; codigo: number; materiaNombre: string; promedioxNRC?: number }[]
+/**
+ * Promedio por NRC (gráficas públicas). Con el ranking oculto (o sin edición activa)
+ * y un usuario que no es Administrador devuelve los mismos NRC con `promedioxNRC: null`.
+ */
+async getNrcWithSubjectNameAndAverage(
+  user?: AppUser,
+): Promise<
+  { id: number; codigo: number; materiaNombre: string; promedioxNRC?: number | null }[]
 > {
+  const hideRanking =
+    user?.roleId !== ROLE_IDS.ADMIN &&
+    !(await this.settingsService.isRankingVisible());
   // 1. Obtener TODOS los NRCs activos con su información básica
   const todosLosNrcsActivos = await this.prisma.nRC.findMany({
     where: { isActive: true },
@@ -278,6 +303,15 @@ async getNrcWithSubjectNameAndAverage(): Promise<
   });
 
   if (!todosLosNrcsActivos.length) return [];
+
+  if (hideRanking) {
+    return todosLosNrcsActivos.map((n) => ({
+      id: n.id,
+      codigo: n.code,
+      materiaNombre: n.subject.name,
+      promedioxNRC: null,
+    }));
+  }
 
   // 2. Obtener videojuegos y sus evaluaciones para calcular promedios por NRC
   const videojuegosConInfo = await this.prisma.videogame.findMany({
