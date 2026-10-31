@@ -135,7 +135,10 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
     return professor.id;
   }
 
-  /** NRC del profesor en la edición activa (en prod: el NRC 9999 del profesor de colegios). */
+  /**
+   * NRC del profesor en la edición activa (en prod: el NRC 9999 del profesor de colegios).
+   * El código es distinto en cada llamada: hay un índice único (codigo, edición) para NRC activos.
+   */
   async function createNrc(professorId: string) {
     const [subject, edition] = await Promise.all([
       prisma.subject.findFirstOrThrow(),
@@ -146,7 +149,7 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
     ]);
     const nrc = await prisma.nRC.create({
       data: {
-        code: 9999,
+        code: 900000 + createdNrcIds.length,
         subjectId: subject.id,
         professorId,
         editionId: edition.id,
