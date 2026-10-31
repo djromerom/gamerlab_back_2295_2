@@ -18,7 +18,6 @@ describe('JurorService', () => {
     },
     user: {
       findUnique: jest.fn(),
-      findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
@@ -372,7 +371,7 @@ describe('JurorService', () => {
     it('debe actualizar un jurado e invalidar caché', async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
       // I4: the duplicate-email check ignores case
-      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+      prismaMock.user.findMany.mockResolvedValueOnce([]);
 
       const updatedJuror = {
         ...baseJuror,
@@ -410,21 +409,22 @@ describe('JurorService', () => {
 
     it('debe lanzar ConflictException si el correo ya pertenece a otro usuario', async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
-      prismaMock.user.findFirst.mockResolvedValueOnce({
-        id: 'otro-user-id',
-        email: 'repetido@uninorte.edu.co',
-      });
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { id: 'otro-user-id', email: 'repetido@uninorte.edu.co' },
+      ]);
 
       await expect(
         service.update(baseJuror.id, {
           email: 'Repetido@Uninorte.edu.co',
         }),
       ).rejects.toThrow(ConflictException);
-      expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
-        where: {
-          email: { equals: 'repetido@uninorte.edu.co', mode: 'insensitive' },
-        },
-      });
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            email: { equals: 'repetido@uninorte.edu.co', mode: 'insensitive' },
+          },
+        }),
+      );
 
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });

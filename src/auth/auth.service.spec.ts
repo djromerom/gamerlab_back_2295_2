@@ -1,12 +1,17 @@
 // In-memory Prisma fake: its methods are async on purpose to mirror the real client.
 /* eslint-disable @typescript-eslint/require-await */
-import { UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Logger,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import { createHash } from 'node:crypto';
 import request from 'supertest';
+import { matchesPrismaEmailFilter } from '../../test/helpers/postgres-ilike';
 import { AuthService } from './auth.service';
 
 type UserRow = {
@@ -40,19 +45,19 @@ function createFakePrisma(users: UserRow[]) {
   const refreshTokens: RefreshRow[] = [];
   let seq = 0;
 
-  const matchesEmail = (user: UserRow, filter: any) => {
-    if (typeof filter === 'string') return user.email === filter;
-    if (filter?.mode === 'insensitive') {
-      return user.email.toLowerCase() === String(filter.equals).toLowerCase();
-    }
-    return user.email === filter?.equals;
-  };
+  // ILIKE semantics (wildcards included), like PostgreSQL does for `mode: 'insensitive'`
+  const matchesEmail = (user: UserRow, filter: any) =>
+    matchesPrismaEmailFilter(user.email, filter);
 
   const matchesRefresh = (row: RefreshRow, where: any) =>
     (where.id === undefined || row.id === where.id) &&
     (where.tokenHash === undefined || row.tokenHash === where.tokenHash) &&
     (where.userId === undefined || row.userId === where.userId) &&
     (where.revokedAt !== null || row.revokedAt === null) &&
+    (where.revokedReason === undefined ||
+      row.revokedReason === where.revokedReason) &&
+    (where.revokedAt?.gt === undefined ||
+      (row.revokedAt !== null && row.revokedAt > where.revokedAt.gt)) &&
     (where.expiresAt?.lt === undefined || row.expiresAt < where.expiresAt.lt);
 
   const prisma: any = {
@@ -105,6 +110,10 @@ function createFakePrisma(users: UserRow[]) {
       findUnique: jest.fn(
         async ({ where }) =>
           refreshTokens.find((r) => r.tokenHash === where.tokenHash) ?? null,
+      ),
+      findFirst: jest.fn(
+        async ({ where }) =>
+          refreshTokens.find((r) => matchesRefresh(r, where)) ?? null,
       ),
       updateMany: jest.fn(async ({ where, data }) => {
         const rows = refreshTokens.filter((r) => matchesRefresh(r, where));
@@ -353,6 +362,126 @@ describe('AuthService: sesión revocable', () => {
     await expect(
       service.refresh(requestWith(refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('repetir un refresh cerrado con logout da 401 sin revocar las otras sesiones', async () => {
+    const tab = await login();
+    const phone = await login();
+    await service.logout(requestWith(tab.refreshToken), createResponse());
+
+    await expect(
+      service.refresh(requestWith(tab.refreshToken), createResponse()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(refresh(phone.refreshToken)).resolves.toBeDefined();
+  });
+
+  it('repetir un refresh revocado por REUSE da 401 sin revocar las sesiones nuevas', async () => {
+    const t0 = await login();
+    const t1 = await refresh(t0.refreshToken);
+    advance(11_000);
+    // Robo detectado: t1 queda revocado con REUSE
+    await expect(
+      service.refresh(requestWith(t0.refreshToken), createResponse()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(
+      prisma.refreshTokens.find(
+        (r: RefreshRow) => r.tokenHash === sha256(t1.refreshToken),
+      ).revokedReason,
+    ).toBe('REUSE');
+
+    const fresh = await login(); // el usuario vuelve a entrar
+    await expect(
+      service.refresh(requestWith(t1.refreshToken), createResponse()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(refresh(fresh.refreshToken)).resolves.toBeDefined();
+  });
+
+  it('tras detectar un robo, un token rotado hace menos de 10 s ya no da sesión', async () => {
+    const t0 = await login();
+    const t1 = await refresh(t0.refreshToken); // t0 rotado en 0 s
+    advance(11_000);
+    await refresh(t1.refreshToken); // t1 rotado en 11 s
+    advance(1_000);
+    // t0 (rotado hace 12 s) reaparece: robo, se revoca todo con REUSE
+    await expect(
+      service.refresh(requestWith(t0.refreshToken), createResponse()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    advance(1_000);
+
+    // t1 se rotó hace 2 s, pero hubo una revocación por REUSE después: 401
+    await expect(
+      service.refresh(requestWith(t1.refreshToken), createResponse()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('sin cookie de refresh no escribe los valores de las cookies en el log', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const res = createResponse();
+
+    await expect(
+      service.refresh(
+        { cookies: { 'access-token': 'SECRET-ACCESS-TOKEN' } } as any,
+        res,
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(
+      'SECRET-ACCESS-TOKEN',
+    );
+    warn.mockRestore();
+  });
+
+  it('el correo no es un patrón: _ y % no actúan como comodines en el login', async () => {
+    users.push({ ...users[0], id: 'jdiaz', email: 'jdiaz@uninorte.edu.co' });
+
+    for (const email of [
+      'j_iaz@uninorte.edu.co',
+      '%@uninorte.edu.co',
+      'j%@uninorte.edu.co',
+    ]) {
+      await expect(
+        service.login(
+          { email, password: PASSWORD },
+          'PASSWORD',
+          createResponse(),
+        ),
+      ).rejects.toThrow(new UnauthorizedException('Invalid credentials.'));
+    }
+  });
+
+  it('Microsoft con un correo-patrón no entra en la cuenta que coincide por comodín', async () => {
+    users.push({
+      ...users[0],
+      id: 'jdiaz',
+      email: 'jdiaz@uninorte.edu.co',
+      // Cuenta con clave y sin Microsoft vinculado: el callback la vincularía sin más
+      authMethod: 'PASSWORD',
+      microsoftOid: null,
+    });
+    jest
+      .spyOn(service as any, 'exchangeCodeForToken')
+      .mockResolvedValue({ id_token: 'x' });
+    jest
+      .spyOn(service as any, 'parseIdToken')
+      .mockReturnValue({ email: 'j_iaz@uninorte.edu.co', oid: 'oid-otro' });
+    const res = createResponse();
+
+    await service.handleMicrosoftCallback('code', res);
+
+    expect(res.redirect).toHaveBeenCalledWith(
+      expect.stringContaining('/auth-error?error=unauthorized'),
+    );
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
+  it('registrar a_b@ no choca con axb@ (no es un patrón)', async () => {
+    users.push({ ...users[0], id: 'axb', email: 'axb@uninorte.edu.co' });
+
+    const { user } = await service.registerUserTransaction(
+      { email: 'a_b@uninorte.edu.co' },
+      prisma,
+    );
+    expect(user.email).toBe('a_b@uninorte.edu.co');
   });
 
   it('un refresh válido sin registro (sesión anterior al despliegue) da 401 y borra las cookies', async () => {

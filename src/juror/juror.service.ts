@@ -1,3 +1,4 @@
+import { findUsersByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import {
   BadRequestException,
   ConflictException,
@@ -306,10 +307,9 @@ export class JurorService {
 
     const email = dto.email?.trim().toLowerCase();
     if (email) {
-      const emailOwner = await this.prisma.user.findFirst({
-        where: { email: { equals: email, mode: 'insensitive' } },
-      });
-      if (emailOwner && emailOwner.id !== id) {
+      // Any case variant owned by someone else counts; `_`/`%` are literal (C1)
+      const owners = await findUsersByEmailCaseInsensitive(this.prisma, email);
+      if (owners.some((owner) => owner.id !== id)) {
         throw new ConflictException('Email is already used by another user.');
       }
     }

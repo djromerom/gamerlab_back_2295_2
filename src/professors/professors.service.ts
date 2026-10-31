@@ -1,3 +1,4 @@
+import { findUsersByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import {
   Injectable,
   NotFoundException,
@@ -67,11 +68,11 @@ export class ProfessorsService {
       `Attempting to create professor with email: ${createProfessorDto.email}`,
     );
 
-    const existingUserByEmailInLocalDB = await this.prisma.user.findFirst({
-      where: {
-        email: { equals: createProfessorDto.email, mode: 'insensitive' },
-      },
-    });
+    // Any case variant counts as taken; `_`/`%` are literal (C1)
+    const [existingUserByEmailInLocalDB] = await findUsersByEmailCaseInsensitive(
+      this.prisma,
+      createProfessorDto.email,
+    );
 
     if (existingUserByEmailInLocalDB) {
       this.logger.warn(

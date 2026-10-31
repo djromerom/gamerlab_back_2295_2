@@ -84,6 +84,7 @@ describe('Sesión: JWT y cookie usan la misma duración (ARK-88)', () => {
     prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue(user),
+        findMany: jest.fn().mockResolvedValue([user]),
         update: jest.fn().mockResolvedValue(user),
       },
       // Every refresh presented here has a live stored record (the revocation rules are in auth.service.spec.ts)

@@ -27,6 +27,11 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { EmailService } from '../email/email.service';
 import { getTokenExpiration, TokenExpiration } from './token-expiration';
+import {
+  findUserByEmailCaseInsensitive,
+  findUsersByEmailCaseInsensitive,
+  normalizeEmail,
+} from '../common/utils/find-user-by-email';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
@@ -425,14 +430,12 @@ export class AuthService {
   ): Promise<{ user: User; verificationToken: string }> {
     // Emails are stored lowercase. The duplicate check ignores case so a user created
     // before this rule (stored with capitals) is still detected.
-    const email = registerDto.email.trim().toLowerCase();
+    const email = normalizeEmail(registerDto.email);
     try {
-      // Check if user already exists within transaction
-      const existingUser = await tx.user.findFirst({
-        where: { email: { equals: email, mode: 'insensitive' } },
-      });
+      // Check if user already exists within transaction (any case variant counts)
+      const existingUsers = await findUsersByEmailCaseInsensitive(tx, email);
 
-      if (existingUser) {
+      if (existingUsers.length > 0) {
         this.logger.warn(`Registration attempt for existing email: ${email}`);
         throw new ConflictException('A user with that email already exists');
       }
@@ -602,26 +605,12 @@ export class AuthService {
    * Without an exact match, two accounts differing only in case are ambiguous: returns null
    * (the caller answers its generic 401) instead of picking one.
    */
-  private async findUserByEmail(email: string) {
-    const include = { confirmationStatus: true, role: true } as const;
-    const exact = await this.prisma.user.findUnique({
-      where: { email },
-      include,
+  private findUserByEmail(email: string) {
+    // Escapes ILIKE wildcards: `j_iaz@` must never find `jdiaz@` (C1)
+    return findUserByEmailCaseInsensitive(this.prisma, email, {
+      confirmationStatus: true,
+      role: true,
     });
-    if (exact) return exact;
-
-    const matches = await this.prisma.user.findMany({
-      where: { email: { equals: email.trim(), mode: 'insensitive' } },
-      include,
-      take: 2,
-    });
-    if (matches.length > 1) {
-      this.logger.warn(
-        `Ambiguous email ${email}: several accounts differ only in case`,
-      );
-      return null;
-    }
-    return matches[0] ?? null;
   }
 
   /**
@@ -682,6 +671,43 @@ export class AuthService {
       !!token.revokedAt &&
       Date.now() - token.revokedAt.getTime() < REFRESH_REUSE_GRACE_MS
     );
+  }
+
+  /**
+   * A revoked token came back outside the grace window. Only a token ROTATED more than
+   * REFRESH_REUSE_GRACE_MS ago means theft and revokes every session; a LOGOUT or REUSE token
+   * (a tab that logged out, an old device after a detected theft) just gets a 401.
+   */
+  private async rejectRevokedToken(
+    stored: Pick<RefreshToken, 'userId' | 'revokedReason'>,
+    res: Response,
+  ): Promise<never> {
+    if (stored.revokedReason === 'ROTATED') {
+      await this.revokeAllRefreshTokens(stored.userId);
+    } else {
+      this.logger.warn(
+        `Revoked refresh token (${stored.revokedReason}) presented for user ${stored.userId}`,
+      );
+    }
+    this.clearAuthCookies(res);
+    throw new UnauthorizedException('Invalid refresh token.');
+  }
+
+  /** True if a theft was detected (REUSE revocation) after this token was rotated. */
+  private async hasReuseRevocationSince(
+    token: Pick<RefreshToken, 'userId' | 'revokedAt'>,
+    client: Pick<Prisma.TransactionClient, 'refreshToken'> = this.prisma,
+  ): Promise<boolean> {
+    if (!token.revokedAt) return false;
+    const reuse = await client.refreshToken.findFirst({
+      where: {
+        userId: token.userId,
+        revokedReason: 'REUSE',
+        revokedAt: { gt: token.revokedAt },
+      },
+      select: { id: true },
+    });
+    return reuse !== null;
   }
 
   /** Revokes every live refresh token of the user (used when a rotated token is replayed). */
@@ -874,8 +900,8 @@ export class AuthService {
   ): Promise<{ message: string; accessToken: string; accessTokenExpiresIn: number }> {
     const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (!refreshToken) {
+      // Never log cookie values: they include the access token
       this.logger.warn('Refresh attempt without refresh token cookie.');
-      this.logger.warn(`Available cookies: ${JSON.stringify(req.cookies)}`);
       throw new UnauthorizedException('Missing refresh token.');
     }
 
@@ -910,8 +936,10 @@ export class AuthService {
       // it gets a new session without rotating anything else.
       const graceReplay = !!stored.revokedAt && this.isWithinRotationGrace(stored);
       if (stored.revokedAt && !graceReplay) {
-        // A rotated (or logged-out) token came back: it may have been stolen. Kill every session.
-        await this.revokeAllRefreshTokens(stored.userId);
+        return await this.rejectRevokedToken(stored, res);
+      }
+      // After a theft was detected, recently rotated tokens must not keep minting sessions.
+      if (graceReplay && (await this.hasReuseRevocationSince(stored))) {
         this.clearAuthCookies(res);
         throw new UnauthorizedException('Invalid refresh token.');
       }
@@ -953,7 +981,13 @@ export class AuthService {
             const current = await tx.refreshToken.findUnique({
               where: { tokenHash: stored.tokenHash },
             });
-            if (!current || !this.isWithinRotationGrace(current)) return false;
+            if (
+              !current ||
+              !this.isWithinRotationGrace(current) ||
+              (await this.hasReuseRevocationSince(current, tx))
+            ) {
+              return false;
+            }
           }
         }
 
@@ -968,7 +1002,7 @@ export class AuthService {
       });
 
       if (!rotated) {
-        await this.revokeAllRefreshTokens(stored.userId);
+        // Lost a race against a logout or a theft detection: 401, no mass revocation.
         this.clearAuthCookies(res);
         throw new UnauthorizedException('Invalid refresh token.');
       }
