@@ -251,6 +251,33 @@ describe('TeamVerificationService', () => {
       expect(failed).toBe(MAX_FAILED_ATTEMPTS);
     });
 
+    it('5 fallos repartidos en más de 10 minutos no bloquean (la ventana filtra por fecha)', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-10-30T12:00:00.000Z'));
+      try {
+        const min = (m: number) => new Date(Date.now() - m * 60 * 1000);
+        // 3 fallos viejos (fuera de ventana) y 2 recientes.
+        const all = [1, 2, 3, 11, 12].map((m) => ({
+          teamId: 10,
+          createdAt: min(m),
+        }));
+        prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+        prismaMock.teamVerification.findUnique.mockResolvedValue(null);
+        prismaMock.teamVerificationLog.findMany.mockImplementation(
+          ({ where }: { where: { createdAt: { gte: Date } } }) =>
+            Promise.resolve(
+              all.filter((f) => f.createdAt >= where.createdAt.gte),
+            ),
+        );
+
+        await expect(service.verify(jurorId, dto)).resolves.toEqual({
+          verified: true,
+          required: true,
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('verifica correctamente cuando el bloqueo ya expiró', async () => {
       prismaMock.team.findFirst.mockResolvedValue(universityTeam);
       prismaMock.teamVerification.findUnique.mockResolvedValue(null);

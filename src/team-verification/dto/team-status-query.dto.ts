@@ -33,8 +33,11 @@ export class TeamStatusQueryDto {
     description: 'Si es true, la respuesta es { status, locks }',
     example: 'true',
   })
-  @Transform(({ value }: { value: unknown }): unknown =>
-    value === 'true' ? true : value === 'false' ? false : value,
+  // Con enableImplicitConversion el `value` ya llegó como Boolean("false") === true; se lee el crudo.
+  // Solo el literal `true` activa el parámetro; cualquier otro valor es false.
+  @Transform(
+    ({ obj }: { obj: Record<string, unknown> }): boolean =>
+      obj.includeLocks === 'true' || obj.includeLocks === true,
   )
   @IsOptional()
   @IsBoolean()
