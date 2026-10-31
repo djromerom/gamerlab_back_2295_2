@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
+  BadRequestException,
   Query,
 } from '@nestjs/common';
 import { VideogamesService } from './videogames.service';
@@ -19,6 +20,10 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { AppUser } from 'src/auth/jwt.strategy';
+
+const ID_PIPE = new ParseIntPipe({
+  exceptionFactory: () => new BadRequestException('El identificador debe ser un número entero'),
+});
 
 @Controller('videogames')
 export class VideogamesController {
@@ -39,7 +44,7 @@ export class VideogamesController {
 
   @Public()
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ID_PIPE) id: number) {
     return this.videogamesService.findOne(id);
   }
 

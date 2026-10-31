@@ -32,7 +32,8 @@ describe('VideogamesController — validación (M3, M9)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('GET /videogames/abc responde 400 y no llega al servicio', async () => {
-    await request(app.getHttpServer()).get('/videogames/abc').expect(400);
+    const res = await request(app.getHttpServer()).get('/videogames/abc').expect(400);
+    expect((res.body as { message: string }).message).toBe('El identificador debe ser un número entero');
     expect(service.findOne).not.toHaveBeenCalled();
   });
 

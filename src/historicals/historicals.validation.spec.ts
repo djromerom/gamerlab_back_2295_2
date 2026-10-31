@@ -31,9 +31,10 @@ describe('HistoricalsController — validación (M3)', () => {
   afterAll(() => app.close());
 
   it('GET /historicals/historical-videogames/abc responde 400', async () => {
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .get('/historicals/historical-videogames/abc')
       .expect(400);
+    expect((res.body as { message: string }).message).toBe('El identificador debe ser un número entero');
     expect(service.getHistoricalVideogamesByEdition).not.toHaveBeenCalled();
   });
 
