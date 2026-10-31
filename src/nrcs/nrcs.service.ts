@@ -142,16 +142,20 @@ export class NrcsService {
       );
     }
 
-    return this.prisma.nRC.create({
-      data: {
-        code,
-        edition: { connect: { id: activeEdition.id } },
-        subject: { connect: { id: subjectId } },
-        professor: { connect: { id: professorId } },
-        ...(isActive !== undefined && { isActive }),
-      },
-      include: { subject: true, professor: true, edition: true },
-    });
+    try {
+      return await this.prisma.nRC.create({
+        data: {
+          code,
+          edition: { connect: { id: activeEdition.id } },
+          subject: { connect: { id: subjectId } },
+          professor: { connect: { id: professorId } },
+          ...(isActive !== undefined && { isActive }),
+        },
+        include: { subject: true, professor: true, edition: true },
+      });
+    } catch (error) {
+      this.rethrowDuplicateNrc(error, code);
+    }
   }
 
   async update(id: number, dto: UpdateNrcDto) {
@@ -183,23 +187,41 @@ export class NrcsService {
 
     const { subjectId, professorId, ...rest } = dto;
 
-    return this.prisma.nRC.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(subjectId !== undefined && {
-          subject: { connect: { id: subjectId } },
-        }),
-        ...(professorId !== undefined && {
-          professor: { connect: { id: professorId } },
-        }),
-      },
-      include: {
-        subject: true,
-        professor: true,
-        edition: true,
-      },
-    });
+    try {
+      return await this.prisma.nRC.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...(subjectId !== undefined && {
+            subject: { connect: { id: subjectId } },
+          }),
+          ...(professorId !== undefined && {
+            professor: { connect: { id: professorId } },
+          }),
+        },
+        include: {
+          subject: true,
+          professor: true,
+          edition: true,
+        },
+      });
+    } catch (error) {
+      this.rethrowDuplicateNrc(error, dto.code ?? existingNrc.code);
+    }
+  }
+
+  // El índice único parcial (codigo, id_edicion) WHERE activo rechaza la
+  // carrera entre la verificación previa y la escritura.
+  private rethrowDuplicateNrc(error: unknown, code: number): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(
+        `Ya existe un NRC activo con el código ${code} en esta edición.`,
+      );
+    }
+    throw error;
   }
 
   async remove(id: number) {
