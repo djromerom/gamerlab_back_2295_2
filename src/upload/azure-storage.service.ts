@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, PayloadTooLargeException, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException, PayloadTooLargeException, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
 import { BlobServiceClient, BlockBlobClient, BlobSASPermissions, StorageSharedKeyCredential, generateBlobSASQueryParameters, ContainerClient } from '@azure/storage-blob';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -142,11 +142,12 @@ export class AzureStorageService implements OnModuleInit {
   }
 
   // Genera SAS de lectura por blob (dinámico)
-  async getReadSasUrlById(id: string, ttlSec: number = 900): Promise<{ url: string; expiresAt: string }> {
+  async getReadSasUrlById(id: string, ttlSec: number = 900, authenticated = false): Promise<{ url: string; expiresAt: string }> {
     const rec = await this.getById(id);
-    if (!rec) throw new Error('Registro no encontrado');
+    if (!rec) throw new NotFoundException('Registro no encontrado');
+    if (!rec.isPublic && !authenticated) throw new ForbiddenException('Este archivo no es público');
 
-    const expiresOn = new Date(Date.now() + Math.max(60, ttlSec) * 1000);
+    const expiresOn = new Date(Date.now() + Math.min(Math.max(60, ttlSec), 3600) * 1000);
     const blobClient = this.containerClient.getBlockBlobClient(rec.blobName);
 
     const sas = generateBlobSASQueryParameters(

@@ -19,7 +19,7 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 */
 export const PUBLIC_LIMITS = {
   imageUpload: { limit: 60, ttl: 60_000 }, // 60 images per minute
-  zipUpload: { limit: 10, ttl: 10 * 60_000 }, // 10 .zip per 10 minutes
+  zipUpload: { limit: 3, ttl: 10 * 60_000 }, // 3 .zip per 10 minutes
   validateEmails: { limit: 30, ttl: 60_000 }, // 30 checks per minute
 } as const;
 
