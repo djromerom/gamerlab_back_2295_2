@@ -1,7 +1,6 @@
 // src/teams/services/teams.service.ts
 import {
   Injectable,
-  Optional,
   Logger,
   ConflictException,
   InternalServerErrorException,
@@ -35,19 +34,30 @@ export class TeamsService {
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
-    // Opcional para no romper los specs que construyen el servicio a mano (Task 28)
-    @Optional() private readonly blobRefs?: BlobReferenceService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
 
   /** Task 28: la BD guarda `upload:<id>`; lo que llega como URL firmada se convierte antes de guardar. */
-  private async withBlobReferences<T extends { videogame?: any }>(dto: T): Promise<T> {
-    if (!this.blobRefs || !dto?.videogame) return dto;
-    return { ...dto, videogame: await this.blobRefs.referenceVideogameFields(dto.videogame) };
+  private async withBlobReferences<T extends { videogame?: any }>(dto: T, teamId?: number): Promise<T> {
+    if (!dto?.videogame) return dto;
+    const current =
+      teamId === undefined
+        ? null
+        : await this.prisma.videogame.findUnique({
+            where: { teamId },
+            select: { logoUrl: true, gameFileUrl: true, additionalImages: true },
+          });
+    return { ...dto, videogame: await this.blobRefs.referenceVideogameFields(dto.videogame, current) };
+  }
+
+  /** Respuesta de createTeam: el videojuego recien creado se devuelve con URL firmadas, nunca `upload:<id>`. */
+  private async withSignedCreated<T extends { videogame: any }>(created: T): Promise<T> {
+    return { ...created, videogame: await this.blobRefs.resolveVideogame(created.videogame) };
   }
 
   /** Task 28: firma al leer los archivos referenciados del videojuego de cada equipo. */
   private async withSignedBlobs<T>(teams: T[]): Promise<T[]> {
-    return this.blobRefs ? this.blobRefs.resolveTeamsVideogames(teams as any) as Promise<T[]> : teams;
+    return this.blobRefs.resolveTeamsVideogames(teams as any) as Promise<T[]>;
   }
 
   async findByTeamName(teamName: string): Promise<any> {
@@ -212,7 +222,6 @@ export class TeamsService {
 
   /** Task 28: el ranking arrastra `logoUrl` del videojuego; si es una referencia se firma al leer. */
   private async signRankingLogos(rows: any[]): Promise<any[]> {
-    if (!this.blobRefs) return rows;
     return this.blobRefs.resolveKeys(rows, ['logoUrl', 'videogameLogoUrl']);
   }
 
@@ -275,9 +284,12 @@ export class TeamsService {
       }
     }
 
+    // fuera del try: un archivo no válido es un 400, no un 500
+    const dtoWithRefs = await this.withBlobReferences(createTeamDto);
+
     try {
-      const result = await this.teamRepository.createTeam(
-        await this.withBlobReferences(createTeamDto),
+      const result = await this.withSignedCreated(
+        await this.teamRepository.createTeam(dtoWithRefs),
       );
 
       this.logger.log(
@@ -321,8 +333,10 @@ export class TeamsService {
       );
     }
 
-    return await this.teamRepository.createTeam(
-      await this.withBlobReferences(createTeamDto),
+    return this.withSignedCreated(
+      await this.teamRepository.createTeam(
+        await this.withBlobReferences(createTeamDto),
+      ),
     );
   }
 
@@ -370,7 +384,7 @@ export class TeamsService {
       );
     }
 
-    return this.blobRefs ? (await this.withSignedBlobs([team]))[0] : team;
+    return (await this.withSignedBlobs([team]))[0];
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto, currentUser: AppUser) {
@@ -389,11 +403,17 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.update(
+    const result = await this.teamRepository.update(
       id,
-      await this.withBlobReferences(updateTeamDto),
+      await this.withBlobReferences(updateTeamDto, id),
       isAdmin,
     );
+    if (result && 'updatedVideogame' in result) {
+      result.updatedVideogame = await this.blobRefs.resolveVideogame(
+        result.updatedVideogame,
+      );
+    }
+    return result;
   }
 
   async updateTeamInfo(
@@ -416,11 +436,12 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.updateTeamInfo(
+    const updated = await this.teamRepository.updateTeamInfo(
       id,
-      await this.withBlobReferences(updateTeamDto),
+      await this.withBlobReferences(updateTeamDto, id),
       isAdmin,
     );
+    return updated ? (await this.withSignedBlobs([updated]))[0] : updated;
   }
 
   async updateMemberEmail(

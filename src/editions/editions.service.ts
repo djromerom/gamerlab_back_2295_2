@@ -1,4 +1,4 @@
-import { Injectable, Optional, NotFoundException, BadRequestException, ConflictException, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEditionDto } from './dto/create-edition.dto';
 import { UpdateEditionDto } from './dto/update-edition.dto';
@@ -20,8 +20,7 @@ export class EditionsService {
     private readonly prisma: PrismaService,
     private readonly azureStorageService: AzureStorageService,
     private readonly historicalsService: HistoricalsService,
-    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
-    @Optional() private readonly blobRefs?: BlobReferenceService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
 
   async create(createEditionDto: CreateEditionDto) {
@@ -332,7 +331,7 @@ export class EditionsService {
       orderBy: { name: 'asc' },
     });
     this.logger.log(`Found ${videogames.length} videogame(s) for edition #${id}`);
-    await this.blobRefs?.resolveInPlace(videogames);
+    await this.blobRefs.resolveInPlace(videogames);
     return videogames.map((vg) => ({
       id: vg.id,
       name: vg.name,

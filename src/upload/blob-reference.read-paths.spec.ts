@@ -7,7 +7,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 
 /** Task 28 — el resto de lecturas públicas firman al leer y los PATCH guardan la referencia. */
 describe('Referencia de blob en el resto de lecturas y escrituras (Task 28)', () => {
-  const azure = { signReadUrlById: jest.fn() };
+  const azure = { signReadUrlById: jest.fn(), containerUrls: ['https://acct.blob.core.windows.net/files'] };
   const uploadPrisma = { upload: { findFirst: jest.fn() } };
   let blobRefs: BlobReferenceService;
   const SIGNED = (id: string) => `https://blob.test/files/${id}?sig=s`;
@@ -65,7 +65,7 @@ describe('Referencia de blob en el resto de lecturas y escrituras (Task 28)', ()
 
     it('PATCH guarda la referencia, no la URL firmada', async () => {
       prisma.videogame.findUnique.mockResolvedValue({ id: 1, team: { userId: 'u1' } });
-      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'L9' });
+      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'L9', isPublic: true, createdAt: new Date() });
       await service.update(
         1,
         { logoUrl: 'https://acct.blob.core.windows.net/files/1-a.png?sv=1&sig=zz' } as any,
@@ -108,7 +108,7 @@ describe('Referencia de blob en el resto de lecturas y escrituras (Task 28)', ()
 
     it('PATCH del videojuego histórico guarda la referencia', async () => {
       prisma.historicalVideogame.findUnique.mockResolvedValue({ id: 3 });
-      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'Z7' });
+      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'Z7', isPublic: true, createdAt: new Date() });
       await service.updateHistoricalVideogame(3, {
         gameFileUrl: 'https://acct.blob.core.windows.net/files/2-g.zip?sig=q',
       } as any);

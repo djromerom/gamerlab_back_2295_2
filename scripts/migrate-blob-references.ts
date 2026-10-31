@@ -10,9 +10,8 @@
  *
  *   npx ts-node -T scripts/migrate-blob-references.ts --apply
  *
- * Variables: DATABASE_URL (la de la API) y AZURE_CONTAINER (nombre del contenedor, el mismo del
- * .env de la API; si falta se toma el ultimo segmento de la ruta, valido porque los blobName no
- * llevan "/").
+ * Variables: DATABASE_URL (la de la API), AZURE_CONTAINER y AZURE_ACCOUNT_NAME (las mismas del .env
+ * de la API), o bien --container-url=<url base del contenedor>.
  *
  * Es idempotente: se puede repetir; ignora lo que ya es `upload:<id>`, lo que no es una URL
  * firmada y las URL cuyo blob no existe en la tabla de archivos subidos (quedan como estaban y
@@ -24,6 +23,26 @@ import { blobNameFromSignedUrl, BLOB_REF_PREFIX } from '../src/upload/blob-refer
 const apply = process.argv.includes('--apply');
 const prisma = new PrismaClient();
 const container = process.env.AZURE_CONTAINER;
+
+/**
+ * URL base de nuestro contenedor (solo las URL de este origen y ruta se convierten; el resto son
+ * externas y quedan intactas). Produccion: https://<AZURE_ACCOUNT_NAME>.blob.core.windows.net/<container>.
+ * Se puede forzar con --container-url=<url>. En desarrollo (Azurite) tambien se acepta
+ * http://localhost:10000/<cuenta>/<container>.
+ */
+function containerUrls(): string[] {
+  const arg = process.argv.find((a) => a.startsWith('--container-url='));
+  if (arg) return [arg.slice('--container-url='.length)];
+  if (!container) throw new Error('Falta AZURE_CONTAINER (o --container-url=...)');
+  const urls: string[] = [];
+  const account =
+    process.env.AZURE_ACCOUNT_NAME ?? /AccountName=([^;]+)/.exec(process.env.AZURE_STORAGE_CONNECTION_STRING ?? '')?.[1];
+  if (process.env.AZURE_ACCOUNT_NAME) urls.push(`https://${process.env.AZURE_ACCOUNT_NAME}.blob.core.windows.net/${container}`);
+  if (process.env.NODE_ENV === 'development' && account) urls.push(`http://localhost:10000/${account}/${container}`);
+  if (urls.length === 0) throw new Error('Falta AZURE_ACCOUNT_NAME (o --container-url=...)');
+  return urls;
+}
+const OWN_URLS = containerUrls();
 
 type Row = { id: number; logoUrl: string | null; gameFileUrl: string | null; additionalImages: string[] };
 type Changes = { logoUrl?: string; gameFileUrl?: string; additionalImages?: string[] };
@@ -50,7 +69,7 @@ const targets: Target[] = [
 const uploadIdByBlob = new Map<string, string | null>();
 async function toReference(value: string | null): Promise<string | null> {
   if (!value || value.startsWith(BLOB_REF_PREFIX)) return null;
-  const blobName = blobNameFromSignedUrl(value, container);
+  const blobName = blobNameFromSignedUrl(value, OWN_URLS);
   if (!blobName) return null;
   if (!uploadIdByBlob.has(blobName)) {
     const up = await prisma.upload.findFirst({ where: { blobName }, select: { id: true } });
@@ -106,4 +125,6 @@ main()
     console.error(e);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => {
+    void prisma.$disconnect();
+  });

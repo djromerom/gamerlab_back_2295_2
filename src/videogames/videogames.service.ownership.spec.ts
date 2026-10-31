@@ -1,3 +1,4 @@
+import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { VideogamesService } from './videogames.service';
 import { ROLE_IDS } from '../auth/constants/roles';
@@ -10,7 +11,7 @@ describe('VideogamesService.update — propiedad (BG-01)', () => {
   const prisma = {
     videogame: { findUnique: jest.fn(), update: jest.fn() },
   };
-  const service = new VideogamesService(prisma as any, {} as any);
+  const service = new VideogamesService(prisma as any, {} as any, blobRefsPassthrough());
 
   const game = { id: 7, team: { userId: 'leader-1' } };
   const student = (id: string) => ({ id, roleId: ROLE_IDS.STUDENT }) as any;

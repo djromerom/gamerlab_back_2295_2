@@ -6,7 +6,6 @@ import {
   Logger,
   NotFoundException,
   NotImplementedException,
-  Optional,
 } from '@nestjs/common';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
 import { UpdateVideogameDto } from './dto/update-videogame.dto';
@@ -23,8 +22,7 @@ export class VideogamesService {
   constructor(
     private prisma: PrismaService,
     private gateway: VideogamesGateway,
-    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
-    @Optional() private readonly blobRefs?: BlobReferenceService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
 
   private readonly MAX_LIKES_LOGO_ONLY = 20;
@@ -60,7 +58,7 @@ export class VideogamesService {
       },
     });
 
-    await this.blobRefs?.resolveInPlace(videogames);
+    await this.blobRefs.resolveInPlace(videogames);
     return videogames.map((vg) => ({
       id: vg.id,
       name: vg.name,
@@ -239,7 +237,7 @@ export class VideogamesService {
       //additionalImages: vg.additionalImages,
       teamName: vg.team.teamName,
       status: vg.videogameStatus.status,
-      gameFileURL: (await this.blobRefs?.resolve(vg.gameFileUrl)) || vg.gameFileUrl || '',
+      gameFileURL: (await this.blobRefs.resolve(vg.gameFileUrl)) || '',
       entry: vg.entry || ''
     };
   }
@@ -279,18 +277,18 @@ export class VideogamesService {
     }
 
     // Task 28: se guarda la referencia del archivo, no la URL firmada
-    const { vgName, ...restData } = this.blobRefs
-      ? await this.blobRefs.referenceVideogameFields(videogameData)
-      : videogameData;
+    const { vgName, ...restData } = await this.blobRefs.referenceVideogameFields(videogameData, vg);
     const updateData: any = { ...restData };
     if (vgName !== undefined) {
       updateData.name = vgName;
     }
 
-    return this.prisma.videogame.update({
-      where: { id: videogameId },
-      data: updateData,
-    });
+    return this.blobRefs.resolveVideogame(
+      await this.prisma.videogame.update({
+        where: { id: videogameId },
+        data: updateData,
+      }),
+    );
   }
 
   //TODO: remove static game files, if there are any. possible interface with upload module?

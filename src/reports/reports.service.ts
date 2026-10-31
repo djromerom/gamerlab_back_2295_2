@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BlobReferenceService } from '../upload/blob-reference.service';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -11,12 +11,11 @@ const ROL_JURADO_ID = 4;
 export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
-    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
-    @Optional() private readonly blobRefs?: BlobReferenceService,
+    private readonly blobRefs: BlobReferenceService,
   ) {}
 
   private async signLogo(value?: string | null): Promise<string | null> {
-    return (this.blobRefs ? await this.blobRefs.resolve(value) : value) ?? null;
+    return (await this.blobRefs.resolve(value)) ?? null;
   }
 
   async getVideogamesData(): Promise<

@@ -12,7 +12,7 @@ describe('TeamsService — referencia de blob (Task 28)', () => {
     update: jest.fn(),
     createTeam: jest.fn(),
   };
-  const azure = { signReadUrlById: jest.fn() };
+  const azure = { signReadUrlById: jest.fn(), containerUrls: ['https://acct.blob.core.windows.net/files'] };
   const prisma = { upload: { findFirst: jest.fn() } };
   let service: TeamsService;
 
@@ -24,7 +24,7 @@ describe('TeamsService — referencia de blob (Task 28)', () => {
       expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
     }));
     const blobRefs = new BlobReferenceService(azure as any, prisma as any);
-    service = new TeamsService({} as any, repository as any, {} as any, {} as any, blobRefs);
+    service = new TeamsService({} as any, repository as any, {} as any, { videogame: { findUnique: jest.fn().mockResolvedValue(null) } } as any, blobRefs);
   });
 
   const teamWith = (videogame: any) => ({ id: 1, teamName: 'T', videogame, members: [] });
@@ -61,7 +61,7 @@ describe('TeamsService — referencia de blob (Task 28)', () => {
 
   it('PATCH del videojuego guarda la referencia, no la URL firmada', async () => {
     repository.findOne.mockResolvedValue({ id: 1, userId: 'u1' });
-    prisma.upload.findFirst.mockResolvedValue({ id: 'logo-9' });
+    prisma.upload.findFirst.mockResolvedValue({ id: 'logo-9', isPublic: true, createdAt: new Date() });
     const dto: any = {
       videogame: {
         logoUrl: 'https://acct.blob.core.windows.net/files/1699-logo.png?sv=1&sig=zzz',
@@ -77,7 +77,7 @@ describe('TeamsService — referencia de blob (Task 28)', () => {
 
   it('el PATCH completo (members/isExternal) también guarda la referencia', async () => {
     repository.findOne.mockResolvedValue({ id: 1, userId: 'u1' });
-    prisma.upload.findFirst.mockResolvedValue({ id: 'zip-3' });
+    prisma.upload.findFirst.mockResolvedValue({ id: 'zip-3', isPublic: true, createdAt: new Date() });
     const dto: any = {
       isExternal: false,
       videogame: { gameFileUrl: 'https://acct.blob.core.windows.net/files/2-g.zip?sig=q' },

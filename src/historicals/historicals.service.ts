@@ -1,4 +1,4 @@
-import { Injectable, Optional, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { UpdateHistoricalTeamDto } from './dto/update-historical-team.dto';
 import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
 import { UpdateHistoricalVideogameDto } from './dto/update-historical-videogame.dto';
@@ -11,12 +11,11 @@ export class HistoricalsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
-    @Optional() private readonly blobRefs?: BlobReferenceService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
 
   private async signTeams<T extends { videogame?: any }>(teams: T[]): Promise<T[]> {
-    return this.blobRefs ? this.blobRefs.resolveTeamsVideogames(teams) : teams;
+    return this.blobRefs.resolveTeamsVideogames(teams);
   }
 
   async getAllHistoricalTeams() {
@@ -87,7 +86,7 @@ export class HistoricalsService {
     if (historicalVideogames.length === 0) {
       throw new NotFoundException(`No historical videogames found for edition with ID ${editionId}`);
     }
-    return this.blobRefs ? Promise.all(historicalVideogames.map((v) => this.blobRefs!.resolveVideogame(v))) : historicalVideogames;
+    return Promise.all(historicalVideogames.map((v) => this.blobRefs.resolveVideogame(v)));
   }
 
   // Create a dump from the current teams, members and videogames of a given edition
@@ -244,13 +243,15 @@ export class HistoricalsService {
     if (!historicalVideogame) {
       throw new NotFoundException(`Historical videogame with ID ${historicalVideogameId} not found`);
     }
+    // fuera del try: un archivo no válido es un 400, no un 500
+    const data = await this.blobRefs.referenceVideogameFields(updateData, historicalVideogame);
     // Actualizar el videojuego histórico con los datos proporcionados
     try {
       const updatedVideogame = await this.prisma.historicalVideogame.update({
         where: { id: historicalVideogameId },
-        data: this.blobRefs ? await this.blobRefs.referenceVideogameFields(updateData) : updateData,
+        data,
       });
-      return updatedVideogame;
+      return await this.blobRefs.resolveVideogame(updatedVideogame);
     } catch (error) {
       this.logger.error(`Error updating historical videogame with ID ${historicalVideogameId}`, error);
       throw new InternalServerErrorException('An error occurred while updating the historical videogame.');

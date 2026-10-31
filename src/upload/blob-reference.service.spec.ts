@@ -1,8 +1,9 @@
+import { BadRequestException } from '@nestjs/common';
 import { BlobReferenceService } from './blob-reference.service';
 
 describe('BlobReferenceService (Task 28)', () => {
-  const azure = { signReadUrlById: jest.fn() };
-  const prisma = { upload: { findFirst: jest.fn() } };
+  const azure = { signReadUrlById: jest.fn(), containerUrls: ['https://acct.blob.core.windows.net/files'] };
+  const prisma = { upload: { findFirst: jest.fn(), update: jest.fn() } };
   let service: BlobReferenceService;
 
   beforeEach(() => {
@@ -66,41 +67,80 @@ describe('BlobReferenceService (Task 28)', () => {
   });
 
   describe('toReference', () => {
-    beforeEach(() => {
-      process.env.AZURE_CONTAINER = 'files';
+    const OWN = 'https://acct.blob.core.windows.net/files/1699-foto%20a.png?sv=2024&sp=r&sig=zzz';
+    const upload = (over: Record<string, unknown> = {}) => ({
+      id: 'u-1',
+      isPublic: false,
+      createdAt: new Date(Date.now() - 3600_000),
+      ...over,
     });
 
-    it('convierte una URL firmada de nuestro blob en upload:<id>', async () => {
-      prisma.upload.findFirst.mockResolvedValue({ id: 'u-1' });
-      const ref = await service.toReference(
-        'https://acct.blob.core.windows.net/files/1699-foto%20a.png?sv=2024&sp=r&sig=zzz',
+    it('convierte una URL firmada de nuestro blob en upload:<id> (archivo publico)', async () => {
+      prisma.upload.findFirst.mockResolvedValue(upload({ isPublic: true }));
+      expect(await service.toReference(OWN)).toBe('upload:u-1');
+      expect(prisma.upload.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { blobName: '1699-foto a.png' } }),
       );
-      expect(prisma.upload.findFirst).toHaveBeenCalledWith({
-        where: { blobName: '1699-foto a.png' },
-        select: { id: true },
-      });
-      expect(ref).toBe('upload:u-1');
     });
 
-    it('deja igual una referencia ya guardada', async () => {
-      expect(await service.toReference('upload:u-1')).toBe('upload:u-1');
-      expect(prisma.upload.findFirst).not.toHaveBeenCalled();
+    it('(a) acepta una referencia privada si es igual a la ya guardada', async () => {
+      prisma.upload.findFirst.mockResolvedValue(upload());
+      expect(await service.toReference('upload:u-1', 'upload:u-1')).toBe('upload:u-1');
     });
 
-    it('deja igual una URL sin firma (no se puede referenciar un blob privado con solo su nombre)', async () => {
-      const url = 'https://acct.blob.core.windows.net/files/1699-foto.png';
-      expect(await service.toReference(url)).toBe(url);
-      expect(prisma.upload.findFirst).not.toHaveBeenCalled();
+    it('(a) acepta la URL firmada reenviada si el valor guardado es esa misma referencia o la URL vieja', async () => {
+      prisma.upload.findFirst.mockResolvedValue(upload());
+      expect(await service.toReference(OWN, 'upload:u-1')).toBe('upload:u-1');
+      expect(await service.toReference('upload:u-1', OWN)).toBe('upload:u-1');
     });
 
-    it('deja igual una URL externa o que no corresponde a ningún upload', async () => {
+    it('(a) en arreglos acepta lo que ya esta en el arreglo guardado', async () => {
+      prisma.upload.findFirst.mockResolvedValue(upload());
+      expect(await service.toReference('upload:u-1', ['upload:x', 'upload:u-1'])).toBe('upload:u-1');
+    });
+
+    it('(b) acepta una referencia a un archivo publico', async () => {
+      prisma.upload.findFirst.mockResolvedValue(upload({ isPublic: true }));
+      expect(await service.toReference('upload:u-1', null)).toBe('upload:u-1');
+      expect(prisma.upload.update).not.toHaveBeenCalled();
+    });
+
+    it('(c) acepta un archivo de <= 15 min y lo marca publico', async () => {
+      prisma.upload.findFirst.mockResolvedValue(upload({ createdAt: new Date(Date.now() - 10 * 60_000) }));
+      expect(await service.toReference('upload:u-1', null)).toBe('upload:u-1');
+      expect(prisma.upload.update).toHaveBeenCalledWith({ where: { id: 'u-1' }, data: { isPublic: true } });
+    });
+
+    it('rechaza con 400 un archivo privado y antiguo que no es el guardado', async () => {
+      prisma.upload.findFirst.mockResolvedValue(upload());
+      await expect(service.toReference('upload:u-1', 'upload:otro')).rejects.toThrow(BadRequestException);
+      await expect(service.toReference(OWN, null)).rejects.toThrow('Archivo no válido');
+      expect(prisma.upload.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 400 una referencia a un upload inexistente', async () => {
       prisma.upload.findFirst.mockResolvedValue(null);
-      const url = 'https://acct.blob.core.windows.net/files/9-x.png?sig=1';
-      expect(await service.toReference(url)).toBe(url);
+      await expect(service.toReference('upload:fantasma')).rejects.toThrow(BadRequestException);
+    });
+
+    it('deja igual una URL con firma pero de otro host (externa) y no consulta la BD', async () => {
+      const ext = 'https://evil.example.com/files/1699-foto.png?sig=zzz';
+      expect(await service.toReference(ext)).toBe(ext);
+      const sameHostOtherContainer = 'https://acct.blob.core.windows.net/otro/1699-foto.png?sig=zzz';
+      expect(await service.toReference(sameHostOtherContainer)).toBe(sameHostOtherContainer);
+      expect(prisma.upload.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('deja igual una URL sin firma, o de nuestro contenedor sin upload', async () => {
+      const unsigned = 'https://acct.blob.core.windows.net/files/1699-foto.png';
+      expect(await service.toReference(unsigned)).toBe(unsigned);
+      prisma.upload.findFirst.mockResolvedValue(null);
+      const unknown = 'https://acct.blob.core.windows.net/files/9-x.png?sig=1';
+      expect(await service.toReference(unknown)).toBe(unknown);
       expect(await service.toReference('no es url')).toBe('no es url');
     });
 
-    it('mantiene null, undefined y vacío', async () => {
+    it('mantiene null, undefined y vacio', async () => {
       expect(await service.toReference(null)).toBeNull();
       expect(await service.toReference(undefined)).toBeUndefined();
       expect(await service.toReference('')).toBe('');

@@ -1,3 +1,4 @@
+import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 import { VideogamesService } from './pg.service';
 
 describe('VideogamesService (pending-games)', () => {
@@ -28,7 +29,7 @@ describe('VideogamesService (pending-games)', () => {
     });
     prismaMock.videogame.findMany.mockResolvedValue([pendingVideogame]);
     prismaMock.videogame.count.mockResolvedValue(1);
-    service = new VideogamesService(prismaMock as never);
+    service = new VideogamesService(prismaMock as never, blobRefsPassthrough());
   });
 
   // El front necesita el teamId para llamar a /team-verification/verify y /status (HU-19).

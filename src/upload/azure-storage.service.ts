@@ -165,6 +165,12 @@ export class AzureStorageService implements OnModuleInit {
     };
   }
 
+  /** URL base del contenedor tal cual y con el host normalizado de desarrollo: sirven para reconocer URL firmadas propias. */
+  get containerUrls(): string[] {
+    const raw = this.containerClient.url;
+    return [...new Set([raw, this.normalizeUrl(raw)])];
+  }
+
   /**
    * Firma una URL de lectura para un upload SIN comprobar acceso: la usa BlobReferenceService para
    * entregar en respuestas públicas los archivos que el equipo referenció (Task 28).

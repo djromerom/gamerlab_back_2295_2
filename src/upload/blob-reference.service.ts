@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AzureStorageService } from './azure-storage.service';
 
@@ -15,12 +15,13 @@ const SIGN_CACHE_MAX = 2000;
  * Los datos viejos (URL completa ya guardada) se siguen sirviendo tal cual hasta que el script
  * `scripts/migrate-blob-references.ts` los convierta.
  */
+
 /**
- * Nombre del blob de una URL firmada de nuestro contenedor, o null si no es una URL firmada
- * (se exige `sig`: nadie puede referenciar un archivo privado conociendo solo su nombre).
- * Lo usa tambien scripts/migrate-blob-references.ts.
+ * Nombre del blob de una URL firmada de NUESTRO contenedor, o null. Se exige la firma (`sig`) y que
+ * origen y ruta coincidan con alguna de las URL base del contenedor; una URL de otro host es
+ * externa y queda intacta. Lo usa tambien scripts/migrate-blob-references.ts.
  */
-export function blobNameFromSignedUrl(value: string, container?: string): string | null {
+export function blobNameFromSignedUrl(value: string, containerUrls: string[]): string | null {
   let parsed: URL;
   try {
     parsed = new URL(value);
@@ -28,16 +29,28 @@ export function blobNameFromSignedUrl(value: string, container?: string): string
     return null;
   }
   if (!parsed.searchParams.has('sig')) return null;
-  const segments = parsed.pathname.split('/').filter(Boolean);
-  const at = container ? segments.indexOf(container) : -1;
-  const blobSegments = at >= 0 ? segments.slice(at + 1) : segments.slice(-1);
-  if (blobSegments.length === 0) return null;
-  try {
-    return blobSegments.map(decodeURIComponent).join('/');
-  } catch {
-    return null;
+  for (const base of containerUrls) {
+    let b: URL;
+    try {
+      b = new URL(base);
+    } catch {
+      continue;
+    }
+    const prefix = b.pathname.replace(/\/+$/, '') + '/';
+    if (parsed.origin !== b.origin || !parsed.pathname.startsWith(prefix)) continue;
+    const rest = parsed.pathname.slice(prefix.length);
+    if (!rest) return null;
+    try {
+      return rest.split('/').map(decodeURIComponent).join('/');
+    } catch {
+      return null;
+    }
   }
+  return null;
 }
+
+/** Ventana en la que un archivo recien subido puede referenciarse aunque aun no sea publico (igual que upload-urls-y-zip). */
+export const FRESH_UPLOAD_WINDOW_MS = 15 * 60_000;
 
 type BlobFields = { logoUrl?: string | null; gameFileUrl?: string | null; additionalImages?: string[] | null };
 
@@ -98,8 +111,8 @@ export class BlobReferenceService {
     return Promise.all(
       rows.map(async (r) => {
         if (!r) return r;
-        const out: Record<string, any> = { ...r };
-        for (const k of keys) if (k in out) out[k] = await this.resolve(out[k]);
+        const out: Record<string, unknown> = { ...r };
+        for (const k of keys) if (k in out) out[k] = await this.resolve(out[k] as string | null);
         return out as T;
       }),
     );
@@ -112,27 +125,70 @@ export class BlobReferenceService {
     );
   }
 
-  /**
-   * URL firmada de uno de nuestros blobs -> `upload:<id>`. Se exige la firma (`sig`) para que
-   * nadie pueda referenciar un archivo privado conociendo solo su nombre. Si no corresponde a
-   * ningún upload (URL externa, dato raro), el valor se devuelve sin cambios.
-   */
-  async toReference<T extends string | null | undefined>(value: T): Promise<T | string> {
-    if (typeof value !== 'string' || value === '' || BlobReferenceService.isReference(value)) return value;
-    const blobName = blobNameFromSignedUrl(value, process.env.AZURE_CONTAINER);
-    if (!blobName) return value;
-    const upload = await this.prisma.upload.findFirst({ where: { blobName }, select: { id: true } });
-    return upload ? `${BLOB_REF_PREFIX}${upload.id}` : value;
+  private async findUpload(where: { id: string } | { blobName: string }) {
+    return this.prisma.upload.findFirst({ where, select: { id: true, isPublic: true, createdAt: true } });
   }
 
-  /** Convierte `logoUrl` y `gameFileUrl` de un DTO de escritura a referencias (solo los presentes). */
-  async referenceVideogameFields<T extends BlobFields>(dto: T): Promise<T> {
+  /** Referencia a la que apunta un valor (referencia o URL firmada propia) sin validar nada; null si no apunta a un upload. */
+  private async peekReference(value: unknown): Promise<string | null> {
+    if (typeof value !== 'string' || value === '') return null;
+    if (BlobReferenceService.isReference(value)) return value;
+    const blobName = blobNameFromSignedUrl(value, this.azure.containerUrls);
+    if (!blobName) return null;
+    const up = await this.findUpload({ blobName });
+    return up ? `${BLOB_REF_PREFIX}${up.id}` : null;
+  }
+
+  /**
+   * Valor recibido del cliente -> `upload:<id>` para guardar. Una URL firmada propia se convierte;
+   * una URL externa o de un blob inexistente queda igual. Una referencia (o URL que se resuelve a un
+   * upload) solo se acepta si (a) ya es el valor guardado en ese registro (`current`), (b) el upload es
+   * publico o (c) se subio hace <= 15 min (en ese caso se marca publico: logos e imagenes de juego son
+   * contenido publico). Si no, 400 «Archivo no válido»: nadie puede referenciar el archivo privado de otro.
+   */
+  async toReference<T extends string | null | undefined>(
+    value: T,
+    current?: string | null | (string | null | undefined)[],
+  ): Promise<T | string> {
+    if (typeof value !== 'string' || value === '') return value;
+    let up: { id: string; isPublic: boolean; createdAt: Date } | null;
+    if (BlobReferenceService.isReference(value)) {
+      up = await this.findUpload({ id: value.slice(BLOB_REF_PREFIX.length) });
+    } else {
+      const blobName = blobNameFromSignedUrl(value, this.azure.containerUrls);
+      if (!blobName) return value;
+      up = await this.findUpload({ blobName });
+      if (!up) return value;
+    }
+    if (!up) throw new BadRequestException('Archivo no válido');
+    const ref = `${BLOB_REF_PREFIX}${up.id}`;
+
+    const stored = Array.isArray(current) ? current : [current];
+    for (const s of stored) {
+      if (s === ref || (typeof s === 'string' && !BlobReferenceService.isReference(s) && (await this.peekReference(s)) === ref)) {
+        return ref;
+      }
+    }
+    if (up.isPublic) return ref;
+    if (Date.now() - up.createdAt.getTime() <= FRESH_UPLOAD_WINDOW_MS) {
+      await this.prisma.upload.update({ where: { id: up.id }, data: { isPublic: true } });
+      return ref;
+    }
+    throw new BadRequestException('Archivo no válido');
+  }
+
+  /**
+   * Convierte `logoUrl`, `gameFileUrl` y `additionalImages` de un DTO de escritura a referencias
+   * (solo los presentes). `current` es lo que ya tiene guardado ese registro.
+   */
+  async referenceVideogameFields<T extends BlobFields>(dto: T, current?: BlobFields | null): Promise<T> {
     if (!dto) return dto;
     const out: BlobFields = { ...dto };
-    if (typeof out.logoUrl === 'string') out.logoUrl = await this.toReference(out.logoUrl);
-    if (typeof out.gameFileUrl === 'string') out.gameFileUrl = await this.toReference(out.gameFileUrl);
+    if (typeof out.logoUrl === 'string') out.logoUrl = await this.toReference(out.logoUrl, current?.logoUrl);
+    if (typeof out.gameFileUrl === 'string') out.gameFileUrl = await this.toReference(out.gameFileUrl, current?.gameFileUrl);
     if (Array.isArray(out.additionalImages)) {
-      out.additionalImages = await Promise.all(out.additionalImages.map((img) => this.toReference(img)));
+      const stored = current?.additionalImages ?? [];
+      out.additionalImages = await Promise.all(out.additionalImages.map((img) => this.toReference(img, stored)));
     }
     return out as T;
   }

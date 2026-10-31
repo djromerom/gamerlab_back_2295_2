@@ -7,7 +7,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 
 /** Task 28, ronda 1 - ningun endpoint devuelve `upload:<id>` crudo; additionalImages tambien es referencia. */
 describe('Task 28 ronda 1', () => {
-  const azure = { signReadUrlById: jest.fn() };
+  const azure = { signReadUrlById: jest.fn(), containerUrls: ['https://acct.blob.core.windows.net/files'] };
   const uploadPrisma = { upload: { findFirst: jest.fn() } };
   const SIGNED = (id: string) => `https://blob.test/files/${id}?sig=s`;
   let blobRefs: BlobReferenceService;
@@ -32,7 +32,7 @@ describe('Task 28 ronda 1', () => {
 
     it('referenceVideogameFields convierte cada URL firmada en referencia', async () => {
       uploadPrisma.upload.findFirst.mockImplementation(async ({ where }: any) =>
-        where.blobName === '1-a.png' ? { id: 'A' } : null,
+        where.blobName === '1-a.png' ? { id: 'A', isPublic: true, createdAt: new Date() } : where.id === 'B' ? { id: 'B', isPublic: true, createdAt: new Date() } : null,
       );
       const out = await blobRefs.referenceVideogameFields({
         additionalImages: [
@@ -102,7 +102,7 @@ describe('Task 28 ronda 1', () => {
 
   describe('TeamsService', () => {
     const repository = { findAll: jest.fn(), findOne: jest.fn(), updateTeamInfo: jest.fn() };
-    const prisma = { teamFinalScore: { findMany: jest.fn() } };
+    const prisma = { teamFinalScore: { findMany: jest.fn() }, videogame: { findUnique: jest.fn().mockResolvedValue(null) } };
     let service: TeamsService;
     beforeEach(() => {
       service = new TeamsService({} as any, repository as any, {} as any, prisma as any, blobRefs);
@@ -134,7 +134,7 @@ describe('Task 28 ronda 1', () => {
 
     it('PATCH guarda additionalImages como referencias', async () => {
       repository.findOne.mockResolvedValue({ id: 1, userId: 'u1' });
-      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'I9' });
+      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'I9', isPublic: true, createdAt: new Date() });
       await service.updateTeamInfo(
         1,
         { videogame: { additionalImages: ['https://acct.blob.core.windows.net/files/3-i.png?sig=z'] } } as any,
@@ -157,7 +157,7 @@ describe('Task 28 ronda 1', () => {
       expect(((await service.findAll()) as any)[0].additionalImages).toEqual([SIGNED('I1')]);
 
       prisma.videogame.findUnique.mockResolvedValue({ id: 1, team: { userId: 'u1' } });
-      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'I9' });
+      uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'I9', isPublic: true, createdAt: new Date() });
       await service.update(
         1,
         { additionalImages: ['https://acct.blob.core.windows.net/files/3-i.png?sig=z'] } as any,
