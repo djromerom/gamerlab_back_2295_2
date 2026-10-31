@@ -420,16 +420,8 @@ export class ProfessorsService {
   async remove(id: string): Promise<User> {
     this.logger.log(`Attempting to soft delete professor with ID: ${id}`);
 
-    const professor = await this.prisma.user.delete({ where: { id } });
-
-    if (!professor || professor.roleId !== this.professorRoleId) {
-      this.logger.warn(
-        `Delete failed: User ${id} not found or is not a professor.`,
-      );
-      throw new NotFoundException(
-        `Professor with ID ${id} not found or is not a professor role.`,
-      );
-    }
+    // Verifica que exista, sea profesor y esté activo (404 en otro caso).
+    await this.findOne(id);
 
     try {
       const deactivatedProfessor = await this.prisma.user.update({
