@@ -1,6 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsInt } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsOptional,
+} from 'class-validator';
 
 export class TeamStatusQueryDto {
   @ApiProperty({
@@ -21,4 +28,15 @@ export class TeamStatusQueryDto {
   @ArrayMaxSize(100)
   @IsInt({ each: true })
   teamIds: number[];
+
+  @ApiPropertyOptional({
+    description: 'Si es true, la respuesta es { status, locks }',
+    example: 'true',
+  })
+  @Transform(({ value }: { value: unknown }): unknown =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsOptional()
+  @IsBoolean()
+  includeLocks?: boolean;
 }
