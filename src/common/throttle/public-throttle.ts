@@ -20,7 +20,10 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 export const PUBLIC_LIMITS = {
   imageUpload: { limit: 60, ttl: 60_000 }, // 60 images per minute
   zipUpload: { limit: 10, ttl: 10 * 60_000 }, // 10 .zip per 10 minutes
-  validateEmails: { limit: 30, ttl: 60_000 }, // 30 checks per minute
+  validateEmails: { limit: 15, ttl: 60_000 }, // 15 checks per minute
+  login: { limit: 10, ttl: 60_000 }, // 10 login attempts per minute
+  resetPassword: { limit: 5, ttl: 10 * 60_000 }, // 5 reset emails per 10 minutes
+  resendConfirmation: { limit: 5, ttl: 10 * 60_000 }, // 5 confirmation emails per 10 minutes
 } as const;
 
 /** Applies the ThrottlerGuard with the given limit to a single route. */

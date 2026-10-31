@@ -5,6 +5,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheService } from '../cache/cache.service';
 
 // Smoke test to ensure the controller can be instantiated without errors.
@@ -36,6 +37,7 @@ describe('AuthController', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }])],
       controllers: [AuthController],
       providers: [
         {
