@@ -116,6 +116,23 @@ describe('ProfessorsController', () => {
       res,
     );
   });
-});
 
-// Unit tests for controller methods should go here (GET, POST, etc)
+  describe('sin hash de contraseña en la respuesta', () => {
+    const user = { id: 'p1', email: 'p@x.co', password: '$2b$hash' };
+
+    it('create, findOne y update no incluyen password', async () => {
+      mockProfessorsService.create.mockResolvedValue(user);
+      mockProfessorsService.findOne.mockResolvedValue(user);
+      mockProfessorsService.update.mockResolvedValue(user);
+
+      const created = await controller.create({ email: 'p@x.co' } as any);
+      const found = await controller.findOne('p1');
+      const updated = await controller.update('p1', {} as any);
+
+      for (const r of [created, found, updated]) {
+        expect(r).not.toHaveProperty('password');
+        expect(r).toMatchObject({ id: 'p1', email: 'p@x.co' });
+      }
+    });
+  });
+});

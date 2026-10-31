@@ -14,6 +14,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { omitPassword } from '../common/utils/omit-password';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -82,8 +83,10 @@ export class ProfessorsController {
       },
     },
   })
-  create(@Body() createProfessorDto: CreateProfessorDto) {
-    return this.professorsService.create(createProfessorDto);
+  async create(@Body() createProfessorDto: CreateProfessorDto) {
+    return omitPassword(
+      await this.professorsService.create(createProfessorDto),
+    );
   }
 
   @Get()
@@ -670,8 +673,8 @@ export class ProfessorsController {
       },
     },
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.professorsService.findOne(id);
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return omitPassword(await this.professorsService.findOne(id));
   }
 
   @Patch(':id')
@@ -692,11 +695,13 @@ export class ProfessorsController {
       },
     },
   })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProfessorDto: UpdateProfessorDto,
   ) {
-    return this.professorsService.update(id, updateProfessorDto);
+    return omitPassword(
+      await this.professorsService.update(id, updateProfessorDto),
+    );
   }
 
   @Delete(':id')
