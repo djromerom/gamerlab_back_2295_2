@@ -98,3 +98,43 @@ describe('Inscripciones abiertas en rutas públicas', () => {
     expect(teams.create).not.toHaveBeenCalled();
   });
 });
+
+describe('Orden de guards en /upload', () => {
+  it.each(['uploadImage', 'uploadGameFile'])('%s: ThrottlerGuard va primero', (m) => {
+    const guards = Reflect.getMetadata('__guards__', (UploadController.prototype as any)[m]) as unknown[];
+    expect(guards[0]).toBe(ThrottlerGuard);
+  });
+});
+
+describe('OptionalJwtAuthGuard real con cookie basura', () => {
+  // Estrategia 'jwt' real de passport-jwt que rechaza cualquier token (no hay secreto válido para la cookie basura)
+  beforeAll(() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const passport = require('passport');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Strategy, ExtractJwt } = require('passport-jwt');
+    passport.use('jwt', new Strategy(
+      { secretOrKey: 'test', jwtFromRequest: ExtractJwt.fromExtractors([(r: any) => r.headers.cookie?.split('=')[1] ?? null]) },
+      (_p: unknown, done: any) => done(null, false),
+    ));
+  });
+  it('se trata como anónimo: 403 con inscripciones cerradas', async () => {
+    const mod = await Test.createTestingModule({
+      controllers: [UploadController],
+      providers: [
+        { provide: AzureStorageService, useValue: {} },
+        { provide: SettingsService, useValue: { getRegistrationsOpen: async () => ({ registrationsOpen: false }) } },
+        { provide: PrismaService, useValue: {} },
+        { provide: CacheService, useValue: {} },
+        { provide: ConfigService, useValue: { get: (_k: string, d: unknown) => d } },
+      ],
+    })
+      .overrideGuard(ThrottlerGuard).useValue(allow)
+      .compile();
+    const a = mod.createNestApplication();
+    await a.init();
+    const res = await request(a.getHttpServer()).post('/upload').set('Cookie', 'access_token=basura').send();
+    expect(res.status).toBe(403);
+    await a.close();
+  });
+});

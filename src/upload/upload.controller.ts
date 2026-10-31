@@ -18,8 +18,8 @@ export class UploadController {
 
   // Público porque lo usa la inscripción web antes de crear la cuenta; con límite de peticiones (BG-02)
   @Public()
-  @PublicThrottle(PUBLIC_LIMITS.imageUpload)
   @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenOrSessionGuard)
+  @PublicThrottle(PUBLIC_LIMITS.imageUpload)
   @Post()
   @UseFilters(MulterExceptionFilter)
   @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
@@ -96,8 +96,8 @@ export class UploadController {
   }
 
   @Public()
-  @PublicThrottle(PUBLIC_LIMITS.zipUpload)
   @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenOrSessionGuard)
+  @PublicThrottle(PUBLIC_LIMITS.zipUpload)
   @Post('zip')
   @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
   @ApiBody({
