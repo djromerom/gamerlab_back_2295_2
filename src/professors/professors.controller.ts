@@ -30,6 +30,7 @@ import { Response } from 'express';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { AppUser } from '../auth/jwt.strategy';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
@@ -38,6 +39,11 @@ import { UpdateProfessorDto } from './dto/update-professor.dto';
 import { UpdateTeamEvaluationDto } from './dto/update-team-evaluation.dto';
 import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
 import { GradingReportExportService } from './grading-report-export.service';
+import {
+  GradingFilterOptionsQueryDto,
+  GradingGamesQueryDto,
+} from './dto/grading-games-query.dto';
+import { GradingGamesService } from './grading-games.service';
 import { BatchTeamEvaluationDto } from './dto/batch-team-evaluation.dto';
 import { ProfessorsService } from './professors.service';
 import { SelectOption } from './types/select-option.type';
@@ -49,6 +55,7 @@ export class ProfessorsController {
   constructor(
     private readonly professorsService: ProfessorsService,
     private readonly gradingReportExport: GradingReportExportService,
+    private readonly gradingGames: GradingGamesService,
   ) {}
 
   @Post()
@@ -182,7 +189,7 @@ export class ProfessorsController {
   @ApiOperation({
     summary: 'Download grading report with the panel filters (HU-02)',
     description:
-      'Exports only what matches the active filters (feria, NRC, search, order). Without filters, exports everything the professor can see.',
+      'Exports only what matches the active filters (feria, NRC, search, order), the same teams as GET /professors/grading-games. Without filters, exports everything the professor can see in the active fair; the Administrador exports every active NRC of the active fair.',
   })
   @ApiResponse({
     status: 200,
@@ -198,8 +205,14 @@ export class ProfessorsController {
     @GetUser('id') professorId: string,
     @Res({ passthrough: true }) res: Response,
     @Query() query: GradingReportQueryDto,
+    @GetUser('roleId') roleId?: number,
   ) {
-    await this.gradingReportExport.exportFiltered(professorId, query, res);
+    await this.gradingReportExport.exportFiltered(
+      professorId,
+      query,
+      res,
+      roleId,
+    );
   }
 
   /**
@@ -615,40 +628,41 @@ export class ProfessorsController {
   @Get('grading-games')
   @UseGuards(RolePermissionGuard)
   @RequiredService('MySubjects')
-  @ApiOperation({ summary: 'List current and historical games for professor grading panel' })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 25 })
-  @ApiQuery({ name: 'editionId', required: false, type: Number })
-  @ApiQuery({ name: 'nrcId', required: false, type: Number })
-  @ApiQuery({ name: 'team', required: false })
-  @ApiQuery({ name: 'student', required: false })
-  @ApiQuery({ name: 'sortBy', required: false, enum: ['student', 'team'] })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+  @ApiOperation({
+    summary:
+      'List the professor grading panel (same teams as the filtered export)',
+    description:
+      'Active fair only, active teams, members and NRC; same filters, search and order as download-grading-report-grouped. One row per team. `team` and `student` are deprecated aliases of `search`. includeHistorical=true appends the global read-only historical teams.',
+  })
   @ApiResponse({ status: 200, description: 'Paginated games with canEdit authorization flag' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid filter (one message per parameter)',
+  })
+  @ApiResponse({
+    status: 404,
+    description:
+      'The NRC is not an active NRC of the professor in the active fair',
+  })
   async getGradingGames(
-    @GetUser('id') professorId: string,
-    @Query('page') page = '1',
-    @Query('limit') limit = '25',
-    @Query('editionId') editionId?: string,
-    @Query('nrcId') nrcId?: string,
-    @Query('team') team?: string,
-    @Query('student') student?: string,
-    @Query('sortBy') sortBy?: 'student' | 'team',
-    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @GetUser() user: AppUser,
+    @Query() query: GradingGamesQueryDto,
   ) {
-    return this.professorsService.getGradingGames(professorId, {
-      page: Number(page), limit: Number(limit),
-      editionId: editionId === undefined ? undefined : Number(editionId),
-      nrcId: nrcId === undefined ? undefined : Number(nrcId), team, student, sortBy, sortOrder,
-    });
+    return this.gradingGames.list(user.id, query, user.roleId);
   }
 
   @Get('grading-games/filter-options')
   @UseGuards(RolePermissionGuard)
   @RequiredService('MySubjects')
   @ApiOperation({ summary: 'Get professor-specific edition and NRC filters for grading games' })
-  async getGradingGamesFilterOptions(@GetUser('id') professorId: string) {
-    return this.professorsService.getGradingFilterOptions(professorId);
+  async getGradingGamesFilterOptions(
+    @GetUser() user: AppUser,
+    @Query() query: GradingFilterOptionsQueryDto,
+  ) {
+    return this.professorsService.getGradingFilterOptions(user.id, {
+      roleId: user.roleId,
+      includeHistorical: query.includeHistorical,
+    });
   }
 
   @Get(':id')

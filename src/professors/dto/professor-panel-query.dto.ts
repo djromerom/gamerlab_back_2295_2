@@ -16,7 +16,7 @@ export type PanelSortField = (typeof PANEL_SORT_FIELDS)[number];
 export type PanelSortOrder = (typeof PANEL_SORT_ORDERS)[number];
 
 // Se lee del objeto original: con enableImplicitConversion, 'false' ya llegaría como true.
-const toBoolean = ({
+export const toBoolean = ({
   obj,
   key,
 }: {
@@ -27,7 +27,7 @@ const toBoolean = ({
   return value === true || value === 'true' || value === '1';
 };
 
-const toTrimmedOrUndefined = ({ value }: { value: unknown }) => {
+export const toTrimmedOrUndefined = ({ value }: { value: unknown }) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   return trimmed === '' ? undefined : trimmed;

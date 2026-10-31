@@ -10,6 +10,9 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { Reflector } from '@nestjs/core';
 import { Response } from 'express';
 import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
+import { GradingGamesService } from './grading-games.service';
+import { GradingGamesQueryDto } from './dto/grading-games-query.dto';
+import { AppUser } from 'src/auth/jwt.strategy';
 
 // Smoke test to ensure the controller can be instantiated without errors
 describe('ProfessorsController', () => {
@@ -28,6 +31,10 @@ describe('ProfessorsController', () => {
     getJurorEvaluations: jest.fn(),
     GetSignatureReport: jest.fn(),
     updateTeamEvaluation: jest.fn(),
+    getGradingFilterOptions: jest.fn(),
+  };
+  const mockGradingGames = {
+    list: jest.fn(),
   };
   const mockExcelExportService = {
     generateAndStream: jest.fn(),
@@ -72,6 +79,10 @@ describe('ProfessorsController', () => {
           useValue: mockGradingReportExport,
         },
         {
+          provide: GradingGamesService,
+          useValue: mockGradingGames,
+        },
+        {
           provide: CacheService,
           useValue: mockCacheService,
         },
@@ -108,12 +119,38 @@ describe('ProfessorsController', () => {
       final: true,
     } as GradingReportQueryDto;
 
-    await controller.downloadGradingReportGrouped('prof-1', res, query);
+    await controller.downloadGradingReportGrouped('prof-1', res, query, 3);
 
     expect(mockGradingReportExport.exportFiltered).toHaveBeenCalledWith(
       'prof-1',
       query,
       res,
+      3,
+    );
+  });
+
+  it('getGradingGames delega en GradingGamesService con el rol de la sesión', async () => {
+    const user = { id: 'admin-1', roleId: 1 } as AppUser;
+    const query = {
+      search: 'bosque',
+      includeHistorical: true,
+    } as GradingGamesQueryDto;
+
+    await controller.getGradingGames(user, query);
+
+    expect(mockGradingGames.list).toHaveBeenCalledWith('admin-1', query, 1);
+  });
+
+  it('getGradingGamesFilterOptions pasa rol e includeHistorical', async () => {
+    const user = { id: 'prof-1', roleId: 3 } as AppUser;
+
+    await controller.getGradingGamesFilterOptions(user, {
+      includeHistorical: false,
+    });
+
+    expect(mockProfessorsService.getGradingFilterOptions).toHaveBeenCalledWith(
+      'prof-1',
+      { roleId: 3, includeHistorical: false },
     );
   });
 });
