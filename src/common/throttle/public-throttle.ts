@@ -20,7 +20,7 @@ import type { ThrottlerRequest } from '@nestjs/throttler/dist/throttler.guard.in
 */
 export const PUBLIC_LIMITS = {
   imageUpload: { limit: 60, ttl: 60_000 }, // 60 images per minute
-  zipUpload: { limit: 10, ttl: 10 * 60_000 }, // 10 .zip per 10 minutes
+  zipUpload: { limit: 3, ttl: 10 * 60_000 }, // 3 .zip per 10 minutes
   validateEmails: { limit: 15, ttl: 60_000 }, // 15 checks per minute
   // Login is counted under TWO keys (see LoginThrottlerGuard): the main limit per IP + normalized
   // email, so nobody can guess passwords of one account, and users sharing a campus IP do not block
