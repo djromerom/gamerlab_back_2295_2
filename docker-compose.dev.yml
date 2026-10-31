@@ -1,4 +1,20 @@
 # Docker Compose para desarrollo
+#
+# Las dependencias (node_modules) vienen instaladas en la imagen (target `dev` del Dockerfile);
+# solo se monta el código fuente. Si cambian package.json / package-lock.json hay que reconstruir:
+#   docker compose -f docker-compose.dev.yml up --build
+
+x-back-dev-build: &back-dev-build
+  context: .
+  target: dev
+
+x-back-dev-volumes: &back-dev-volumes
+  - ./src:/usr/src/app/src
+  - ./prisma:/usr/src/app/prisma
+  - ./seed.ts:/usr/src/app/seed.ts
+  - ./tsconfig.json:/usr/src/app/tsconfig.json
+  - ./tsconfig.build.json:/usr/src/app/tsconfig.build.json
+  - ./nest-cli.json:/usr/src/app/nest-cli.json
 
 services:
   db:
@@ -20,7 +36,8 @@ services:
       retries: 5
 
   migrate-and-seed-dev:
-    image: node:20-alpine
+    build: *back-dev-build
+    image: arkad-back-dev:local
     container_name: arkad_migrator_dev
     depends_on:
       db:
@@ -33,14 +50,10 @@ services:
       - 8.8.8.8
       - 8.8.4.4
       - 1.1.1.1
-    volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
+    volumes: *back-dev-volumes
     command: >
       sh -c "
         set -e &&
-        echo 'Installing dependencies...' &&
-        npm install &&
         echo 'Generating Prisma client...' &&
         npx prisma generate &&
         echo 'Running database migrations...' &&
@@ -60,7 +73,8 @@ services:
       - "3001:3000"
 
   app-dev:
-    image: node:20-alpine
+    build: *back-dev-build
+    image: arkad-back-dev:local
     container_name: arkad_app_dev
     depends_on:
       db:
@@ -68,6 +82,8 @@ services:
       migrate-and-seed-dev:
         condition: service_completed_successfully
       gotenberg:
+        condition: service_started
+      azurite:
         condition: service_started
     ports:
       - "3000:3000"
@@ -85,13 +101,9 @@ services:
       - 8.8.8.8
       - 8.8.4.4
       - 1.1.1.1
-    volumes:
-      - .:/usr/src/app
-      - node_modules_dev:/usr/src/app/node_modules
+    volumes: *back-dev-volumes
     command: >
       sh -c "
-        echo 'Installing dependencies...' &&
-        npm install &&
         echo 'Generating Prisma client...' &&
         npx prisma generate &&
         echo 'Starting development server with watch mode...' &&
@@ -110,4 +122,3 @@ services:
       - "10002:10002"
 volumes:
   postgres_dev_data:
-  node_modules_dev:
