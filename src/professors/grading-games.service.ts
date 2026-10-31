@@ -140,9 +140,9 @@ export class GradingGamesService {
   }
 
   /**
-   * Notas como antes: `calificacionFeria` es `finalScore` de la vista de notas
-   * finales (lo mismo que `getFinalScoreByVideogameId`) y `calificacionDocente`
-   * la evaluación del profesor. Con el Administrador, la del dueño del NRC si
+   * Notas: `calificacionFeria` es `finalScore` de la vista de notas finales
+   * (lo mismo que `getFinalScoreByVideogameId`) y `calificacionDocente` la
+   * evaluación activa con nota del profesor (misma regla que la exportación). Con el Administrador, la del dueño del NRC si
    * el equipo está en NRC de un solo profesor. Solo para la página pedida.
    */
   private async toCurrentRows(
@@ -182,6 +182,7 @@ export class GradingGamesService {
             where: {
               videogameId: { in: videogameIds },
               jurorId: allProfessors ? { in: jurorIds } : professorId,
+              isActive: true,
             },
             select: { videogameId: true, jurorId: true, totalScore: true },
             orderBy: { id: 'asc' },
@@ -192,10 +193,13 @@ export class GradingGamesService {
     for (const row of finalScores) {
       if (row.finalScore !== null) feria.set(row.videogameId, row.finalScore);
     }
-    const docente = new Map<string, number | null>();
+    // Igual que la exportación: primera evaluación activa con nota
+    const docente = new Map<string, number>();
     for (const ev of evaluations) {
       const key = `${ev.jurorId}:${ev.videogameId}`;
-      if (!docente.has(key)) docente.set(key, ev.totalScore);
+      if (ev.totalScore !== null && !docente.has(key)) {
+        docente.set(key, ev.totalScore);
+      }
     }
     const editable = Boolean(
       activeEdition?.eventConfiguration?.evaluationsOpen,
@@ -250,6 +254,8 @@ export class GradingGamesService {
           : { members: { some: { nrcs: { some: { nrcId } } } } }),
       },
       include: { members: { include: { nrcs: true } }, videogame: true },
+      // Desempate estable para la paginación (el orden por nombre va después)
+      orderBy: [{ editionId: 'desc' }, { id: 'asc' }],
     });
 
     const byId = new Map<number, (typeof historical)[number]>();

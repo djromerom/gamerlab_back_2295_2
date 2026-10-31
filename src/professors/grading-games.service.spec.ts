@@ -248,14 +248,16 @@ function createFakePanelPrisma(data: FakePanelData) {
       findMany: jest.fn(
         ({
           where,
+          orderBy = [],
         }: {
           where: {
             editionId?: number;
             members?: { some: { nrcs: { some: { nrcId: number } } } };
           };
+          orderBy?: Partial<Record<'editionId' | 'id', 'asc' | 'desc'>>[];
         }) =>
           Promise.resolve(
-            data.historicalTeams.filter(
+            sortByFields(data.historicalTeams, orderBy).filter(
               (t) =>
                 (where.editionId === undefined ||
                   t.editionId === where.editionId) &&
@@ -270,6 +272,25 @@ function createFakePanelPrisma(data: FakePanelData) {
       ),
     },
   };
+}
+
+/** `orderBy` de Prisma (lista de campos numéricos) sobre una copia. */
+function sortByFields<T extends { editionId: number; id: number }>(
+  rows: T[],
+  orderBy: Partial<Record<'editionId' | 'id', 'asc' | 'desc'>>[],
+): T[] {
+  return [...rows].sort((a, b) => {
+    for (const clause of orderBy) {
+      for (const [field, dir] of Object.entries(clause) as [
+        'editionId' | 'id',
+        'asc' | 'desc',
+      ][]) {
+        const diff = a[field] - b[field];
+        if (diff !== 0) return dir === 'desc' ? -diff : diff;
+      }
+    }
+    return 0;
+  });
 }
 
 // ── Datos simulados ─────────────────────────────────────────────────────────
@@ -542,10 +563,24 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
     [{ nrcId: 11, sortBy: 'student' as const }],
     [{ nrcId: 10, search: '200111' }],
   ])('paridad listado/exportación con el mismo filtro %j', async (filter) => {
-    const listed = codes(
-      (await service.list('prof-1', listQuery(filter))).data,
+    // Equipo con videojuego inactivo: sale en ambos, sin videojuego
+    const data = buildData();
+    data.teams.push(
+      team(9, 'Hielo', [member('Uma', 'Luz', '200901', [10])], {
+        videogame: { id: 900, name: 'Juego 9', isActive: false },
+      }),
     );
+    await setup(data);
+
+    const { data: rows } = await service.list('prof-1', listQuery(filter));
+    const listed = codes(rows);
     const exported = await exportedCodes('prof-1', exportQuery(filter));
+
+    const hielo = rows.find((r) => r.teamCode === 'T-9');
+    if (hielo) {
+      expect(hielo).toMatchObject({ videogame: null, videogameId: null });
+      expect(exported).toContain('T-9');
+    }
 
     if ('nrcId' in filter) {
       // Un solo NRC: mismos equipos en el mismo orden
@@ -555,6 +590,76 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       expect(listed).toEqual([...new Set(listed)]);
       expect([...listed].sort()).toEqual([...new Set(exported)].sort());
     }
+  });
+
+  it('el equipo con videojuego inactivo aparece en la paridad sin filtros', async () => {
+    const data = buildData();
+    data.teams.push(
+      team(9, 'Hielo', [member('Uma', 'Luz', '200901', [10])], {
+        videogame: { id: 900, name: 'Juego 9', isActive: false },
+      }),
+    );
+    await setup(data);
+    const { data: rows } = await service.list('prof-1', listQuery());
+    expect(codes(rows)).toContain('T-9');
+  });
+
+  it.each([
+    ['inactiva', { totalScore: 4.8, isActive: false }],
+    ['sin nota', { totalScore: null, isActive: true }],
+  ])(
+    'calificacionDocente ignora la evaluación %s, igual que la exportación',
+    async (_label, first) => {
+      const data = buildData();
+      data.evaluations = [
+        { id: 1, videogameId: 100, jurorId: 'prof-1', ...first },
+        {
+          id: 5,
+          videogameId: 100,
+          jurorId: 'prof-1',
+          totalScore: 2,
+          isActive: true,
+        },
+      ];
+      await setup(data);
+
+      const { data: rows } = await service.list('prof-1', listQuery());
+      expect(rows.find((r) => r.teamCode === 'T-1')?.calificacionDocente).toBe(
+        2,
+      );
+
+      excelExport.generateAndStream.mockClear();
+      await exporter.exportFiltered('prof-1', exportQuery(), res);
+      const [options] = excelExport.generateAndStream.mock.calls[0];
+      await expect(options.getDocenteScore(100, 'prof-1')).resolves.toBe(2);
+    },
+  );
+
+  it('los históricos empatados se ordenan por feria (reciente primero) e id, y paginan estable', async () => {
+    const data = buildData();
+    const twin = (id: number, editionId: number) => ({
+      ...data.historicalTeams[0],
+      id,
+      editionId,
+    });
+    // Mismo nombre y código en varias ferias: solo los desempata la consulta
+    data.historicalTeams = [twin(4, 1), twin(2, 2), twin(3, 1), twin(1, 2)];
+    data.editions.push({ ...data.editions[1], id: 1 });
+    await setup(data);
+
+    const all = await service.list(
+      'prof-1',
+      listQuery({ includeHistorical: true }),
+    );
+    const historicalKeys = all.data
+      .filter((r) => r.source === 'historical')
+      .map((r) => r.editionId);
+    expect(historicalKeys).toEqual([2, 2, 1, 1]);
+    expect(prisma.historicalTeam.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ editionId: 'desc' }, { id: 'asc' }],
+      }),
+    );
   });
 
   it.each([

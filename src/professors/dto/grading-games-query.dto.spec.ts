@@ -98,6 +98,17 @@ describe('GradingGamesQueryDto', () => {
   });
 });
 
+describe('GradingGamesQueryDto limit', () => {
+  it('acepta hasta 100 y rechaza más con mensaje propio', () => {
+    expect(parse({ limit: '100' }).errors).toHaveLength(0);
+    const errors = parse({ limit: '101' }).errors;
+    expect(errors.map((e) => e.property)).toEqual(['limit']);
+    expect(Object.values(errors[0].constraints ?? {})).toEqual([
+      'limit debe ser como máximo 100.',
+    ]);
+  });
+});
+
 describe('GradingFilterOptionsQueryDto', () => {
   it('includeHistorical es false por defecto y acepta true', () => {
     const parseOptions = (plain: Record<string, unknown>) =>

@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -29,11 +30,12 @@ export class GradingGamesQueryDto extends ProfessorPanelQueryDto {
   @Min(1, { message: 'page debe ser un entero mayor o igual a 1.' })
   page: number = 1;
 
-  @ApiPropertyOptional({ default: 25, minimum: 1 })
+  @ApiPropertyOptional({ default: 25, minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'limit debe ser un entero mayor o igual a 1.' })
   @Min(1, { message: 'limit debe ser un entero mayor o igual a 1.' })
+  @Max(100, { message: 'limit debe ser como máximo 100.' })
   limit: number = 25;
 
   @ApiPropertyOptional({
