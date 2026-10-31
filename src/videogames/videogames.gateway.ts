@@ -7,6 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { opaqueUserKey } from '../common/utils/opaque-user-key';
 
 @WebSocketGateway({
   cors: {
@@ -49,7 +50,9 @@ export class VideogamesGateway
    * Called by VideogamesService after each toggle.
    */
   emitLikesUpdate(videogameId: number, likeCount: number, triggerUserId?: string, liked?: boolean): void {
-    this.server.to('likes_room').emit('likes:updated', { videogameId, likeCount, triggerUserId, liked });
+    // triggerUserId se mantiene un despliegue por compatibilidad; el front migra a triggerKey (opaca).
+    const triggerKey = triggerUserId ? opaqueUserKey(triggerUserId) : undefined;
+    this.server.to('likes_room').emit('likes:updated', { videogameId, likeCount, triggerUserId, triggerKey, liked });
     this.logger.debug(
       `likes:updated (to likes_room) → videogameId=${videogameId} likeCount=${likeCount}`,
     );

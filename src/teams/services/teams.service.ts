@@ -315,9 +315,10 @@ export class TeamsService {
    * resolves it with OptionalAdminRoleGuard). Everyone else, logged in or not, gets the list without
    * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
    */
-  async findAll(sortByLikes: boolean, includePersonalData = false) {
+  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
     const teams = await this.teamRepository.findAll(sortByLikes);
-    return includePersonalData ? teams : stripPersonalData(teams);
+    const visible = includePersonalData ? teams : stripPersonalData(teams);
+    return this.markOwnTeams(visible, currentUserId);
   }
 
   async findOne(id: number): Promise<unknown> {
@@ -813,9 +814,19 @@ export class TeamsService {
     return sortedRanking;
   }
 
-  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false) {
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
     const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
-    return includePersonalData ? result : stripPersonalData(result);
+    const visible = includePersonalData ? result : stripPersonalData(result);
+    return { ...visible, data: this.markOwnTeams(visible.data, currentUserId) };
+  }
+
+  /**
+   * Con sesión, agrega `isMine` (el usuario autenticado es el líder). Sin sesión no agrega nada.
+   * Reemplaza al cruce `team.userId === user.id` que hacía el front con el UUID del líder.
+   */
+  private markOwnTeams<T extends { userId?: string }>(teams: T[], currentUserId?: string) {
+    if (!currentUserId) return teams;
+    return teams.map((team) => ({ ...team, isMine: team.userId === currentUserId }));
   }
 
   async getLeaderStatus(email: string) {
