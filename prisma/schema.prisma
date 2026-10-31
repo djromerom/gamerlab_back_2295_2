@@ -175,7 +175,7 @@ model User {
   roleId               Int                @map("id_rol")
   createdAt            DateTime           @default(now()) @map("creado_en")
   updatedAt            DateTime           @updatedAt @map("actualizado_en")
-  lastSignInAt         DateTime           @default(now()) @map("ultimoInicioSesion")
+  lastSignInAt         DateTime?          @map("ultimoInicioSesion")
   firstName            String             @db.VarChar(50)
   lastName             String             @db.VarChar(50)
   password             String?            @map("contrasena")
