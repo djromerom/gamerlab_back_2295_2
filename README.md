@@ -150,8 +150,8 @@ Let's break down the environment variables:
 - **`REGISTRATION_TOKEN_EXPIRATION`**: Token expiration time in hours for email verification (default: 24)
 - **`USER_PROFILE_CACHE_TTL`**: Cache time-to-live for user profiles in minutes (default: 15)
 - **`RECAPTCHA_*`** Google ReCAPTCHA configuration for signup form
-- **`EMAIL_*`**: EmailJS configuration for sending confirmation and password reset emails
-- **`AZURE_STORAGE_*`**: Azure Blob Storage configuration for file uploads
+- **`ACS_*`**: Azure Communication Services configuration (`ACS_CONNECTION_STRING`, `ACS_SENDER_ADDRESS`) for sending confirmation and password reset emails. Without them the email service runs in simulation mode
+- **`AZURE_*`**: Azure Blob Storage configuration (`AZURE_BLOB_SAS_URL`, `AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`) for file uploads
 - **`TRUST_PROXY`**: Set it when the API runs behind a reverse proxy or load balancer (for example `1` for one proxy hop). Without it every request looks like it comes from the proxy's IP, and all users share one rate limit (see [Rate limiting](#rate-limiting)).
 
 **Note:** If you're part of the development team, you can ask for these keys from the team lead.
@@ -216,7 +216,7 @@ To contribute code to the project, please follow the [CONTRIBUTING.md](CONTRIBUT
 
 ### Development Workflow
 
-1. Create a feature branch from `main`
+1. Create a branch from `dev` (see `BRANCHING.md` for naming)
 2. Make your changes
 3. Test with the development Docker setup
 4. Submit a pull request
