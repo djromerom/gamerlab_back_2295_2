@@ -17,7 +17,10 @@ describe('AuthService.login con usuario desactivado', () => {
       isActive: false,
     };
     const prisma: any = {
-      user: { findUnique: jest.fn().mockResolvedValue(user) },
+      user: {
+        findUnique: jest.fn().mockResolvedValue(user),
+        findMany: jest.fn().mockResolvedValue([user]),
+      },
     };
     const service = new AuthService(
       prisma,

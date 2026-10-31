@@ -10,12 +10,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, RefreshToken, User } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CacheService } from '../cache/cache.service';
 import { TokenVerification } from './types/token-verification.type';
@@ -27,9 +27,26 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { EmailService } from '../email/email.service';
 import { getTokenExpiration, TokenExpiration } from './token-expiration';
+import {
+  findUserByEmailCaseInsensitive,
+  findUsersByEmailCaseInsensitive,
+  normalizeEmail,
+} from '../common/utils/find-user-by-email';
 
 const ACCESS_TOKEN_COOKIE = 'access-token';
 const REFRESH_TOKEN_COOKIE = 'refresh-token';
+// '/auth' (not '/auth/refresh') so the browser also sends the refresh cookie to /auth/logout,
+// which needs it to revoke the session.
+const REFRESH_TOKEN_COOKIE_PATH = '/auth';
+// Path used before the refresh tokens were stored; cleared so an old cookie never shadows the new one.
+const LEGACY_REFRESH_TOKEN_COOKIE_PATH = '/auth/refresh';
+
+// A refresh token rotated less than this ago is accepted again (front retries after a lost
+// response, concurrent tabs/callers). Older replays count as theft.
+export const REFRESH_REUSE_GRACE_MS = 10_000;
+
+const hashRefreshToken = (token: string): string =>
+  createHash('sha256').update(token).digest('hex');
 
 @Injectable()
 export class AuthService {
@@ -380,7 +397,7 @@ export class AuthService {
       // Transaction is fully committed at this point — $transaction only returns after commit
       // Safe to send the verification email now.
       setImmediate(() => {
-        this.sendVerificationEmail(registerDto.email, verificationToken).catch((err) => {
+        this.sendVerificationEmail(user.email, verificationToken).catch((err) => {
           this.logger.error(
             `Failed to send verification email after registration: ${err instanceof Error ? err.message : String(err)}`,
           );
@@ -415,16 +432,15 @@ export class AuthService {
     registerDto: RegisterDto,
     tx: Prisma.TransactionClient
   ): Promise<{ user: User; verificationToken: string }> {
+    // Emails are stored lowercase. The duplicate check ignores case so a user created
+    // before this rule (stored with capitals) is still detected.
+    const email = normalizeEmail(registerDto.email);
     try {
-      // Check if user already exists within transaction
-      const existingUser = await tx.user.findUnique({
-        where: { email: registerDto.email },
-      });
+      // Check if user already exists within transaction (any case variant counts)
+      const existingUsers = await findUsersByEmailCaseInsensitive(tx, email);
 
-      if (existingUser) {
-        this.logger.warn(
-          `Registration attempt for existing email: ${registerDto.email}`,
-        );
+      if (existingUsers.length > 0) {
+        this.logger.warn(`Registration attempt for existing email: ${email}`);
         throw new ConflictException('A user with that email already exists');
       }
 
@@ -433,7 +449,7 @@ export class AuthService {
       const user = await tx.user.create({
         data: {
           id: userId,
-          email: registerDto.email,
+          email,
           firstName: '',
           lastName: '',
           roleId: 2, // Default role ID (student)
@@ -490,17 +506,16 @@ export class AuthService {
   }
 
   // done locally
-  async login(loginDto: LoginDto, logintType: LoginType, res: Response): Promise<{ message: string; access: string; refresh: string; accessTokenExpiresIn: number }> {
+  // Tokens travel only in the HttpOnly cookies, never in the body.
+  async login(
+    loginDto: LoginDto,
+    logintType: LoginType,
+    res: Response,
+  ): Promise<{ message: string; accessTokenExpiresIn: number }> {
     this.logger.log(`Attempting login for user: ${loginDto.email}`);
 
     // Find user in local database
-    const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
-      include: {
-        confirmationStatus: true,
-        role: true,
-      },
-    });
+    const user = await this.findUserByEmail(loginDto.email);
 
     if (!user) {
       this.logger.warn(
@@ -575,59 +590,153 @@ export class AuthService {
       throw new UnauthorizedException('User account is currently inactive.');
     }
 
-    const { accessToken, refreshToken } = this.issueSession(res, user);
+    await this.issueSession(res, user);
     this.logger.log(
       `Local authentication successful for user: ${loginDto.email}`,
     );
 
-    this.updateLastSignIn(loginDto.email);
+    this.updateLastSignIn(user.id);
 
     return {
       message: 'Login successful',
-      access: accessToken,
-      refresh: refreshToken,
       accessTokenExpiresIn: this.tokenExpiration.accessTokenSeconds,
     };
   }
 
   /**
-   * Signs a new access/refresh token pair and sets both auth cookies.
-   * Every flow that starts or renews a session (password login, Microsoft login, refresh)
-   * must go through here so they all use the same lifetimes.
+   * Looks a user up by email ignoring case (I4). The exact match wins, so a user stored
+   * with capitals before emails were normalized keeps logging in as before.
+   * Without an exact match, two accounts differing only in case are ambiguous: returns null
+   * (the caller answers its generic 401) instead of picking one.
    */
-  private issueSession(
+  private findUserByEmail(email: string) {
+    // Escapes ILIKE wildcards: `j_iaz@` must never find `jdiaz@` (C1)
+    return findUserByEmailCaseInsensitive(this.prisma, email, {
+      confirmationStatus: true,
+      role: true,
+    });
+  }
+
+  /**
+   * Starts a session (password or Microsoft login): drops the user's expired refresh tokens,
+   * stores the new one and sets both auth cookies.
+   * Every flow that starts or renews a session must sign through `signSessionTokens` so they
+   * all use the same lifetimes.
+   */
+  private async issueSession(
     res: Response,
     user: Pick<User, 'id' | 'email'>,
-  ): { accessToken: string; refreshToken: string } {
+  ): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId: user.id, expiresAt: { lt: new Date() } },
+    });
+
+    const { accessToken, refreshToken, refreshTokenExpiresAt } =
+      this.signSessionTokens(user);
+    await this.prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashRefreshToken(refreshToken),
+        expiresAt: refreshTokenExpiresAt,
+      },
+    });
+
+    this.setAuthCookies(res, accessToken, refreshToken);
+  }
+
+  private signSessionTokens(user: Pick<User, 'id' | 'email'>): {
+    accessToken: string;
+    refreshToken: string;
+    refreshTokenExpiresAt: Date;
+  } {
     const payload = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(
       { ...payload, type: 'access' },
       { expiresIn: this.tokenExpiration.accessTokenSeconds },
     );
+    // jti makes every refresh token unique (and so its hash), even two signed in the same second
     const refreshToken = this.jwtService.sign(
-      { ...payload, type: 'refresh' },
+      { ...payload, type: 'refresh', jti: randomUUID() },
       { expiresIn: this.tokenExpiration.refreshTokenSeconds },
     );
+    const refreshTokenExpiresAt = new Date(
+      Date.now() + this.tokenExpiration.refreshTokenSeconds * 1000,
+    );
 
-    this.setAuthCookies(res, accessToken, refreshToken);
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, refreshTokenExpiresAt };
   }
 
-  async updateLastSignIn(emailUser: string) {
-    const data = await this.prisma.user.findUnique({
-      where: { email: emailUser },
-    });
+  /** Only a rotation (never a logout or a reuse revocation) has a grace window. */
+  private isWithinRotationGrace(
+    token: Pick<RefreshToken, 'revokedAt' | 'revokedReason'>,
+  ): boolean {
+    return (
+      token.revokedReason === 'ROTATED' &&
+      !!token.revokedAt &&
+      Date.now() - token.revokedAt.getTime() < REFRESH_REUSE_GRACE_MS
+    );
+  }
 
-    if (!data) {
-      throw new Error('User not found');
+  /**
+   * A revoked token came back outside the grace window. Only a token ROTATED more than
+   * REFRESH_REUSE_GRACE_MS ago means theft and revokes every session; a LOGOUT or REUSE token
+   * (a tab that logged out, an old device after a detected theft) just gets a 401.
+   */
+  private async rejectRevokedToken(
+    stored: Pick<RefreshToken, 'userId' | 'revokedReason'>,
+    res: Response,
+  ): Promise<never> {
+    if (stored.revokedReason === 'ROTATED') {
+      await this.revokeAllRefreshTokens(stored.userId);
+    } else {
+      this.logger.warn(
+        `Revoked refresh token (${stored.revokedReason}) presented for user ${stored.userId}`,
+      );
     }
+    this.clearAuthCookies(res);
+    throw new UnauthorizedException('Invalid refresh token.');
+  }
 
-    const updatedUser = await this.prisma.user.update({
-      where: { id: data.id },
-      data: { lastSignInAt: new Date() },
+  /** True if a theft was detected (REUSE revocation) after this token was rotated. */
+  private async hasReuseRevocationSince(
+    token: Pick<RefreshToken, 'userId' | 'revokedAt'>,
+    client: Pick<Prisma.TransactionClient, 'refreshToken'> = this.prisma,
+  ): Promise<boolean> {
+    if (!token.revokedAt) return false;
+    const reuse = await client.refreshToken.findFirst({
+      where: {
+        userId: token.userId,
+        revokedReason: 'REUSE',
+        revokedAt: { gt: token.revokedAt },
+      },
+      select: { id: true },
     });
+    return reuse !== null;
+  }
 
-    return updatedUser; // O lo que quieras retornar
+  /** Revokes every live refresh token of the user (used when a rotated token is replayed). */
+  private async revokeAllRefreshTokens(userId: string): Promise<void> {
+    const { count } = await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date(), revokedReason: 'REUSE' },
+    });
+    this.logger.warn(
+      `Refresh token reuse detected for user ${userId}: ${count} session(s) revoked`,
+    );
+  }
+
+  // Fire-and-forget from login: a failure here must not break the login nor go unhandled.
+  updateLastSignIn(userId: string): void {
+    this.prisma.user
+      .update({
+        where: { id: userId },
+        data: { lastSignInAt: new Date() },
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Failed to update lastSignInAt for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
   }
 
   // This function gets the Authorize URL for Outlook login based on Microsoft Entra ID credentials
@@ -687,9 +796,8 @@ export class AuthService {
       const userInfo = this.parseIdToken(microsoftTokens.id_token);
 
       // Check if user exists
-      const user = await this.prisma.user.findUnique({
-        where: { email: userInfo.email }
-      });
+      // Microsoft may return the address with different capitalization than the one stored
+      const user = await this.findUserByEmail(userInfo.email);
 
       if (!user) {
         throw new UnauthorizedException('User does not exist.');
@@ -734,8 +842,8 @@ export class AuthService {
 
         this.logger.log(`Password user authenticated via Microsoft: ${user.email}`);
 
-        this.issueSession(res, user);
-        this.updateLastSignIn(user.email);
+        await this.issueSession(res, user);
+        this.updateLastSignIn(user.id);
 
         const REDIRECT_TO = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
         return res.redirect(`${REDIRECT_TO}/inicio`);
@@ -743,7 +851,7 @@ export class AuthService {
 
       // Use existing login method with Entra ID
       await this.login(
-        { email: userInfo.email, microsoftOid: userInfo.oid }, 'ENTRA_ID', res
+        { email: user.email, microsoftOid: userInfo.oid }, 'ENTRA_ID', res
       );
 
       // Successful login - redirect to frontend
@@ -796,8 +904,8 @@ export class AuthService {
   ): Promise<{ message: string; accessToken: string; accessTokenExpiresIn: number }> {
     const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (!refreshToken) {
+      // Never log cookie values: they include the access token
       this.logger.warn('Refresh attempt without refresh token cookie.');
-      this.logger.warn(`Available cookies: ${JSON.stringify(req.cookies)}`);
       throw new UnauthorizedException('Missing refresh token.');
     }
 
@@ -814,6 +922,38 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token.');
       }
 
+      // The token must match a stored, live record. A valid JWT without a record (sessions
+      // opened before records existed, or already cleaned up) is rejected.
+      const stored = await this.prisma.refreshToken.findUnique({
+        where: { tokenHash: hashRefreshToken(refreshToken) },
+      });
+
+      if (!stored || stored.userId !== payload.sub) {
+        this.logger.warn(
+          `Refresh token without a stored record for user ${payload.sub}`,
+        );
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid refresh token.');
+      }
+
+      // A token rotated moments ago is a retry (lost response, concurrent tabs), not a theft:
+      // it gets a new session without rotating anything else.
+      const graceReplay = !!stored.revokedAt && this.isWithinRotationGrace(stored);
+      if (stored.revokedAt && !graceReplay) {
+        return await this.rejectRevokedToken(stored, res);
+      }
+      // After a theft was detected, recently rotated tokens must not keep minting sessions.
+      if (graceReplay && (await this.hasReuseRevocationSince(stored))) {
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid refresh token.');
+      }
+
+      if (stored.expiresAt <= new Date()) {
+        this.logger.warn(`Expired refresh token record for user ${stored.userId}`);
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid or expired refresh token.');
+      }
+
       // Check if user still exists and is active
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
@@ -827,8 +967,51 @@ export class AuthService {
         throw new UnauthorizedException('User account is no longer active.');
       }
 
-      // Rotate: new access AND refresh token (sliding refresh window)
-      const { accessToken } = this.issueSession(res, user);
+      // Rotate: revoke the old record and store the new one atomically (sliding refresh window).
+      const {
+        accessToken,
+        refreshToken: newRefreshToken,
+        refreshTokenExpiresAt,
+      } = this.signSessionTokens(user);
+      const rotated = await this.prisma.$transaction(async (tx) => {
+        if (!graceReplay) {
+          // Conditional update: if a concurrent request already revoked this token, count is 0.
+          const { count } = await tx.refreshToken.updateMany({
+            where: { id: stored.id, revokedAt: null },
+            data: { revokedAt: new Date(), revokedReason: 'ROTATED' },
+          });
+          if (count === 0) {
+            // Re-read why: a concurrent rotation is in grace; a concurrent logout is not.
+            const current = await tx.refreshToken.findUnique({
+              where: { tokenHash: stored.tokenHash },
+            });
+            if (
+              !current ||
+              !this.isWithinRotationGrace(current) ||
+              (await this.hasReuseRevocationSince(current, tx))
+            ) {
+              return false;
+            }
+          }
+        }
+
+        await tx.refreshToken.create({
+          data: {
+            userId: user.id,
+            tokenHash: hashRefreshToken(newRefreshToken),
+            expiresAt: refreshTokenExpiresAt,
+          },
+        });
+        return true;
+      });
+
+      if (!rotated) {
+        // Lost a race against a logout or a theft detection: 401, no mass revocation.
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid refresh token.');
+      }
+
+      this.setAuthCookies(res, accessToken, newRefreshToken);
       this.logger.log(`Session refreshed successfully for user: ${user.email}`);
 
       return {
@@ -853,11 +1036,28 @@ export class AuthService {
   }
 
   /**
-   * Logs the user out by clearing auth cookies.
+   * Logs the user out: revokes the refresh token of the current cookie and clears auth cookies.
+   * The access token is not revoked; it dies on its own (ACCESS_TOKEN_EXPIRATION_MINUTES).
    */
   // done locally
-  async logout(res: Response): Promise<{ message: string }> {
+  async logout(req: Request, res: Response): Promise<{ message: string }> {
     this.logger.log('Attempting to logout user.');
+
+    const cookies = req.cookies as Record<string, string | undefined> | undefined;
+    const refreshToken = cookies?.[REFRESH_TOKEN_COOKIE];
+    if (refreshToken) {
+      try {
+        await this.prisma.refreshToken.updateMany({
+          where: { tokenHash: hashRefreshToken(refreshToken), revokedAt: null },
+          data: { revokedAt: new Date(), revokedReason: 'LOGOUT' },
+        });
+      } catch (error) {
+        // Still clear the cookies: the user asked to leave.
+        this.logger.error(
+          `Failed to revoke refresh token on logout: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
 
     this.clearAuthCookies(res);
     this.logger.log('Local logout successful - auth cookies cleared.');
@@ -1030,7 +1230,15 @@ export class AuthService {
       secure: secure,
       sameSite: 'lax',
       maxAge: refreshTokenMaxAge,
-      path: '/auth/refresh',
+      path: REFRESH_TOKEN_COOKIE_PATH,
+    });
+
+    // The browser sends the longest path first, so a leftover legacy cookie would win.
+    res.clearCookie(REFRESH_TOKEN_COOKIE, {
+      httpOnly: true,
+      secure: secure,
+      sameSite: 'lax',
+      path: LEGACY_REFRESH_TOKEN_COOKIE_PATH,
     });
   }
 
@@ -1042,12 +1250,17 @@ export class AuthService {
       sameSite: 'lax',
       path: '/',
     });
-    res.clearCookie(REFRESH_TOKEN_COOKIE, {
-      httpOnly: true,
-      secure: secure,
-      sameSite: 'lax',
-      path: '/auth/refresh',
-    });
+    for (const path of [
+      REFRESH_TOKEN_COOKIE_PATH,
+      LEGACY_REFRESH_TOKEN_COOKIE_PATH,
+    ]) {
+      res.clearCookie(REFRESH_TOKEN_COOKIE, {
+        httpOnly: true,
+        secure: secure,
+        sameSite: 'lax',
+        path,
+      });
+    }
   }
 
   private getUserProfileCacheKey(userId: string): string {

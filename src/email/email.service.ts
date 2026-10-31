@@ -24,6 +24,7 @@ import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 
 import { EmailClient } from '@azure/communication-email';
 import { RestError } from '@azure/core-rest-pipeline';
+import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 
 @Injectable()
 export class EmailService {
@@ -182,9 +183,9 @@ export class EmailService {
   ): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { confirmationStatus: true },
+    // I4 without wildcards (C1): `juan_perez@` must never find `juan.perez@`
+    const user = await findUserByEmailCaseInsensitive(this.prisma, email, {
+      confirmationStatus: true,
     });
 
     if (!user) {
@@ -268,7 +269,8 @@ export class EmailService {
         };
       }
 
-      await this.sendEmail(email, subject, templateName, templateParams);
+      // Always the stored address of the user found, never the one in the request
+      await this.sendEmail(user.email, subject, templateName, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent successfully' };
@@ -288,9 +290,10 @@ export class EmailService {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
     try {
-      const emailExists = await this.prisma.user.findUnique({
-        where: { email },
-      });
+      const emailExists = await findUserByEmailCaseInsensitive(
+        this.prisma,
+        email,
+      );
 
       if (!emailExists) {
         this.logger.error(`User with email ${email} not found in local DB.`);
@@ -319,7 +322,12 @@ export class EmailService {
         templateParams = { ...templateParams, ...params };
       }
 
-      await this.sendEmail(email, subject, templateName, templateParams);
+      await this.sendEmail(
+        emailExists.email,
+        subject,
+        templateName,
+        templateParams,
+      );
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent successfully' };
@@ -340,9 +348,7 @@ export class EmailService {
     );
 
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { email },
-      });
+      const user = await findUserByEmailCaseInsensitive(this.prisma, email);
 
       if (!user) {
         this.logger.error(`User with email ${email} not found in local DB.`);
@@ -391,7 +397,13 @@ export class EmailService {
         email: emails.join(', '),
       };
 
-      await this.sendEmail(email, subject, templateName, templateParams, attachments);
+      await this.sendEmail(
+        user.email,
+        subject,
+        templateName,
+        templateParams,
+        attachments,
+      );
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent successfully' };

@@ -1,3 +1,4 @@
+import { findUserByEmailCaseInsensitive } from '../../common/utils/find-user-by-email';
 // src/teams/repositories/team.repository.ts
 import {
   Injectable,
@@ -789,9 +790,12 @@ export class TeamRepository implements ITeamRepository {
     });
     if (!studentRole) throw new Error('Role "Estudiante" not found');
 
-    const existingUser = await tx.user.findUnique({
-      where: { email: firstMember.memberEmail },
-    });
+    // Case-insensitive: a user stored with capitals before emails were lowercased is the same
+    // user. `_`/`%` are literal (C1): `a_b@` must never reuse the account of `axb@`.
+    const existingUser = await findUserByEmailCaseInsensitive(
+      tx,
+      firstMember.memberEmail,
+    );
 
     if (existingUser) {
       const hasTeam = await tx.team.findUnique({

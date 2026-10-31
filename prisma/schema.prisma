@@ -90,6 +90,28 @@ model VerificationToken {
   @@map("token_verificacion")
 }
 
+// Refresh tokens emitidos (solo el sha256, nunca el token). Permite rotarlos y revocarlos.
+model RefreshToken {
+  id            String                    @id @default(uuid())
+  userId        String                    @map("user_id")
+  tokenHash     String                    @unique @map("token_hash")
+  expiresAt     DateTime                  @map("expira_en")
+  revokedAt     DateTime?                 @map("revocado_en")
+  // ROTATED tiene ventana de gracia (reintentos del front); LOGOUT y REUSE no.
+  revokedReason RefreshTokenRevokeReason? @map("motivo_revocacion")
+  createdAt     DateTime                  @default(now()) @map("creado_en")
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_token")
+}
+
+enum RefreshTokenRevokeReason {
+  ROTATED
+  LOGOUT
+  REUSE
+}
+
 model Role {
   id              Int              @id @default(autoincrement()) @map("id_rol")
   name            String           @unique @map("rol")
@@ -192,6 +214,7 @@ model User {
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
   jurorBadges          JurorBadge[]
   teamVerifications    TeamVerification[]
+  refreshTokens        RefreshToken[]
 
   @@index([jurorCategory])
   @@index([jurorType])

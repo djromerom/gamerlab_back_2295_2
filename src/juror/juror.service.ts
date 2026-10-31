@@ -1,3 +1,4 @@
+import { findUsersByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import {
   BadRequestException,
   ConflictException,
@@ -184,8 +185,9 @@ export class JurorService {
       }
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        error instanceof ConflictException ||
+        (error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002')
       ) {
         throw new ConflictException(
           `Juror with email ${dto.email} already exists.`,
@@ -303,11 +305,11 @@ export class JurorService {
   async update(id: string, dto: UpdateJurorDto): Promise<JurorListItem> {
     const juror = await this.findOne(id);
 
-    if (dto.email) {
-      const emailOwner = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
-      if (emailOwner && emailOwner.id !== id) {
+    const email = dto.email?.trim().toLowerCase();
+    if (email) {
+      // Any case variant owned by someone else counts; `_`/`%` are literal (C1)
+      const owners = await findUsersByEmailCaseInsensitive(this.prisma, email);
+      if (owners.some((owner) => owner.id !== id)) {
         throw new ConflictException('Email is already used by another user.');
       }
     }
@@ -317,7 +319,7 @@ export class JurorService {
       data: {
         ...(dto.firstName !== undefined && { firstName: dto.firstName }),
         ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.email !== undefined && { email: dto.email }),
+        ...(email !== undefined && { email }),
         ...(dto.jurorCategory !== undefined && {
           jurorCategory: dto.jurorCategory,
         }),
