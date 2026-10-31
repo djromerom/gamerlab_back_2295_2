@@ -31,3 +31,25 @@ describe('VideogamesGateway.emitLikesUpdate (ids opacos)', () => {
     expect(emit.mock.calls[0][1]).toMatchObject({ videogameId: 1, likeCount: 5, liked: true, triggerUserId: uuidA });
   });
 });
+
+describe('VideogamesGateway.onModuleInit (arranque)', () => {
+  const original = { ...process.env };
+  afterEach(() => {
+    process.env = { ...original };
+  });
+
+  it('en producción sin SOCKET_KEY_SECRET lanza al arrancar', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.SOCKET_KEY_SECRET;
+    expect(() => new VideogamesGateway().onModuleInit()).toThrow(/SOCKET_KEY_SECRET/);
+  });
+
+  it('con la variable, o fuera de producción, no lanza', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.SOCKET_KEY_SECRET = 'abc';
+    expect(() => new VideogamesGateway().onModuleInit()).not.toThrow();
+    process.env.NODE_ENV = 'development';
+    delete process.env.SOCKET_KEY_SECRET;
+    expect(() => new VideogamesGateway().onModuleInit()).not.toThrow();
+  });
+});

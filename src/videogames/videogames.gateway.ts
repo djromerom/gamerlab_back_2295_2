@@ -5,9 +5,9 @@ import {
   OnGatewayDisconnect,
   SubscribeMessage,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { opaqueUserKey } from '../common/utils/opaque-user-key';
+import { getSocketKeySecret, opaqueUserKey } from '../common/utils/opaque-user-key';
 
 @WebSocketGateway({
   cors: {
@@ -19,11 +19,16 @@ import { opaqueUserKey } from '../common/utils/opaque-user-key';
   },
 })
 export class VideogamesGateway
-  implements OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(VideogamesGateway.name);
+
+  // Falla al arrancar (no en el primer like) si falta SOCKET_KEY_SECRET en producción.
+  onModuleInit() {
+    getSocketKeySecret();
+  }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
