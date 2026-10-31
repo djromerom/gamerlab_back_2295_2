@@ -75,6 +75,12 @@ describe('Inscripciones abiertas en rutas públicas', () => {
       expect(res.status).toBe(403);
       expect(res.body.message).toBe('Las inscripciones están cerradas');
     });
+    it('cerradas + autenticado no admin -> ' + (label === 'POST /teams' ? '403' : 'pasa'), async () => {
+      open = false;
+      const status = (await send(2)).status;
+      if (label === 'POST /teams') expect(status).toBe(403);
+      else expect(status).not.toBe(403);
+    });
     it('cerradas + Administrador -> no 403', async () => {
       open = false;
       expect((await send(1)).status).not.toBe(403);

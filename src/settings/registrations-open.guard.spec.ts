@@ -1,5 +1,5 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { RegistrationsOpenGuard } from './registrations-open.guard';
+import { RegistrationsOpenGuard, RegistrationsOpenOrSessionGuard } from './registrations-open.guard';
 
 const ctx = (user?: { roleId: number }): ExecutionContext =>
   ({ switchToHttp: () => ({ getRequest: () => ({ user }) }) }) as unknown as ExecutionContext;
@@ -39,5 +39,22 @@ describe('RegistrationsOpenGuard', () => {
   it('abiertas + sin sesión -> pasa', async () => {
     const { guard } = build(true);
     await expect(guard.canActivate(ctx(undefined))).resolves.toBe(true);
+  });
+});
+
+describe('RegistrationsOpenOrSessionGuard', () => {
+  const mk = () => {
+    const g = new RegistrationsOpenOrSessionGuard(
+      { getRegistrationsOpen: jest.fn().mockResolvedValue({ registrationsOpen: false }) } as never,
+      {} as never, {} as never, {} as never, { get: (_k: string, d: unknown) => d } as never,
+    );
+    jest.spyOn(g as never, 'isAdminRole' as never).mockResolvedValue(false as never);
+    return g;
+  };
+  it('cerradas + autenticado no admin -> pasa', async () => {
+    await expect(mk().canActivate(ctx({ roleId: 2 }))).resolves.toBe(true);
+  });
+  it('cerradas + anónimo -> 403', async () => {
+    await expect(mk().canActivate(ctx(undefined))).rejects.toThrow('Las inscripciones están cerradas');
   });
 });

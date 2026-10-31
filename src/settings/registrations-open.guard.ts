@@ -26,14 +26,27 @@ export class RegistrationsOpenGuard extends RolePermissionGuard {
     super(reflector, prisma, cacheService, configService);
   }
 
+  // Si es true, con inscripciones cerradas pasa cualquier usuario con sesión (no solo el Administrador)
+  protected readonly allowAnyAuthenticated: boolean = false;
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const { registrationsOpen } = await this.settings.getRegistrationsOpen();
     if (registrationsOpen) return true;
 
     const user = context.switchToHttp().getRequest<{ user?: AppUser }>().user;
+    if (this.allowAnyAuthenticated && user) return true;
     if (user?.roleId !== undefined && user?.roleId !== null && (await this.isAdminRole(user.roleId))) {
       return true;
     }
     throw new ForbiddenException('Las inscripciones están cerradas');
   }
+}
+
+/*
+ Variante para /upload y /upload/zip: el front también los usa con sesión (líder o integrante que edita
+ el logo o el archivo de su equipo), así que con inscripciones cerradas solo se bloquea al anónimo.
+*/
+@Injectable()
+export class RegistrationsOpenOrSessionGuard extends RegistrationsOpenGuard {
+  protected readonly allowAnyAuthenticated: boolean = true;
 }
