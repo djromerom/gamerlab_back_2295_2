@@ -16,6 +16,7 @@ import { BatchEvaluationDto } from './dto/batchEvaluation.dto';
 import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 import { CreateDetailEvaluationDto } from './dto/createEvaluationDetails.dto';
 import { createHash } from 'crypto';
+import { countProgress } from './evaluation-progress';
 
 /** Quien califica: el usuario de la sesión. */
 type EvaluationActor = {
@@ -157,6 +158,53 @@ export class EvaluationService {
       evaluationId: evaluation.id,
       message: 'Evaluación y detalles guardados correctamente',
     };
+  }
+
+  /** Resuelve la edición (activa por defecto) y devuelve su progreso. */
+  async getEvaluationProgressForEdition(editionId?: number) {
+    let id = editionId;
+    if (id === undefined) {
+      const active = await this.prisma.edition.findFirst({
+        where: { status: EditionStatus.ACTIVE },
+        orderBy: { id: 'desc' },
+        select: { id: true },
+      });
+      if (!active) return { completed: 0, assigned: 0 };
+      id = active.id;
+    }
+    return this.getEvaluationProgress(id);
+  }
+
+  /**
+   * Progreso de evaluación de una edición: evaluaciones (activas, con puntaje)
+   * de jurados actualmente asignados y activos, sobre las asignaciones vigentes.
+   * Fuente única para Estadísticas, Estado Eval. y Asignación de jurados.
+   */
+  async getEvaluationProgress(
+    editionId: number,
+  ): Promise<{ completed: number; assigned: number }> {
+    const videogames = await this.prisma.videogame.findMany({
+      where: { isActive: true, team: { isActive: true, editionId } },
+      select: {
+        team: { select: { assignedJurors: { where: { isActive: true }, select: { id: true } } } },
+        evaluations: {
+          where: { isActive: true, editionId, totalScore: { not: null } },
+          select: { jurorId: true },
+        },
+      },
+    });
+
+    let completed = 0;
+    let assigned = 0;
+    for (const vg of videogames) {
+      const progress = countProgress(
+        vg.team.assignedJurors.map((j) => j.id),
+        vg.evaluations.map((e) => e.jurorId),
+      );
+      completed += progress.completed;
+      assigned += progress.assigned;
+    }
+    return { completed, assigned };
   }
 
   async computeFinalScoreForVideogame(videogameId: number, editionId?: number) {

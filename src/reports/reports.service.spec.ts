@@ -9,6 +9,9 @@ describe('ReportsService', () => {
   const mockPrismaService = {
     team: { findFirst: jest.fn() },
     user: { findMany: jest.fn() },
+    videogame: { findMany: jest.fn() },
+    teamFinalScore: { findMany: jest.fn() },
+    evaluation: { findMany: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -19,7 +22,11 @@ describe('ReportsService', () => {
           provide: PrismaService, 
           useValue: mockPrismaService 
         },
-        { provide: SettingsService, useValue: { getShowRanking: jest.fn() } }],
+        {
+          provide: SettingsService,
+          // isRankingVisible: ranking-y-datos-privados / promedios-ocultos
+          useValue: { getShowRanking: jest.fn(), isRankingVisible: jest.fn().mockResolvedValue(true) },
+        }],
     }).compile();
 
     service = module.get<ReportsService>(ReportsService);
@@ -78,6 +85,33 @@ describe('ReportsService', () => {
       await expect(service.getJuradosDataForTeamLeader('student-1')).resolves.toEqual([]);
 
       expect(mockPrismaService.user.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getVideogamesData - progreso (ARK-SP1)', () => {
+    const vg = (jurors: { id: string }[]) => ({
+      id: 1, name: 'Juego', logoUrl: null,
+      team: { teamCode: 'N1-01', teamName: 'E', members: [], assignedJurors: jurors, isExternal: false },
+      evaluations: [], videogameStatus: null,
+    });
+
+    afterEach(() => jest.clearAllMocks());
+
+    it('totalJuradosAsignados no cuenta desactivados y las notas de desasignados no suman', async () => {
+      mockPrismaService.videogame.findMany.mockResolvedValue([vg([{ id: 'j1' }, { id: 'j2' }])]);
+      mockPrismaService.teamFinalScore.findMany.mockResolvedValue([]);
+      mockPrismaService.evaluation.findMany.mockResolvedValue([
+        { videogameId: 1, jurorId: 'j1', isSenior: false, totalScore: 4 },
+        { videogameId: 1, jurorId: 'fuera', isSenior: false, totalScore: 5 },
+      ]);
+
+      const [row] = await service.getVideogamesData();
+
+      const q = mockPrismaService.videogame.findMany.mock.calls[0][0];
+      expect(q.include.team.include.assignedJurors).toEqual({ where: { isActive: true }, select: { id: true } });
+      expect(row.totalJuradosAsignados).toBe(2);
+      expect(row.evaluacionesCompletadas).toBe(1);
+      expect(row.evaluacionesCompletadas).toBeLessThanOrEqual(row.totalJuradosAsignados!);
     });
   });
 });
