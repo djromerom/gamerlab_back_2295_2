@@ -71,9 +71,17 @@ export class TeamsService {
     }
   }
 
-  async getFinalScoreByTeamCodePrefix(prefix: string): Promise<any[]> {
+  async getFinalScoreByTeamCodePrefix(prefix: string, user?: AppUser): Promise<any[]> {
     if (!prefix || typeof prefix !== 'string') {
       throw new BadRequestException('Invalid prefix');
+    }
+
+    // Contrato de by-n: con el ranking oculto responde [] (no 403) salvo al Administrador
+    try {
+      await this.assertRankingVisible(user);
+    } catch (e) {
+      if (e instanceof ForbiddenException) return [];
+      throw e;
     }
 
     const client: any = (this.prisma as any).teamFinalScore;

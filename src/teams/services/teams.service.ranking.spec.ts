@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { ROLE_IDS } from '../../auth/constants/roles';
 
@@ -9,7 +9,10 @@ import { ROLE_IDS } from '../../auth/constants/roles';
  */
 describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
   const finalScore = { findMany: jest.fn() };
-  const prisma = { teamFinalScore: finalScore };
+  const prisma = {
+    teamFinalScore: finalScore,
+    edition: { findFirst: jest.fn() },
+  };
   const settings = { getShowRanking: jest.fn() };
   const service = new TeamsService(
     {} as any,
@@ -53,6 +56,58 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
     it('con showRanking=true y sin usuario devuelve datos', async () => {
       settings.getShowRanking.mockResolvedValue({ showRanking: true });
       await expect(call(undefined)).resolves.toEqual(rows);
+    });
+  });
+
+  describe('getFinalScoreByTeamCodePrefix (by-n)', () => {
+    const byN = [
+      {
+        teamId: 1,
+        teamCode: 'N1-A',
+        teamName: 'T',
+        logoUrl: 'l',
+        finalScore: 4,
+      },
+    ];
+    beforeEach(() => {
+      prisma.edition.findFirst.mockResolvedValue({ id: 3 });
+      finalScore.findMany.mockResolvedValue(byN);
+    });
+
+    it('con showRanking=false y sin usuario devuelve []', async () => {
+      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      await expect(
+        service.getFinalScoreByTeamCodePrefix('N1', undefined),
+      ).resolves.toEqual([]);
+      expect(finalScore.findMany).not.toHaveBeenCalled();
+    });
+
+    it('con showRanking=false y un estudiante devuelve []', async () => {
+      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      await expect(
+        service.getFinalScoreByTeamCodePrefix('N1', student),
+      ).resolves.toEqual([]);
+    });
+
+    it('con showRanking=false y administrador devuelve datos', async () => {
+      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      await expect(
+        service.getFinalScoreByTeamCodePrefix('all', admin),
+      ).resolves.toHaveLength(1);
+    });
+
+    it('con showRanking=true y sin usuario devuelve datos', async () => {
+      settings.getShowRanking.mockResolvedValue({ showRanking: true });
+      await expect(
+        service.getFinalScoreByTeamCodePrefix('N1', undefined),
+      ).resolves.toHaveLength(1);
+    });
+
+    it('prefix inválido sigue dando 400', async () => {
+      settings.getShowRanking.mockResolvedValue({ showRanking: false });
+      await expect(
+        service.getFinalScoreByTeamCodePrefix('', undefined),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

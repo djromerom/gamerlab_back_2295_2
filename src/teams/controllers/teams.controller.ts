@@ -155,6 +155,7 @@ export class TeamsController {
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('final-score/by-n/:n')
   @ApiOperation({ summary: 'Get final scores for teams filtered by teamCode prefix (e.g., N1, N0, N2)' })
   @ApiParam({ name: 'n', required: true, description: "Team code prefix to filter by (N0..N4). Example: 'N1' or 'N1-'" })
@@ -178,8 +179,8 @@ export class TeamsController {
       ]
     }
   })
-  getFinalScoresByN(@Param('n') n: string) {
-    return this.teamsService.getFinalScoreByTeamCodePrefix(n);
+  getFinalScoresByN(@Param('n') n: string, @GetUser() user?: AppUser) {
+    return this.teamsService.getFinalScoreByTeamCodePrefix(n, user);
   }
 
   @Public()
