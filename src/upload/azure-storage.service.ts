@@ -5,6 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Upload } from '@prisma/client';
 import JSZip from 'jszip';
 
+export const DEFAULT_SAS_TTL_SEC = 94_608_000; // 3 años (la URL se guarda en BD, ver Task 28)
+export const MAX_SAS_TTL_SEC = 94_608_000; // 3 años
+// Un anónimo puede pedir la URL de un archivo privado solo justo después de subirlo (asistente de inscripción).
+const FRESH_UPLOAD_WINDOW_MS = 15 * 60_000;
+
 @Injectable()
 export class AzureStorageService implements OnModuleInit {
   private readonly containerClient: ContainerClient;
@@ -142,12 +147,13 @@ export class AzureStorageService implements OnModuleInit {
   }
 
   // Genera SAS de lectura por blob (dinámico)
-  async getReadSasUrlById(id: string, ttlSec: number = 900, authenticated = false): Promise<{ url: string; expiresAt: string }> {
+  async getReadSasUrlById(id: string, ttlSec: number = DEFAULT_SAS_TTL_SEC, authenticated = false): Promise<{ url: string; expiresAt: string }> {
     const rec = await this.getById(id);
     if (!rec) throw new NotFoundException('Registro no encontrado');
-    if (!rec.isPublic && !authenticated) throw new ForbiddenException('Este archivo no es público');
+    const isFresh = Date.now() - rec.createdAt.getTime() < FRESH_UPLOAD_WINDOW_MS;
+    if (!authenticated && !rec.isPublic && !isFresh) throw new ForbiddenException('Este archivo no es público');
 
-    const expiresOn = new Date(Date.now() + Math.min(Math.max(60, ttlSec), 3600) * 1000);
+    const expiresOn = new Date(Date.now() + Math.min(Math.max(60, ttlSec), MAX_SAS_TTL_SEC) * 1000);
     const blobClient = this.containerClient.getBlockBlobClient(rec.blobName);
 
     const sas = generateBlobSASQueryParameters(

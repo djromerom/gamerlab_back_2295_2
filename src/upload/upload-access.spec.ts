@@ -14,43 +14,60 @@ function makeService(record: any) {
 }
 
 describe('AzureStorageService.getReadSasUrlById (I5)', () => {
-  const rec = { id: 'u1', blobName: 'b.png', isPublic: false };
+  const rec = { id: 'u1', blobName: 'b.png', isPublic: false, createdAt: new Date(0) };
 
   it('id inexistente -> 404', async () => {
     await expect(makeService(null).getReadSasUrlById('x', 60, false)).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('archivo no público sin sesión -> 403', async () => {
-    await expect(makeService(rec).getReadSasUrlById('u1', 60, false)).rejects.toBeInstanceOf(ForbiddenException);
+  it('anónimo + archivo privado viejo -> 403', async () => {
+    const old = { ...rec, createdAt: new Date(Date.now() - 16 * 60_000) };
+    await expect(makeService(old).getReadSasUrlById('u1', 60, false)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('archivo no público con sesión -> URL', async () => {
-    const r = await makeService(rec).getReadSasUrlById('u1', 60, true);
+  it('anónimo + archivo privado recién subido -> URL', async () => {
+    const fresh = { ...rec, createdAt: new Date(Date.now() - 60_000) };
+    const r = await makeService(fresh).getReadSasUrlById('u1', 60, false);
     expect(r.url).toContain('b.png');
   });
 
-  it('archivo público sin sesión -> URL', async () => {
-    const r = await makeService({ ...rec, isPublic: true }).getReadSasUrlById('u1', 60, false);
+  it('con sesión + archivo privado viejo -> URL', async () => {
+    const old = { ...rec, createdAt: new Date(Date.now() - 3600_000) };
+    const r = await makeService(old).getReadSasUrlById('u1', 60, true);
     expect(r.url).toContain('b.png');
   });
 
-  it('ttl mayor al máximo se recorta a 3600 s', async () => {
+  it('anónimo + público -> URL', async () => {
+    const pub = { ...rec, isPublic: true, createdAt: new Date(0) };
+    const r = await makeService(pub).getReadSasUrlById('u1', 60, false);
+    expect(r.url).toContain('b.png');
+  });
+
+  it('ttl grande se conserva (3 años) y se topa en 3 años', async () => {
+    const pub = { ...rec, isPublic: true, createdAt: new Date(0) };
+    const svc = makeService(pub);
     const before = Date.now();
-    const r = await makeService(rec).getReadSasUrlById('u1', 100000000, true);
-    const delta = new Date(r.expiresAt).getTime() - before;
-    expect(delta).toBeLessThanOrEqual(3600 * 1000 + 2000);
-    expect(delta).toBeGreaterThan(3500 * 1000);
+    const a = await svc.getReadSasUrlById('u1', 90000000, true);
+    expect(new Date(a.expiresAt).getTime() - before).toBeGreaterThan(89000000 * 1000);
+    const b = await svc.getReadSasUrlById('u1', 9e12, true);
+    expect(new Date(b.expiresAt).getTime() - before).toBeLessThanOrEqual(94608000 * 1000 + 2000);
   });
 });
 
 describe('UploadController.getSignedUrl', () => {
-  it('sin ttl usa el máximo y pasa si hay sesión', async () => {
+  it('ttl inválido usa el valor por defecto; válido se pasa; gigante se topa', async () => {
     const svc: any = { getReadSasUrlById: jest.fn().mockResolvedValue({}) };
     const ctrl = new UploadController(svc);
     await ctrl.getSignedUrl('u1', undefined, { user: { id: 1 } } as any);
-    expect(svc.getReadSasUrlById).toHaveBeenCalledWith('u1', 3600, true);
-    await ctrl.getSignedUrl('u1', '999999', {} as any);
-    expect(svc.getReadSasUrlById).toHaveBeenLastCalledWith('u1', 3600, false);
+    expect(svc.getReadSasUrlById).toHaveBeenLastCalledWith('u1', 94608000, true);
+    await ctrl.getSignedUrl('u1', '-5', {} as any);
+    expect(svc.getReadSasUrlById).toHaveBeenLastCalledWith('u1', 94608000, false);
+    await ctrl.getSignedUrl('u1', 'abc', {} as any);
+    expect(svc.getReadSasUrlById).toHaveBeenLastCalledWith('u1', 94608000, false);
+    await ctrl.getSignedUrl('u1', '7200', {} as any);
+    expect(svc.getReadSasUrlById).toHaveBeenLastCalledWith('u1', 7200, false);
+    await ctrl.getSignedUrl('u1', '9000000000000', {} as any);
+    expect(svc.getReadSasUrlById).toHaveBeenLastCalledWith('u1', 94608000, false);
   });
 });
 

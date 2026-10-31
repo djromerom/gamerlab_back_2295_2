@@ -9,9 +9,8 @@ import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
 import { isAllowedImage, isZip } from './file-signature';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { DEFAULT_SAS_TTL_SEC, MAX_SAS_TTL_SEC } from './azure-storage.service';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
-
-const MAX_SAS_TTL_SEC = 3600;
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -156,13 +155,13 @@ export class UploadController {
   @Get(':id/url')
   @ApiOperation({ summary: 'Generar URL temporal (SAS) de lectura para el blob' })
   @ApiParam({ name: 'id', description: 'UUID del registro en Postgres' })
-  @ApiQuery({ name: 'ttl', required: false, description: 'Tiempo de vida del SAS en segundos (min 60, máx 3600, por defecto 3600; los valores mayores se recortan)' })
+  @ApiQuery({ name: 'ttl', required: false, description: 'Tiempo de vida del SAS en segundos (min 60, máx 3 años; por defecto ~3 años)' })
   @ApiResponse({ status: 200, description: 'URL temporal generada', schema: { example: { url: 'https://.../blob.png?sv=...&sp=r&sig=...', expiresAt: '2025-10-23T15:30:00.000Z' } } })
-  @ApiResponse({ status: 403, description: 'Archivo no público y sin sesión' })
+  @ApiResponse({ status: 403, description: 'Archivo privado, sin sesión y subido hace más de 15 minutos' })
   @ApiResponse({ status: 404, description: 'Registro no encontrado' })
   async getSignedUrl(@Param('id') id: string, @Query('ttl') ttl?: string, @Req() req?: any) {
     const requested = Number(ttl);
-    const ttlSec = Number.isFinite(requested) && requested > 0 ? Math.min(requested, MAX_SAS_TTL_SEC) : MAX_SAS_TTL_SEC;
+    const ttlSec = Number.isFinite(requested) && requested > 0 ? Math.min(requested, MAX_SAS_TTL_SEC) : DEFAULT_SAS_TTL_SEC;
     return this.azureService.getReadSasUrlById(id, ttlSec, !!req?.user);
   }
 
