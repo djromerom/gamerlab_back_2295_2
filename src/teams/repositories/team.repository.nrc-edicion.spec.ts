@@ -49,9 +49,11 @@ describe('TeamRepository — NRC por edición', () => {
   });
 
   it('editar equipo no vincula NRC de otra edición', async () => {
-    tx.member.findUnique
-      .mockResolvedValueOnce({ id: 1, email: 'x@uninorte.edu.co' }) // dbMember
-      .mockResolvedValueOnce(null); // existingEmail
+    // sin memberEmail en el dto no se consulta existingEmail: solo dbMember
+    tx.member.findUnique.mockResolvedValueOnce({
+      id: 1,
+      email: 'x@uninorte.edu.co',
+    });
     tx.user.findUnique.mockResolvedValue(null);
 
     await repo.updateMembers(tx, 10, [{ id: 1, nrc: ['9999'] }]);
@@ -61,5 +63,28 @@ describe('TeamRepository — NRC por edición', () => {
         where: { code: { in: [9999] }, editionId: 4, isActive: true },
       }),
     );
+    expect(tx.member.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          nrcs: { set: [], connect: [{ id: 41 }] },
+        }),
+      }),
+    );
+  });
+
+  it('editar equipo con nrc que no resuelve en la edición del equipo lanza el mismo error de «ningún NRC resuelve» que createMembers y NO llama a update', async () => {
+    tx.nRC.findMany.mockResolvedValue([]);
+    tx.member.findUnique.mockResolvedValueOnce({
+      id: 1,
+      email: 'x@uninorte.edu.co',
+    });
+    tx.user.findUnique.mockResolvedValue(null);
+
+    await expect(
+      repo.updateMembers(tx, 10, [{ id: 1, nrc: ['9999'] }]),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ statusCode: 400, field: 'nrc' }),
+    });
+    expect(tx.member.update).not.toHaveBeenCalled();
   });
 });

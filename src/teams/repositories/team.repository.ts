@@ -1083,6 +1083,13 @@ export class TeamRepository implements ITeamRepository {
         (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
         team.editionId,
       );
+      if (member.nrc && member.nrc.length > 0 && nrcRecords.ids.length === 0) {
+        throw new NotFoundException({
+          statusCode: 400,
+          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
+          field: `nrc`,
+        });
+      }
 
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },

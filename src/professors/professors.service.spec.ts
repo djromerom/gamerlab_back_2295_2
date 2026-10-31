@@ -127,8 +127,22 @@ describe('ProfessorsService', () => {
     });
 
     it("no incluye NRC con isActive=false", async () => {
-      await service.getGradingFilterOptions("prof-1");
+      const rows = [
+        { id: 1, code: 100, editionId: 4, isActive: true },
+        { id: 2, code: 200, editionId: 4, isActive: false },
+      ];
+      mockPrismaService.nRC.findMany.mockImplementation(
+        ({ where }: { where: { isActive?: boolean } }) =>
+          Promise.resolve(
+            rows.filter(
+              (r) => where.isActive === undefined || r.isActive === where.isActive,
+            ),
+          ),
+      );
 
+      const { nrcs } = await service.getGradingFilterOptions("prof-1");
+
+      expect(nrcs.map((n) => n.id)).toEqual([1]);
       expect(mockPrismaService.nRC.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { professorId: "prof-1", isActive: true },
