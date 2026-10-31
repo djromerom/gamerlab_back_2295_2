@@ -3,9 +3,11 @@ import { IsInt, IsString, IsNumber, IsISO8601, IsNotEmpty, IsOptional, IsArray, 
 import { CreateDetailEvaluationDto } from './createEvaluationDetails.dto';
 
 export class CreateEvaluationDto {
+    // M8: la fecha la fija el servidor; se acepta para no romper al front, pero se ignora.
     @Type(() => IsISO8601)
+    @IsOptional()
     @IsISO8601()
-    date: string;
+    date?: string;
 
     @Type(() => String)
     @IsString()
