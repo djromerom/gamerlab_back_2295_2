@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { StudentsService } from './students.service';
+import { ROLE_IDS } from '../auth/constants/roles';
 
 describe('StudentsService.editNrc — NRC por edición', () => {
   const tx = {
@@ -10,6 +11,8 @@ describe('StudentsService.editNrc — NRC por edición', () => {
     $transaction: jest.fn((fn: (t: typeof tx) => unknown) => fn(tx)),
   };
   const service = new StudentsService(prisma as any);
+  // editNrc recibe el usuario (validaciones-back), no su id.
+  const leader = { id: 'u1', roleId: ROLE_IDS.STUDENT } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -24,7 +27,7 @@ describe('StudentsService.editNrc — NRC por edición', () => {
   it('editNrc con un código que solo existe en otra feria responde 404 "One or more NRCs not found"', async () => {
     tx.nRC.findMany.mockResolvedValue([]);
 
-    await expect(service.editNrc('u1', 1, [9999])).rejects.toThrow(
+    await expect(service.editNrc(leader, 1, [9999])).rejects.toThrow(
       new NotFoundException('One or more NRCs not found'),
     );
     expect(tx.nRC.findMany).toHaveBeenCalledWith(
@@ -39,7 +42,7 @@ describe('StudentsService.editNrc — NRC por edición', () => {
     // La BD filtra por editionId: solo devuelve el NRC de la edición 4
     tx.nRC.findMany.mockResolvedValue([{ id: 41, code: 9999 }]);
 
-    await service.editNrc('u1', 1, [9999]);
+    await service.editNrc(leader, 1, [9999]);
 
     expect(tx.nRC.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

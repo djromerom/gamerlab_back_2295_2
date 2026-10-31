@@ -16,6 +16,7 @@ describe('TeamsService.findOneWithDetails — privacidad (F1/BG-07)', () => {
     repository as any,
     {} as any,
     {} as any,
+    {} as any, // settingsService (ranking-y-datos-privados)
   );
 
   const team = {
