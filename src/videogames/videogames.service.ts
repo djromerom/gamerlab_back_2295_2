@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   NotImplementedException,
+  Optional,
 } from '@nestjs/common';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
 import { UpdateVideogameDto } from './dto/update-videogame.dto';
@@ -14,6 +15,7 @@ import { VideogamesGateway } from './videogames.gateway';
 import { Prisma } from '@prisma/client';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 
 @Injectable()
 export class VideogamesService {
@@ -21,6 +23,8 @@ export class VideogamesService {
   constructor(
     private prisma: PrismaService,
     private gateway: VideogamesGateway,
+    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
+    @Optional() private readonly blobRefs?: BlobReferenceService,
   ) { }
 
   private readonly MAX_LIKES_LOGO_ONLY = 20;
@@ -56,6 +60,7 @@ export class VideogamesService {
       },
     });
 
+    await this.blobRefs?.resolveInPlace(videogames);
     return videogames.map((vg) => ({
       id: vg.id,
       name: vg.name,
@@ -234,7 +239,7 @@ export class VideogamesService {
       //additionalImages: vg.additionalImages,
       teamName: vg.team.teamName,
       status: vg.videogameStatus.status,
-      gameFileURL: vg.gameFileUrl || '',
+      gameFileURL: (await this.blobRefs?.resolve(vg.gameFileUrl)) || vg.gameFileUrl || '',
       entry: vg.entry || ''
     };
   }
@@ -273,7 +278,10 @@ export class VideogamesService {
       );
     }
 
-    const { vgName, ...restData } = videogameData;
+    // Task 28: se guarda la referencia del archivo, no la URL firmada
+    const { vgName, ...restData } = this.blobRefs
+      ? await this.blobRefs.referenceVideogameFields(videogameData)
+      : videogameData;
     const updateData: any = { ...restData };
     if (vgName !== undefined) {
       updateData.name = vgName;

@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Optional, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { UpdateHistoricalTeamDto } from './dto/update-historical-team.dto';
 import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
 import { UpdateHistoricalVideogameDto } from './dto/update-historical-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 
 @Injectable()
 export class HistoricalsService {
@@ -10,7 +11,13 @@ export class HistoricalsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
+    @Optional() private readonly blobRefs?: BlobReferenceService,
   ) { }
+
+  private async signTeams<T extends { videogame?: any }>(teams: T[]): Promise<T[]> {
+    return this.blobRefs ? this.blobRefs.resolveTeamsVideogames(teams) : teams;
+  }
 
   async getAllHistoricalTeams() {
     const historicalTeams = await this.prisma.historicalTeam.findMany({
@@ -22,7 +29,7 @@ export class HistoricalsService {
     if (historicalTeams.length === 0) {
       throw new NotFoundException('No historical teams found');
     }
-    return historicalTeams;
+    return this.signTeams(historicalTeams);
   }
 
   async getHistoricalTeamsByEdition(editionId: number) {
@@ -42,7 +49,7 @@ export class HistoricalsService {
     if (historicalTeams.length === 0) {
       throw new NotFoundException(`No historical teams found for edition with ID ${editionId}`);
     }
-    return historicalTeams;
+    return this.signTeams(historicalTeams);
   }
 
   async getHistoricalMembersByTeam(historicalTeamId: number) {
@@ -80,7 +87,7 @@ export class HistoricalsService {
     if (historicalVideogames.length === 0) {
       throw new NotFoundException(`No historical videogames found for edition with ID ${editionId}`);
     }
-    return historicalVideogames;
+    return this.blobRefs ? Promise.all(historicalVideogames.map((v) => this.blobRefs!.resolveVideogame(v))) : historicalVideogames;
   }
 
   // Create a dump from the current teams, members and videogames of a given edition
@@ -183,14 +190,14 @@ export class HistoricalsService {
     }
 
     // Ordenar: primero los que tienen finalScore (desc), luego los que no
-    return historicalTeams.sort((a, b) => {
+    return this.signTeams(historicalTeams.sort((a, b) => {
       const sa = a.videogame?.finalScore ?? null;
       const sb = b.videogame?.finalScore ?? null;
       if (sa === null && sb === null) return 0;
       if (sa === null) return 1;
       if (sb === null) return -1;
       return sb - sa;
-    });
+    }));
   }
 
   async updateHistoricalTeam(historicalTeamId: number, updateData: UpdateHistoricalTeamDto) {
@@ -241,7 +248,7 @@ export class HistoricalsService {
     try {
       const updatedVideogame = await this.prisma.historicalVideogame.update({
         where: { id: historicalVideogameId },
-        data: updateData,
+        data: this.blobRefs ? await this.blobRefs.referenceVideogameFields(updateData) : updateData,
       });
       return updatedVideogame;
     } catch (error) {

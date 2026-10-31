@@ -3,12 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VideogameResponseDto } from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, Optional } from '@nestjs/common';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 
 
 @Injectable()
 export class VideogamesService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
+    @Optional() private readonly blobRefs?: BlobReferenceService,
+  ) {}
   private async checkEvaluationsOpen() {
     const config = await this.prisma.eventConfiguration.findFirst();
     if (!config?.evaluationsOpen) {
@@ -225,6 +230,7 @@ export class VideogamesService {
     const totalPages = Math.ceil(totalItems / limit);
 
     // Procesamiento optimizado de datos
+    await this.blobRefs?.resolveInPlace(videogames as any[]);
     const data: VideogameResponseDto[] = videogames.map((videogame) => {
       // Optimización: usar Set para NRCs únicos
       const nrcCodes = new Set<number>();

@@ -1,6 +1,7 @@
 // src/teams/services/teams.service.ts
 import {
   Injectable,
+  Optional,
   Logger,
   ConflictException,
   InternalServerErrorException,
@@ -23,6 +24,7 @@ import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
 import { ROLE_IDS } from '../../auth/constants/roles';
 import { stripPersonalData } from '../../common/utils/strip-personal-data';
+import { BlobReferenceService } from '../../upload/blob-reference.service';
 
 @Injectable()
 export class TeamsService {
@@ -33,7 +35,20 @@ export class TeamsService {
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
+    // Opcional para no romper los specs que construyen el servicio a mano (Task 28)
+    @Optional() private readonly blobRefs?: BlobReferenceService,
   ) { }
+
+  /** Task 28: la BD guarda `upload:<id>`; lo que llega como URL firmada se convierte antes de guardar. */
+  private async withBlobReferences<T extends { videogame?: any }>(dto: T): Promise<T> {
+    if (!this.blobRefs || !dto?.videogame) return dto;
+    return { ...dto, videogame: await this.blobRefs.referenceVideogameFields(dto.videogame) };
+  }
+
+  /** Task 28: firma al leer los archivos referenciados del videojuego de cada equipo. */
+  private async withSignedBlobs<T>(teams: T[]): Promise<T[]> {
+    return this.blobRefs ? this.blobRefs.resolveTeamsVideogames(teams as any) as Promise<T[]> : teams;
+  }
 
   async findByTeamName(teamName: string): Promise<any> {
     return await this.teamRepository.findByTeamName(teamName);
@@ -114,7 +129,7 @@ export class TeamsService {
       );
 
       if (!missingTeamName && !missingLogo) {
-        return this.applyTieBreakerToRanking(rows);
+        return this.signRankingLogos(await this.applyTieBreakerToRanking(rows));
       }
 
       const teamIds = Array.from(
@@ -188,11 +203,21 @@ export class TeamsService {
         return rr;
       });
 
-      return this.applyTieBreakerToRanking(enrichedRows);
+      return this.signRankingLogos(await this.applyTieBreakerToRanking(enrichedRows));
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch final scores by prefix');
     }
+  }
+
+  /** Task 28: el ranking arrastra `logoUrl` del videojuego; si es una referencia se firma al leer. */
+  private async signRankingLogos(rows: any[]): Promise<any[]> {
+    if (!this.blobRefs) return rows;
+    return Promise.all(
+      rows.map(async (r) =>
+        r && 'logoUrl' in r ? { ...r, logoUrl: await this.blobRefs!.resolve(r.logoUrl) } : r,
+      ),
+    );
   }
 
   async validateEmails(validateEmailsDto: ValidateEmailsDto) {
@@ -255,7 +280,9 @@ export class TeamsService {
     }
 
     try {
-      const result = await this.teamRepository.createTeam(createTeamDto);
+      const result = await this.teamRepository.createTeam(
+        await this.withBlobReferences(createTeamDto),
+      );
 
       this.logger.log(
         `Team created successfully for user: ${firstMember.memberEmail}`,
@@ -298,7 +325,9 @@ export class TeamsService {
       );
     }
 
-    return await this.teamRepository.createTeam(createTeamDto);
+    return await this.teamRepository.createTeam(
+      await this.withBlobReferences(createTeamDto),
+    );
   }
 
   async registerUser(registerDto: RegisterUserDto) {
@@ -316,7 +345,9 @@ export class TeamsService {
    * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
    */
   async findAll(sortByLikes: boolean, includePersonalData = false) {
-    const teams = await this.teamRepository.findAll(sortByLikes);
+    const teams = await this.withSignedBlobs(
+      await this.teamRepository.findAll(sortByLikes),
+    );
     return includePersonalData ? teams : stripPersonalData(teams);
   }
 
@@ -343,7 +374,7 @@ export class TeamsService {
       );
     }
 
-    return team;
+    return this.blobRefs ? (await this.withSignedBlobs([team]))[0] : team;
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto, currentUser: AppUser) {
@@ -362,7 +393,11 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.update(id, updateTeamDto, isAdmin);
+    return this.teamRepository.update(
+      id,
+      await this.withBlobReferences(updateTeamDto),
+      isAdmin,
+    );
   }
 
   async updateTeamInfo(
@@ -385,7 +420,11 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.updateTeamInfo(id, updateTeamDto, isAdmin);
+    return this.teamRepository.updateTeamInfo(
+      id,
+      await this.withBlobReferences(updateTeamDto),
+      isAdmin,
+    );
   }
 
   async updateMemberEmail(
@@ -815,6 +854,7 @@ export class TeamsService {
 
   async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false) {
     const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+    result.data = await this.withSignedBlobs(result.data);
     return includePersonalData ? result : stripPersonalData(result);
   }
 
