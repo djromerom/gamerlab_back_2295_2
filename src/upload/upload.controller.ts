@@ -97,7 +97,6 @@ export class UploadController {
 
   @Public()
   @UseGuards(OptionalJwtAuthGuard, ZipUploadAccessGuard)
-  @PublicThrottle(PUBLIC_LIMITS.zipUpload)
   @Post('zip')
   @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
   @ApiBody({

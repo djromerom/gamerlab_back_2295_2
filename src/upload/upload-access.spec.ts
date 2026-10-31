@@ -1,4 +1,10 @@
 import { ExecutionContext, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { Test } from '@nestjs/testing';
+import { ThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
+import request from 'supertest';
+import { RecaptchaService } from '../teams/services/recaptcha.service';
 import { AzureStorageService } from './azure-storage.service';
 import { UploadController } from './upload.controller';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
@@ -43,6 +49,14 @@ describe('AzureStorageService.getReadSasUrlById (I5)', () => {
     expect(r.url).toContain('b.png');
   });
 
+  it('ttl entre 0 y 60 s se sube a 60 s', async () => {
+    const before = Date.now();
+    const r = await makeService({ ...rec, isPublic: true }).getReadSasUrlById('u1', 5, true);
+    const delta = new Date(r.expiresAt).getTime() - before;
+    expect(delta).toBeGreaterThanOrEqual(59 * 1000);
+    expect(delta).toBeLessThanOrEqual(62 * 1000);
+  });
+
   it('ttl grande se conserva (3 años) y se topa en 3 años', async () => {
     const pub = { ...rec, isPublic: true, createdAt: new Date(0) };
     const svc = makeService(pub);
@@ -74,39 +88,94 @@ describe('UploadController.getSignedUrl', () => {
 describe('ZipUploadAccessGuard (I6)', () => {
   const ctx = (req: any) => ({ switchToHttp: () => ({ getRequest: () => req }) }) as unknown as ExecutionContext;
   const recaptcha: any = { verify: jest.fn() };
-  const guard = new ZipUploadAccessGuard(recaptcha);
-  beforeEach(() => recaptcha.verify.mockReset());
-
-  it('con sesión pasa sin reCAPTCHA', async () => {
-    await expect(guard.canActivate(ctx({ user: { id: 1 }, headers: {} }))).resolves.toBe(true);
-    expect(recaptcha.verify).not.toHaveBeenCalled();
+  const makeStorage = () => {
+    const hits = new Map<string, number>();
+    return {
+      increment: jest.fn(async (key: string, _ttl: number, limit: number) => {
+        const n = (hits.get(key) ?? 0) + 1;
+        hits.set(key, n);
+        return { totalHits: n, timeToExpire: 600, isBlocked: n > limit, timeToBlockExpire: 0 };
+      }),
+    };
+  };
+  let storage: ReturnType<typeof makeStorage>;
+  let guard: ZipUploadAccessGuard;
+  beforeEach(() => {
+    recaptcha.verify.mockReset();
+    storage = makeStorage();
+    guard = new ZipUploadAccessGuard(recaptcha, storage as any);
   });
 
-  it('sin sesión ni token -> 401', async () => {
-    recaptcha.verify.mockResolvedValue(false);
-    await expect(guard.canActivate(ctx({ headers: {} }))).rejects.toBeInstanceOf(UnauthorizedException);
+  it('administrador con sesión sube 5 zips seguidos sin 429 ni reCAPTCHA', async () => {
+    for (let i = 0; i < 5; i++) {
+      await expect(guard.canActivate(ctx({ user: { id: 1 }, ip: '1.1.1.1', headers: {} }))).resolves.toBe(true);
+    }
+    expect(recaptcha.verify).not.toHaveBeenCalled();
+    expect(storage.increment).not.toHaveBeenCalled();
+  });
+
+  it('sin sesión ni token -> 401 y no consume cupo', async () => {
+    await expect(guard.canActivate(ctx({ ip: '1.1.1.1', headers: {} }))).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(storage.increment).not.toHaveBeenCalled();
   });
 
   it('sin sesión con token inválido -> 401', async () => {
     recaptcha.verify.mockResolvedValue(false);
-    await expect(guard.canActivate(ctx({ headers: { 'x-recaptcha-token': 'mal' } }))).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(ctx({ ip: '1.1.1.1', headers: { 'x-recaptcha-token': 'mal' } }))).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('sin sesión con token válido pasa', async () => {
+  it('anónimo con token válido: el 4.º en 10 minutos -> 429', async () => {
     recaptcha.verify.mockResolvedValue(true);
-    await expect(guard.canActivate(ctx({ headers: { 'x-recaptcha-token': 'ok' } }))).resolves.toBe(true);
-    expect(recaptcha.verify).toHaveBeenCalledWith('ok');
+    const req = () => ctx({ ip: '1.1.1.1', headers: { 'x-recaptcha-token': 'ok' } });
+    for (let i = 0; i < 3; i++) await expect(guard.canActivate(req())).resolves.toBe(true);
+    await expect(guard.canActivate(req())).rejects.toMatchObject({ status: 429 });
+    expect(storage.increment.mock.calls[0].slice(1, 3)).toEqual([10 * 60_000, 3]);
+  });
+
+  it('el contador es por IP', async () => {
+    recaptcha.verify.mockResolvedValue(true);
+    const req = (ip: string) => ctx({ ip, headers: { 'x-recaptcha-token': 'ok' } });
+    for (let i = 0; i < 3; i++) await guard.canActivate(req('1.1.1.1'));
+    await expect(guard.canActivate(req('2.2.2.2'))).resolves.toBe(true);
   });
 });
+
+async function NestFactory_create() {
+  const moduleRef = await Test.createTestingModule({
+    imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }])],
+    controllers: [UploadController],
+    providers: [
+      { provide: AzureStorageService, useValue: { uploadFile: jest.fn() } },
+      { provide: RecaptchaService, useValue: { verify: jest.fn().mockResolvedValue(true) } },
+      ZipUploadAccessGuard,
+    ],
+  })
+    .overrideGuard(RolePermissionGuard)
+    .useValue({ canActivate: () => true })
+    .overrideGuard(OptionalJwtAuthGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
+  const app = moduleRef.createNestApplication();
+  await app.init();
+  return app;
+}
 
 describe('límites del zip', () => {
   it('zipUpload es 3 por 10 minutos', () => {
     expect(PUBLIC_LIMITS.zipUpload).toEqual({ limit: 3, ttl: 10 * 60_000 });
   });
 
-  it('el tope de tamaño del interceptor del zip es 100 MB', () => {
-    const src = require('fs').readFileSync(require('path').join(__dirname, 'upload.controller.ts'), 'utf8');
-    expect(src).toContain('1024 * 1024 * 100');
-    expect(src).not.toContain('1024 * 1024 * 500');
-  });
+  it('el interceptor del zip rechaza con 413 un cuerpo mayor a 100 MB', async () => {
+    const app = await NestFactory_create();
+    try {
+      const big = Buffer.concat([Buffer.from('PK'), Buffer.alloc(101 * 1024 * 1024)]);
+      const res = await request(app.getHttpServer())
+        .post('/upload/zip')
+        .set('x-recaptcha-token', 'ok')
+        .attach('file', big, { filename: 'g.zip', contentType: 'application/zip' });
+      expect(res.status).toBe(413);
+    } finally {
+      await app.close();
+    }
+  }, 60000);
 });
