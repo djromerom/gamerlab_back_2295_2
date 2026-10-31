@@ -73,26 +73,90 @@ describe('EmailService - fecha, hora y lugar configurables', () => {
     expect(html).not.toContain('28 de mayo');
   });
 
-  it.each(['EVENT_DATE_TEXT', 'EVENT_TIME_TEXT', 'EVENT_PLACE_TEXT'])(
-    'sin %s falla con un mensaje claro y no envía con valor fijo',
-    async (missing) => {
-      const { service, sendSpy } = build({ ...ENV, [missing]: undefined });
-      let error: unknown;
-      try {
-        service.getEventInfo();
-      } catch (e) {
-        error = e;
-      }
-      expect(error).toBeInstanceOf(InternalServerErrorException);
-      expect((error as Error).message).toContain(missing);
-      expect((error as Error).message).not.toContain('28 de mayo');
+  describe('correo de verificación degrada de forma segura', () => {
+    const LINES: Record<string, string> = {
+      EVENT_DATE_TEXT: '27 de noviembre',
+      EVENT_TIME_TEXT: '9:00 am - 1:00 pm',
+      EVENT_PLACE_TEXT: 'Auditorio de prueba',
+    };
 
-      await expect(
-        service.resendAuthEmailOfType('a@b.co', 'VERIFICACION_EMAIL', 'tok'),
-      ).rejects.toBeInstanceOf(InternalServerErrorException);
-      expect(sendSpy).not.toHaveBeenCalled();
-    },
-  );
+    it.each(Object.keys(LINES))(
+      'sin %s envía el correo sin esa línea y registra el error',
+      async (missing) => {
+        const { service, sendSpy } = build({ ...ENV, [missing]: undefined });
+        const errSpy = jest
+          .spyOn(service['logger'], 'error')
+          .mockImplementation(() => undefined);
+        await service.resendAuthEmailOfType(
+          'a@b.co',
+          'VERIFICACION_EMAIL',
+          'tok',
+        );
+        expect(sendSpy).toHaveBeenCalledTimes(1);
+        const html = render('verification', sendSpy.mock.calls[0][3]);
+        expect(html).not.toContain('undefined');
+        expect(html).not.toContain('28 de mayo');
+        expect(html).not.toContain('Coliseo');
+        expect(html).not.toContain(LINES[missing]);
+        for (const [name, value] of Object.entries(LINES)) {
+          if (name !== missing) expect(html).toContain(value);
+        }
+        expect(errSpy).toHaveBeenCalledWith(expect.stringContaining(missing));
+        expect(errSpy.mock.calls.flat().join(' ')).not.toContain('a@b.co');
+      },
+    );
+
+    it('sin ninguna variable envía sin fecha, hora ni lugar', async () => {
+      const { service, sendSpy } = build({});
+      jest
+        .spyOn(service['logger'], 'error')
+        .mockImplementation(() => undefined);
+      await service.resendAuthEmailOfType(
+        'a@b.co',
+        'VERIFICACION_EMAIL',
+        'tok',
+      );
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+      const html = render('verification', sendSpy.mock.calls[0][3]);
+      expect(html).not.toMatch(/undefined|28 de mayo|Coliseo/);
+      expect(html).not.toContain('Fecha:');
+      expect(html).not.toContain('Hora:');
+      expect(html).not.toContain('Lugar:');
+    });
+  });
+
+  it('onModuleInit avisa por log si falta alguna EVENT_* y no lanza', async () => {
+    const { service, prisma } = build({ ...ENV, EVENT_TIME_TEXT: undefined });
+    prisma.tokenType = {
+      findUnique: jest.fn().mockResolvedValue({ id: 1 }),
+    };
+    const warn = jest
+      .spyOn(service['logger'], 'warn')
+      .mockImplementation(() => undefined);
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('EVENT_TIME_TEXT'),
+    );
+  });
+
+  it('sin edición activa el certificado de jurado falla con mensaje claro', async () => {
+    const { service, prisma, sendSpy } = build();
+    (prisma.edition as { findFirst: jest.Mock }).findFirst.mockResolvedValue(
+      null,
+    );
+    await expect(service.resendJurorCertEmail('u1')).rejects.toBeInstanceOf(
+      InternalServerErrorException,
+    );
+    expect(sendSpy).not.toHaveBeenCalled();
+    await expect(service['getEventDateWithYear']()).rejects.toThrow(
+      /edición activa/,
+    );
+  });
+
+  it('getEventInfo lanza un error claro si falta una variable', () => {
+    const { service } = build({ ...ENV, EVENT_PLACE_TEXT: undefined });
+    expect(() => service.getEventInfo()).toThrow(/EVENT_PLACE_TEXT/);
+  });
 
   it('el certificado de jurado falla con mensaje de configuración faltante sin EVENT_DATE_TEXT', async () => {
     const { service, sendSpy } = build({ ...ENV, EVENT_DATE_TEXT: undefined });

@@ -380,7 +380,11 @@ export class AuthService {
       // Transaction is fully committed at this point — $transaction only returns after commit
       // Safe to send the verification email now.
       setImmediate(() => {
-        this.sendVerificationEmail(registerDto.email, verificationToken);
+        this.sendVerificationEmail(registerDto.email, verificationToken).catch((err) => {
+          this.logger.error(
+            `Failed to send verification email after registration: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       });
 
       return user;

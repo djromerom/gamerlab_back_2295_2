@@ -134,9 +134,9 @@
     <p>Estás a un paso de vivir la experiencia más esperada del semestre.</p>
 
     <p>
-      <strong>📅 Fecha:</strong> {{eventDate}}<br />
-      <strong>🕗 Hora:</strong> {{eventTime}}<br />
-      <strong>📍 Lugar:</strong> {{eventPlace}}
+      {{#if eventDate}}<strong>📅 Fecha:</strong> {{eventDate}}<br />{{/if}}
+      {{#if eventTime}}<strong>🕗 Hora:</strong> {{eventTime}}<br />{{/if}}
+      {{#if eventPlace}}<strong>📍 Lugar:</strong> {{eventPlace}}{{/if}}
     </p>
 
     <p>
