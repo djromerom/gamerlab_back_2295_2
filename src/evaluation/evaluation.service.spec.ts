@@ -242,3 +242,46 @@ describe('EvaluationService batch idempotency', () => {
       .rejects.toThrow(/evaluación distinta/i);
   });
 });
+
+describe('EvaluationService - getEvaluationProgress', () => {
+  const build = (videogames: any[]) => {
+    const prisma = {
+      videogame: { findMany: jest.fn().mockResolvedValue(videogames) },
+    };
+    const service = new EvaluationService(prisma as any, {} as any, {} as any);
+    return { service, prisma };
+  };
+  const vg = (assigned: string[], scored: string[]) => ({
+    team: { assignedJurors: assigned.map((id) => ({ id })) },
+    evaluations: scored.map((jurorId) => ({ jurorId })),
+  });
+
+  it('suma asignaciones vigentes y evaluaciones de jurados asignados', async () => {
+    const { service } = build([vg(['a', 'b', 'c'], ['a', 'b']), vg(['a'], ['a'])]);
+    await expect(service.getEvaluationProgress(1)).resolves.toEqual({ completed: 3, assigned: 4 });
+  });
+
+  it('una evaluación de un jurado desasignado no suma al progreso', async () => {
+    const { service } = build([vg(['a'], ['a', 'desasignado'])]);
+    await expect(service.getEvaluationProgress(1)).resolves.toEqual({ completed: 1, assigned: 1 });
+  });
+
+  it('completed nunca supera assigned', async () => {
+    const { service } = build([vg(['a'], ['a', 'x', 'y', 'z']), vg([], ['q'])]);
+    const r = await service.getEvaluationProgress(1);
+    expect(r.completed).toBeLessThanOrEqual(r.assigned);
+  });
+
+  it('consulta solo jurados activos, evaluaciones activas con puntaje y la edición pedida', async () => {
+    const { service, prisma } = build([]);
+    await service.getEvaluationProgress(7);
+    const q = prisma.videogame.findMany.mock.calls[0][0];
+    expect(q.where).toEqual({ isActive: true, team: { isActive: true, editionId: 7 } });
+    expect(q.select.team.select.assignedJurors.where).toEqual({ isActive: true });
+    expect(q.select.evaluations.where).toEqual({
+      isActive: true,
+      editionId: 7,
+      totalScore: { not: null },
+    });
+  });
+});

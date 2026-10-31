@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { countProgress } from '../evaluation/evaluation-progress';
 
 // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 const ROL_JURADO_ID = 4;
@@ -39,7 +40,7 @@ export class ReportsService {
                 },
               },
             },
-            assignedJurors: true,
+            assignedJurors: { where: { isActive: true }, select: { id: true } },
           },
         },
         evaluations: {
@@ -62,13 +63,19 @@ export class ReportsService {
     const finalMap = new Map<number, any>();
     finalRows.forEach((r: any) => finalMap.set(Number(r.videogameId), r));
 
-    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, isSenior: true, totalScore: true } });
+    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, jurorId: true, isSenior: true, totalScore: true } });
+    // Progreso: solo cuentan las evaluaciones de jurados actualmente asignados (ver evaluation-progress.ts)
+    const scoredJurorsByVg = new Map<number, string[]>();
     const countsMap = new Map<number, { juniorCount: number; seniorCount: number; completedCount: number }>();
     vgIds.forEach((id) => countsMap.set(Number(id), { juniorCount: 0, seniorCount: 0, completedCount: 0 }));
     for (const e of evals) {
       const id = Number((e as any).videogameId);
       const entry = countsMap.get(id)!;
-      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) entry.completedCount++;
+      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) {
+        const list = scoredJurorsByVg.get(id) ?? [];
+        list.push((e as any).jurorId);
+        scoredJurorsByVg.set(id, list);
+      }
       if ((e as any).isSenior) entry.seniorCount++; else entry.juniorCount++;
     }
 
@@ -123,6 +130,10 @@ export class ReportsService {
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
       const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
 
+      const progress = countProgress(
+        (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
+        scoredJurorsByVg.get(Number(v.id)) ?? [],
+      );
       const counts = countsMap.get(Number(v.id)) ?? { juniorCount: 0, seniorCount: 0, completedCount: evaluacionesCompletadas };
 
       // build integrantes (members list)
@@ -155,8 +166,8 @@ export class ReportsService {
         nrc: nrcList || null,
         promedio: finalPromedio,
         criterios,
-        evaluacionesCompletadas: counts.completedCount,
-        totalJuradosAsignados: v.team.assignedJurors.length,
+        evaluacionesCompletadas: progress.completed,
+        totalJuradosAsignados: progress.assigned,
         finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
         avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
         avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
@@ -525,7 +536,7 @@ async getJuradosData(): Promise<
                 },
               },
             },
-            assignedJurors: true,
+            assignedJurors: { where: { isActive: true }, select: { id: true } },
           },
         },
         evaluations: {
@@ -548,13 +559,19 @@ async getJuradosData(): Promise<
     const finalMap = new Map<number, any>();
     finalRows.forEach((r: any) => finalMap.set(Number(r.videogameId), r));
 
-    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, isSenior: true, totalScore: true } });
+    const evals = await this.prisma.evaluation.findMany({ where: { videogameId: { in: vgIds } as any, isActive: true }, select: { videogameId: true, jurorId: true, isSenior: true, totalScore: true } });
+    // Progreso: solo cuentan las evaluaciones de jurados actualmente asignados (ver evaluation-progress.ts)
+    const scoredJurorsByVg = new Map<number, string[]>();
     const countsMap = new Map<number, { juniorCount: number; seniorCount: number; completedCount: number }>();
     vgIds.forEach((id) => countsMap.set(Number(id), { juniorCount: 0, seniorCount: 0, completedCount: 0 }));
     for (const e of evals) {
       const id = Number((e as any).videogameId);
       const entry = countsMap.get(id)!;
-      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) entry.completedCount++;
+      if ((e as any).totalScore !== null && (e as any).totalScore !== undefined) {
+        const list = scoredJurorsByVg.get(id) ?? [];
+        list.push((e as any).jurorId);
+        scoredJurorsByVg.set(id, list);
+      }
       if ((e as any).isSenior) entry.seniorCount++; else entry.juniorCount++;
     }
 
@@ -608,6 +625,10 @@ async getJuradosData(): Promise<
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
       const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
 
+      const progress = countProgress(
+        (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
+        scoredJurorsByVg.get(Number(v.id)) ?? [],
+      );
       const counts = countsMap.get(Number(v.id)) ?? { juniorCount: 0, seniorCount: 0, completedCount: evaluacionesCompletadas };
   
       // build integrantes (members list)
@@ -640,8 +661,8 @@ async getJuradosData(): Promise<
         nrc: nrcList || null,
         promedio: finalPromedio,
         criterios,
-        evaluacionesCompletadas: counts.completedCount,
-        totalJuradosAsignados: v.team.assignedJurors.length,
+        evaluacionesCompletadas: progress.completed,
+        totalJuradosAsignados: progress.assigned,
         finalScore: fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : null,
         avgJunior: avgJuniorVal !== null && avgJuniorVal !== undefined ? (typeof avgJuniorVal === 'number' ? avgJuniorVal : parseFloat(String(avgJuniorVal))) : null,
         avgSenior: avgSeniorVal !== null && avgSeniorVal !== undefined ? (typeof avgSeniorVal === 'number' ? avgSeniorVal : parseFloat(String(avgSeniorVal))) : null,
