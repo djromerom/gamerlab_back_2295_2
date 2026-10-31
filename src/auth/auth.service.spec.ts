@@ -445,7 +445,7 @@ describe('AuthService: sesión revocable', () => {
           'PASSWORD',
           createResponse(),
         ),
-      ).rejects.toThrow(new UnauthorizedException('Invalid credentials.'));
+      ).rejects.toThrow(new UnauthorizedException('Credenciales inválidas.'));
     }
   });
 
@@ -567,7 +567,7 @@ describe('AuthService: sesión revocable', () => {
         'PASSWORD',
         createResponse(),
       ),
-    ).rejects.toThrow(new UnauthorizedException('Invalid credentials.'));
+    ).rejects.toThrow(new UnauthorizedException('Credenciales inválidas.'));
 
     // La coincidencia exacta siempre gana
     await login('ANA@uninorte.edu.co');

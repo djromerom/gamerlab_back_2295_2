@@ -210,6 +210,7 @@ export class JurorService {
           isActive: true,
           jurorCategory: dto.jurorCategory,
           jurorType: dto.jurorType,
+          lastSignInAt: null,
         },
       });
 

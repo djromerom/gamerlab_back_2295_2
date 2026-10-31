@@ -209,6 +209,9 @@ describe('JurorService', () => {
           lastName: 'Prueba',
           roleId: jurorRoleId,
           isActive: true,
+          jurorCategory: 'JUNIOR',
+          jurorType: 'OFFICIAL',
+          lastSignInAt: null,
         },
       });
 
@@ -218,6 +221,8 @@ describe('JurorService', () => {
         lastName: baseJuror.lastName,
         email: baseJuror.email,
         confirmationStatusId: baseJuror.confirmationStatusId,
+        jurorCategory: baseJuror.jurorCategory,
+        jurorType: baseJuror.jurorType,
         lastSignInAt: baseJuror.lastSignInAt,
         evaluatedCount: 1,
         evaluatedGameNames: ['Juego Evaluado'],

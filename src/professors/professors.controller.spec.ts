@@ -146,6 +146,41 @@ describe('ProfessorsController', () => {
       expect(mockProfessorsService.findOne).toHaveBeenCalledWith(otherId);
     });
   });
-});
 
-// Unit tests for controller methods should go here (GET, POST, etc)
+  describe('sin hash de contraseña en la respuesta', () => {
+    it('GET /professors no incluye password en ninguna fila', async () => {
+      mockProfessorsService.findAll = jest.fn().mockResolvedValue({
+        data: [{ id: 'p1', password: 'h1' }, { id: 'p2', password: 'h2' }],
+        metadata: { totalItems: 2 },
+      });
+      const result = await controller.findAll({
+        includeInactive: false,
+        limit: 10,
+        page: 1,
+      } as any);
+      expect(result.data).toHaveLength(2);
+      for (const row of result.data) expect(row).not.toHaveProperty('password');
+      expect(result.metadata).toEqual({ totalItems: 2 });
+    });
+
+    const user = { id: 'p1', email: 'p@x.co', password: '$2b$hash' };
+
+    it('create, findOne y update no incluyen password', async () => {
+      mockProfessorsService.create.mockResolvedValue(user);
+      mockProfessorsService.findOne.mockResolvedValue(user);
+      mockProfessorsService.update.mockResolvedValue(user);
+
+      const created = await controller.create({ email: 'p@x.co' } as any);
+      const found = await controller.findOne('p1', {
+        id: 'admin',
+        roleId: ROLE_IDS.ADMIN,
+      } as any);
+      const updated = await controller.update('p1', {} as any);
+
+      for (const r of [created, found, updated]) {
+        expect(r).not.toHaveProperty('password');
+        expect(r).toMatchObject({ id: 'p1', email: 'p@x.co' });
+      }
+    });
+  });
+});

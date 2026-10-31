@@ -317,6 +317,10 @@ export class ReportsController {
           col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
         } 
       });
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_jurados.xlsx');
       await workbook.xlsx.write(res);
       if (!res.writableEnded) res.end();

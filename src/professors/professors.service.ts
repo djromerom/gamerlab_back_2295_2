@@ -79,7 +79,7 @@ export class ProfessorsService {
         `User with email ${createProfessorDto.email} already exists in local DB with ID ${existingUserByEmailInLocalDB.id}.`,
       );
       throw new ConflictException(
-        `The email ${createProfessorDto.email} is already in use.`,
+        `El correo ${createProfessorDto.email} ya está en uso.`,
       );
     }
 
@@ -135,6 +135,7 @@ export class ProfessorsService {
           lastName: createProfessorDto.lastName,
           roleId: this.professorRoleId,
           isActive: true,
+          lastSignInAt: null,
         },
       });
       this.logger.log(

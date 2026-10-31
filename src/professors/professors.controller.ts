@@ -15,6 +15,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { omitPassword } from '../common/utils/omit-password';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -85,8 +86,10 @@ export class ProfessorsController {
       },
     },
   })
-  create(@Body() createProfessorDto: CreateProfessorDto) {
-    return this.professorsService.create(createProfessorDto);
+  async create(@Body() createProfessorDto: CreateProfessorDto) {
+    return omitPassword(
+      await this.professorsService.create(createProfessorDto),
+    );
   }
 
   @Get()
@@ -118,9 +121,16 @@ export class ProfessorsController {
       },
     },
   })
-  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<User>> {
+  async findAll(
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedResult<Omit<User, 'password'>>> {
     const { includeInactive, limit, page } = query;
-    return this.professorsService.findAll(includeInactive, limit, page);
+    const result = await this.professorsService.findAll(
+      includeInactive,
+      limit,
+      page,
+    );
+    return { ...result, data: result.data.map((u) => omitPassword(u)) };
   }
 
   // NOTE: endpoint `my-nrcs` removed — use `GET /professors/my-subjects` which
@@ -678,7 +688,9 @@ export class ProfessorsController {
     if (user.roleId === ROLE_IDS.PROFESSOR && user.id !== id) {
       throw new ForbiddenException('Solo puedes consultar tu propio perfil');
     }
-    return this.professorsService.findOne(id);
+    // Sin hash de contraseña en la respuesta (detalles-back). Sin `async` para que el 403 siga
+    // lanzándose de forma síncrona antes de consultar el servicio.
+    return this.professorsService.findOne(id).then((p) => omitPassword(p));
   }
 
   @Patch(':id')
@@ -699,11 +711,13 @@ export class ProfessorsController {
       },
     },
   })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProfessorDto: UpdateProfessorDto,
   ) {
-    return this.professorsService.update(id, updateProfessorDto);
+    return omitPassword(
+      await this.professorsService.update(id, updateProfessorDto),
+    );
   }
 
   @Delete(':id')

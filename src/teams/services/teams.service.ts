@@ -235,7 +235,7 @@ export class TeamsService {
 
     if (existingEmails[firstMember.memberEmail]) {
       throw new ConflictException(
-        `The email ${firstMember.memberEmail} is already in use.`,
+        `El correo ${firstMember.memberEmail} ya está en uso.`,
       );
     }
 
@@ -335,7 +335,13 @@ export class TeamsService {
       throw new BadRequestException('Invalid team id');
     }
 
-    return await this.teamRepository.findOne(id);
+    const team = await this.teamRepository.findOne(id);
+
+    if (!team) {
+      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+    }
+
+    return team;
   }
 
   async findOneWithDetails(

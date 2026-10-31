@@ -103,4 +103,27 @@ describe('JurorController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
+
+  describe('sin hash de contraseña en la respuesta', () => {
+    const user = { id: 'j1', email: 'j@x.co', password: '$2b$hash' };
+
+    it('DELETE /juror/:id no devuelve el usuario (204)', async () => {
+      mockJurorService.remove.mockResolvedValue(user);
+      const result = await controller.softdelete('j1');
+      expect(result).toBeUndefined();
+      expect(mockJurorService.remove).toHaveBeenCalledWith('j1');
+      const status = Reflect.getMetadata(
+        '__httpCode__',
+        JurorController.prototype.softdelete,
+      );
+      expect(status).toBe(204);
+    });
+
+    it('GET /juror/:id no incluye password', async () => {
+      mockJurorService.findOne.mockResolvedValue(user);
+      const result = await controller.findOne('j1');
+      expect(result).not.toHaveProperty('password');
+      expect(result).toMatchObject({ id: 'j1', email: 'j@x.co' });
+    });
+  });
 });
