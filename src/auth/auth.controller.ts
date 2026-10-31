@@ -40,13 +40,6 @@ import {
   ApiInternalServerErrorResponse,
 } from '@nestjs/swagger';
 
-class AuthTokensDoc {
-  message: string;
-  access: string;
-  refresh: string;
-  accessTokenExpiresIn: number;
-}
-
 class RefreshTokensDoc {
   message: string;
   accessToken: string;
@@ -85,12 +78,11 @@ export class AuthController {
     },
   })
   @ApiCreatedResponse({
-    description: 'Successful login',
+    description:
+      'Successful login. The tokens are only set as HttpOnly cookies (access-token, refresh-token).',
     schema: {
       example: {
         message: 'Login successful',
-        access: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-        refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         accessTokenExpiresIn: 900,
       }
     }
@@ -132,7 +124,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh tokens',
     description:
-      'Requires a valid refresh token in the request cookies to issue new access and refresh tokens.',
+      'Requires a valid, non-revoked refresh token in the request cookies. Rotates it: the old one stops working, and replaying it revokes every session of the user.',
   })
   @ApiBearerAuth('refresh')
   @ApiCreatedResponse({
@@ -303,8 +295,8 @@ export class AuthController {
       }
     }
   })
-  async logout(@Res({ passthrough: true }) res: Response) {
-    return this.authService.logout(res);
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    return this.authService.logout(req, res);
   }
 
   @Post('reset-token-expiration')

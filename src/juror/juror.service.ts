@@ -184,8 +184,9 @@ export class JurorService {
       }
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        error instanceof ConflictException ||
+        (error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002')
       ) {
         throw new ConflictException(
           `Juror with email ${dto.email} already exists.`,
@@ -303,9 +304,10 @@ export class JurorService {
   async update(id: string, dto: UpdateJurorDto): Promise<JurorListItem> {
     const juror = await this.findOne(id);
 
-    if (dto.email) {
-      const emailOwner = await this.prisma.user.findUnique({
-        where: { email: dto.email },
+    const email = dto.email?.trim().toLowerCase();
+    if (email) {
+      const emailOwner = await this.prisma.user.findFirst({
+        where: { email: { equals: email, mode: 'insensitive' } },
       });
       if (emailOwner && emailOwner.id !== id) {
         throw new ConflictException('Email is already used by another user.');
@@ -317,7 +319,7 @@ export class JurorService {
       data: {
         ...(dto.firstName !== undefined && { firstName: dto.firstName }),
         ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.email !== undefined && { email: dto.email }),
+        ...(email !== undefined && { email }),
         ...(dto.jurorCategory !== undefined && {
           jurorCategory: dto.jurorCategory,
         }),

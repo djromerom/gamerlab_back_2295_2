@@ -782,8 +782,11 @@ export class TeamRepository implements ITeamRepository {
     });
     if (!studentRole) throw new Error('Role "Estudiante" not found');
 
-    const existingUser = await tx.user.findUnique({
-      where: { email: firstMember.memberEmail },
+    // Case-insensitive: a user stored with capitals before emails were lowercased is the same user
+    const existingUser = await tx.user.findFirst({
+      where: {
+        email: { equals: firstMember.memberEmail, mode: 'insensitive' },
+      },
     });
 
     if (existingUser) {

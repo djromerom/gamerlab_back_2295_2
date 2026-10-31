@@ -114,8 +114,8 @@ export class EmailService {
   ): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: email.trim(), mode: 'insensitive' } }, // I4: case-insensitive
       include: { confirmationStatus: true },
     });
 
@@ -220,8 +220,8 @@ export class EmailService {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
     try {
-      const emailExists = await this.prisma.user.findUnique({
-        where: { email },
+      const emailExists = await this.prisma.user.findFirst({
+        where: { email: { equals: email.trim(), mode: 'insensitive' } }, // I4: case-insensitive
       });
 
       if (!emailExists) {
@@ -272,8 +272,8 @@ export class EmailService {
     );
 
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { email },
+      const user = await this.prisma.user.findFirst({
+        where: { email: { equals: email.trim(), mode: 'insensitive' } }, // I4: case-insensitive
       });
 
       if (!user) {

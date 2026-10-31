@@ -67,8 +67,10 @@ export class ProfessorsService {
       `Attempting to create professor with email: ${createProfessorDto.email}`,
     );
 
-    const existingUserByEmailInLocalDB = await this.prisma.user.findUnique({
-      where: { email: createProfessorDto.email },
+    const existingUserByEmailInLocalDB = await this.prisma.user.findFirst({
+      where: {
+        email: { equals: createProfessorDto.email, mode: 'insensitive' },
+      },
     });
 
     if (existingUserByEmailInLocalDB) {

@@ -86,7 +86,20 @@ describe('Sesión: JWT y cookie usan la misma duración (ARK-88)', () => {
         findUnique: jest.fn().mockResolvedValue(user),
         update: jest.fn().mockResolvedValue(user),
       },
+      // Every refresh presented here has a live stored record (the revocation rules are in auth.service.spec.ts)
+      refreshToken: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'rt-1',
+          userId: user.id,
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 86400000),
+        }),
+        create: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     };
+    prisma.$transaction = jest.fn((fn: (tx: any) => unknown) => fn(prisma));
     service = new AuthService(
       prisma,
       fakeConfig(ENV),
@@ -196,7 +209,8 @@ describe('Sesión: JWT y cookie usan la misma duración (ARK-88)', () => {
     expect(body.accessTokenExpiresIn).toBe(ACCESS_SECONDS);
   });
 
-  it('refresh acepta tokens emitidos antes de ARK-88 (sin "type")', async () => {
+  // Un token sin registro guardado se rechaza (ver auth.service.spec.ts); aquí sí lo tiene.
+  it('refresh acepta tokens sin "type" (anteriores a ARK-88) si tienen registro', async () => {
     const legacy = jwtService.sign(
       { sub: user.id, email: user.email },
       { expiresIn: '7d' },
