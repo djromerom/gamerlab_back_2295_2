@@ -100,7 +100,11 @@ export class UploadController {
   @Public()
   // Orden: sesión opcional -> límite de anónimos (reCAPTCHA + 3/10 min por IP, upload-urls-y-zip)
   // -> inscripciones abiertas o con sesión (inscripciones-back). Sin @PublicThrottle: con sesión no se limita.
-  @UseGuards(OptionalJwtAuthGuard, ZipUploadAccessGuard, RegistrationsOpenOrSessionGuard)
+  @UseGuards(
+    OptionalJwtAuthGuard,
+    ZipUploadAccessGuard,
+    RegistrationsOpenOrSessionGuard,
+  )
   @Post('zip')
   @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
   @ApiBody({
