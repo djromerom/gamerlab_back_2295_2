@@ -8,14 +8,14 @@ describe('TeamsController.getTeams — limit (M9)', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('sin limit devuelve la lista completa como hasta ahora', () => {
-    controller.getTeams(false, undefined, undefined, true);
-    expect(service.findAll).toHaveBeenCalledWith(true, false);
+    controller.getTeams(false, undefined, undefined, undefined, true);
+    expect(service.findAll).toHaveBeenCalledWith(true, false, undefined);
     expect(service.findPaged).not.toHaveBeenCalled();
   });
 
   it('con solo limit pagina desde la página 1', () => {
-    controller.getTeams(false, undefined, '10');
-    expect(service.findPaged).toHaveBeenCalledWith(1, 10, false, false);
+    controller.getTeams(false, undefined, undefined, '10');
+    expect(service.findPaged).toHaveBeenCalledWith(1, 10, false, false, undefined);
   });
 
   it('el tope propio de /teams es 1000', () => {
@@ -23,24 +23,24 @@ describe('TeamsController.getTeams — limit (M9)', () => {
   });
 
   it('recorta limit=5000 a 1000', () => {
-    controller.getTeams(false, '2', '5000');
-    expect(service.findPaged).toHaveBeenCalledWith(2, 1000, false, false);
+    controller.getTeams(false, undefined, '2', '5000');
+    expect(service.findPaged).toHaveBeenCalledWith(2, 1000, false, false, undefined);
   });
 
   it('limit=999999 (vista «Todos» del admin) pide hasta 1000, no 100', () => {
-    controller.getTeams(true, '1', '999999');
-    expect(service.findPaged).toHaveBeenCalledWith(1, 1000, false, true);
+    controller.getTeams(true, undefined, '1', '999999');
+    expect(service.findPaged).toHaveBeenCalledWith(1, 1000, false, true, undefined);
   });
 
   it('limit=null (lo manda juryManagement) devuelve la lista completa como antes', () => {
-    controller.getTeams(false, '1', 'null');
-    expect(service.findAll).toHaveBeenCalledWith(false, false);
+    controller.getTeams(false, undefined, '1', 'null');
+    expect(service.findAll).toHaveBeenCalledWith(false, false, undefined);
     expect(service.findPaged).not.toHaveBeenCalled();
   });
 
   it('un page suelto sin limit devuelve la lista completa', () => {
-    controller.getTeams(false, '3');
-    expect(service.findAll).toHaveBeenCalledWith(false, false);
+    controller.getTeams(false, undefined, '3');
+    expect(service.findAll).toHaveBeenCalledWith(false, false, undefined);
     expect(service.findPaged).not.toHaveBeenCalled();
   });
 });

@@ -25,6 +25,7 @@ import { SetPasswordDto } from './dto/set-password.dto';
 import { VerifyTokenDto } from './dto/verify-token.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ConfigService } from '@nestjs/config';
+import { opaqueUserKey } from '../common/utils/opaque-user-key';
 import { ResetTokenExpirationDto } from './dto/reset-token-expiration.dto';
 import {
   ApiTags,
@@ -355,6 +356,8 @@ export class AuthController {
   @ApiNotFoundResponse({ description: 'User profile not found' })
   @ApiUnauthorizedResponse({ description: 'No access token provided' })
   async getMyProfile(@GetUser() user: AppUser) {
-    return this.authService.getMyProfile(user.id);
+    const profile = await this.authService.getMyProfile(user.id);
+    // Se calcula aquí y no en el servicio para no guardar la clave en la caché del perfil.
+    return { ...profile, likeKey: opaqueUserKey(user.id) };
   }
 }

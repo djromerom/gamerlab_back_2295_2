@@ -67,6 +67,7 @@ export class TeamsController {
   @UseGuards(OptionalJwtAuthGuard, OptionalAdminRoleGuard)
   getTeams(
     @IsAdmin() includePersonalData: boolean,
+    @GetUser('id') currentUserId: string | undefined,
     @Query('page') @Optional() page?: string,
     @Query('limit') @Optional() limit?: string,
     @Query('sortByLikes') @Optional() sortByLikes?: boolean,
@@ -78,10 +79,10 @@ export class TeamsController {
       const pageNum = page ? parseInt(page, 10) : 1;
       const limitNum = parseInt(limit, 10);
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
-        return this.teamsService.findPaged(pageNum, Math.min(limitNum, MAX_TEAMS_LIST_LIMIT), sortByLikes, includePersonalData);
+        return this.teamsService.findPaged(pageNum, Math.min(limitNum, MAX_TEAMS_LIST_LIMIT), sortByLikes, includePersonalData, currentUserId);
       }
     }
-    return this.teamsService.findAll(sortByLikes, includePersonalData);
+    return this.teamsService.findAll(sortByLikes, includePersonalData, currentUserId);
   }
 
   @Get('incomplete-jurors')
