@@ -85,8 +85,22 @@ describeIfDb('Sesión revocable (PostgreSQL)', () => {
 
     const second = await refresh(first);
     expect(await liveTokens()).toBe(1);
+    expect(
+      await prisma.refreshToken.count({
+        where: { userId, revokedReason: 'ROTATED' },
+      }),
+    ).toBe(1);
+
+    // Reintento dentro de la ventana de gracia: sesión nueva, nada más revocado
+    await refresh(first);
+    expect(await liveTokens()).toBe(2);
+
+    // Fuera de la ventana (se envejece la rotación 11 s): reuso, se revoca todo
+    await prisma.refreshToken.updateMany({
+      where: { userId, revokedReason: 'ROTATED' },
+      data: { revokedAt: new Date(Date.now() - 11_000) },
+    });
     await expect(refresh(first)).rejects.toBeInstanceOf(UnauthorizedException);
-    // El reuso revocó todo, también el recién rotado
     expect(await liveTokens()).toBe(0);
     await expect(refresh(second)).rejects.toBeInstanceOf(UnauthorizedException);
 
@@ -96,6 +110,7 @@ describeIfDb('Sesión revocable (PostgreSQL)', () => {
       response(),
     );
     expect(await liveTokens()).toBe(0);
+    // Logout no tiene gracia, ni siquiera al instante
     await expect(refresh(third)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 

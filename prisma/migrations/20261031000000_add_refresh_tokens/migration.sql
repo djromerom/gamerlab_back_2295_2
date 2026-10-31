@@ -2,6 +2,15 @@
 -- Idempotente: se puede volver a ejecutar sin error.
 -- Al desplegar no hay registros: las sesiones abiertas antes caen a 401 en su próximo refresh (una sola vez).
 
+-- CreateEnum
+-- ROTATED: rotado por /auth/refresh (tiene ventana de gracia); LOGOUT y REUSE: sin gracia.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RefreshTokenRevokeReason') THEN
+        CREATE TYPE "RefreshTokenRevokeReason" AS ENUM ('ROTATED', 'LOGOUT', 'REUSE');
+    END IF;
+END $$;
+
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "refresh_token" (
     "id" TEXT NOT NULL,
@@ -9,6 +18,7 @@ CREATE TABLE IF NOT EXISTS "refresh_token" (
     "token_hash" TEXT NOT NULL,
     "expira_en" TIMESTAMP(3) NOT NULL,
     "revocado_en" TIMESTAMP(3),
+    "motivo_revocacion" "RefreshTokenRevokeReason",
     "creado_en" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "refresh_token_pkey" PRIMARY KEY ("id")

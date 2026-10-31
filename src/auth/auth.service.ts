@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, RefreshToken, User } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './types/jwt-payload.type';
 import { Request, Response } from 'express';
@@ -35,6 +35,10 @@ const REFRESH_TOKEN_COOKIE = 'refresh-token';
 const REFRESH_TOKEN_COOKIE_PATH = '/auth';
 // Path used before the refresh tokens were stored; cleared so an old cookie never shadows the new one.
 const LEGACY_REFRESH_TOKEN_COOKIE_PATH = '/auth/refresh';
+
+// A refresh token rotated less than this ago is accepted again (front retries after a lost
+// response, concurrent tabs/callers). Older replays count as theft.
+export const REFRESH_REUSE_GRACE_MS = 10_000;
 
 const hashRefreshToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
@@ -595,6 +599,8 @@ export class AuthService {
   /**
    * Looks a user up by email ignoring case (I4). The exact match wins, so a user stored
    * with capitals before emails were normalized keeps logging in as before.
+   * Without an exact match, two accounts differing only in case are ambiguous: returns null
+   * (the caller answers its generic 401) instead of picking one.
    */
   private async findUserByEmail(email: string) {
     const include = { confirmationStatus: true, role: true } as const;
@@ -604,10 +610,18 @@ export class AuthService {
     });
     if (exact) return exact;
 
-    return this.prisma.user.findFirst({
+    const matches = await this.prisma.user.findMany({
       where: { email: { equals: email.trim(), mode: 'insensitive' } },
       include,
+      take: 2,
     });
+    if (matches.length > 1) {
+      this.logger.warn(
+        `Ambiguous email ${email}: several accounts differ only in case`,
+      );
+      return null;
+    }
+    return matches[0] ?? null;
   }
 
   /**
@@ -659,11 +673,22 @@ export class AuthService {
     return { accessToken, refreshToken, refreshTokenExpiresAt };
   }
 
+  /** Only a rotation (never a logout or a reuse revocation) has a grace window. */
+  private isWithinRotationGrace(
+    token: Pick<RefreshToken, 'revokedAt' | 'revokedReason'>,
+  ): boolean {
+    return (
+      token.revokedReason === 'ROTATED' &&
+      !!token.revokedAt &&
+      Date.now() - token.revokedAt.getTime() < REFRESH_REUSE_GRACE_MS
+    );
+  }
+
   /** Revokes every live refresh token of the user (used when a rotated token is replayed). */
   private async revokeAllRefreshTokens(userId: string): Promise<void> {
     const { count } = await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), revokedReason: 'REUSE' },
     });
     this.logger.warn(
       `Refresh token reuse detected for user ${userId}: ${count} session(s) revoked`,
@@ -881,7 +906,10 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token.');
       }
 
-      if (stored.revokedAt) {
+      // A token rotated moments ago is a retry (lost response, concurrent tabs), not a theft:
+      // it gets a new session without rotating anything else.
+      const graceReplay = !!stored.revokedAt && this.isWithinRotationGrace(stored);
+      if (stored.revokedAt && !graceReplay) {
         // A rotated (or logged-out) token came back: it may have been stolen. Kill every session.
         await this.revokeAllRefreshTokens(stored.userId);
         this.clearAuthCookies(res);
@@ -914,12 +942,20 @@ export class AuthService {
         refreshTokenExpiresAt,
       } = this.signSessionTokens(user);
       const rotated = await this.prisma.$transaction(async (tx) => {
-        // Conditional update: if a concurrent request already rotated this token, count is 0.
-        const { count } = await tx.refreshToken.updateMany({
-          where: { id: stored.id, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
-        if (count === 0) return false;
+        if (!graceReplay) {
+          // Conditional update: if a concurrent request already revoked this token, count is 0.
+          const { count } = await tx.refreshToken.updateMany({
+            where: { id: stored.id, revokedAt: null },
+            data: { revokedAt: new Date(), revokedReason: 'ROTATED' },
+          });
+          if (count === 0) {
+            // Re-read why: a concurrent rotation is in grace; a concurrent logout is not.
+            const current = await tx.refreshToken.findUnique({
+              where: { tokenHash: stored.tokenHash },
+            });
+            if (!current || !this.isWithinRotationGrace(current)) return false;
+          }
+        }
 
         await tx.refreshToken.create({
           data: {
@@ -975,7 +1011,7 @@ export class AuthService {
       try {
         await this.prisma.refreshToken.updateMany({
           where: { tokenHash: hashRefreshToken(refreshToken), revokedAt: null },
-          data: { revokedAt: new Date() },
+          data: { revokedAt: new Date(), revokedReason: 'LOGOUT' },
         });
       } catch (error) {
         // Still clear the cookies: the user asked to leave.

@@ -1,7 +1,12 @@
+// In-memory Prisma fake: its methods are async on purpose to mirror the real client.
+/* eslint-disable @typescript-eslint/require-await */
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import cookieParser from 'cookie-parser';
+import express from 'express';
 import { createHash } from 'node:crypto';
+import request from 'supertest';
 import { AuthService } from './auth.service';
 
 type UserRow = {
@@ -19,6 +24,7 @@ type RefreshRow = {
   tokenHash: string;
   expiresAt: Date;
   revokedAt: Date | null;
+  revokedReason: 'ROTATED' | 'LOGOUT' | 'REUSE' | null;
   createdAt: Date;
 };
 
@@ -64,6 +70,9 @@ function createFakePrisma(users: UserRow[]) {
         async ({ where }) =>
           users.find((u) => matchesEmail(u, where.email)) ?? null,
       ),
+      findMany: jest.fn(async ({ where, take }) =>
+        users.filter((u) => matchesEmail(u, where.email)).slice(0, take),
+      ),
       update: jest.fn(async ({ where, data }) => {
         const user = users.find((u) => u.id === where.id)!;
         Object.assign(user, data);
@@ -86,6 +95,7 @@ function createFakePrisma(users: UserRow[]) {
         const row: RefreshRow = {
           id: `rt-${++seq}`,
           revokedAt: null,
+          revokedReason: null,
           createdAt: new Date(),
           ...data,
         };
@@ -140,7 +150,14 @@ describe('AuthService: sesión revocable', () => {
   let prisma: any;
   let service: AuthService;
 
+  // Only the clock is faked: bcrypt, promises and setImmediate keep running normally.
+  const advance = (ms: number) => jest.setSystemTime(Date.now() + ms);
+  afterEach(() => jest.useRealTimers());
+
   beforeEach(() => {
+    jest.useFakeTimers({
+      doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
+    });
     users = [
       {
         id: 'user-1',
@@ -219,6 +236,7 @@ describe('AuthService: sesión revocable', () => {
     const second = await refresh(first.refreshToken);
 
     expect(second.refreshToken).not.toBe(first.refreshToken);
+    advance(11_000);
     await expect(
       service.refresh(requestWith(first.refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -264,6 +282,7 @@ describe('AuthService: sesión revocable', () => {
     const phone = await login();
     const rotated = await refresh(laptop.refreshToken);
 
+    advance(11_000); // fuera de la ventana de gracia
     await expect(
       service.refresh(requestWith(laptop.refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -278,6 +297,61 @@ describe('AuthService: sesión revocable', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     await expect(
       service.refresh(requestWith(phone.refreshToken), createResponse()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('reusar un refresh rotado hace 3 s (respuesta perdida, reintento) emite sesión nueva y no revoca los demás', async () => {
+    const laptop = await login();
+    const phone = await login();
+    const rotated = await refresh(laptop.refreshToken);
+
+    advance(3_000);
+    const retry = await refresh(laptop.refreshToken);
+
+    expect(retry.body.accessToken).toEqual(expect.any(String));
+    expect(retry.refreshToken).not.toBe(rotated.refreshToken);
+    // Siguen vivos: el rotado, el del teléfono y el nuevo del reintento
+    for (const token of [rotated, phone, retry]) {
+      const row = prisma.refreshTokens.find(
+        (r: RefreshRow) => r.tokenHash === sha256(token.refreshToken),
+      );
+      expect(row.revokedAt).toBeNull();
+    }
+  });
+
+  it('reusar un refresh rotado hace 11 s da 401 y revoca todos', async () => {
+    const laptop = await login();
+    await refresh(laptop.refreshToken);
+
+    advance(11_000);
+    await expect(
+      service.refresh(requestWith(laptop.refreshToken), createResponse()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(
+      prisma.refreshTokens.filter((r: RefreshRow) => !r.revokedAt),
+    ).toHaveLength(0);
+  });
+
+  it('dos refresh concurrentes con la misma cookie: ambos 201 y la sesión sigue', async () => {
+    const { refreshToken } = await login();
+
+    const [a, b] = await Promise.all([
+      refresh(refreshToken),
+      refresh(refreshToken),
+    ]);
+
+    expect(a.body.accessToken).toEqual(expect.any(String));
+    expect(b.body.accessToken).toEqual(expect.any(String));
+    await expect(refresh(b.refreshToken)).resolves.toBeDefined();
+  });
+
+  it('un refresh cerrado con logout no tiene gracia: 401 aunque sea al instante', async () => {
+    const { refreshToken } = await login();
+    await service.logout(requestWith(refreshToken), createResponse());
+
+    expect(prisma.refreshTokens[0].revokedReason).toBe('LOGOUT');
+    await expect(
+      service.refresh(requestWith(refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -352,6 +426,25 @@ describe('AuthService: sesión revocable', () => {
     expect(legacy.body.message).toBe('Login successful');
   });
 
+  it('si el correo solo coincide sin mayúsculas con dos usuarios, 401 genérico (no elige uno)', async () => {
+    users.push(
+      { ...users[0], id: 'ana-1', email: 'Ana@uninorte.edu.co' },
+      { ...users[0], id: 'ana-2', email: 'ANA@uninorte.edu.co' },
+    );
+
+    await expect(
+      service.login(
+        { email: 'ana@uninorte.edu.co', password: PASSWORD },
+        'PASSWORD',
+        createResponse(),
+      ),
+    ).rejects.toThrow(new UnauthorizedException('Invalid credentials.'));
+
+    // La coincidencia exacta siempre gana
+    await login('ANA@uninorte.edu.co');
+    expect(prisma.refreshTokens.at(-1).userId).toBe('ana-2');
+  });
+
   it('crear usuario guarda el correo en minúsculas', async () => {
     const { user } = await service.registerUserTransaction(
       { email: '  Nuevo.Lider@Uninorte.EDU.co ' },
@@ -373,5 +466,117 @@ describe('AuthService: sesión revocable', () => {
         prisma,
       ),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+/** Set-Cookie real de Express (atributos que ve el navegador). */
+describe('AuthService: atributos de Set-Cookie', () => {
+  const user: UserRow = {
+    id: 'user-1',
+    email: 'estudiante@uninorte.edu.co',
+    password: bcrypt.hashSync(PASSWORD, 4),
+    authMethod: 'PASSWORD',
+    microsoftOid: null,
+    isActive: true,
+  };
+  let app: express.Express;
+
+  beforeEach(() => {
+    const prisma = createFakePrisma([{ ...user }]);
+    // NODE_ENV distinto de development: cookies Secure
+    const config: any = {
+      get: jest.fn((key: string, fallback?: unknown) =>
+        key === 'NODE_ENV' ? 'production' : fallback,
+      ),
+    };
+    const service = new AuthService(
+      prisma,
+      config,
+      {} as any,
+      new JwtService({ secret: 'test-secret' }),
+      {} as any,
+      {} as any,
+    );
+    app = express();
+    app.use(express.json());
+    app.use(cookieParser());
+    app.post('/auth/login', (req, res, next) => {
+      service
+        .login(req.body, 'PASSWORD', res)
+        .then((body) => res.json(body))
+        .catch(next);
+    });
+    app.post('/auth/refresh', (req, res, next) => {
+      service
+        .refresh(req, res)
+        .then((body) => res.json(body))
+        .catch(next);
+    });
+    app.post('/auth/logout', (req, res, next) => {
+      service
+        .logout(req, res)
+        .then((body) => res.json(body))
+        .catch(next);
+    });
+  });
+
+  const setCookies = (res: request.Response): string[] =>
+    ([] as string[]).concat(res.headers['set-cookie'] ?? []);
+  const find = (cookies: string[], name: string, path: string) =>
+    cookies.filter(
+      (c) => c.startsWith(`${name}=`) && c.includes(`Path=${path};`),
+    );
+  const isCleared = (c: string) => c.includes('Expires=Thu, 01 Jan 1970');
+
+  const expectSession = (cookies: string[]) => {
+    const [access] = find(cookies, 'access-token', '/');
+    expect(access).toMatch(/Max-Age=900;/);
+    expect(access).toMatch(/HttpOnly/);
+    expect(access).toMatch(/Secure/);
+    expect(access).toMatch(/SameSite=Lax/);
+
+    const [refresh] = find(cookies, 'refresh-token', '/auth');
+    expect(refresh).toMatch(/Max-Age=604800;/);
+    expect(refresh).toMatch(/HttpOnly/);
+    expect(refresh).toMatch(/Secure/);
+    expect(refresh).toMatch(/SameSite=Lax/);
+    // La cookie vieja se borra para que no tape a la nueva
+    const legacy = find(cookies, 'refresh-token', '/auth/refresh');
+    expect(legacy).toHaveLength(1);
+    expect(isCleared(legacy[0])).toBe(true);
+    return refresh.split(';')[0];
+  };
+
+  it('login, refresh y logout emiten las cookies con sus atributos', async () => {
+    const loginRes = await request(app)
+      .post('/auth/login')
+      .send({ email: user.email, password: PASSWORD })
+      .expect(200);
+    const refreshCookie = expectSession(setCookies(loginRes));
+
+    const refreshRes = await request(app)
+      .post('/auth/refresh')
+      .set('Cookie', refreshCookie)
+      .expect(200);
+    const rotatedCookie = expectSession(setCookies(refreshRes));
+
+    const logoutRes = await request(app)
+      .post('/auth/logout')
+      .set('Cookie', rotatedCookie)
+      .expect(200);
+    const cleared = setCookies(logoutRes);
+    // El borrado sale para AMBOS paths del refresh y para el access
+    for (const [name, path] of [
+      ['refresh-token', '/auth'],
+      ['refresh-token', '/auth/refresh'],
+      ['access-token', '/'],
+    ]) {
+      const [cookie] = find(cleared, name, path);
+      expect(cookie).toBeDefined();
+      expect(isCleared(cookie)).toBe(true);
+      expect(cookie).toMatch(/HttpOnly/);
+      expect(cookie).toMatch(/Secure/);
+      expect(cookie).toMatch(/SameSite=Lax/);
+    }
   });
 });
