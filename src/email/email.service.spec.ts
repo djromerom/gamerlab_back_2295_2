@@ -63,7 +63,9 @@ describe('EmailService - fecha, hora y lugar configurables', () => {
   it('el certificado de jurado usa la fecha y el año de la edición activa', async () => {
     const { service, prisma, sendSpy } = build();
     await service.resendJurorCertEmail('u1');
-    expect((prisma.edition as { findFirst: jest.Mock }).findFirst).toHaveBeenCalledWith(
+    expect(
+      (prisma.edition as { findFirst: jest.Mock }).findFirst,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({ where: { status: 'ACTIVE' } }),
     );
     const html = render('juror_certificate', sendSpy.mock.calls[0][3]);
