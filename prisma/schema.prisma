@@ -59,6 +59,7 @@ model EventConfiguration {
   editionId       Int      @unique @map("id_edicion")
   showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   showRanking     Boolean  @default(false) @map("mostrar_ranking")
+  registrationsOpen Boolean @default(false) @map("inscripciones_abiertas")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")

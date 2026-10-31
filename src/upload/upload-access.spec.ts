@@ -8,6 +8,7 @@ import { RecaptchaService } from '../teams/services/recaptcha.service';
 import { AzureStorageService } from './azure-storage.service';
 import { UploadController } from './upload.controller';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
+import { RegistrationsOpenOrSessionGuard } from '../settings/registrations-open.guard';
 import { PUBLIC_LIMITS } from '../common/throttle/public-throttle';
 
 process.env.AZURE_CONTAINER = process.env.AZURE_CONTAINER || 'test';
@@ -153,6 +154,9 @@ async function NestFactory_create() {
     .overrideGuard(RolePermissionGuard)
     .useValue({ canActivate: () => true })
     .overrideGuard(OptionalJwtAuthGuard)
+    .useValue({ canActivate: () => true })
+    // Inscripciones (inscripciones-back): se prueban en registrations-routes.spec.ts.
+    .overrideGuard(RegistrationsOpenOrSessionGuard)
     .useValue({ canActivate: () => true })
     .compile();
   const app = moduleRef.createNestApplication();

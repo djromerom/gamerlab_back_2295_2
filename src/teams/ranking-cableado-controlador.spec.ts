@@ -12,6 +12,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 import { ReportsController } from '../reports/reports.controller';
 import { ReportsService } from '../reports/reports.service';
 import { SettingsService } from '../settings/settings.service';
+import { RegistrationsOpenGuard } from '../settings/registrations-open.guard';
 import { TeamsController } from './controllers/teams.controller';
 import { TeamsService } from './services/teams.service';
 
@@ -79,6 +80,9 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
       .overrideGuard(RolePermissionGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(OptionalAdminRoleGuard)
+      .useValue({ canActivate: () => true })
+      // POST /teams lleva RegistrationsOpenGuard (inscripciones-back); aquí no se prueba.
+      .overrideGuard(RegistrationsOpenGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

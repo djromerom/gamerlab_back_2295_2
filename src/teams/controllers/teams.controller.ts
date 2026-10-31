@@ -30,6 +30,7 @@ import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { MemberDto } from '../dto/member.dto';
+import { RegistrationsOpenGuard } from '../../settings/registrations-open.guard';
 
 /**
  * Tope de `limit` en GET /teams. Más alto que el común (100) porque la vista «Todos» de la tabla de
@@ -44,6 +45,7 @@ export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenGuard)
   @Post()
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);

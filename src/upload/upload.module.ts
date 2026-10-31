@@ -6,9 +6,10 @@ import { ConfigModule } from '@nestjs/config';
 import { RecaptchaService } from '../teams/services/recaptcha.service';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
-  imports: [HttpModule, ConfigModule],
+  imports: [HttpModule, ConfigModule, SettingsModule],
   controllers: [UploadController],
   providers: [AzureStorageService, PrismaService, RecaptchaService, ZipUploadAccessGuard],
   exports: [AzureStorageService],

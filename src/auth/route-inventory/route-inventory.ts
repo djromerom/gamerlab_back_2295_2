@@ -25,6 +25,8 @@ export const ADMIN_ROLE_NAME = 'Administrador';
  * si no, la prueba `route-access.spec.ts` falla. Así ninguna ruta queda sin decidir.
  */
 export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
+  'PATCH /settings/registrations':
+    'Solo el Administrador (AdminRoleGuard): abre o cierra las inscripciones.',
   'GET /videogames/:id/my-like':
     'Cualquier usuario con sesión puede consultar si ya dio like a un juego.',
   'POST /videogames/:id/toggle-like':

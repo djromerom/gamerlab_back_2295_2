@@ -11,6 +11,7 @@ import { isAllowedImage, isZip } from './file-signature';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { DEFAULT_SAS_TTL_SEC, MAX_SAS_TTL_SEC } from './azure-storage.service';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
+import { RegistrationsOpenOrSessionGuard } from '../settings/registrations-open.guard';
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -19,6 +20,7 @@ export class UploadController {
 
   // Público porque lo usa la inscripción web antes de crear la cuenta; con límite de peticiones (BG-02)
   @Public()
+  @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenOrSessionGuard)
   @PublicThrottle(PUBLIC_LIMITS.imageUpload)
   @Post()
   @UseFilters(MulterExceptionFilter)
@@ -96,7 +98,9 @@ export class UploadController {
   }
 
   @Public()
-  @UseGuards(OptionalJwtAuthGuard, ZipUploadAccessGuard)
+  // Orden: sesión opcional -> límite de anónimos (reCAPTCHA + 3/10 min por IP, upload-urls-y-zip)
+  // -> inscripciones abiertas o con sesión (inscripciones-back). Sin @PublicThrottle: con sesión no se limita.
+  @UseGuards(OptionalJwtAuthGuard, ZipUploadAccessGuard, RegistrationsOpenOrSessionGuard)
   @Post('zip')
   @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
   @ApiBody({
