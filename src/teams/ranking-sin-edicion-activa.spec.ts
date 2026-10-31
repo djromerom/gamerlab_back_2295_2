@@ -3,6 +3,7 @@ import { SettingsService } from '../settings/settings.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from './services/teams.service';
 import { ROLE_IDS } from '../auth/constants/roles';
+import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 
 /**
  * ARK-SP1: en el periodo entre ediciones (sin configuración de edición ACTIVE) el
@@ -23,8 +24,9 @@ describe('Ranking sin edición activa (ARK-SP1)', () => {
     {} as any,
     prisma,
     settings,
+    blobRefsPassthrough(),
   );
-  const reports = new ReportsService(prisma, settings);
+  const reports = new ReportsService(prisma, settings, blobRefsPassthrough());
   const admin = { id: 'a', roleId: ROLE_IDS.ADMIN } as any;
   const rows = [{ teamId: 1, finalScore: 3 }];
 

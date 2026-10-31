@@ -1,5 +1,6 @@
 import { ReportsService } from './reports.service';
 import { ROLE_IDS } from '../auth/constants/roles';
+import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 
 /**
  * ARK-SP1 T29 — NRCData y DatosGraficoMateria son públicas: con el ranking oculto
@@ -13,7 +14,7 @@ describe('ReportsService — promedios por NRC y por materia con el ranking ocul
     subject: { findMany: jest.fn() },
   };
   const settings = { isRankingVisible: jest.fn() };
-  const service = new ReportsService(prisma as any, settings as any);
+  const service = new ReportsService(prisma as any, settings as any, blobRefsPassthrough());
   const admin = { id: 'a', roleId: ROLE_IDS.ADMIN } as any;
   const student = { id: 's', roleId: ROLE_IDS.STUDENT } as any;
 

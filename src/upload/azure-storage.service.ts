@@ -172,6 +172,40 @@ export class AzureStorageService implements OnModuleInit {
     };
   }
 
+  /** URL base del contenedor tal cual y con el host normalizado de desarrollo: sirven para reconocer URL firmadas propias. */
+  get containerUrls(): string[] {
+    const raw = this.containerClient.url;
+    return [...new Set([raw, this.normalizeUrl(raw)])];
+  }
+
+  /**
+   * Firma una URL de lectura para un upload SIN comprobar acceso: la usa BlobReferenceService para
+   * entregar en respuestas públicas los archivos que el equipo referenció (Task 28).
+   * Devuelve null si el registro ya no existe.
+   */
+  async signReadUrlById(id: string, ttlSec: number): Promise<{ url: string; expiresAt: string } | null> {
+    const rec = await this.getById(id);
+    if (!rec) return null;
+    // Independiente de getReadSasUrlById a proposito: la rama upload-urls-y-zip le agrega un
+    // chequeo de acceso (isPublic / sesion) que aqui no aplica, porque la referencia ya la
+    // guardo el equipo y la respuesta que la expone es publica.
+    const expiresOn = new Date(Date.now() + Math.max(60, ttlSec) * 1000);
+    const blobClient = this.containerClient.getBlockBlobClient(rec.blobName);
+    const sas = generateBlobSASQueryParameters(
+      {
+        containerName: this.containerClient.containerName,
+        blobName: rec.blobName,
+        permissions: BlobSASPermissions.parse('r'),
+        expiresOn,
+      },
+      this.credential,
+    ).toString();
+    return {
+      url: this.normalizeUrl(`${blobClient.url}?${sas}`),
+      expiresAt: expiresOn.toISOString(),
+    };
+  }
+
   /**
    * En desarrollo (Azurite) la URL interna puede apuntar a 127.0.0.1 o al
    * hostname del contenedor Docker. El browser del front siempre necesita

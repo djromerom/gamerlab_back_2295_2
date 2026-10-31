@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { ROLE_IDS } from '../../auth/constants/roles';
+import { blobRefsPassthrough } from '../../upload/blob-reference.mock';
 
 /**
  * F1/BG-07 — `GET /teams/:id/full` expone correos y códigos estudiantiles de los
@@ -17,6 +18,7 @@ describe('TeamsService.findOneWithDetails — privacidad (F1/BG-07)', () => {
     {} as any,
     {} as any,
     {} as any, // settingsService (ranking-y-datos-privados)
+    blobRefsPassthrough(), // blobRefs (blob-referencia-back)
   );
 
   const team = {

@@ -24,6 +24,7 @@ import { MemberDto } from '../dto/member.dto';
 import { ROLE_IDS } from '../../auth/constants/roles';
 import { SettingsService } from '../../settings/settings.service';
 import { stripPersonalData } from '../../common/utils/strip-personal-data';
+import { BlobReferenceService } from '../../upload/blob-reference.service';
 
 @Injectable()
 export class TeamsService {
@@ -35,7 +36,31 @@ export class TeamsService {
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
+
+  /** Task 28: la BD guarda `upload:<id>`; lo que llega como URL firmada se convierte antes de guardar. */
+  private async withBlobReferences<T extends { videogame?: any }>(dto: T, teamId?: number): Promise<T> {
+    if (!dto?.videogame) return dto;
+    const current =
+      teamId === undefined
+        ? null
+        : await this.prisma.videogame.findUnique({
+            where: { teamId },
+            select: { logoUrl: true, gameFileUrl: true, additionalImages: true },
+          });
+    return { ...dto, videogame: await this.blobRefs.referenceVideogameFields(dto.videogame, current) };
+  }
+
+  /** Respuesta de createTeam: el videojuego recien creado se devuelve con URL firmadas, nunca `upload:<id>`. */
+  private async withSignedCreated<T extends { videogame: any }>(created: T): Promise<T> {
+    return { ...created, videogame: await this.blobRefs.resolveVideogame(created.videogame) };
+  }
+
+  /** Task 28: firma al leer los archivos referenciados del videojuego de cada equipo. */
+  private async withSignedBlobs<T>(teams: T[]): Promise<T[]> {
+    return this.blobRefs.resolveTeamsVideogames(teams as any) as Promise<T[]>;
+  }
 
   async findByTeamName(teamName: string): Promise<any> {
     return await this.teamRepository.findByTeamName(teamName);
@@ -124,7 +149,7 @@ export class TeamsService {
       );
 
       if (!missingTeamName && !missingLogo) {
-        return this.applyTieBreakerToRanking(rows);
+        return this.signRankingLogos(await this.applyTieBreakerToRanking(rows));
       }
 
       const teamIds = Array.from(
@@ -198,11 +223,16 @@ export class TeamsService {
         return rr;
       });
 
-      return this.applyTieBreakerToRanking(enrichedRows);
+      return this.signRankingLogos(await this.applyTieBreakerToRanking(enrichedRows));
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch final scores by prefix');
     }
+  }
+
+  /** Task 28: el ranking arrastra `logoUrl` del videojuego; si es una referencia se firma al leer. */
+  private async signRankingLogos(rows: any[]): Promise<any[]> {
+    return this.blobRefs.resolveKeys(rows, ['logoUrl', 'videogameLogoUrl']);
   }
 
   async validateEmails(validateEmailsDto: ValidateEmailsDto) {
@@ -264,8 +294,13 @@ export class TeamsService {
       }
     }
 
+    // fuera del try: un archivo no válido es un 400, no un 500
+    const dtoWithRefs = await this.withBlobReferences(createTeamDto);
+
     try {
-      const result = await this.teamRepository.createTeam(createTeamDto);
+      const result = await this.withSignedCreated(
+        await this.teamRepository.createTeam(dtoWithRefs),
+      );
 
       this.logger.log(
         `Team created successfully for user: ${firstMember.memberEmail}`,
@@ -308,7 +343,11 @@ export class TeamsService {
       );
     }
 
-    return await this.teamRepository.createTeam(createTeamDto);
+    return this.withSignedCreated(
+      await this.teamRepository.createTeam(
+        await this.withBlobReferences(createTeamDto),
+      ),
+    );
   }
 
   async registerUser(registerDto: RegisterUserDto) {
@@ -326,7 +365,9 @@ export class TeamsService {
    * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
    */
   async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
-    const teams = await this.teamRepository.findAll(sortByLikes);
+    const teams = await this.withSignedBlobs(
+      await this.teamRepository.findAll(sortByLikes),
+    );
     const visible = includePersonalData ? teams : stripPersonalData(teams);
     return this.markOwnTeams(visible, currentUserId);
   }
@@ -381,7 +422,7 @@ export class TeamsService {
       }
     }
 
-    return team;
+    return (await this.withSignedBlobs([team]))[0];
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto, currentUser: AppUser) {
@@ -400,7 +441,17 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.update(id, updateTeamDto, isAdmin);
+    const result = await this.teamRepository.update(
+      id,
+      await this.withBlobReferences(updateTeamDto, id),
+      isAdmin,
+    );
+    if (result && 'updatedVideogame' in result) {
+      result.updatedVideogame = await this.blobRefs.resolveVideogame(
+        result.updatedVideogame,
+      );
+    }
+    return result;
   }
 
   async updateTeamInfo(
@@ -423,7 +474,12 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.updateTeamInfo(id, updateTeamDto, isAdmin);
+    const updated = await this.teamRepository.updateTeamInfo(
+      id,
+      await this.withBlobReferences(updateTeamDto, id),
+      isAdmin,
+    );
+    return updated ? (await this.withSignedBlobs([updated]))[0] : updated;
   }
 
   async updateMemberEmail(
@@ -523,11 +579,11 @@ export class TeamsService {
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return client.findMany({
+    return this.signRankingLogos(await client.findMany({
       where: {
         videogameId,
       },
-    });
+    }));
   }
 
   async getFinalScoreByTeam(teamId: number, user?: AppUser): Promise<any[] | null> {
@@ -538,11 +594,11 @@ export class TeamsService {
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return client.findMany({
+    return this.signRankingLogos(await client.findMany({
       where: {
         teamId,
       },
-    });
+    }));
   }
 
   /**
@@ -866,6 +922,7 @@ export class TeamsService {
 
   async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
     const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+    result.data = await this.withSignedBlobs(result.data);
     const visible = includePersonalData ? result : stripPersonalData(result);
     return { ...visible, data: this.markOwnTeams(visible.data, currentUserId) };
   }

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { SettingsService } from '../settings/settings.service';
@@ -15,7 +16,12 @@ export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
+    private readonly blobRefs: BlobReferenceService,
   ) {}
+
+  private async signLogo(value?: string | null): Promise<string | null> {
+    return (await this.blobRefs.resolve(value)) ?? null;
+  }
 
   /**
    * Lista pública de juegos (home). Con `showRanking=false` y un usuario que no es
@@ -172,7 +178,7 @@ export class ReportsService {
       const base = {
         id: v.id,
         nombre: v.name,
-        logoUrl: v.logoUrl ?? null,
+        logoUrl: await this.signLogo(v.logoUrl),
         teamCode: v.team?.teamCode ?? null,
         teamName: v.team?.teamName ?? null,
         integrantes,
@@ -706,7 +712,7 @@ async getJuradosData(): Promise<
       return {
         id: v.id,
         nombre: v.name,
-        logoUrl: v.logoUrl ?? null,
+        logoUrl: await this.signLogo(v.logoUrl),
         teamCode: v.team?.teamCode ?? null,
         teamName: v.team?.teamName ?? null,
         integrantes,

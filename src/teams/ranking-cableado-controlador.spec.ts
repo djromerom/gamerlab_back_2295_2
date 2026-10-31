@@ -15,6 +15,7 @@ import { SettingsService } from '../settings/settings.service';
 import { RegistrationsOpenGuard } from '../settings/registrations-open.guard';
 import { TeamsController } from './controllers/teams.controller';
 import { TeamsService } from './services/teams.service';
+import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 
 const SECRET = 'test-secret';
 
@@ -70,6 +71,7 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
             {} as any,
             prisma as any,
             settings as any,
+            blobRefsPassthrough(),
           ),
         },
         { provide: ReportsService, useValue: reports },

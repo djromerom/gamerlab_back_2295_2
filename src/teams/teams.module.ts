@@ -10,6 +10,7 @@ import { TeamRepository } from './repositories/team.repository';
 import { RecaptchaService } from './services/recaptcha.service'
 import { ConfigModule } from '@nestjs/config';
 import { SettingsModule } from '../settings/settings.module';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { SettingsModule } from '../settings/settings.module';
     AuthModule, 
     HttpModule,
     ConfigModule,
-    SettingsModule
+    SettingsModule,
+    UploadModule,
   ],
   controllers: [TeamsController],
   providers: [

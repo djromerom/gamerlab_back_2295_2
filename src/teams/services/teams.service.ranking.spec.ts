@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { ROLE_IDS } from '../../auth/constants/roles';
+import { blobRefsPassthrough } from '../../upload/blob-reference.mock';
 
 /**
  * ARK-SP1 #1 — Con `showRanking=false` las notas finales no se exponen por las
@@ -20,6 +21,7 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
     {} as any,
     prisma as any,
     settings as any,
+    blobRefsPassthrough(),
   );
 
   const admin = { id: 'a', roleId: ROLE_IDS.ADMIN } as any;

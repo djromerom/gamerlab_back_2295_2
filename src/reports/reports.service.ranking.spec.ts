@@ -1,5 +1,6 @@
 import { ReportsService } from './reports.service';
 import { ROLE_IDS } from '../auth/constants/roles';
+import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 
 /**
  * ARK-SP1 #1 — `videojuegoData` alimenta la home pública: con el ranking oculto
@@ -12,7 +13,7 @@ describe('ReportsService.getVideogamesData — ranking oculto (ARK-SP1 #1)', () 
     evaluation: { findMany: jest.fn() },
   };
   const settings = { isRankingVisible: jest.fn() };
-  const service = new ReportsService(prisma as any, settings as any);
+  const service = new ReportsService(prisma as any, settings as any, blobRefsPassthrough());
 
   const admin = { id: 'a', roleId: ROLE_IDS.ADMIN } as any;
 

@@ -7,11 +7,12 @@ import { RecaptchaService } from '../teams/services/recaptcha.service';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule } from '../settings/settings.module';
+import { BlobReferenceService } from './blob-reference.service';
 
 @Module({
   imports: [HttpModule, ConfigModule, SettingsModule],
   controllers: [UploadController],
-  providers: [AzureStorageService, PrismaService, RecaptchaService, ZipUploadAccessGuard],
-  exports: [AzureStorageService],
+  providers: [AzureStorageService, BlobReferenceService, PrismaService, RecaptchaService, ZipUploadAccessGuard],
+  exports: [AzureStorageService, BlobReferenceService],
 })
 export class UploadModule {}

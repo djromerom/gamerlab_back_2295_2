@@ -1,3 +1,4 @@
+import { blobRefsPassthrough } from '../../upload/blob-reference.mock';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { ROLE_IDS } from '../../auth/constants/roles';
@@ -18,6 +19,7 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
     {} as any,
     {} as any,
     {} as any,
+    blobRefsPassthrough(),
   );
 
   const team = { id: 10, userId: 'leader-1' };

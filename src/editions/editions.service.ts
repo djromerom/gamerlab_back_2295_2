@@ -8,6 +8,7 @@ import { Edition, EditionStatus } from '@prisma/client';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
 import { HistoricalsService } from '../historicals/historicals.service';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 
 const DUPLICATE_EDITION_MESSAGE = 'La edición ya existe';
 
@@ -19,6 +20,7 @@ export class EditionsService {
     private readonly prisma: PrismaService,
     private readonly azureStorageService: AzureStorageService,
     private readonly historicalsService: HistoricalsService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
 
   async create(createEditionDto: CreateEditionDto) {
@@ -343,6 +345,7 @@ export class EditionsService {
       orderBy: { name: 'asc' },
     });
     this.logger.log(`Found ${videogames.length} videogame(s) for edition #${id}`);
+    await this.blobRefs.resolveInPlace(videogames);
     return videogames.map((vg) => ({
       id: vg.id,
       name: vg.name,

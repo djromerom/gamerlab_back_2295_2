@@ -1,3 +1,4 @@
+import { blobRefsProvider } from '../upload/blob-reference.mock';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportsService } from './reports.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,7 +18,8 @@ describe('ReportsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ReportsService, 
+        ReportsService,
+        blobRefsProvider, 
         { 
           provide: PrismaService, 
           useValue: mockPrismaService 

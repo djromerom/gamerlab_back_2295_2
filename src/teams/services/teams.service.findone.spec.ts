@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
+import { blobRefsPassthrough } from '../../upload/blob-reference.mock';
 
 describe('TeamsService.findOne', () => {
   const repository = { findOne: jest.fn() };
@@ -9,6 +10,7 @@ describe('TeamsService.findOne', () => {
     {} as any,
     {} as any,
     {} as any, // settingsService (ranking-y-datos-privados)
+    blobRefsPassthrough(), // blobRefs (blob-referencia-back)
   );
 
   beforeEach(() => jest.resetAllMocks());
@@ -36,6 +38,7 @@ describe('TeamsService.create — correo duplicado', () => {
       recaptcha as any,
       {} as any,
       {} as any, // settingsService (ranking-y-datos-privados)
+      blobRefsPassthrough(), // blobRefs (blob-referencia-back)
     );
 
     await expect(
