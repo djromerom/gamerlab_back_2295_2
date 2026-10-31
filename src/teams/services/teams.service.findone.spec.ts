@@ -22,3 +22,25 @@ describe('TeamsService.findOne', () => {
     await expect(service.findOne(3)).resolves.toEqual({ id: 3 });
   });
 });
+
+describe('TeamsService.create — correo duplicado', () => {
+  it('el mensaje sale en español', async () => {
+    const repository = {
+      checkEmailsExist: jest.fn().mockResolvedValue({ 'a@b.co': true }),
+    };
+    const recaptcha = { verify: jest.fn().mockResolvedValue(true) };
+    const service = new TeamsService(
+      {} as any,
+      repository as any,
+      recaptcha as any,
+      {} as any,
+    );
+
+    await expect(
+      service.create({
+        recaptchaToken: 't',
+        members: [{ memberEmail: 'a@b.co' }],
+      } as any),
+    ).rejects.toThrow('El correo a@b.co ya está en uso.');
+  });
+});

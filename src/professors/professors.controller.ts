@@ -118,9 +118,16 @@ export class ProfessorsController {
       },
     },
   })
-  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<User>> {
+  async findAll(
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedResult<Omit<User, 'password'>>> {
     const { includeInactive, limit, page } = query;
-    return this.professorsService.findAll(includeInactive, limit, page);
+    const result = await this.professorsService.findAll(
+      includeInactive,
+      limit,
+      page,
+    );
+    return { ...result, data: result.data.map((u) => omitPassword(u)) };
   }
 
   // NOTE: endpoint `my-nrcs` removed — use `GET /professors/my-subjects` which

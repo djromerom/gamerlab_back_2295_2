@@ -118,6 +118,21 @@ describe('ProfessorsController', () => {
   });
 
   describe('sin hash de contraseña en la respuesta', () => {
+    it('GET /professors no incluye password en ninguna fila', async () => {
+      mockProfessorsService.findAll = jest.fn().mockResolvedValue({
+        data: [{ id: 'p1', password: 'h1' }, { id: 'p2', password: 'h2' }],
+        metadata: { totalItems: 2 },
+      });
+      const result = await controller.findAll({
+        includeInactive: false,
+        limit: 10,
+        page: 1,
+      } as any);
+      expect(result.data).toHaveLength(2);
+      for (const row of result.data) expect(row).not.toHaveProperty('password');
+      expect(result.metadata).toEqual({ totalItems: 2 });
+    });
+
     const user = { id: 'p1', email: 'p@x.co', password: '$2b$hash' };
 
     it('create, findOne y update no incluyen password', async () => {

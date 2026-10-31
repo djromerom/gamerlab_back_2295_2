@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { VideogameDto } from 'src/teams/dto/videogame.dto';
 
 export class UpdateVideogameDto extends PartialType(VideogameDto) {
@@ -9,6 +9,7 @@ export class UpdateVideogameDto extends PartialType(VideogameDto) {
 
   @IsString()
   @IsOptional()
+  @MinLength(1) // un `name` vacío responde 400 para todos los roles
   @MaxLength(30)
   name?: string;
 }

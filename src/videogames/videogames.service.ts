@@ -273,14 +273,20 @@ export class VideogamesService {
       );
     }
 
-    // `name` (la columna) solo la fija un administrador; el estudiante usa `vgName`.
-    if (!isAdmin && (videogameData as { name?: unknown }).name !== undefined) {
+    // `name` (la columna) solo la cambia un administrador. Un no administrador
+    // que lo envíe igual al actual (o sin enviarlo) no cambia nada y se ignora.
+    const { name: requestedName, ...dataWithoutName } = videogameData;
+    if (
+      !isAdmin &&
+      requestedName !== undefined &&
+      requestedName.trim() !== vg.name.trim()
+    ) {
       throw new ForbiddenException(
-        'Only an administrator can set the name field directly.',
+        'Solo un administrador puede cambiar el nombre del videojuego',
       );
     }
 
-    const { vgName, ...restData } = videogameData;
+    const { vgName, ...restData } = isAdmin ? videogameData : dataWithoutName;
     const updateData: any = { ...restData };
     if (vgName !== undefined) {
       updateData.name = vgName;
