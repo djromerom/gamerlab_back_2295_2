@@ -191,8 +191,8 @@ export class TeamsController {
   @Get(':id/full')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetTeam')
-  findOneFull(@Param('id') id: string) {
-    return this.teamsService.findOneWithDetails(id);
+  findOneFull(@Param('id') id: string, @GetUser() user: AppUser) {
+    return this.teamsService.findOneWithDetails(id, user);
   }
 
   @Get(':id')
