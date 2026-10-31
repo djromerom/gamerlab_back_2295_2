@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 
@@ -8,7 +9,15 @@ const ROL_JURADO_ID = 4;
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
+    @Optional() private readonly blobRefs?: BlobReferenceService,
+  ) {}
+
+  private async signLogo(value?: string | null): Promise<string | null> {
+    return (this.blobRefs ? await this.blobRefs.resolve(value) : value) ?? null;
+  }
 
   async getVideogamesData(): Promise<
     {
@@ -146,7 +155,7 @@ export class ReportsService {
       return {
         id: v.id,
         nombre: v.name,
-        logoUrl: v.logoUrl ?? null,
+        logoUrl: await this.signLogo(v.logoUrl),
         teamCode: v.team?.teamCode ?? null,
         teamName: v.team?.teamName ?? null,
         integrantes,
@@ -631,7 +640,7 @@ async getJuradosData(): Promise<
       return {
         id: v.id,
         nombre: v.name,
-        logoUrl: v.logoUrl ?? null,
+        logoUrl: await this.signLogo(v.logoUrl),
         teamCode: v.team?.teamCode ?? null,
         teamName: v.team?.teamName ?? null,
         integrantes,

@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Optional, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 import { CreateHighlightedGameDto } from './dto/create-highlighted-game.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
@@ -10,7 +11,11 @@ export class HighlightedGamesService {
 
   private readonly logger = new Logger(HighlightedGamesService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    // Opcional para no romper specs que construyen el servicio a mano (Task 28)
+    @Optional() private readonly blobRefs?: BlobReferenceService,
+  ) { }
 
   async create(editionId: number, createHighlightedGameDto: CreateHighlightedGameDto) {
     const { videogameId } = createHighlightedGameDto;
@@ -69,6 +74,10 @@ export class HighlightedGamesService {
       const totalPages = Math.ceil(totalItems / limit);
 
       this.logger.log(`Found ${items.length} highlighted games (total: ${totalItems}, pages: ${totalPages}) for edition #${editionId}`);
+
+      if (this.blobRefs) {
+        await this.blobRefs.resolveInPlace(items.map((i) => i.videogame).filter(Boolean));
+      }
 
       return {
         data: items,

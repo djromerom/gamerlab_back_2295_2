@@ -39,7 +39,7 @@ export function blobNameFromSignedUrl(value: string, container?: string): string
   }
 }
 
-type BlobFields = { logoUrl?: string | null; gameFileUrl?: string | null };
+type BlobFields = { logoUrl?: string | null; gameFileUrl?: string | null; additionalImages?: string[] | null };
 
 @Injectable()
 export class BlobReferenceService {
@@ -86,6 +86,23 @@ export class BlobReferenceService {
   private async resolveFields(vg: BlobFields): Promise<void> {
     if ('logoUrl' in vg) vg.logoUrl = await this.resolve(vg.logoUrl);
     if ('gameFileUrl' in vg) vg.gameFileUrl = await this.resolve(vg.gameFileUrl);
+    if (Array.isArray(vg.additionalImages)) {
+      const signed = await Promise.all(vg.additionalImages.map((img) => this.resolve(img)));
+      // una imagen cuyo archivo ya no existe se omite en vez de devolver null
+      vg.additionalImages = signed.filter((u): u is string => !!u);
+    }
+  }
+
+  /** Resuelve las claves indicadas de filas planas (p. ej. vista del ranking: logoUrl, videogameLogoUrl). */
+  async resolveKeys<T extends Record<string, any>>(rows: T[], keys: string[]): Promise<T[]> {
+    return Promise.all(
+      rows.map(async (r) => {
+        if (!r) return r;
+        const out: Record<string, any> = { ...r };
+        for (const k of keys) if (k in out) out[k] = await this.resolve(out[k]);
+        return out as T;
+      }),
+    );
   }
 
   /** Aplica `resolveVideogame` al `videogame` anidado de cada equipo. */
@@ -114,6 +131,9 @@ export class BlobReferenceService {
     const out: BlobFields = { ...dto };
     if (typeof out.logoUrl === 'string') out.logoUrl = await this.toReference(out.logoUrl);
     if (typeof out.gameFileUrl === 'string') out.gameFileUrl = await this.toReference(out.gameFileUrl);
+    if (Array.isArray(out.additionalImages)) {
+      out.additionalImages = await Promise.all(out.additionalImages.map((img) => this.toReference(img)));
+    }
     return out as T;
   }
 }

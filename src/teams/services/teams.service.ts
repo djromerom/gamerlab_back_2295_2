@@ -213,11 +213,7 @@ export class TeamsService {
   /** Task 28: el ranking arrastra `logoUrl` del videojuego; si es una referencia se firma al leer. */
   private async signRankingLogos(rows: any[]): Promise<any[]> {
     if (!this.blobRefs) return rows;
-    return Promise.all(
-      rows.map(async (r) =>
-        r && 'logoUrl' in r ? { ...r, logoUrl: await this.blobRefs!.resolve(r.logoUrl) } : r,
-      ),
-    );
+    return this.blobRefs.resolveKeys(rows, ['logoUrl', 'videogameLogoUrl']);
   }
 
   async validateEmails(validateEmailsDto: ValidateEmailsDto) {
@@ -512,11 +508,11 @@ export class TeamsService {
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return client.findMany({
+    return this.signRankingLogos(await client.findMany({
       where: {
         videogameId,
       },
-    });
+    }));
   }
 
   async getFinalScoreByTeam(teamId: number): Promise<any[] | null> {
@@ -526,11 +522,11 @@ export class TeamsService {
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return client.findMany({
+    return this.signRankingLogos(await client.findMany({
       where: {
         teamId,
       },
-    });
+    }));
   }
 
   /**

@@ -2,8 +2,8 @@
  * Task 28 (SP1): convierte las URL firmadas guardadas en la BD (logo y archivo del juego) en
  * referencias `upload:<id>`; la API firma una URL de 1 h al leer (BlobReferenceService).
  *
- * Tablas y columnas: videojuegos.logo_url / archivo_videojuego_url y las mismas columnas de los
- * videojuegos historicos (modelos Videogame y HistoricalVideogame).
+ * Tablas y columnas: videojuegos.logo_url / archivo_videojuego_url / imagenes_adicionales y las
+ * mismas columnas de los videojuegos historicos (modelos Videogame y HistoricalVideogame).
  *
  * Por defecto NO escribe nada (dry-run): imprime que cambiaria y cuantas filas quedan sin
  * resolver. Para aplicar los cambios:
@@ -25,21 +25,24 @@ const apply = process.argv.includes('--apply');
 const prisma = new PrismaClient();
 const container = process.env.AZURE_CONTAINER;
 
+type Row = { id: number; logoUrl: string | null; gameFileUrl: string | null; additionalImages: string[] };
+type Changes = { logoUrl?: string; gameFileUrl?: string; additionalImages?: string[] };
 type Target = {
   label: string;
-  list: () => Promise<{ id: number; logoUrl: string | null; gameFileUrl: string | null }[]>;
-  update: (id: number, data: { logoUrl?: string; gameFileUrl?: string }) => Promise<unknown>;
+  list: () => Promise<Row[]>;
+  update: (id: number, data: Changes) => Promise<unknown>;
 };
+const SELECT = { id: true, logoUrl: true, gameFileUrl: true, additionalImages: true } as const;
 
 const targets: Target[] = [
   {
     label: 'Videogame',
-    list: () => prisma.videogame.findMany({ select: { id: true, logoUrl: true, gameFileUrl: true } }),
+    list: () => prisma.videogame.findMany({ select: SELECT }),
     update: (id, data) => prisma.videogame.update({ where: { id }, data }),
   },
   {
     label: 'HistoricalVideogame',
-    list: () => prisma.historicalVideogame.findMany({ select: { id: true, logoUrl: true, gameFileUrl: true } }),
+    list: () => prisma.historicalVideogame.findMany({ select: SELECT }),
     update: (id, data) => prisma.historicalVideogame.update({ where: { id }, data }),
   },
 ];
@@ -57,6 +60,10 @@ async function toReference(value: string | null): Promise<string | null> {
   return id ? `${BLOB_REF_PREFIX}${id}` : null;
 }
 
+function isUnresolvedUrl(v: string | null): boolean {
+  return !!v && !v.startsWith(BLOB_REF_PREFIX) && /^https?:\/\//.test(v);
+}
+
 async function main() {
   console.log(apply ? 'MODO APLICAR: se escribira en la BD' : 'DRY-RUN: no se escribe nada (usar --apply)');
   let converted = 0;
@@ -64,17 +71,26 @@ async function main() {
 
   for (const t of targets) {
     for (const row of await t.list()) {
-      const data: { logoUrl?: string; gameFileUrl?: string } = {};
+      const data: Changes = {};
       for (const field of ['logoUrl', 'gameFileUrl'] as const) {
         const current = row[field];
         const ref = await toReference(current);
         if (ref) data[field] = ref;
-        else if (current && !current.startsWith(BLOB_REF_PREFIX) && /^https?:\/\//.test(current)) {
-          unresolved.push(`${t.label} #${row.id} ${field}`);
-        }
+        else if (isUnresolvedUrl(current)) unresolved.push(`${t.label} #${row.id} ${field}`);
       }
+      // imagenes adicionales: se convierte cada elemento; el arreglo se reescribe solo si cambio alguno
+      let imagesConverted = 0;
+      const images: string[] = [];
+      for (let i = 0; i < row.additionalImages.length; i++) {
+        const img = row.additionalImages[i];
+        const ref = await toReference(img);
+        if (ref) imagesConverted++;
+        else if (isUnresolvedUrl(img)) unresolved.push(`${t.label} #${row.id} additionalImages[${i}]`);
+        images.push(ref ?? img);
+      }
+      if (imagesConverted > 0) data.additionalImages = images;
       if (Object.keys(data).length === 0) continue;
-      converted += Object.keys(data).length;
+      converted += (data.logoUrl ? 1 : 0) + (data.gameFileUrl ? 1 : 0) + imagesConverted;
       console.log(`${t.label} #${row.id}:`, data);
       if (apply) await t.update(row.id, data);
     }
