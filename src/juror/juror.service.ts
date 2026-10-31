@@ -336,11 +336,14 @@ export class JurorService {
 
   async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
-    // We invalidate the cache of the user being deleted
-    this.auth.invalidateUserProfileCache(id);
-    return this.prisma.user.delete({
+    // Borrado lógico: conserva escarapelas, verificaciones y evaluaciones.
+    const deactivated = await this.prisma.user.update({
       where: { id: user.id },
+      data: { isActive: false },
     });
+    // We invalidate the cache of the user being deactivated
+    this.auth.invalidateUserProfileCache(id);
+    return deactivated;
   }
 
   /**
