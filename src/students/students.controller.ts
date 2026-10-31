@@ -13,6 +13,7 @@ import { Member } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { StudentsEvaluations, StudentsGrade } from './types/students.type';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { AppUser } from 'src/auth/jwt.strategy';
 import { EditNrcDto } from './dto/editNrc.dto';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
@@ -57,10 +58,10 @@ export class StudentsController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('EditMemberNrc')
   async editNrc(
-    @GetUser('id') id: string,
+    @GetUser() user: AppUser,
     @Param('memberId', ParseIntPipe) memberId: number,
     @Body() body: EditNrcDto,
   ): Promise<Member> {
-    return this.studentsService.editNrc(id, memberId, body.nrcCodes);
+    return this.studentsService.editNrc(user, memberId, body.nrcCodes);
   }
 }

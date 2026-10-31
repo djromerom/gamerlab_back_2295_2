@@ -3,13 +3,15 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StudentsEvaluations, StudentsGrade} from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { Member, Prisma } from "@prisma/client";
+import { AppUser } from "../auth/jwt.strategy";
+import { ROLE_IDS } from "../auth/constants/roles";
 
 @Injectable()
 export class StudentsService {
     constructor(private readonly prisma: PrismaService) { }
 
     async editNrc(
-        userId: string,
+        user: AppUser,
         memberId: number,
         nrcCodes: number[],
     ): Promise<Member> {
@@ -42,7 +44,7 @@ export class StudentsService {
                 if (!member)
                     throw new NotFoundException("The provided member does not exist or is inactive")
 
-                if (member.team.userId !== userId) {
+                if (member.team.userId !== user.id && user.roleId !== ROLE_IDS.ADMIN) {
                     throw new ForbiddenException(
                         'You are not authorized to modify NRCs for this member.',
                     );

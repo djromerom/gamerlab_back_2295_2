@@ -502,7 +502,7 @@ export class AuthService {
       this.logger.warn(
         `Login attempt failed: User not found for email: ${loginDto.email}`,
       );
-      throw new UnauthorizedException('Invalid credentials.');
+      throw new UnauthorizedException('Credenciales inválidas.');
     }
 
     if (logintType === 'PASSWORD') {
@@ -510,21 +510,21 @@ export class AuthService {
         this.logger.warn(
           `Login attempt failed: User ${loginDto.email} does not use password authentication`,
         );
-        throw new UnauthorizedException('Invalid credentials.');
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
 
       if (!user.password) {
         this.logger.warn(
           `Login attempt failed: User ${loginDto.email} has no password set`,
         );
-        throw new UnauthorizedException('Invalid credentials.');
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
 
       if (!loginDto.password) {
         this.logger.warn(
           `Login attempt failed: No password provided for user: ${loginDto.email}`,
         );
-        throw new UnauthorizedException('Invalid credentials.');
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
       // Verify password using bcrypt
       const isPasswordValid = await bcrypt.compare(
@@ -535,21 +535,21 @@ export class AuthService {
         this.logger.warn(
           `Login attempt failed: Invalid password for user: ${loginDto.email}`,
         );
-        throw new UnauthorizedException('Invalid credentials.');
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
     } else { // loginType == 'ENTRA_ID'
       if (user.authMethod !== 'ENTRA_ID') {
         this.logger.warn(
           `Login attempt failed: User ${loginDto.email} does not use Entra ID authentication`,
         );
-        throw new UnauthorizedException('Invalid credentials.');
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
 
       if (!user.microsoftOid) {
         this.logger.warn(
           `Login attempt failed: User ${loginDto.email} has no Microsoft account linked`,
         );
-        throw new UnauthorizedException('Invalid credentials.');
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
 
       // Additional validation: verify the Microsoft OID matches if provided in loginDto
@@ -557,7 +557,7 @@ export class AuthService {
         this.logger.warn(
           `Login attempt failed: Microsoft account mismatch for user: ${loginDto.email}`,
         );
-        throw new UnauthorizedException('Invalid credentials.');
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
 
       this.logger.log('Entra ID login validation passed');

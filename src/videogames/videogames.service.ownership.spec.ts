@@ -64,6 +64,14 @@ describe('VideogamesService.update — propiedad (BG-01)', () => {
     });
   });
 
+  it('rechaza a un estudiante que envía `name` (solo el administrador lo fija directamente)', async () => {
+    await expect(
+      service.update(7, { name: 'Otro' } as any, student('leader-1')),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(prisma.videogame.update).not.toHaveBeenCalled();
+  });
+
   it('responde 404 si el videojuego no existe', async () => {
     prisma.videogame.findUnique.mockResolvedValue(null);
 

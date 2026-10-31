@@ -273,6 +273,13 @@ export class VideogamesService {
       );
     }
 
+    // `name` (la columna) solo la fija un administrador; el estudiante usa `vgName`.
+    if (!isAdmin && (videogameData as { name?: unknown }).name !== undefined) {
+      throw new ForbiddenException(
+        'Only an administrator can set the name field directly.',
+      );
+    }
+
     const { vgName, ...restData } = videogameData;
     const updateData: any = { ...restData };
     if (vgName !== undefined) {

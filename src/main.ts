@@ -18,6 +18,7 @@ async function bootstrap() {
     const hops = Number(trustProxy);
     app.getHttpAdapter().getInstance().set('trust proxy', Number.isNaN(hops) ? trustProxy : hops);
   }
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
   app.use(cookieParser());
 
   app.useGlobalPipes(
