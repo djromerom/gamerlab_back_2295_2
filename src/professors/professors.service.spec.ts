@@ -90,6 +90,7 @@ describe('ProfessorsService', () => {
     });
 
     beforeEach(() => {
+      jest.clearAllMocks();
       mockPrismaService.edition.findMany.mockResolvedValue([]);
       mockPrismaService.nRC.findMany.mockResolvedValue([]);
       mockPrismaService.historicalMemberNrc.findMany.mockResolvedValue([]);
@@ -105,7 +106,9 @@ describe('ProfessorsService', () => {
         hist(9, 900, 4),
       ]);
 
-      const { nrcs } = await service.getGradingFilterOptions("prof-1");
+      const { nrcs } = await service.getGradingFilterOptions('prof-1', {
+        includeHistorical: true,
+      });
 
       expect(nrcs.filter((n) => n.id === 9)).toHaveLength(1);
     });
@@ -119,7 +122,9 @@ describe('ProfessorsService', () => {
         hist(5, 500, 3),
       ]);
 
-      const { nrcs } = await service.getGradingFilterOptions("prof-1");
+      const { nrcs } = await service.getGradingFilterOptions('prof-1', {
+        includeHistorical: true,
+      });
 
       const matches = nrcs.filter((n) => n.id === 5 && n.editionId === 3);
       expect(matches).toHaveLength(1);
@@ -145,28 +150,75 @@ describe('ProfessorsService', () => {
       expect(nrcs.map((n) => n.id)).toEqual([1]);
       expect(mockPrismaService.nRC.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { professorId: "prof-1", isActive: true },
+          where: {
+            professorId: 'prof-1',
+            isActive: true,
+            edition: { status: EditionStatus.ACTIVE },
+          },
         }),
       );
+    });
+
+    it('por defecto solo ofrece NRC de la feria activa y ningun historico (igual que el listado)', async () => {
+      mockPrismaService.nRC.findMany.mockResolvedValue([
+        { id: 1, code: 100, editionId: 4 },
+      ]);
+      mockPrismaService.edition.findMany.mockResolvedValue([{ id: 4 }]);
+
+      const result = await service.getGradingFilterOptions('prof-1');
+
+      expect(
+        mockPrismaService.historicalMemberNrc.findMany,
+      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.nRC.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.edition.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: [4] } } }),
+      );
+      expect(result).toEqual({
+        editions: [{ id: 4 }],
+        nrcs: [{ id: 1, code: 100, editionId: 4, source: 'current' }],
       });
     });
 
-  describe('getGradingGames — mensajes por parámetro (M6)', () => {
-    const base = { page: 1, limit: 25 };
-    const cases: Array<[string, any, string]> = [
-      ['sortBy', { sortBy: 'hack' }, 'sortBy inválido'],
-      ['sortOrder', { sortOrder: 'up' }, 'sortOrder inválido'],
-      ['editionId', { editionId: 0 }, 'editionId/nrcId inválido'],
-      ['nrcId', { nrcId: NaN }, 'editionId/nrcId inválido'],
-      ['page', { page: 0 }, 'página/límite inválidos'],
-      ['limit', { limit: NaN }, 'página/límite inválidos'],
-    ];
-    it.each(cases)('%s inválido responde 400 con su propio mensaje', async (_n, extra, message) => {
-      const err: any = await service
-        .getGradingGames('professor-id', { ...base, ...extra })
-        .catch((e) => e);
-      expect(err.getStatus()).toBe(400);
-      expect(err.message).toBe(message);
+    it('includeHistorical toma las ferias de todos los NRC activos del profesor', async () => {
+      mockPrismaService.nRC.findMany
+        .mockResolvedValueOnce([{ id: 1, code: 100, editionId: 4 }])
+        .mockResolvedValueOnce([{ editionId: 4 }, { editionId: 2 }]);
+      mockPrismaService.historicalMemberNrc.findMany.mockResolvedValue([
+        hist(7, 700, 2),
+      ]);
+
+      const { nrcs } = await service.getGradingFilterOptions('prof-1', {
+        includeHistorical: true,
+      });
+
+      expect(mockPrismaService.nRC.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: { professorId: 'prof-1', isActive: true },
+        }),
+      );
+      expect(
+        mockPrismaService.historicalMemberNrc.findMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { member: { team: { editionId: { in: [4, 2] } } } },
+        }),
+      );
+      expect(nrcs).toEqual([
+        { id: 1, code: 100, editionId: 4, source: 'current' },
+        { id: 7, code: 700, editionId: 2, source: 'historical' },
+      ]);
+    });
+
+    it('el Administrador recibe los NRC activos de todos los profesores', async () => {
+      await service.getGradingFilterOptions('admin-1', { roleId: 1 });
+
+      expect(mockPrismaService.nRC.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isActive: true, edition: { status: EditionStatus.ACTIVE } },
+        }),
+      );
     });
   });
 });

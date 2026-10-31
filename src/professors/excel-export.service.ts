@@ -36,6 +36,8 @@ export interface NrcSheetData {
   groups:      Map<string | number, GroupRow>;
   // Si alguna hoja lo trae, se agrega la columna "Feria" (HU-02)
   editionLabel?: string;
+  // Dueño del NRC: su nota es la docente de la hoja (si no viene, options.professorId)
+  professorId?: string;
 }
 
 export interface ExcelExportOptions {
@@ -199,7 +201,10 @@ export class ExcelExportService {
         }
 
         if (vgId) {
-          const ds = await getDocenteScore(vgId, professorId);
+          const ds = await getDocenteScore(
+            vgId,
+            sheet.professorId ?? professorId,
+          );
           if (ds !== null) {
             docenteScore = ds.toFixed(1);
             g.grade = ds;
