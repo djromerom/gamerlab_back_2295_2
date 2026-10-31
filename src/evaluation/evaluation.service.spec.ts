@@ -28,8 +28,10 @@ const gameRow = (
     assignedJurors: { id: string }[];
     members: { nrcs: { editionId: number }[] }[];
   }> = {},
+  videogameIsActive = true,
 ) => ({
   id,
+  isActive: videogameIsActive,
   team: {
     id: id * 10,
     teamCode: 'N1-01',
@@ -251,6 +253,22 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       expect(result.get(7)).toBe(NOT_FOUND_MESSAGE);
     });
 
+    it('rechaza un videojuego inactivo de un equipo activo y asignado', async () => {
+      const result = await blockers(juniorJuror, [gameRow(7, {}, false)], [7]);
+      expect(result.get(7)).toBe(NOT_FOUND_MESSAGE);
+    });
+
+    it('la consulta pide isActive del videojuego y solo NRC activos del profesor', async () => {
+      await blockers(professor, [gameRow(7)], [7]);
+
+      const { select } = prismaMock.videogame.findMany.mock.calls[0][0];
+      expect(select.isActive).toBe(true);
+      expect(select.team.select.members.select.nrcs.where).toEqual({
+        professorId: 'prof-1',
+        isActive: true,
+      });
+    });
+
     it('rechaza juego de edición archivada', async () => {
       const result = await blockers(
         juniorJuror,
@@ -387,6 +405,11 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       await expectForbidden(NOT_FOUND_MESSAGE);
     });
 
+    it('rechaza un videojuego inactivo (403)', async () => {
+      prismaMock.videogame.findMany.mockResolvedValue([gameRow(7, {}, false)]);
+      await expectForbidden(NOT_FOUND_MESSAGE);
+    });
+
     it('permite profesor con NRC propio', async () => {
       prismaMock.user.findUnique.mockResolvedValue({
         roleId: PROFESSOR_ROLE_ID,
@@ -519,6 +542,25 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
   });
 
   describe('createBatchEvaluations (U1, U2, #4, I10)', () => {
+    it('un videojuego inactivo de un equipo activo y asignado va a failed', async () => {
+      prismaMock.videogame.findMany.mockResolvedValue([
+        gameRow(7),
+        gameRow(8, {}, false),
+      ]);
+
+      const { results } = await service.createBatchEvaluations('juror-1', {
+        evaluations: [evaluation(7), evaluation(8)] as any,
+      });
+
+      expect(results.successful).toEqual([
+        { videogameId: 7, evaluationId: 99 },
+      ]);
+      expect(results.failed).toEqual([
+        { videogameId: 8, error: NOT_FOUND_MESSAGE },
+      ]);
+      expect(prismaMock.evaluation.create).toHaveBeenCalledTimes(1);
+    });
+
     it('el lote marca failed por fila con el mensaje del bloqueo y no crea esa evaluación', async () => {
       prismaMock.videogame.findMany.mockResolvedValue([
         gameRow(7),

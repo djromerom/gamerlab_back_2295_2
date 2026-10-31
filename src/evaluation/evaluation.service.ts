@@ -387,11 +387,11 @@ export class EvaluationService {
   /**
    * U1: por cada videojuego, el motivo por el que el actor no puede calificarlo
    * (ausente en el mapa = permitido). Una sola consulta para toda la lista. Reglas, en orden:
-   * 1. el juego no existe o su equipo está inactivo;
+   * 1. el juego no existe, está inactivo o su equipo está inactivo;
    * 2. el equipo no es de la edición activa;
    * 3. equipo de colegios (N0) y el actor no es senior (Profesor o jurado SENIOR);
-   * 4. el actor no está asignado al equipo ni es Profesor dueño de un NRC de algún integrante
-   *    en la edición del equipo (aplica también a colegios).
+   * 4. el actor no está asignado al equipo ni es Profesor dueño de un NRC activo de algún
+   *    integrante activo en la edición del equipo (aplica también a colegios).
    * `professorRoleId` es opcional para no repetir la consulta del rol si el llamador ya la hizo.
    */
   private async findEvaluationBlockers(
@@ -411,6 +411,7 @@ export class EvaluationService {
       where: { id: { in: videogameIds } },
       select: {
         id: true,
+        isActive: true,
         team: {
           select: {
             id: true,
@@ -422,7 +423,7 @@ export class EvaluationService {
               where: { isActive: true },
               select: {
                 nrcs: {
-                  where: { professorId: actor.id },
+                  where: { professorId: actor.id, isActive: true },
                   select: { editionId: true },
                 },
               },
@@ -435,9 +436,10 @@ export class EvaluationService {
 
     const blockers = new Map<number, string>();
     for (const videogameId of videogameIds) {
-      const team = byId.get(videogameId)?.team;
+      const videogame = byId.get(videogameId);
+      const team = videogame?.team;
 
-      if (!team || !team.isActive) {
+      if (!videogame?.isActive || !team || !team.isActive) {
         blockers.set(videogameId, 'El videojuego no existe o está inactivo');
         continue;
       }

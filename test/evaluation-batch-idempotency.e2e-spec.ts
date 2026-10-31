@@ -47,6 +47,8 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
   const runId = Date.now().toString(36);
   const jurorIds: string[] = [];
   const createdUserIds: string[] = [];
+  const createdTeamIds: number[] = [];
+  const createdNrcIds: number[] = [];
   let teamIds: number[] = [];
   let criteriaIds: number[] = [];
   let collegeVideogame: { id: number; teamId: number };
@@ -115,6 +117,93 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
 
   const countEvaluations = (jurorId: string) =>
     prisma.evaluation.count({ where: { jurorId } });
+
+  async function createProfessor(suffix: string) {
+    const role = await prisma.role.findUniqueOrThrow({
+      where: { name: 'Profesor' },
+    });
+    const professor = await prisma.user.create({
+      data: {
+        id: `it-sp1-${runId}-${suffix}`,
+        email: `it-sp1-${runId}-${suffix}@uninorte.edu.co`,
+        roleId: role.id,
+        firstName: 'IT',
+        lastName: 'SP1',
+      },
+    });
+    jurorIds.push(professor.id);
+    return professor.id;
+  }
+
+  /** NRC del profesor en la edición activa (en prod: el NRC 9999 del profesor de colegios). */
+  async function createNrc(professorId: string) {
+    const [subject, edition] = await Promise.all([
+      prisma.subject.findFirstOrThrow(),
+      prisma.edition.findFirstOrThrow({
+        where: { status: EditionStatus.ACTIVE },
+        orderBy: { id: 'desc' },
+      }),
+    ]);
+    const nrc = await prisma.nRC.create({
+      data: {
+        code: 9999,
+        subjectId: subject.id,
+        professorId,
+        editionId: edition.id,
+      },
+    });
+    createdNrcIds.push(nrc.id);
+    return nrc.id;
+  }
+
+  /** Equipo de colegios (N0) en la edición activa, con un integrante vinculado a `nrcId`. */
+  async function createCollegeTeam(
+    suffix: string,
+    nrcId: number,
+    memberIsActive: boolean,
+  ) {
+    const [studentRole, edition] = await Promise.all([
+      prisma.role.findUniqueOrThrow({ where: { name: 'Estudiante' } }),
+      prisma.edition.findFirstOrThrow({
+        where: { status: EditionStatus.ACTIVE },
+        orderBy: { id: 'desc' },
+      }),
+    ]);
+    const owner = await prisma.user.create({
+      data: {
+        id: `it-sp1-${runId}-own-${suffix}`,
+        email: `it-sp1-${runId}-own-${suffix}@uninorte.edu.co`,
+        roleId: studentRole.id,
+        firstName: 'IT',
+        lastName: 'SP1',
+      },
+    });
+    createdUserIds.push(owner.id);
+    const team = await prisma.team.create({
+      data: {
+        teamName: `it-sp1-${runId}-${suffix}`,
+        userId: owner.id,
+        editionId: edition.id,
+        teamCode: `N0-${runId.slice(-5)}${suffix}`.slice(0, 12),
+        videogame: {
+          create: { name: `it-sp1-${runId}-${suffix}`.slice(0, 30) },
+        },
+        members: {
+          create: {
+            firstName: 'IT',
+            lastName: 'SP1',
+            email: `it-sp1-${runId}-mem-${suffix}@uninorte.edu.co`,
+            studentCode: `it-sp1-${runId}-${suffix}`,
+            isActive: memberIsActive,
+            nrcs: { connect: { id: nrcId } },
+          },
+        },
+      },
+      include: { videogame: true },
+    });
+    createdTeamIds.push(team.id);
+    return team.videogame!.id;
+  }
 
   beforeAll(async () => {
     const config = await prisma.eventConfiguration.findFirst();
@@ -198,6 +287,9 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
     await prisma.teamVerification.deleteMany({
       where: { jurorId: { in: jurorIds } },
     });
+    // Equipos creados aquí: borran en cascada integrantes, sus vínculos con NRC y el videojuego
+    await prisma.team.deleteMany({ where: { id: { in: createdTeamIds } } });
+    await prisma.nRC.deleteMany({ where: { id: { in: createdNrcIds } } });
     // Las asignaciones (tabla implícita) se borran en cascada con el usuario
     await prisma.user.deleteMany({ where: { id: { in: jurorIds } } });
     if (archivedVideogame) {
@@ -318,6 +410,62 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
       service.createEvaluationWithDetails(jurorId, row(archivedVideogame.id)),
     ).rejects.toThrow(message);
     expect(await countEvaluations(jurorId)).toBe(0);
+  });
+
+  // --- U1: profesor dueño del NRC (camino real de colegios) ---------------
+
+  it('U1: el profesor con NRC propio de la edición activa califica un equipo N0 sin estar asignado', async () => {
+    const professorId = await createProfessor('prof-own');
+    const nrcId = await createNrc(professorId);
+    const videogameId = await createCollegeTeam('a', nrcId, true);
+
+    const response = await send(
+      professorId,
+      { evaluations: [row(videogameId)] },
+      undefined,
+    );
+
+    expect(response.results.failed).toEqual([]);
+    expect(response.results.successful).toHaveLength(1);
+    const saved = await prisma.evaluation.findFirstOrThrow({
+      where: { jurorId: professorId, videogameId },
+    });
+    expect(saved.isSenior).toBe(true);
+  });
+
+  it('U1: un profesor sin NRC propio no califica ese equipo N0', async () => {
+    const ownerId = await createProfessor('prof-owner2');
+    const nrcId = await createNrc(ownerId);
+    const videogameId = await createCollegeTeam('b', nrcId, true);
+    const otherProfessorId = await createProfessor('prof-other');
+
+    const response = await send(
+      otherProfessorId,
+      { evaluations: [row(videogameId)] },
+      undefined,
+    );
+
+    expect(response.results.failed).toEqual([
+      { videogameId, error: 'Este grupo no está asignado al evaluador' },
+    ]);
+    expect(await countEvaluations(otherProfessorId)).toBe(0);
+  });
+
+  it('U1: el NRC propio no da acceso si el integrante vinculado está inactivo', async () => {
+    const professorId = await createProfessor('prof-inact');
+    const nrcId = await createNrc(professorId);
+    const videogameId = await createCollegeTeam('c', nrcId, false);
+
+    const response = await send(
+      professorId,
+      { evaluations: [row(videogameId)] },
+      undefined,
+    );
+
+    expect(response.results.failed).toEqual([
+      { videogameId, error: 'Este grupo no está asignado al evaluador' },
+    ]);
+    expect(await countEvaluations(professorId)).toBe(0);
   });
 
   // --- U2 / I10 ---------------------------------------------------------
