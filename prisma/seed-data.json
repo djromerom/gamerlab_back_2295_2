@@ -581,6 +581,14 @@
         "createdAt": "2026-11-01T06:00:00.000Z",
         "updatedAt": "2026-11-01T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 59,
+        "name": "VIEW_EVALUATION_TRACKING",
+        "description": "Permite ver el seguimiento por hora de las evaluaciones de cada grupo (solo lectura)",
+        "createdAt": "2026-11-01T12:00:00.000Z",
+        "updatedAt": "2026-11-01T12:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1176,6 +1184,16 @@
         "createdAt": "2026-11-01T06:00:00.000Z",
         "updatedAt": "2026-11-01T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 60,
+        "name": "ViewEvaluationTracking",
+        "description": "Ver el seguimiento por hora de las evaluaciones de cada grupo",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-01T12:00:00.000Z",
+        "updatedAt": "2026-11-01T12:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1601,6 +1619,13 @@
         "createdAt": "2026-11-01T06:00:00.000Z",
         "updatedAt": "2026-11-01T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 60,
+        "permissionId": 59,
+        "createdAt": "2026-11-01T12:00:00.000Z",
+        "updatedAt": "2026-11-01T12:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1822,6 +1847,13 @@
         "permissionId": 57,
         "createdAt": "2026-11-01T06:00:00.000Z",
         "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 59,
+        "createdAt": "2026-11-01T12:00:00.000Z",
+        "updatedAt": "2026-11-01T12:00:00.000Z",
         "isActive": true
       }
     ]
