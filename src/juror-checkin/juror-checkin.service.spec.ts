@@ -1,0 +1,315 @@
+import { NotFoundException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
+import { REQUIRED_SERVICE_KEY } from '../auth/decorators/required-service.decorator';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { JurorBadgesService } from '../juror-badges/juror-badges.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { JurorCheckinController } from './juror-checkin.controller';
+import { JurorCheckinService } from './juror-checkin.service';
+
+jest.setTimeout(30000);
+
+const JUROR_ID = '5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01';
+const STAFF_ID = 'staff-1';
+const FIRST_ARRIVAL = new Date('2026-11-26T13:05:00.000Z');
+
+/** Primer argumento de una llamada a un mock, tipado. */
+const callArg = <T>(mock: jest.Mock, call = 0): T =>
+  (mock.mock.calls as unknown[][])[call][0] as T;
+
+const jurorWithTeams = {
+  id: JUROR_ID,
+  firstName: 'Ana',
+  lastName: 'Pérez',
+  jurorCategory: null,
+  role: { name: 'Profesor' },
+  teamsToEvaluate: [{ id: 4, teamName: 'Pixel Pioneers' }],
+};
+
+const uniqueViolation = () =>
+  new Prisma.PrismaClientKnownRequestError('duplicado', {
+    code: 'P2002',
+    clientVersion: 'test',
+  });
+
+describe('JurorCheckinService', () => {
+  let service: JurorCheckinService;
+  const prisma = {
+    edition: { findFirst: jest.fn() },
+    user: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+    },
+    jurorAttendance: { findFirst: jest.fn(), create: jest.fn() },
+  };
+  const badges = { validateToken: jest.fn() };
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+    prisma.edition.findFirst.mockResolvedValue({ id: 3 });
+    prisma.user.findUniqueOrThrow.mockResolvedValue(jurorWithTeams);
+    badges.validateToken.mockResolvedValue({
+      badgeId: 10,
+      jurorId: JUROR_ID,
+      editionId: 3,
+      name: 'Ana Pérez',
+      category: 'Senior',
+    });
+    const module = await Test.createTestingModule({
+      providers: [
+        JurorCheckinService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: JurorBadgesService, useValue: badges },
+      ],
+    }).compile();
+    service = module.get(JurorCheckinService);
+  });
+
+  describe('checkInByToken', () => {
+    it('registra la llegada y devuelve nombre, categoría y grupos sin correo', async () => {
+      prisma.jurorAttendance.findFirst.mockResolvedValue(null);
+      prisma.jurorAttendance.create.mockResolvedValue({
+        checkedInAt: FIRST_ARRIVAL,
+        method: 'QR',
+      });
+
+      const result = await service.checkInByToken('token-ok', STAFF_ID);
+
+      expect(
+        callArg<{ data: unknown }>(prisma.jurorAttendance.create).data,
+      ).toEqual({
+        jurorId: JUROR_ID,
+        editionId: 3,
+        checkedInById: STAFF_ID,
+        method: 'QR',
+        badgeId: 10,
+      });
+      expect(result).toEqual({
+        status: 'CHECKED_IN',
+        checkedInAt: FIRST_ARRIVAL,
+        method: 'QR',
+        juror: {
+          id: JUROR_ID,
+          name: 'Ana Pérez',
+          category: 'Senior',
+          teams: [{ id: 4, name: 'Pixel Pioneers' }],
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain('@');
+    });
+
+    it('solo muestra los grupos activos de la edición del registro', async () => {
+      prisma.jurorAttendance.findFirst.mockResolvedValue(null);
+      prisma.jurorAttendance.create.mockResolvedValue({
+        checkedInAt: FIRST_ARRIVAL,
+        method: 'QR',
+      });
+
+      await service.checkInByToken('token-ok', STAFF_ID);
+
+      const query = callArg<{
+        select: { teamsToEvaluate: { where: unknown } };
+      }>(prisma.user.findUniqueOrThrow);
+      expect(query.select.teamsToEvaluate.where).toEqual({
+        editionId: 3,
+        isActive: true,
+      });
+    });
+
+    it('un segundo escaneo no crea otro registro y avisa con la hora original', async () => {
+      prisma.jurorAttendance.findFirst.mockResolvedValue({
+        checkedInAt: FIRST_ARRIVAL,
+        method: 'MANUAL',
+      });
+
+      const result = await service.checkInByToken('token-ok', STAFF_ID);
+
+      expect(prisma.jurorAttendance.create).not.toHaveBeenCalled();
+      expect(result.status).toBe('ALREADY_CHECKED_IN');
+      expect(result.checkedInAt).toBe(FIRST_ARRIVAL);
+      expect(result.method).toBe('MANUAL');
+    });
+
+    it('dos escaneos simultáneos: el que pierde la carrera responde ALREADY_CHECKED_IN', async () => {
+      prisma.jurorAttendance.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ checkedInAt: FIRST_ARRIVAL, method: 'QR' });
+      prisma.jurorAttendance.create.mockRejectedValue(uniqueViolation());
+
+      const result = await service.checkInByToken('token-ok', STAFF_ID);
+
+      expect(result.status).toBe('ALREADY_CHECKED_IN');
+      expect(result.checkedInAt).toBe(FIRST_ARRIVAL);
+    });
+
+    it('propaga otros errores de la base de datos', async () => {
+      prisma.jurorAttendance.findFirst.mockResolvedValue(null);
+      prisma.jurorAttendance.create.mockRejectedValue(new Error('caída'));
+
+      await expect(
+        service.checkInByToken('token-ok', STAFF_ID),
+      ).rejects.toThrow('caída');
+    });
+
+    it('un QR inválido o de otra edición responde 404 sin registrar', async () => {
+      badges.validateToken.mockRejectedValue(
+        new NotFoundException('Código QR no válido o de otra edición'),
+      );
+
+      await expect(
+        service.checkInByToken('viejo', STAFF_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.jurorAttendance.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('checkInManually', () => {
+    it('registra a un jurado sin escarapela (badgeId null)', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: JUROR_ID,
+        jurorBadges: [],
+      });
+      prisma.jurorAttendance.findFirst.mockResolvedValue(null);
+      prisma.jurorAttendance.create.mockResolvedValue({
+        checkedInAt: FIRST_ARRIVAL,
+        method: 'MANUAL',
+      });
+
+      const result = await service.checkInManually(JUROR_ID, STAFF_ID);
+
+      expect(
+        callArg<{ data: unknown }>(prisma.jurorAttendance.create).data,
+      ).toEqual({
+        jurorId: JUROR_ID,
+        editionId: 3,
+        checkedInById: STAFF_ID,
+        method: 'MANUAL',
+        badgeId: null,
+      });
+      expect(result.status).toBe('CHECKED_IN');
+    });
+
+    it('enlaza la escarapela activa si el jurado la tiene', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: JUROR_ID,
+        jurorBadges: [{ id: 10 }],
+      });
+      prisma.jurorAttendance.findFirst.mockResolvedValue(null);
+      prisma.jurorAttendance.create.mockResolvedValue({
+        checkedInAt: FIRST_ARRIVAL,
+        method: 'MANUAL',
+      });
+
+      await service.checkInManually(JUROR_ID, STAFF_ID);
+
+      expect(
+        callArg<{ data: { badgeId: number } }>(prisma.jurorAttendance.create)
+          .data.badgeId,
+      ).toBe(10);
+    });
+
+    it('un jurado inexistente, inactivo o que no es jurado responde 404', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.checkInManually(JUROR_ID, STAFF_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      const where = callArg<{ where: Record<string, unknown> }>(
+        prisma.user.findFirst,
+      ).where;
+      expect(where.isActive).toBe(true);
+      expect(where.role).toEqual({
+        name: { in: ['Jurado', 'Profesor'] },
+      });
+    });
+
+    it('sin edición activa responde 404', async () => {
+      prisma.edition.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.checkInManually(JUROR_ID, STAFF_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('search', () => {
+    it('incluye jurados con y sin escarapela y su hora de llegada', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'a',
+          firstName: 'Ana',
+          lastName: 'Pérez',
+          jurorCategory: 'JUNIOR',
+          role: { name: 'Jurado' },
+          jurorBadges: [{ id: 10 }],
+          attendances: [{ checkedInAt: FIRST_ARRIVAL }],
+        },
+        {
+          id: 'b',
+          firstName: 'Andrés',
+          lastName: 'Gómez',
+          jurorCategory: null,
+          role: { name: 'Profesor' },
+          jurorBadges: [],
+          attendances: [],
+        },
+      ]);
+
+      const result = await service.search('an');
+
+      expect(result).toEqual([
+        {
+          id: 'a',
+          name: 'Ana Pérez',
+          category: 'Junior',
+          hasBadge: true,
+          checkedInAt: FIRST_ARRIVAL,
+        },
+        {
+          id: 'b',
+          name: 'Andrés Gómez',
+          category: 'Senior',
+          hasBadge: false,
+          checkedInAt: null,
+        },
+      ]);
+    });
+
+    it('cada palabra debe coincidir con el nombre o el apellido; máximo 20 resultados', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.search('  ana   pérez ');
+
+      const query = callArg<{
+        where: { AND: unknown[]; isActive: boolean };
+        take: number;
+        select: Record<string, unknown>;
+      }>(prisma.user.findMany);
+      expect(query.where.AND).toHaveLength(2);
+      expect(query.where.isActive).toBe(true);
+      expect(query.take).toBe(20);
+      expect(query.select).not.toHaveProperty('email');
+    });
+
+    it('sin resultados devuelve una lista vacía', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await expect(service.search('zz')).resolves.toEqual([]);
+    });
+  });
+});
+
+describe('JurorCheckinController (permisos)', () => {
+  it('exige RolePermissionGuard y el servicio JurorCheckIn', () => {
+    const guards = Reflect.getMetadata(
+      '__guards__',
+      JurorCheckinController,
+    ) as unknown[];
+    expect(guards).toContain(RolePermissionGuard);
+    expect(
+      Reflect.getMetadata(REQUIRED_SERVICE_KEY, JurorCheckinController),
+    ).toBe('JurorCheckIn');
+  });
+});

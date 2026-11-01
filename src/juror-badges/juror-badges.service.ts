@@ -3,25 +3,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EditionStatus, JurorCategory, Prisma } from '@prisma/client';
+import { EditionStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { toDataURL } from 'qrcode';
 import { CertificatesService } from '../certificates/certificates.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildBadgesHtml } from './badge-template';
-
-const JUROR_ROLE_NAME = 'Jurado';
-const PROFESSOR_ROLE_NAME = 'Profesor';
-
-const jurorSelect = {
-  id: true,
-  firstName: true,
-  lastName: true,
-  jurorCategory: true,
-  role: { select: { name: true } },
-} satisfies Prisma.UserSelect;
-
-type BadgeJuror = Prisma.UserGetPayload<{ select: typeof jurorSelect }>;
+import {
+  LabeledJuror,
+  eligibleJurorsWhere,
+  jurorCategoryLabel,
+  jurorFullName,
+  jurorSelect,
+} from './juror-label';
 
 export interface SkippedBadge {
   jurorId: string;
@@ -54,29 +48,7 @@ export class JurorBadgesService {
     return edition;
   }
 
-  private eligibleJurors(ids?: string[]): Prisma.UserWhereInput {
-    return {
-      isActive: true,
-      role: { name: { in: [JUROR_ROLE_NAME, PROFESSOR_ROLE_NAME] } },
-      ...(ids ? { id: { in: ids } } : {}),
-    };
-  }
-
-  /** Todo profesor cuenta como senior (P-07); el resto usa su categoría. */
-  private categoryLabel(juror: BadgeJuror): string {
-    const category =
-      juror.jurorCategory ??
-      (juror.role.name === PROFESSOR_ROLE_NAME ? JurorCategory.SENIOR : null);
-    if (category === JurorCategory.SENIOR) return 'Senior';
-    if (category === JurorCategory.JUNIOR) return 'Junior';
-    return 'Sin categoría';
-  }
-
-  private fullName(juror: BadgeJuror): string {
-    return `${juror.firstName ?? ''} ${juror.lastName ?? ''}`.trim();
-  }
-
-  private missingData(juror: BadgeJuror): string | null {
+  private missingData(juror: LabeledJuror): string | null {
     if (!juror.firstName?.trim() || !juror.lastName?.trim()) {
       return 'Falta el nombre o el apellido del jurado';
     }
@@ -91,7 +63,7 @@ export class JurorBadgesService {
     const edition = await this.getActiveEdition();
 
     const jurors = await this.prisma.user.findMany({
-      where: this.eligibleJurors(jurorIds),
+      where: eligibleJurorsWhere(jurorIds),
       select: jurorSelect,
     });
 
@@ -109,13 +81,13 @@ export class JurorBadgesService {
       }
     }
 
-    const valid: BadgeJuror[] = [];
+    const valid: LabeledJuror[] = [];
     for (const juror of jurors) {
       const problem = this.missingData(juror);
       if (problem) {
         skipped.push({
           jurorId: juror.id,
-          name: this.fullName(juror) || null,
+          name: jurorFullName(juror) || null,
           reason: problem,
         });
       } else valid.push(juror);
@@ -161,7 +133,7 @@ export class JurorBadgesService {
       include: { juror: { select: jurorSelect } },
     });
     return badges.sort((a, b) =>
-      this.fullName(a.juror).localeCompare(this.fullName(b.juror), 'es'),
+      jurorFullName(a.juror).localeCompare(jurorFullName(b.juror), 'es'),
     );
   }
 
@@ -172,8 +144,8 @@ export class JurorBadgesService {
       editionId: edition.id,
       data: badges.map((b) => ({
         jurorId: b.jurorId,
-        name: this.fullName(b.juror),
-        category: this.categoryLabel(b.juror),
+        name: jurorFullName(b.juror),
+        category: jurorCategoryLabel(b.juror),
         token: b.token,
       })),
     };
@@ -184,7 +156,7 @@ export class JurorBadgesService {
     const edition = await this.getActiveEdition();
 
     const juror = await this.prisma.user.findFirst({
-      where: this.eligibleJurors([jurorId]),
+      where: eligibleJurorsWhere([jurorId]),
       select: jurorSelect,
     });
     if (!juror) {
@@ -219,8 +191,8 @@ export class JurorBadgesService {
 
     const cards = await Promise.all(
       badges.map(async (b) => ({
-        name: this.fullName(b.juror),
-        category: this.categoryLabel(b.juror),
+        name: jurorFullName(b.juror),
+        category: jurorCategoryLabel(b.juror),
         qrDataUri: await toDataURL(b.token, {
           errorCorrectionLevel: 'M',
           margin: 1,
@@ -255,8 +227,8 @@ export class JurorBadgesService {
       badgeId: badge.id,
       jurorId: badge.jurorId,
       editionId: badge.editionId,
-      name: this.fullName(badge.juror),
-      category: this.categoryLabel(badge.juror),
+      name: jurorFullName(badge.juror),
+      category: jurorCategoryLabel(badge.juror),
     };
   }
 }
