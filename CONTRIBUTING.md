@@ -80,6 +80,7 @@ When adding a new feature or fixing a bug:
 7.  **Add DTOs & Validation:** Create Data Transfer Objects (`*.dto.ts`) using `class-validator` decorators for request data validation.
 8.  **Apply Authentication/Authorization:** Use the decorators described below (`@Public`, `@UseGuards`, `@RequiredService`) to secure your endpoints appropriately.
 9.  **Test via Swagger:** Use the interactive API documentation at `http://localhost:3000/api` to test your endpoints.
+10. **Write and run the tests:** Add or update the `*.spec.ts` next to the code you changed and run `npx jest <module folder>`. If the change depends on real database behavior (raw SQL, locks, `mode: 'insensitive'`, constraints), add an integration test in `test/*.e2e-spec.ts`. See [Testing in the README](README.md#testing). Pull requests fail if any test fails.
 
 ## Authentication & Authorization
 <a name="authentication-and-authorization"></a>
@@ -278,7 +279,7 @@ Make sure your `.env` file is properly configured. Key variables include:
 <a name="pushing-changes"></a>
 To push your changes to the remote repository, follow these steps:
 
-1. **Test your changes locally** using the Docker development environment
+1. **Test your changes locally** using the Docker development environment and run `npm test` (see [Testing](README.md#testing))
 2. **Commit your changes** locally using `git commit -m "Your descriptive commit message"`
 3. **Push your changes** to the remote repository using `git push origin your-branch-name`
 4. **Create a Pull Request** to `dev` through GitHub (`main` only receives promotions from `dev`; see `BRANCHING.md`)
