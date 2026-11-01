@@ -46,6 +46,7 @@ model Edition {
   rankingResults     RankingResult[]
   HistoricalTeam     HistoricalTeam[]
   jurorBadges        JurorBadge[]
+  jurorAttendances   JurorAttendance[]
 
   @@unique([year, semester])
   @@map("ediciones")
@@ -214,6 +215,8 @@ model User {
   likedVideogames      VideogameLike[]
   teamsToEvaluate      Team[]             @relation("JurorTeamAssignment")
   jurorBadges          JurorBadge[]
+  attendances          JurorAttendance[]  @relation("JurorAttendance")
+  recordedAttendances  JurorAttendance[]  @relation("AttendanceRecorder")
   teamVerifications    TeamVerification[]
   refreshTokens        RefreshToken[]
 
@@ -477,8 +480,35 @@ model JurorBadge {
   juror     User     @relation(fields: [jurorId], references: [id])
   edition   Edition  @relation(fields: [editionId], references: [id])
 
+  attendances JurorAttendance[]
+
   @@index([editionId])
   @@map("escarapelas_jurado")
+}
+
+enum CheckInMethod {
+  QR
+  MANUAL
+}
+
+// HU-11: llegada de un jurado a la feria. A lo sumo un registro activo por jurado y
+// edición (índice único parcial en la migración: no lo expresa Prisma).
+model JurorAttendance {
+  id            Int           @id @default(autoincrement()) @map("id_asistencia")
+  jurorId       String        @map("id_usuario")
+  editionId     Int           @map("id_edicion")
+  checkedInAt   DateTime      @default(now()) @map("registrado_en")
+  checkedInById String        @map("registrado_por")
+  method        CheckInMethod @map("metodo")
+  badgeId       Int?          @map("id_escarapela")
+  isActive      Boolean       @default(true) @map("activo")
+  juror         User          @relation("JurorAttendance", fields: [jurorId], references: [id])
+  checkedInBy   User          @relation("AttendanceRecorder", fields: [checkedInById], references: [id])
+  edition       Edition       @relation(fields: [editionId], references: [id])
+  badge         JurorBadge?   @relation(fields: [badgeId], references: [id])
+
+  @@index([editionId])
+  @@map("asistencia_jurado")
 }
 
 model Subject {

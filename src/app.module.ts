@@ -30,6 +30,8 @@ import { EducationalFocusesModule } from './educational-focuses/educational-focu
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
 import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './juror-badges/juror-badges.module';
+import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
+import { StaffModule } from './staff/staff.module';
 import { TeamVerificationModule } from './team-verification/team-verification.module';
 
 @Module({
@@ -64,6 +66,8 @@ import { TeamVerificationModule } from './team-verification/team-verification.mo
     HighlightedGamesModule,
     HistoricalsModule,
     JurorBadgesModule,
+    JurorCheckinModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

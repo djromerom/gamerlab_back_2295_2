@@ -104,6 +104,14 @@
         "createdAt": "2025-05-03T02:25:20.092Z",
         "updatedAt": "2025-05-03T02:25:20.092Z",
         "isActive": true
+      },
+      {
+        "id": 5,
+        "name": "Staff",
+        "description": "Personal de la mesa de escarapelas: registra la llegada de los jurados",
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -556,6 +564,22 @@
         "description": "Permite consultar y regenerar el código de verificación de un equipo (solo Administrador)",
         "createdAt": "2026-10-25T06:00:00.000Z",
         "updatedAt": "2026-10-25T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 57,
+        "name": "JUROR_CHECK_IN",
+        "description": "Permite registrar la llegada de un jurado con su QR o buscándolo por nombre",
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 58,
+        "name": "MANAGE_STAFF_ACCOUNTS",
+        "description": "Permite crear cuentas del rol Staff (solo Administrador)",
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
         "isActive": true
       }
     ]
@@ -1132,6 +1156,26 @@
         "createdAt": "2026-10-25T06:00:00.000Z",
         "updatedAt": "2026-10-25T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 58,
+        "name": "JurorCheckIn",
+        "description": "Registrar la llegada de jurados (escaneo de QR y búsqueda manual)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 59,
+        "name": "ManageStaffAccounts",
+        "description": "Crear cuentas del rol Staff",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1543,6 +1587,20 @@
         "createdAt": "2026-10-25T06:00:00.000Z",
         "updatedAt": "2026-10-25T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 58,
+        "permissionId": 57,
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 59,
+        "permissionId": 58,
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1750,6 +1808,20 @@
         "permissionId": 46,
         "createdAt": "2025-05-28T10:00:00.000Z",
         "updatedAt": "2025-06-04T15:29:52.745Z",
+        "isActive": true
+      },
+      {
+        "roleId": 5,
+        "permissionId": 3,
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 5,
+        "permissionId": 57,
+        "createdAt": "2026-11-01T06:00:00.000Z",
+        "updatedAt": "2026-11-01T06:00:00.000Z",
         "isActive": true
       }
     ]

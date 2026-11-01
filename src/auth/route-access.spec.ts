@@ -25,8 +25,7 @@ import {
  */
 
 /** Roles NO administradores que deben recibir "sin permiso" en rutas administrativas. */
-// Cuando exista el rol Staff (HU-11), agrégalo aquí y define su acceso en EXPECTED_ACCESS.
-const NON_ADMIN_ROLES = ['Estudiante', 'Profesor', 'Jurado'];
+const NON_ADMIN_ROLES = ['Estudiante', 'Profesor', 'Jurado', 'Staff'];
 
 /**
  * Qué roles NO administradores pueden ejecutar cada servicio de las rutas que
@@ -49,6 +48,9 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   RegisterTeam: [],
   ListJurors: [],
   ManageTeamVerificationCode: [],
+  ManageStaffAccounts: [],
+  // HU-11: la mesa de escarapelas
+  JurorCheckIn: ['Staff'],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],
