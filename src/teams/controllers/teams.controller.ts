@@ -29,6 +29,7 @@ import { GetUser } from '../../auth/decorators/get-user.decorator';
 import { AppUser } from '../../auth/jwt.strategy';
 import { CheckTeamName } from '../dto/check-team-name.dto';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
+import { ValidateStudentCodesDto } from '../dto/validate-student-codes.dto';
 import { MemberDto } from '../dto/member.dto';
 import { RegistrationsOpenGuard } from '../../settings/registrations-open.guard';
 
@@ -102,7 +103,7 @@ export class TeamsController {
   @Public()
   @Get('videogame/:videogameName')
   findByVideogameName(@Param('videogameName') videogameName: string) {
-    return this.teamsService.findByVideogameName(videogameName);
+    return this.teamsService.findByVideogameName(videogameName.trim());
   }
 
   @Public()
@@ -197,6 +198,14 @@ export class TeamsController {
   @Post('validate-emails')
   validateEmails(@Body() validateEmailsDto: ValidateEmailsDto) {
     return this.teamsService.validateEmails(validateEmailsDto);
+  }
+
+  /** BG-06: el paso 2 del registro revisa los códigos estudiantiles antes de avanzar. */
+  @Public()
+  @PublicThrottle(PUBLIC_LIMITS.validateStudentCodes)
+  @Post('validate-student-codes')
+  validateStudentCodes(@Body() dto: ValidateStudentCodesDto) {
+    return this.teamsService.validateStudentCodes(dto);
   }
 
   @Get('leader/:email/status')

@@ -22,6 +22,7 @@ export const PUBLIC_LIMITS = {
   imageUpload: { limit: 60, ttl: 60_000 }, // 60 images per minute
   zipUpload: { limit: 3, ttl: 10 * 60_000 }, // 3 .zip per 10 minutes
   validateEmails: { limit: 15, ttl: 60_000 }, // 15 checks per minute
+  validateStudentCodes: { limit: 15, ttl: 60_000 }, // 15 checks per minute (registration step 2)
   // Login is counted under TWO keys (see LoginThrottlerGuard): the main limit per IP + normalized
   // email, so nobody can guess passwords of one account, and users sharing a campus IP do not block
   // each other; plus a generous cap per IP alone against credential stuffing with many emails.

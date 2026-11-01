@@ -45,6 +45,7 @@ describe('TeamsService.create — correo duplicado', () => {
       service.create({
         recaptchaToken: 't',
         members: [{ memberEmail: 'a@b.co' }],
+        videogame: { vgName: 'Juego', logoUrl: 'https://x/logo.png' },
       } as any),
     ).rejects.toThrow('El correo a@b.co ya está en uso.');
   });

@@ -7,12 +7,16 @@ import {
   MaxLength,
   IsBoolean,
   IsOptional,
+  ArrayMinSize,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { MemberDto } from './member.dto';
+import { RegistrationMemberDto } from './registration-member.dto';
 import { VideogameDto } from './videogame.dto';
+import { trimString } from '../../common/utils/trim-transform';
 
 export class CreateTeamDto {
+  @Transform(trimString)
   @IsString()
   @MaxLength(50, {
     message: 'El nombre del equipo debe ser de máximo 50 caracteres',
@@ -21,8 +25,9 @@ export class CreateTeamDto {
   teamName: string;
 
   @IsArray()
+  @ArrayMinSize(1, { message: 'El equipo debe tener al menos un integrante' })
   @ValidateNested({ each: true })
-  @Type(() => MemberDto)
+  @Type(() => RegistrationMemberDto)
   members: MemberDto[];
 
   @ValidateNested()
