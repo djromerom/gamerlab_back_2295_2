@@ -241,7 +241,7 @@ export class TeamsService {
     return await this.teamRepository.checkEmailsExist(validateEmailsDto.emails);
   }
 
-  /** BG-06: para cada código, si ya lo tiene un integrante de otro equipo. */
+  /** Para cada código, si ya lo tiene un integrante de otro equipo. */
   async validateStudentCodes(
     dto: ValidateStudentCodesDto,
   ): Promise<{ [studentCode: string]: boolean }> {
@@ -256,7 +256,7 @@ export class TeamsService {
   }
 
   /**
-   * BG-06: todo lo que la inscripción pública puede revisar antes de escribir, con mensajes en
+   * Todo lo que la inscripción pública puede revisar antes de escribir, con mensajes en
    * español, para que el alumno sepa qué dato corregir.
    */
   private async assertTeamCanBeCreated(createTeamDto: CreateTeamDto) {
@@ -317,7 +317,7 @@ export class TeamsService {
   }
 
   async create(createTeamDto: CreateTeamDto) {
-    // En la inscripción pública el logo es obligatorio (decisión del 1 de noviembre, BG-05). Se
+    // En la inscripción pública el logo es obligatorio (decisión del 1 de noviembre). Se
     // revisa antes del captcha para no gastar el token. La creación del admin lo sigue aceptando
     // sin logo. `logoUrl: ""` ya llega como undefined (VideogameDto).
     if (!createTeamDto.videogame?.logoUrl) {

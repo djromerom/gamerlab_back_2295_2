@@ -17,7 +17,7 @@ export class VideogameDto {
   @IsOptional()
   description?: string;
 
-  // BG-05: el registro sin logo envía `logoUrl: ""`; vacío cuenta como sin logo
+  // El registro sin logo envía `logoUrl: ""`; vacío cuenta como sin logo
   @Transform(trimToUndefined)
   @IsString()
   @IsOptional()

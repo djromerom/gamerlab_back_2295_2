@@ -65,7 +65,7 @@ export class TeamRepository implements ITeamRepository {
 
   /**
    * Para cada correo recibido, si ya lo usa un usuario o un integrante. No distingue mayúsculas
-   * ni espacios (BG-06: `Santiagodd@…` pasaba aunque `santiagodd@…` existía); las claves de la
+   * ni espacios (`Santiagodd@…` pasaba aunque `santiagodd@…` existía); las claves de la
    * respuesta son los correos tal como llegaron, para que el front los encuentre.
    */
   async checkEmailsExist(

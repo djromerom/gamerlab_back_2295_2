@@ -200,7 +200,7 @@ export class TeamsController {
     return this.teamsService.validateEmails(validateEmailsDto);
   }
 
-  /** BG-06: el paso 2 del registro revisa los códigos estudiantiles antes de avanzar. */
+  /** El paso 2 del registro revisa los códigos estudiantiles antes de avanzar. */
   @Public()
   @PublicThrottle(PUBLIC_LIMITS.validateStudentCodes)
   @Post('validate-student-codes')

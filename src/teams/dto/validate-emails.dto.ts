@@ -4,7 +4,7 @@ import { Transform } from 'class-transformer';
 
 export class ValidateEmailsDto {
   // Solo se quitan espacios: la respuesta usa los correos tal como llegaron como claves, y la
-  // comparación con la base ya no distingue mayúsculas (BG-06)
+  // comparación con la base ya no distingue mayúsculas
   @Transform(({ value }) =>
     Array.isArray(value)
       ? value.map((email) => (typeof email === 'string' ? email.trim() : email))

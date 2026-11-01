@@ -6,7 +6,7 @@ export const trimString = ({ value }: TransformFnParams): unknown =>
 
 /**
  * Como `trimString`, pero un texto vacío (o de solo espacios) se convierte en `undefined`, para
- * que un campo opcional enviado como `""` cuente como no enviado (BG-05: `logoUrl: ""`).
+ * que un campo opcional enviado como `""` cuente como no enviado (`logoUrl: ""`).
  */
 export const trimToUndefined = ({ value }: TransformFnParams): unknown => {
   if (typeof value !== 'string') return value;

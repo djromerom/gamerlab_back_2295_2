@@ -12,7 +12,7 @@ import { TeamRepository } from './repositories/team.repository';
 import { TeamsService } from './services/teams.service';
 
 /**
- * Chore registro de equipos (BG-05 y BG-06 del beta-test del 1 de noviembre): el registro sin logo
+ * Chore registro de equipos (beta-test del 1 de noviembre): el registro sin logo
  * funciona, los datos se normalizan y los errores llegan antes, en español.
  */
 const pipe = new ValidationPipe({
@@ -54,7 +54,7 @@ const validTeam = (overrides: any = {}) => ({
   ...overrides.root,
 });
 
-describe('Registro de equipos — DTO (BG-05)', () => {
+describe('Registro de equipos — DTO', () => {
   it('acepta logoUrl vacío y lo trata como sin logo', async () => {
     const dto = await validate(
       CreateTeamDto,
@@ -82,7 +82,7 @@ describe('Registro de equipos — DTO (BG-05)', () => {
   });
 });
 
-describe('Registro de equipos — DTO (BG-06)', () => {
+describe('Registro de equipos — DTO', () => {
   it('recorta nombres de equipo, juego e integrantes, y normaliza el correo', async () => {
     const team = validTeam({
       root: { teamName: '  Equipo QA  ' },
@@ -154,7 +154,7 @@ describe('Registro de equipos — DTO (BG-06)', () => {
   });
 });
 
-describe('TeamRepository.checkEmailsExist (BG-06)', () => {
+describe('TeamRepository.checkEmailsExist', () => {
   it('encuentra un correo registrado aunque llegue con mayúsculas y responde con la clave original', async () => {
     const prisma = {
       user: {
@@ -204,7 +204,7 @@ describe('TeamRepository.checkEmailsExist (BG-06)', () => {
   });
 });
 
-describe('TeamsService.create — revisiones antes de escribir (BG-06)', () => {
+describe('TeamsService.create — revisiones antes de escribir', () => {
   const repository = {
     checkEmailsExist: jest.fn(),
     findExistingStudentCodes: jest.fn(),

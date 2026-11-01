@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-/** BG-06: el paso 2 del registro revisa los códigos estudiantiles antes de avanzar. */
+/** El paso 2 del registro revisa los códigos estudiantiles antes de avanzar. */
 export class ValidateStudentCodesDto {
   @Transform(({ value }) =>
     Array.isArray(value)
