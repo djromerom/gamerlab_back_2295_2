@@ -8,6 +8,7 @@ Welcome to the Arkad API documentation. Here you'll find information about how t
   - [`Prerequisites`](#prerequisites)
   - [`Development Setup`](#development-setup)
   - [`Production Setup`](#production-setup)
+- [`Testing`](#testing)
 - [`Modules`](#modules)
 - [`Contributing`](#contributing)
 
@@ -168,6 +169,62 @@ Some public routes have a per-IP request limit (`@nestjs/throttler`): `POST /upl
 > This is fine for the current deployment (a single container). Before scaling the API horizontally, move the counters to a shared store such as Redis.
 
 Behind a proxy, also set `TRUST_PROXY` so the limit applies to each user's IP and not to the proxy.
+
+## Testing
+<a name="testing"></a>
+
+Tests use **Jest** with `ts-jest`. Unit tests (`*.spec.ts`) live next to the code they test; integration tests live in `test/`.
+
+### Unit tests
+
+They mock `PrismaService`, so they need no database or `.env`.
+
+```bash
+# All unit tests
+npm test
+
+# One file or folder
+npx jest src/evaluation/evaluation.service.spec.ts
+npx jest src/juror
+
+# Same command as CI (sequential, with coverage report in coverage/)
+npm run test:ci
+```
+
+### Integration tests
+
+They run against a real PostgreSQL and **skip themselves** when no database is configured, so `npm test` stays green without one:
+
+| Tests | Run when |
+|---|---|
+| `test/*.e2e-spec.ts` (`npm run test:e2e`) | `INTEGRATION_DATABASE_URL` is set |
+| `src/**/*.db.spec.ts` | `RUN_DB_TESTS=1` (uses `DATABASE_URL`) |
+
+> **Warning:** point them only to a **disposable** database. They create and delete their own rows, but never use your development or a shared database.
+
+The database needs the migrations and the seed applied. Example with a throwaway container (bash):
+
+```bash
+docker run -d --rm --name arkad_test_db -e POSTGRES_USER=arkad -e POSTGRES_PASSWORD=arkad -e POSTGRES_DB=arkad_test -p 5440:5432 postgres:15-alpine
+
+export DATABASE_URL=postgresql://arkad:arkad@localhost:5440/arkad_test
+export INTEGRATION_DATABASE_URL=$DATABASE_URL
+export NODE_ENV=test
+npx prisma migrate deploy
+npm run db:seed
+
+npm run test:e2e -- --runInBand
+RUN_DB_TESTS=1 npx jest --testPathPattern "\.db\.spec\.ts$"
+
+docker stop arkad_test_db
+```
+
+### Continuous integration
+
+The `Test-back` workflow (`.github/workflows/test-back.yml`) runs on every pull request to `dev` and `main`, and the pull request fails if any test fails:
+
+- **`test-build`**: `npm run build`, lint (not blocking yet) and `npm run test:ci`.
+- **`integration`**: starts a disposable PostgreSQL 15, applies the migrations and the seed, and runs the integration tests.
 
 ## Modules
 <a name="modules"></a>
