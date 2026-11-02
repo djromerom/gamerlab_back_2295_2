@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ConfirmWarningsField } from './confirm-warnings.decorator';
 
 export class ReassignJurorAssignmentDto {
   @Type(() => Number)
@@ -15,4 +16,7 @@ export class ReassignJurorAssignmentDto {
   @IsString()
   @IsNotEmpty({ message: 'El ID del nuevo jurado es obligatorio' })
   newJurorId: string;
+
+  @ConfirmWarningsField()
+  confirmWarnings?: boolean;
 }

@@ -8,6 +8,7 @@ import {
     ManualJurorAssignmentAction,
 } from '@prisma/client';
 import { JurorAssignmentService } from './juror-assignment.service';
+import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
 
 describe('JurorAssignmentService - manual assignment module', () => {
     let service: JurorAssignmentService;
@@ -37,6 +38,12 @@ describe('JurorAssignmentService - manual assignment module', () => {
 
     const auditMock = {
         create: jest.fn(),
+    };
+
+    /** Prisma que usa la validación de HU-08 para cargar el contexto de advertencias. */
+    const validationPrismaMock = {
+        team: { findMany: jest.fn() },
+        user: { findMany: jest.fn() },
     };
 
     const professorEvaluator = {
@@ -76,6 +83,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         id: 1,
         isActive: true,
         teamCode: 'N0-COL-01',
+        editionId: 1,
         teamName: 'Equipo Colegio Dev',
         videogame: { id: 1, name: 'Juego Colegio' },
         assignedJurors: [],
@@ -85,6 +93,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         id: 2,
         isActive: true,
         teamCode: 'N1-AYP-01',
+        editionId: 1,
         teamName: 'Equipo AYP Dev',
         videogame: { id: 2, name: 'Juego AYP' },
         assignedJurors: [],
@@ -93,9 +102,13 @@ describe('JurorAssignmentService - manual assignment module', () => {
     beforeEach(() => {
         jest.clearAllMocks();
 
+        validationPrismaMock.team.findMany.mockResolvedValue([]);
+        validationPrismaMock.user.findMany.mockResolvedValue([]);
+
         service = new JurorAssignmentService(
             prismaMock as any,
             auditMock as any,
+            new AssignmentValidationService(validationPrismaMock as any),
         );
 
         /**
@@ -256,6 +269,110 @@ describe('JurorAssignmentService - manual assignment module', () => {
         expect(auditMock.create).not.toHaveBeenCalled();
     });
 
+    describe('HU-08: advertencias en la asignación manual', () => {
+        const seniorWithThreeGroups = () =>
+            validationPrismaMock.team.findMany.mockImplementation(
+                async (args: any) =>
+                    args.where.assignedJurors
+                        ? [10, 11, 12].map((id) => ({
+                              id,
+                              teamCode: `N1-X-${id}`,
+                              editionId: 1,
+                              assignedJurors: [{ id: seniorJuror.id }],
+                          }))
+                        : [],
+            );
+
+        const mockSuccessfulTransaction = () => {
+            const tx = {
+                team: {
+                    update: jest.fn().mockResolvedValue({}),
+                    findUnique: jest.fn().mockResolvedValue({
+                        id: n1Team.id,
+                        teamName: n1Team.teamName,
+                        videogame: n1Team.videogame,
+                        assignedJurors: [],
+                    }),
+                },
+            };
+            prismaMock.$transaction.mockImplementationOnce(
+                async (callback: any) => callback(tx),
+            );
+            return tx;
+        };
+
+        it('sin confirmar responde 409 ASSIGNMENT_WARNINGS y no guarda', async () => {
+            seniorWithThreeGroups();
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce(n1Team);
+
+            const error = await service
+                .assign(seniorJuror.id, n1Team.id, actorUserId)
+                .catch((e) => e);
+
+            expect(error).toBeInstanceOf(ConflictException);
+            expect(error.getResponse()).toMatchObject({
+                code: 'ASSIGNMENT_WARNINGS',
+                warnings: [expect.objectContaining({ code: 'JUROR_OVER_LIMIT' })],
+            });
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+            expect(auditMock.create).not.toHaveBeenCalled();
+        });
+
+        it('con confirmWarnings guarda y deja las advertencias en la bitácora', async () => {
+            seniorWithThreeGroups();
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce(n1Team);
+            const tx = mockSuccessfulTransaction();
+
+            const result = await service.assign(
+                seniorJuror.id,
+                n1Team.id,
+                actorUserId,
+                true,
+            );
+
+            expect(result.advertenciasAceptadas.map((w) => w.code)).toEqual([
+                'JUROR_OVER_LIMIT',
+            ]);
+            expect(auditMock.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: ManualJurorAssignmentAction.ASSIGN,
+                    notes: 'Asignación manual desde módulo admin. Advertencias aceptadas: JUROR_OVER_LIMIT.',
+                }),
+                tx,
+            );
+        });
+
+        it('confirmar no salta el bloqueo de junior en colegios', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(juniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce(colegioTeam);
+
+            await expect(
+                service.assign(juniorJuror.id, colegioTeam.id, actorUserId, true),
+            ).rejects.toThrow(BadRequestException);
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+
+        it('desasignar sin confirmar avisa si el grupo queda con menos de 3', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce({
+                ...n1Team,
+                assignedJurors: [{ id: seniorJuror.id }],
+            });
+
+            const error = await service
+                .unassign(seniorJuror.id, n1Team.id, actorUserId)
+                .catch((e) => e);
+
+            expect(error.getResponse()).toMatchObject({
+                code: 'ASSIGNMENT_WARNINGS',
+                warnings: [expect.objectContaining({ code: 'TEAM_UNDER_MIN' })],
+            });
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+    });
+
     it('debe lanzar NotFound si el evaluador no existe', async () => {
         prismaMock.user.findUnique.mockResolvedValueOnce(null);
 
@@ -310,13 +427,18 @@ describe('JurorAssignmentService - manual assignment module', () => {
             action: ManualJurorAssignmentAction.UNASSIGN,
         });
 
+        // El grupo queda con 0 jurados (< 3): HU-08 exige confirmar.
         const result = await service.unassign(
             seniorJuror.id,
             n1Team.id,
             actorUserId,
+            true,
         );
 
         expect(result.message).toContain('desasignado correctamente');
+        expect(result.advertenciasAceptadas.map((w) => w.code)).toEqual([
+            'TEAM_UNDER_MIN',
+        ]);
         expect(tx.team.update).toHaveBeenCalledWith({
             where: { id: n1Team.id },
             data: {
@@ -335,6 +457,9 @@ describe('JurorAssignmentService - manual assignment module', () => {
                 teamId: n1Team.id,
                 jurorId: seniorJuror.id,
                 previousJurorId: seniorJuror.id,
+                notes: expect.stringContaining(
+                    'Advertencias aceptadas: TEAM_UNDER_MIN',
+                ),
             }),
             tx,
         );

@@ -19,6 +19,7 @@ import {
   ApiOperation,
   ApiOkResponse,
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
@@ -46,6 +47,10 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 
 import { JurorListItem } from './types/juror-list-item.type';
+import {
+  ASSIGNMENT_CONFLICT_DOC,
+  ASSIGNMENT_RULES_DOC,
+} from './assignment-validation/assignment-validation.swagger';
 
 @ApiTags('Juror')
 @Controller('juror')
@@ -139,17 +144,15 @@ export class JurorController {
   @ApiOperation({
     summary: 'Asignar manualmente un jurado/profesor a un equipo',
     description: `
-      Asigna manualmente un evaluador a un equipo.
-      Se validan restricciones críticas:
-      - Jurados JUNIOR no pueden evaluar colegios, nivel 0.
-      - Profesores solo pueden evaluar colegios, nivel 0.
-      - Cada cambio queda registrado en auditoría.
+      Asigna manualmente un evaluador a un equipo (reglas de HU-08).
+      ${ASSIGNMENT_RULES_DOC}
     `,
   })
   @ApiOkResponse({ description: 'Jurado asignado correctamente' })
   @ApiBadRequestResponse({
-    description: 'Restricción de categoría o nivel violada',
+    description: 'Bloqueo: rol, nivel ilegible o jurado no senior en colegios',
   })
+  @ApiConflictResponse(ASSIGNMENT_CONFLICT_DOC)
   @ApiNotFoundResponse({ description: 'Jurado o equipo no encontrado' })
   @ApiUnauthorizedResponse({ description: 'No autenticado' })
   @ApiForbiddenResponse({ description: 'Sin permisos' })
@@ -161,6 +164,7 @@ export class JurorController {
       dto.jurorId,
       dto.teamId,
       actorUserId,
+      dto.confirmWarnings,
     );
   }
 
@@ -171,14 +175,15 @@ export class JurorController {
     summary: 'Reasignar un jurado por otro en un equipo',
     description: `
       Reemplaza al jurado actual por uno nuevo en el equipo indicado.
-      Se aplican las mismas restricciones de categoría y nivel al nuevo jurado.
-      El cambio queda registrado en auditoría.
+      Se aplican al nuevo jurado las mismas reglas que al asignar (HU-08).
+      ${ASSIGNMENT_RULES_DOC}
     `,
   })
   @ApiOkResponse({ description: 'Jurado reasignado correctamente' })
   @ApiBadRequestResponse({
-    description: 'Restricción de categoría o nivel violada',
+    description: 'Bloqueo: rol, nivel ilegible o jurado no senior en colegios',
   })
+  @ApiConflictResponse(ASSIGNMENT_CONFLICT_DOC)
   @ApiNotFoundResponse({ description: 'Jurado o equipo no encontrado' })
   reassignJurorOnTeam(
     @Body() dto: ReassignJurorAssignmentDto,
@@ -189,6 +194,7 @@ export class JurorController {
       dto.newJurorId,
       dto.teamId,
       actorUserId,
+      dto.confirmWarnings,
     );
   }
 
@@ -203,7 +209,12 @@ export class JurorController {
   @Delete('assignments')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  @ApiOperation({ summary: 'Desasignar un jurado de un equipo específico' })
+  @ApiOperation({
+    summary: 'Desasignar un jurado de un equipo específico',
+    description:
+      'Si el grupo queda con menos de 3 jurados responde 409 ASSIGNMENT_WARNINGS (HU-08); con `confirmWarnings: true` desasigna igual.',
+  })
+  @ApiConflictResponse(ASSIGNMENT_CONFLICT_DOC)
   removeJurorFromTeam(
     @Body() dto: AssignJurorToTeamDto,
     @GetUser('id') actorUserId: string,
@@ -212,6 +223,7 @@ export class JurorController {
       dto.jurorId,
       dto.teamId,
       actorUserId,
+      dto.confirmWarnings,
     );
   }
 
