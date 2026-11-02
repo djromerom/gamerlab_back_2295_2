@@ -53,6 +53,9 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   JurorCheckIn: ['Staff'],
   // HU-21: los profesores lo ven en solo lectura (P-26)
   ViewEvaluationTracking: ['Profesor'],
+  // HU-25: jurados por edición, solo Administrador
+  ListEditionJurors: [],
+  ManageEditionJurors: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],
