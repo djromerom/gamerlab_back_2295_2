@@ -17,6 +17,7 @@ import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 import { CreateDetailEvaluationDto } from './dto/createEvaluationDetails.dto';
 import { createHash } from 'crypto';
 import { countProgress } from './evaluation-progress';
+import { ACTIVE_EDITION_CONFIG_WHERE } from '../settings/active-edition-config';
 
 /** Quien califica: el usuario de la sesión. */
 type EvaluationActor = {
@@ -54,7 +55,9 @@ export class EvaluationService {
   ) {}
 
   private async checkEvaluationsOpen() {
-    const config = await this.prisma.eventConfiguration.findFirst();
+    const config = await this.prisma.eventConfiguration.findFirst({
+      where: ACTIVE_EDITION_CONFIG_WHERE,
+    });
 
     if (!config?.evaluationsOpen) {
       throw new ForbiddenException(
