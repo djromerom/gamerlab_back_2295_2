@@ -39,6 +39,7 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 import { AuthService } from '../auth/auth.service';
 
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -354,10 +355,11 @@ export class JurorController {
   @ApiOperation({
     summary: 'Obtener estado de evaluación de los jurados de un equipo',
     description:
-      'Devuelve los jurados asignados a un equipo e indica cuáles ya calificaron y cuáles siguen pendientes.',
+      'Devuelve los jurados asignados a un equipo e indica cuáles ya calificaron y cuáles siguen pendientes. Solo el Administrador recibe el correo de cada jurado.',
   })
   @ApiOkResponse({
-    description: 'Estado de evaluación de jurados del equipo',
+    description:
+      'Estado de evaluación de jurados del equipo (`email` solo para el Administrador)',
     schema: {
       example: {
         equipo: {
@@ -386,14 +388,21 @@ export class JurorController {
   })
   @ApiBadRequestResponse({ description: 'ID de equipo inválido' })
   @ApiNotFoundResponse({ description: 'Equipo no encontrado' })
-  getTeamJurorsEvaluationStatus(@Param('teamId') teamId: string) {
+  getTeamJurorsEvaluationStatus(
+    @Param('teamId') teamId: string,
+    @GetUser() user: AppUser,
+  ) {
     const teamIdNumber = parseInt(teamId, 10);
 
     if (isNaN(teamIdNumber)) {
       throw new BadRequestException('ID de equipo inválido');
     }
 
-    return this.jurorService.getTeamJurorsEvaluationStatus(teamIdNumber);
+    // ARK-110: el correo del jurado solo lo ve el Administrador
+    return this.jurorService.getTeamJurorsEvaluationStatus(
+      teamIdNumber,
+      user?.roleId === ROLE_IDS.ADMIN,
+    );
   }
 
   @Get(':id/teams')

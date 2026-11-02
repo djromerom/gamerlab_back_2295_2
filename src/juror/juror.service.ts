@@ -2066,7 +2066,26 @@ export class JurorService {
       );
     }
   }
-  async getTeamJurorsEvaluationStatus(teamId: number): Promise<any> {
+  /**
+   * ARK-110: el correo del jurado solo se incluye si `includeEmail` (el controlador lo
+   * activa únicamente para el Administrador). La ruta exige `ListJurors`, que hoy solo
+   * tiene el Administrador; el filtro evita exponer correos si el permiso se amplía.
+   */
+  async getTeamJurorsEvaluationStatus(
+    teamId: number,
+    includeEmail = false,
+  ): Promise<any> {
+    const toJuror = (
+      juror: { id: string; firstName: string; lastName: string; email: string },
+      yaCalifico: boolean,
+    ) => ({
+      id: juror.id,
+      nombre: `${juror.firstName} ${juror.lastName}`,
+      ...(includeEmail ? { email: juror.email } : {}),
+      yaCalifico,
+      estadoEvaluacion: yaCalifico ? 'CALIFICADO' : 'PENDIENTE',
+    });
+
     try {
       const team = await this.prisma.team.findUnique({
         where: { id: teamId },
@@ -2108,13 +2127,7 @@ export class JurorService {
             nombre: team.teamName,
             videojuego: null,
           },
-          jurados: team.assignedJurors.map((juror) => ({
-            id: juror.id,
-            nombre: `${juror.firstName} ${juror.lastName}`,
-            email: juror.email,
-            yaCalifico: false,
-            estadoEvaluacion: 'PENDIENTE',
-          })),
+          jurados: team.assignedJurors.map((juror) => toJuror(juror, false)),
         };
       }
 
@@ -2141,17 +2154,9 @@ export class JurorService {
           nombre: team.teamName,
           videojuego: team.videogame.name,
         },
-        jurados: team.assignedJurors.map((juror) => {
-          const yaCalifico = jurorsWhoEvaluated.has(juror.id);
-
-          return {
-            id: juror.id,
-            nombre: `${juror.firstName} ${juror.lastName}`,
-            email: juror.email,
-            yaCalifico,
-            estadoEvaluacion: yaCalifico ? 'CALIFICADO' : 'PENDIENTE',
-          };
-        }),
+        jurados: team.assignedJurors.map((juror) =>
+          toJuror(juror, jurorsWhoEvaluated.has(juror.id)),
+        ),
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
