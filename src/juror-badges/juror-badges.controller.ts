@@ -34,7 +34,7 @@ export class JurorBadgesController {
   @ApiOperation({
     summary: 'Genera las escarapelas de la edición activa',
     description:
-      'Crea el token del QR de los jurados (y profesores) que aún no lo tienen. Idempotente. Omite a quien tenga datos incompletos y lo informa en `skipped`.',
+      'Crea el token del QR de los jurados de la edición activa (externos confirmados y profesores con NRC activo en ella) que aún no lo tienen. Idempotente. Omite a quien tenga datos incompletos o no sea de la edición y lo informa en `skipped`.',
   })
   @ApiResponse({
     status: 201,
