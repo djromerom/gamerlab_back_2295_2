@@ -20,6 +20,7 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
     {} as any,
     {} as any,
     blobRefsPassthrough(),
+    {} as any, // RankingService (HU-04)
   );
 
   const team = { id: 10, userId: 'leader-1' };

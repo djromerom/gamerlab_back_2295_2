@@ -12,6 +12,7 @@ describe('TeamsService.findOne', () => {
     {} as any,
     {} as any, // settingsService (ranking-y-datos-privados)
     blobRefsPassthrough(), // blobRefs (blob-referencia-back)
+    {} as any, // RankingService (HU-04)
   );
 
   const admin = { id: 'a', email: 'a@uni.edu', roleId: ROLE_IDS.ADMIN } as any;
@@ -44,6 +45,7 @@ describe('TeamsService.create — correo duplicado', () => {
       {} as any,
       {} as any, // settingsService (ranking-y-datos-privados)
       blobRefsPassthrough(), // blobRefs (blob-referencia-back)
+      {} as any, // RankingService (HU-04)
     );
 
     await expect(

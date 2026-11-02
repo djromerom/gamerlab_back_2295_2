@@ -30,6 +30,7 @@ describeIfDb('Lectura de un equipo por rol (PostgreSQL)', () => {
     prisma as unknown as PrismaService,
     {} as any,
     blobRefsPassthrough(),
+    {} as any, // RankingService (HU-04)
   );
   const runId = Date.now().toString(36).slice(-5);
   const userIds: string[] = [];

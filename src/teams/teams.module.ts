@@ -11,6 +11,7 @@ import { RecaptchaService } from './services/recaptcha.service'
 import { ConfigModule } from '@nestjs/config';
 import { SettingsModule } from '../settings/settings.module';
 import { UploadModule } from '../upload/upload.module';
+import { RankingModule } from '../ranking/ranking.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UploadModule } from '../upload/upload.module';
     ConfigModule,
     SettingsModule,
     UploadModule,
+    RankingModule,
   ],
   controllers: [TeamsController],
   providers: [

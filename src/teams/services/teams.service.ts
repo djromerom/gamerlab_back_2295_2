@@ -32,6 +32,7 @@ import {
   isTeamLeaderOrMember,
   resolveTeamAudience,
 } from '../team-visibility';
+import { RankingService } from '../../ranking/ranking.service';
 
 @Injectable()
 export class TeamsService {
@@ -44,6 +45,7 @@ export class TeamsService {
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly blobRefs: BlobReferenceService,
+    private readonly ranking: RankingService,
   ) { }
 
   /** Task 28: la BD guarda `upload:<id>`; lo que llega como URL firmada se convierte antes de guardar. */
@@ -156,7 +158,7 @@ export class TeamsService {
       );
 
       if (!missingTeamName && !missingLogo) {
-        return this.signRankingLogos(await this.applyTieBreakerToRanking(rows));
+        return this.signRankingLogos(await this.ranking.orderRows(rows, activeEdition.id));
       }
 
       const teamIds = Array.from(
@@ -230,7 +232,7 @@ export class TeamsService {
         return rr;
       });
 
-      return this.signRankingLogos(await this.applyTieBreakerToRanking(enrichedRows));
+      return this.signRankingLogos(await this.ranking.orderRows(enrichedRows, activeEdition.id));
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch final scores by prefix');
@@ -664,325 +666,6 @@ export class TeamsService {
         teamId,
       },
     }));
-  }
-
-  /**
-   * Normaliza cualquier puntaje a número con dos decimales.
-   */
-  private normalizeScore(value: any): number | null {
-    if (value === null || value === undefined) {
-      return null;
-    }
-
-    const score = Number(value);
-
-    if (Number.isNaN(score)) {
-      return null;
-    }
-
-    return Number(score.toFixed(2));
-  }
-
-  /**
-   * Calcula el puntaje de desempate de un videojuego.
-   *
-   * Fórmula:
-   * 70% promedio de jurados + 30% promedio de profesores.
-   *
-   * Esta función solo calcula el puntaje; no decide si hay empate.
-   */
-  private async getTieBreakerScore(
-    videogameId: number,
-    editionId?: number,
-  ): Promise<{
-    jurorScore: number | null;
-    professorScore: number | null;
-    tieBreakerScore: number | null;
-  }> {
-    const professorRole = await this.prisma.role.findFirst({
-      where: {
-        name: 'Profesor',
-        isActive: true,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!professorRole) {
-      return {
-        jurorScore: null,
-        professorScore: null,
-        tieBreakerScore: null,
-      };
-    }
-
-    const baseWhere: any = {
-      videogameId,
-      isActive: true,
-    };
-
-    if (editionId) {
-      baseWhere.editionId = editionId;
-    }
-
-    const professorAgg = await this.prisma.evaluation.aggregate({
-      _avg: {
-        totalScore: true,
-      },
-      where: {
-        ...baseWhere,
-        juror: {
-          roleId: professorRole.id,
-        },
-      },
-    });
-
-    const jurorAgg = await this.prisma.evaluation.aggregate({
-      _avg: {
-        totalScore: true,
-      },
-      where: {
-        ...baseWhere,
-        juror: {
-          roleId: {
-            not: professorRole.id,
-          },
-        },
-      },
-    });
-
-    const jurorScore = this.normalizeScore(jurorAgg._avg.totalScore);
-    const professorScore = this.normalizeScore(professorAgg._avg.totalScore);
-
-    if (jurorScore === null && professorScore === null) {
-      return {
-        jurorScore,
-        professorScore,
-        tieBreakerScore: null,
-      };
-    }
-
-    if (jurorScore === null) {
-      return {
-        jurorScore,
-        professorScore,
-        tieBreakerScore: professorScore,
-      };
-    }
-
-    if (professorScore === null) {
-      return {
-        jurorScore,
-        professorScore,
-        tieBreakerScore: jurorScore,
-      };
-    }
-
-    const tieBreakerScore = Number(
-      (jurorScore * 0.7 + professorScore * 0.3).toFixed(2),
-    );
-
-    return {
-      jurorScore,
-      professorScore,
-      tieBreakerScore,
-    };
-  }
-
-  /**
-   * Guarda el ranking final calculado en la tabla resultado_ranking.
-   */
-  private async persistRankingResults(rows: any[]): Promise<void> {
-    await Promise.all(
-      rows.map(async (row, index) => {
-        const teamId = Number(row.teamId ?? row.team_id);
-        const videogameId = Number(row.videogameId ?? row.videogame_id);
-        const editionId = Number(row.editionId ?? row.edition_id);
-
-        if (
-          !Number.isInteger(teamId) ||
-          !Number.isInteger(videogameId) ||
-          !Number.isInteger(editionId) ||
-          teamId <= 0 ||
-          videogameId <= 0 ||
-          editionId <= 0
-        ) {
-          return;
-        }
-
-        const baseScore = this.normalizeScore(
-          row.finalScore ?? row.final_score ?? row.finalscore,
-        );
-
-        const rankingScore = this.normalizeScore(row.rankingScore);
-
-        await this.prisma.rankingResult.upsert({
-          where: {
-            teamId_videogameId_editionId: {
-              teamId,
-              videogameId,
-              editionId,
-            },
-          },
-          update: {
-            baseScore: baseScore ?? 0,
-            rankingScore: rankingScore ?? 0,
-            tieBreakerScore: row.tieBreakerScore,
-            jurorTieBreakerScore: row.jurorTieBreakerScore,
-            professorTieBreakerScore: row.professorTieBreakerScore,
-            wasTied: row.wasTied ?? false,
-            finalPosition: index + 1,
-          },
-          create: {
-            teamId,
-            videogameId,
-            editionId,
-            baseScore: baseScore ?? 0,
-            rankingScore: rankingScore ?? 0,
-            tieBreakerScore: row.tieBreakerScore,
-            jurorTieBreakerScore: row.jurorTieBreakerScore,
-            professorTieBreakerScore: row.professorTieBreakerScore,
-            wasTied: row.wasTied ?? false,
-            finalPosition: index + 1,
-          },
-        });
-      }),
-    );
-  }
-
-  /**
-   * Aplica la lógica de desempate sobre un listado de equipos.
-   *
-   * Correcciones importantes:
-   * - Solo compara equipos de la misma edición.
-   * - No marca como empatados los equipos sin calificación real.
-   * - No aplica desempate si finalScore es 0 o menor.
-   */
-  private async applyTieBreakerToRanking(rows: any[]): Promise<any[]> {
-    const scoreGroups = new Map<string, any[]>();
-
-    for (const row of rows) {
-      const finalScore = this.normalizeScore(
-        row.finalScore ?? row.final_score ?? row.finalscore,
-      );
-
-      const editionId = Number(row.editionId ?? row.edition_id);
-
-      if (
-        finalScore === null ||
-        finalScore <= 0 ||
-        !Number.isInteger(editionId) ||
-        editionId <= 0
-      ) {
-        continue;
-      }
-
-      const groupKey = `${editionId}-${finalScore}`;
-
-      if (!scoreGroups.has(groupKey)) {
-        scoreGroups.set(groupKey, []);
-      }
-
-      scoreGroups.get(groupKey)!.push(row);
-    }
-
-    const tiedRows = new Set<any>();
-
-    for (const group of scoreGroups.values()) {
-      if (group.length > 1) {
-        group.forEach((row) => tiedRows.add(row));
-      }
-    }
-
-    const result = await Promise.all(
-      rows.map(async (row) => {
-        const baseScore = this.normalizeScore(
-          row.finalScore ?? row.final_score ?? row.finalscore,
-        );
-
-        if (!tiedRows.has(row)) {
-          return {
-            ...row,
-            wasTied: false,
-            jurorTieBreakerScore: null,
-            professorTieBreakerScore: null,
-            tieBreakerScore: null,
-            rankingScore: baseScore,
-          };
-        }
-
-        const videogameId = Number(row.videogameId ?? row.videogame_id);
-        const editionId = Number(row.editionId ?? row.edition_id);
-
-        if (!Number.isInteger(videogameId) || videogameId <= 0) {
-          return {
-            ...row,
-            wasTied: true,
-            jurorTieBreakerScore: null,
-            professorTieBreakerScore: null,
-            tieBreakerScore: null,
-            rankingScore: baseScore,
-          };
-        }
-
-        const tieBreaker = await this.getTieBreakerScore(
-          videogameId,
-          Number.isInteger(editionId) && editionId > 0 ? editionId : undefined,
-        );
-
-        return {
-          ...row,
-          wasTied: true,
-          jurorTieBreakerScore: tieBreaker.jurorScore,
-          professorTieBreakerScore: tieBreaker.professorScore,
-          tieBreakerScore: tieBreaker.tieBreakerScore,
-          // El puntaje general del ranking se mantiene como el puntaje base.
-          // El tieBreakerScore solo se usa para ordenar equipos que ya estaban empatados.
-          rankingScore: baseScore,
-        };
-      }),
-    );
-
-    const sortedRanking = result.sort((a, b) => {
-      const baseA =
-        this.normalizeScore(a.finalScore ?? a.final_score ?? a.finalscore) ??
-        -Infinity;
-
-      const baseB =
-        this.normalizeScore(b.finalScore ?? b.final_score ?? b.finalscore) ??
-        -Infinity;
-
-      // Primero se ordena por puntaje final general.
-      if (baseA !== baseB) {
-        return baseB - baseA;
-      }
-
-      const editionA = Number(a.editionId ?? a.edition_id);
-      const editionB = Number(b.editionId ?? b.edition_id);
-
-      // Evita comparar desempates entre ediciones distintas.
-      if (editionA !== editionB) {
-        return editionA - editionB;
-      }
-
-      const tieA = this.normalizeScore(a.tieBreakerScore) ?? baseA;
-      const tieB = this.normalizeScore(b.tieBreakerScore) ?? baseB;
-
-      // Solo si el puntaje base es igual, se usa el puntaje de desempate.
-      if (tieA !== tieB) {
-        return tieB - tieA;
-      }
-
-      const codeA = String(a.teamCode ?? a.team_code ?? '');
-      const codeB = String(b.teamCode ?? b.team_code ?? '');
-
-      return codeA.localeCompare(codeB);
-    });
-
-    await this.persistRankingResults(sortedRanking);
-
-    return sortedRanking;
   }
 
   async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {

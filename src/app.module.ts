@@ -35,6 +35,7 @@ import { StaffModule } from './staff/staff.module';
 import { JurorEditionModule } from './juror-edition/juror-edition.module';
 import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
 import { TeamVerificationModule } from './team-verification/team-verification.module';
+import { RankingModule } from './ranking/ranking.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { TeamVerificationModule } from './team-verification/team-verification.mo
     TestimonialsModule,
     EducationalFocusesModule,
     TeamVerificationModule,
+    RankingModule,
     HighlightedGamesModule,
     HistoricalsModule,
     JurorBadgesModule,

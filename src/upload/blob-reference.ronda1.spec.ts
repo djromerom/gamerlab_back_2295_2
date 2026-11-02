@@ -105,7 +105,7 @@ describe('Task 28 ronda 1', () => {
     const prisma = { teamFinalScore: { findMany: jest.fn() }, videogame: { findUnique: jest.fn().mockResolvedValue(null) } };
     let service: TeamsService;
     beforeEach(() => {
-      service = new TeamsService({} as any, repository as any, {} as any, prisma as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs);
+      service = new TeamsService({} as any, repository as any, {} as any, prisma as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, { orderRows: async (rows: any[]) => rows } as any);
     });
 
     it('GET /teams firma additionalImages', async () => {

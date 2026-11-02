@@ -44,6 +44,7 @@ model Edition {
   weighting          Weighting?
   testimonials       Testimonial[]
   rankingResults     RankingResult[]
+  tieBreakDecisions  TieBreakDecision[]
   HistoricalTeam     HistoricalTeam[]
   jurorBadges        JurorBadge[]
   jurorAttendances   JurorAttendance[]
@@ -221,6 +222,7 @@ model User {
   teamVerifications    TeamVerification[]
   jurorEditions        JurorEdition[]
   refreshTokens        RefreshToken[]
+  tieBreakDecisions    TieBreakDecision[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -611,6 +613,8 @@ model RankingResult {
 
   wasTied       Boolean @default(false) @map("hubo_empate")
   finalPosition Int     @map("posicion_final")
+  // HU-04: nivel del equipo (N0 a N4); la posición es dentro del nivel. Null en filas anteriores a HU-04.
+  level         Int?    @map("nivel")
 
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
@@ -664,6 +668,11 @@ view TeamFinalScore {
   avgJunior        Float?  @map("avg_junior")
   avgSenior        Float?  @map("avg_senior")
   finalScore       Float?  @map("final_score")
+  // HU-04: evaluaciones activas con nota. Junior = jurados (solo cuentan las 3 primeras); senior = profesor.
+  juniorEvaluations   Int     @map("junior_evaluations")
+  juniorCounted       Int     @map("junior_counted")
+  seniorEvaluations   Int     @map("senior_evaluations")
+  weightingConfigured Boolean @map("weighting_configured")
 
   @@unique([teamId, videogameId, editionId])
   @@map("vw_team_final_scores")
@@ -718,4 +727,32 @@ enum JurorEditionStatus {
   PENDING
   CONFIRMED
   DECLINED
+}
+
+/// HU-04: cómo se resolvió un empate del ranking por nivel.
+enum TieBreakMethod {
+  PROFESSOR // el profesor de los grupos empatados eligió el orden
+  REGISTRATION // primero el grupo inscrito antes
+  ADMIN // resolución manual del administrador (p. ej. misma fecha de inscripción)
+}
+
+/// HU-04: decisión registrada sobre un empate. Un empate se identifica por `tieKey`
+/// (edición, nivel, nota y equipos); si cambian las notas, el empate es otro y la decisión deja de aplicar.
+model TieBreakDecision {
+  id             Int            @id @default(autoincrement()) @map("id_decision")
+  editionId      Int            @map("id_edicion")
+  level          Int            @map("nivel")
+  score          Float          @map("nota")
+  tieKey         String         @unique @map("clave_empate") @db.VarChar(255)
+  teamIds        Int[]          @map("equipos_empatados")
+  orderedTeamIds Int[]          @map("orden_final")
+  method         TieBreakMethod @map("metodo")
+  reason         String         @map("motivo") @db.VarChar(500)
+  decidedById    String         @map("id_usuario")
+  createdAt      DateTime       @default(now()) @map("creado_en")
+  edition        Edition        @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  decidedBy      User           @relation(fields: [decidedById], references: [id])
+
+  @@index([editionId, level])
+  @@map("decision_desempate")
 }

@@ -22,6 +22,7 @@ describe('TeamsService — lectura de un equipo por rol (ARK-112)', () => {
     {} as any,
     {} as any, // settingsService (ranking-y-datos-privados)
     blobRefsPassthrough(), // blobRefs (blob-referencia-back)
+    {} as any, // RankingService (HU-04)
   );
 
   const user = (roleId: number, id: string, email: string) =>

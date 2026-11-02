@@ -3,7 +3,7 @@ import { blobRefsPassthrough } from '../../upload/blob-reference.mock';
 
 describe('TeamsService.findAll / findPaged: isMine', () => {
   const repository = { findAll: jest.fn(), findPaged: jest.fn() };
-  const service = new TeamsService({} as any, repository as any, {} as any, {} as any, {} as any, blobRefsPassthrough());
+  const service = new TeamsService({} as any, repository as any, {} as any, {} as any, {} as any, blobRefsPassthrough(), {} as any);
   const teams = () => [
     { id: 1, userId: 'lider-1', name: 'A' },
     { id: 2, userId: 'lider-2', name: 'B' },
