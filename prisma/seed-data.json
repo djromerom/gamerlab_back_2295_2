@@ -589,6 +589,22 @@
         "createdAt": "2026-11-01T12:00:00.000Z",
         "updatedAt": "2026-11-01T12:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 60,
+        "name": "LIST_EDITION_JURORS",
+        "description": "Permite ver qué jurados participan en cada edición y su estado",
+        "createdAt": "2026-11-02T06:00:00.000Z",
+        "updatedAt": "2026-11-02T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 61,
+        "name": "MANAGE_EDITION_JURORS",
+        "description": "Permite traer, confirmar, declinar e inscribir jurados de una edición",
+        "createdAt": "2026-11-02T06:00:00.000Z",
+        "updatedAt": "2026-11-02T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1194,6 +1210,26 @@
         "createdAt": "2026-11-01T12:00:00.000Z",
         "updatedAt": "2026-11-01T12:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 61,
+        "name": "ListEditionJurors",
+        "description": "Listar los jurados de una edición con su estado",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-02T06:00:00.000Z",
+        "updatedAt": "2026-11-02T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 62,
+        "name": "ManageEditionJurors",
+        "description": "Gestionar los jurados de una edición (traer, confirmar en bloque, inscribir)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-02T06:00:00.000Z",
+        "updatedAt": "2026-11-02T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1625,6 +1661,20 @@
         "permissionId": 59,
         "createdAt": "2026-11-01T12:00:00.000Z",
         "updatedAt": "2026-11-01T12:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 61,
+        "permissionId": 60,
+        "createdAt": "2026-11-02T06:00:00.000Z",
+        "updatedAt": "2026-11-02T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 62,
+        "permissionId": 61,
+        "createdAt": "2026-11-02T06:00:00.000Z",
+        "updatedAt": "2026-11-02T06:00:00.000Z",
         "isActive": true
       }
     ]

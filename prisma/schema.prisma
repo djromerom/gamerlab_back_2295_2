@@ -47,6 +47,7 @@ model Edition {
   HistoricalTeam     HistoricalTeam[]
   jurorBadges        JurorBadge[]
   jurorAttendances   JurorAttendance[]
+  jurorEditions      JurorEdition[]
 
   @@unique([year, semester])
   @@map("ediciones")
@@ -218,6 +219,7 @@ model User {
   attendances          JurorAttendance[]  @relation("JurorAttendance")
   recordedAttendances  JurorAttendance[]  @relation("AttendanceRecorder")
   teamVerifications    TeamVerification[]
+  jurorEditions        JurorEdition[]
   refreshTokens        RefreshToken[]
 
   @@index([jurorCategory])
@@ -688,4 +690,32 @@ enum ManualJurorAssignmentAction {
   REASSIGN
   UNASSIGN_ALL
   UNASSIGN_ALL_FROM_EVALUATOR
+}
+
+// HU-25: participación de un jurado (rol Jurado) en una edición. La cuenta se conserva entre
+// ediciones; aquí se guarda si viene a esta (Pendiente, Confirmado, Declinó) y si es Oficial o
+// Suplente. Los profesores no tienen fila: son jurados de la edición si tienen un NRC activo en ella.
+// Sin isActive: Declinó cumple esa función y hay una sola fila por jurado y edición.
+model JurorEdition {
+  id          Int                @id @default(autoincrement()) @map("id_jurado_edicion")
+  jurorId     String             @map("id_usuario")
+  editionId   Int                @map("id_edicion")
+  status      JurorEditionStatus @default(PENDING) @map("estado")
+  type        JurorType          @default(OFFICIAL) @map("tipo")
+  createdAt   DateTime           @default(now()) @map("creado_en")
+  updatedAt   DateTime           @updatedAt @map("actualizado_en")
+  // Id del administrador que hizo el último cambio (sin llave foránea, solo auditoría).
+  updatedById String?            @map("actualizado_por")
+  juror       User               @relation(fields: [jurorId], references: [id])
+  edition     Edition            @relation(fields: [editionId], references: [id])
+
+  @@unique([jurorId, editionId])
+  @@index([editionId, status])
+  @@map("jurado_edicion")
+}
+
+enum JurorEditionStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
 }
