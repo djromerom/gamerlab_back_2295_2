@@ -242,6 +242,19 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  /** ARK-112: ¿`email` es de un integrante activo del equipo? Sin distinguir mayúsculas. */
+  async isActiveMember(teamId: number, email: string): Promise<boolean> {
+    const member = await this.prisma.member.findFirst({
+      where: {
+        teamId,
+        isActive: true,
+        email: { equals: escapeLike(email.trim()), mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    return member !== null;
+  }
+
   async findPaged(page = 1, limit = 10, sortByLikes = false) {
     const currentPage = Math.max(page, 1);
     const itemsPerPage = Math.max(limit, 1);

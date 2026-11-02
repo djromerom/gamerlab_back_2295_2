@@ -55,9 +55,9 @@ export const ROUTE_NOTES: Record<string, string> = {
   'GET /juror/teams/:teamId/jurors-status':
     'Solo Administrador (ListJurors no está concedido a ningún otro rol). El correo de cada jurado solo se incluye para el Administrador (ARK-110).',
   'GET /teams/:id':
-    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    'Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
   'GET /teams/:id/full':
-    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    'Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
   'POST /upload':
     'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':
