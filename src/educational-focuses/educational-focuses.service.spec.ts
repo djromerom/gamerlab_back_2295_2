@@ -111,7 +111,7 @@ describe('EducationalFocusesService', () => {
     it('should remove an educational focus', async () => {
       const result = await service.remove(1, 1);
       expect(prisma.educationalFocus.delete).toHaveBeenCalledWith({ where: { id: 1 } });
-      expect(result).toEqual(mockFocus);
+      expect(result).toBeUndefined();
     });
   });
 });

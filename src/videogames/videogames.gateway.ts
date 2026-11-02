@@ -5,8 +5,9 @@ import {
   OnGatewayDisconnect,
   SubscribeMessage,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { getSocketKeySecret, opaqueUserKey } from '../common/utils/opaque-user-key';
 
 @WebSocketGateway({
   cors: {
@@ -18,11 +19,16 @@ import { Server, Socket } from 'socket.io';
   },
 })
 export class VideogamesGateway
-  implements OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(VideogamesGateway.name);
+
+  // Falla al arrancar (no en el primer like) si falta SOCKET_KEY_SECRET en producción.
+  onModuleInit() {
+    getSocketKeySecret();
+  }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -49,7 +55,9 @@ export class VideogamesGateway
    * Called by VideogamesService after each toggle.
    */
   emitLikesUpdate(videogameId: number, likeCount: number, triggerUserId?: string, liked?: boolean): void {
-    this.server.to('likes_room').emit('likes:updated', { videogameId, likeCount, triggerUserId, liked });
+    // triggerUserId se mantiene un despliegue por compatibilidad; el front migra a triggerKey (opaca).
+    const triggerKey = triggerUserId ? opaqueUserKey(triggerUserId) : undefined;
+    this.server.to('likes_room').emit('likes:updated', { videogameId, likeCount, triggerUserId, triggerKey, liked });
     this.logger.debug(
       `likes:updated (to likes_room) → videogameId=${videogameId} likeCount=${likeCount}`,
     );

@@ -209,6 +209,9 @@ describe('JurorService', () => {
           lastName: 'Prueba',
           roleId: jurorRoleId,
           isActive: true,
+          jurorCategory: 'JUNIOR',
+          jurorType: 'OFFICIAL',
+          lastSignInAt: null,
         },
       });
 
@@ -216,6 +219,8 @@ describe('JurorService', () => {
         id: baseJuror.id,
         firstName: baseJuror.firstName,
         lastName: baseJuror.lastName,
+        jurorCategory: baseJuror.jurorCategory,
+        jurorType: baseJuror.jurorType,
         email: baseJuror.email,
         confirmationStatusId: baseJuror.confirmationStatusId,
         lastSignInAt: baseJuror.lastSignInAt,
@@ -369,9 +374,9 @@ describe('JurorService', () => {
 
   describe('update', () => {
     it('debe actualizar un jurado e invalidar caché', async () => {
-      prismaMock.user.findUnique
-        .mockResolvedValueOnce(baseJuror)
-        .mockResolvedValueOnce(null);
+      prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
+      // I4: the duplicate-email check ignores case
+      prismaMock.user.findMany.mockResolvedValueOnce([]);
 
       const updatedJuror = {
         ...baseJuror,
@@ -408,41 +413,115 @@ describe('JurorService', () => {
     });
 
     it('debe lanzar ConflictException si el correo ya pertenece a otro usuario', async () => {
-      prismaMock.user.findUnique
-        .mockResolvedValueOnce(baseJuror)
-        .mockResolvedValueOnce({
-          id: 'otro-user-id',
-          email: 'repetido@uninorte.edu.co',
-        });
+      prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { id: 'otro-user-id', email: 'repetido@uninorte.edu.co' },
+      ]);
 
       await expect(
         service.update(baseJuror.id, {
-          email: 'repetido@uninorte.edu.co',
+          email: 'Repetido@Uninorte.edu.co',
         }),
       ).rejects.toThrow(ConflictException);
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            email: { equals: 'repetido@uninorte.edu.co', mode: 'insensitive' },
+          },
+        }),
+      );
 
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
   });
 
-  describe('remove', () => {
-    it('debe eliminar un jurado e invalidar caché', async () => {
+  describe('remove (borrado lógico)', () => {
+    const deactivated = { ...baseJuror, isActive: false };
+
+    it('no llama a prisma.user.delete', async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
-      prismaMock.user.delete.mockResolvedValueOnce(baseJuror);
+      prismaMock.user.update.mockResolvedValueOnce(deactivated);
+
+      await service.remove(baseJuror.id);
+
+      expect(prismaMock.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('hace update({ isActive: false }) y devuelve el usuario desactivado', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
+      prismaMock.user.update.mockResolvedValueOnce(deactivated);
 
       const result = await service.remove(baseJuror.id);
+
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: { id: baseJuror.id },
+        data: { isActive: false },
+      });
+      expect(result.isActive).toBe(false);
+    });
+
+    it('invalida la caché del perfil', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
+      prismaMock.user.update.mockResolvedValueOnce(deactivated);
+
+      await service.remove(baseJuror.id);
 
       expect(authMock.invalidateUserProfileCache).toHaveBeenCalledWith(
         baseJuror.id,
       );
+    });
 
-      expect(prismaMock.user.delete).toHaveBeenCalledWith({
-        where: {
-          id: baseJuror.id,
-        },
+    it('lanza 404 si el usuario no existe', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.remove('no-existe')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 si el usuario es de otro rol', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        roleId: 99,
       });
 
-      expect(result).toEqual(baseJuror);
+      await expect(service.remove(baseJuror.id)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+
+    it('no lanza error con un jurado que ya calificó (el delete fallaría por FK)', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(baseJuror);
+      prismaMock.user.delete.mockRejectedValue(
+        new Error('Foreign key constraint failed'),
+      );
+      prismaMock.user.update.mockResolvedValueOnce(deactivated);
+
+      await expect(service.remove(baseJuror.id)).resolves.toEqual(deactivated);
+    });
+
+    it('findOne de un jurado desactivado lanza 404', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(deactivated);
+
+      await expect(service.findOne(baseJuror.id)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('el listado de jurados filtra isActive: true', async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([]);
+      prismaMock.user.count.mockResolvedValueOnce(0);
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+
+      await service.findAll(true, 10, 1);
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isActive: true }),
+        }),
+      );
     });
   });
 

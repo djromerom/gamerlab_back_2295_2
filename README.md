@@ -8,6 +8,7 @@ Welcome to the Arkad API documentation. Here you'll find information about how t
   - [`Prerequisites`](#prerequisites)
   - [`Development Setup`](#development-setup)
   - [`Production Setup`](#production-setup)
+- [`Testing`](#testing)
 - [`Modules`](#modules)
 - [`Contributing`](#contributing)
 
@@ -150,10 +151,80 @@ Let's break down the environment variables:
 - **`REGISTRATION_TOKEN_EXPIRATION`**: Token expiration time in hours for email verification (default: 24)
 - **`USER_PROFILE_CACHE_TTL`**: Cache time-to-live for user profiles in minutes (default: 15)
 - **`RECAPTCHA_*`** Google ReCAPTCHA configuration for signup form
-- **`EMAIL_*`**: EmailJS configuration for sending confirmation and password reset emails
-- **`AZURE_STORAGE_*`**: Azure Blob Storage configuration for file uploads
+- **`ACS_CONNECTION_STRING`** / **`ACS_SENDER_ADDRESS`**: Azure Communication Services credentials and verified sender address for confirmation, password reset, team and certificate emails. If missing, emails are only simulated when `NODE_ENV=development`; in any other environment sending fails with 503
+- **`AZURE_*`**: Azure Blob Storage configuration (`AZURE_BLOB_SAS_URL`, `AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`) for file uploads
+- **`TRUST_PROXY`**: Set it when the API runs behind a reverse proxy or load balancer (for example `1` for one proxy hop). Without it every request looks like it comes from the proxy's IP, and all users share one rate limit (see [Rate limiting](#rate-limiting)).
 
 **Note:** If you're part of the development team, you can ask for these keys from the team lead.
+
+### Rate limiting
+<a name="rate-limiting"></a>
+
+Some public routes have a per-IP request limit (`@nestjs/throttler`): `POST /upload`, `POST /upload/zip` and `POST /teams/validate-emails`. The limits are defined in `src/common/throttle/public-throttle.ts`; a client that exceeds one gets `429 Too Many Requests`.
+
+> **Warning: the counters are kept in memory, per process.**
+> - Restarting or redeploying the container resets them.
+> - They are **not shared between replicas**. With more than one instance of the API, each one counts separately, so the effective limit is multiplied by the number of replicas.
+>
+> This is fine for the current deployment (a single container). Before scaling the API horizontally, move the counters to a shared store such as Redis.
+
+Behind a proxy, also set `TRUST_PROXY` so the limit applies to each user's IP and not to the proxy.
+
+## Testing
+<a name="testing"></a>
+
+Tests use **Jest** with `ts-jest`. Unit tests (`*.spec.ts`) live next to the code they test; integration tests live in `test/`.
+
+### Unit tests
+
+They mock `PrismaService`, so they need no database or `.env`.
+
+```bash
+# All unit tests
+npm test
+
+# One file or folder
+npx jest src/evaluation/evaluation.service.spec.ts
+npx jest src/juror
+
+# Same command as CI (sequential, with coverage report in coverage/)
+npm run test:ci
+```
+
+### Integration tests
+
+They run against a real PostgreSQL and **skip themselves** when no database is configured, so `npm test` stays green without one:
+
+| Tests | Run when |
+|---|---|
+| `test/*.e2e-spec.ts` (`npm run test:e2e`) | `INTEGRATION_DATABASE_URL` is set |
+| `src/**/*.db.spec.ts` | `RUN_DB_TESTS=1` (uses `DATABASE_URL`) |
+
+> **Warning:** point them only to a **disposable** database. They create and delete their own rows, but never use your development or a shared database.
+
+The database needs the migrations and the seed applied. Example with a throwaway container (bash):
+
+```bash
+docker run -d --rm --name arkad_test_db -e POSTGRES_USER=arkad -e POSTGRES_PASSWORD=arkad -e POSTGRES_DB=arkad_test -p 5440:5432 postgres:15-alpine
+
+export DATABASE_URL=postgresql://arkad:arkad@localhost:5440/arkad_test
+export INTEGRATION_DATABASE_URL=$DATABASE_URL
+export NODE_ENV=test
+npx prisma migrate deploy
+npm run db:seed
+
+npm run test:e2e -- --runInBand
+RUN_DB_TESTS=1 npx jest --testPathPattern "\.db\.spec\.ts$"
+
+docker stop arkad_test_db
+```
+
+### Continuous integration
+
+The `Test-back` workflow (`.github/workflows/test-back.yml`) runs on every pull request to `dev` and `main`, and the pull request fails if any test fails:
+
+- **`test-build`**: `npm run build`, lint (not blocking yet) and `npm run test:ci`.
+- **`integration`**: starts a disposable PostgreSQL 15, applies the migrations and the seed, and runs the integration tests.
 
 ## Modules
 <a name="modules"></a>
@@ -202,7 +273,7 @@ To contribute code to the project, please follow the [CONTRIBUTING.md](CONTRIBUT
 
 ### Development Workflow
 
-1. Create a feature branch from `main`
+1. Create a branch from `dev` (see `BRANCHING.md` for naming)
 2. Make your changes
 3. Test with the development Docker setup
 4. Submit a pull request

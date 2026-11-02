@@ -1,11 +1,15 @@
+import { findUsersByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 import {
   JurorCategory,
   ManualJurorAssignmentAction,
@@ -181,8 +185,9 @@ export class JurorService {
       }
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        error instanceof ConflictException ||
+        (error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002')
       ) {
         throw new ConflictException(
           `Juror with email ${dto.email} already exists.`,
@@ -205,6 +210,7 @@ export class JurorService {
           isActive: true,
           jurorCategory: dto.jurorCategory,
           jurorType: dto.jurorType,
+          lastSignInAt: null,
         },
       });
 
@@ -300,11 +306,11 @@ export class JurorService {
   async update(id: string, dto: UpdateJurorDto): Promise<JurorListItem> {
     const juror = await this.findOne(id);
 
-    if (dto.email) {
-      const emailOwner = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
-      if (emailOwner && emailOwner.id !== id) {
+    const email = dto.email?.trim().toLowerCase();
+    if (email) {
+      // Any case variant owned by someone else counts; `_`/`%` are literal (C1)
+      const owners = await findUsersByEmailCaseInsensitive(this.prisma, email);
+      if (owners.some((owner) => owner.id !== id)) {
         throw new ConflictException('Email is already used by another user.');
       }
     }
@@ -314,7 +320,7 @@ export class JurorService {
       data: {
         ...(dto.firstName !== undefined && { firstName: dto.firstName }),
         ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.email !== undefined && { email: dto.email }),
+        ...(email !== undefined && { email }),
         ...(dto.jurorCategory !== undefined && {
           jurorCategory: dto.jurorCategory,
         }),
@@ -333,11 +339,14 @@ export class JurorService {
 
   async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
-    // We invalidate the cache of the user being deleted
-    this.auth.invalidateUserProfileCache(id);
-    return this.prisma.user.delete({
+    // Borrado lógico: conserva escarapelas, verificaciones y evaluaciones.
+    const deactivated = await this.prisma.user.update({
       where: { id: user.id },
+      data: { isActive: false },
     });
+    // We invalidate the cache of the user being deactivated
+    this.auth.invalidateUserProfileCache(id);
+    return deactivated;
   }
 
   /**
@@ -2156,6 +2165,30 @@ export class JurorService {
 
       throw new InternalServerErrorException(
         'Error al obtener estado de evaluación de jurados del equipo',
+      );
+    }
+  }
+
+  /**
+   * BG-01: `ViewTeamEvaluationStats` lo tienen estudiantes, profesores y jurados.
+   * Un estudiante solo puede consultar las estadísticas de SU equipo (donde es
+   * líder); el resto de roles con el permiso pueden consultar cualquier equipo.
+   * Si el equipo no existe o no es suyo, responde 403 para no revelar su existencia.
+   */
+  async assertCanViewTeamEvaluationStats(
+    user: AppUser,
+    teamId: number,
+  ): Promise<void> {
+    if (user.roleId !== ROLE_IDS.STUDENT) return;
+
+    const team = await this.prisma.team.findUnique({
+      where: { id: teamId },
+      select: { userId: true },
+    });
+
+    if (!team || team.userId !== user.id) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource.',
       );
     }
   }

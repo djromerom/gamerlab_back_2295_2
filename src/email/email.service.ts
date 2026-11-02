@@ -24,13 +24,11 @@ import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 
 import { EmailClient } from '@azure/communication-email';
 import { RestError } from '@azure/core-rest-pipeline';
+import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-
-  // TODO: reemplazar por feature de fechas por edición
-  private readonly EVENT_DATE = '28 de mayo';
 
   private emailClient: EmailClient | null = null;
   private senderAddress: string = '';
@@ -50,9 +48,80 @@ export class EmailService {
   ) { }
 
   /**
+   * Fecha, hora y lugar del evento, leídos de EVENT_DATE_TEXT, EVENT_TIME_TEXT
+   * y EVENT_PLACE_TEXT. Sin valores por defecto: si falta alguna se falla con
+   * un mensaje claro en lugar de enviar un dato fijo desactualizado.
+   */
+  getEventInfo(): { eventDate: string; eventTime: string; eventPlace: string } {
+    const read = (name: string): string => {
+      const value = this.configService.get<string>(name)?.trim();
+      if (!value) {
+        throw new InternalServerErrorException(
+          `Configuración faltante: defina la variable de entorno ${name} (fecha, hora y lugar del evento).`,
+        );
+      }
+      return value;
+    };
+    return {
+      eventDate: read('EVENT_DATE_TEXT'),
+      eventTime: read('EVENT_TIME_TEXT'),
+      eventPlace: read('EVENT_PLACE_TEXT'),
+    };
+  }
+
+  /**
+   * Variante tolerante para el correo de verificación: devuelve solo las
+   * variables presentes y registra el error (sin datos personales) por las
+   * que faltan, para que el correo se envíe igual sin esas líneas.
+   */
+  private getOptionalEventInfo(): Partial<ReturnType<EmailService['getEventInfo']>> {
+    const vars = {
+      eventDate: 'EVENT_DATE_TEXT',
+      eventTime: 'EVENT_TIME_TEXT',
+      eventPlace: 'EVENT_PLACE_TEXT',
+    } as const;
+    const info: Record<string, string> = {};
+    const missing: string[] = [];
+    for (const [key, name] of Object.entries(vars)) {
+      const value = this.configService.get<string>(name)?.trim();
+      if (value) info[key] = value;
+      else missing.push(name);
+    }
+    if (missing.length > 0) {
+      this.logger.error(
+        `Configuración faltante: defina ${missing.join(', ')}. El correo de verificación se envía sin esas líneas.`,
+      );
+    }
+    return info;
+  }
+
+  /** Fecha del evento con el año de la edición activa, p. ej. "27 de noviembre de 2026". */
+  private async getEventDateWithYear(): Promise<string> {
+    const { eventDate } = this.getEventInfo();
+    const edition = await this.prisma.edition.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { year: true },
+    });
+    if (!edition) {
+      throw new InternalServerErrorException(
+        'Configuración faltante: no hay una edición activa para determinar el año del evento.',
+      );
+    }
+    return `${eventDate} de ${edition.year}`;
+  }
+
+  /**
    * INICIALIZACIÓN DEL MÓDULO (Ejecutado por NestJS al arrancar el servidor)
    */
   async onModuleInit() {
+    const missingEventVars = ['EVENT_DATE_TEXT', 'EVENT_TIME_TEXT', 'EVENT_PLACE_TEXT'].filter(
+      (name) => !this.configService.get<string>(name)?.trim(),
+    );
+    if (missingEventVars.length > 0) {
+      this.logger.warn(
+        `Faltan variables de entorno del evento: ${missingEventVars.join(', ')}. El correo de verificación omitirá esas líneas y los certificados no se generarán.`,
+      );
+    }
     this.logger.log(
       'Initializing EmailService: Fetching email templates and token types...',
     );
@@ -114,9 +183,9 @@ export class EmailService {
   ): Promise<{ message: string }> {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { confirmationStatus: true },
+    // I4 without wildcards (C1): `juan_perez@` must never find `juan.perez@`
+    const user = await findUserByEmailCaseInsensitive(this.prisma, email, {
+      confirmationStatus: true,
     });
 
     if (!user) {
@@ -188,7 +257,7 @@ export class EmailService {
       if (typeOfEmail === 'VERIFICACION_EMAIL') {
         templateParams = {
           confirmationURL: `${REDIRECT_TO}/verificar-cuenta?token=${verificationToken}`,
-          eventDate: this.EVENT_DATE,
+          ...this.getOptionalEventInfo(),
         };
       } else {
         const userName = user.firstName
@@ -200,7 +269,8 @@ export class EmailService {
         };
       }
 
-      await this.sendEmail(email, subject, templateName, templateParams);
+      // Always the stored address of the user found, never the one in the request
+      await this.sendEmail(user.email, subject, templateName, templateParams);
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent successfully' };
@@ -220,9 +290,10 @@ export class EmailService {
     this.logger.log(`Attempting to resend ${typeOfEmail} email to: ${email}`);
 
     try {
-      const emailExists = await this.prisma.user.findUnique({
-        where: { email },
-      });
+      const emailExists = await findUserByEmailCaseInsensitive(
+        this.prisma,
+        email,
+      );
 
       if (!emailExists) {
         this.logger.error(`User with email ${email} not found in local DB.`);
@@ -244,14 +315,19 @@ export class EmailService {
           select: { name: true },
         });
         templateParams['videogameName'] = videogame?.name || '';
-        templateParams['eventDate'] = this.EVENT_DATE;
+        templateParams['eventDate'] = this.getEventInfo().eventDate;
       }
 
       if (params) {
         templateParams = { ...templateParams, ...params };
       }
 
-      await this.sendEmail(email, subject, templateName, templateParams);
+      await this.sendEmail(
+        emailExists.email,
+        subject,
+        templateName,
+        templateParams,
+      );
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent successfully' };
@@ -272,9 +348,7 @@ export class EmailService {
     );
 
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { email },
-      });
+      const user = await findUserByEmailCaseInsensitive(this.prisma, email);
 
       if (!user) {
         this.logger.error(`User with email ${email} not found in local DB.`);
@@ -323,7 +397,13 @@ export class EmailService {
         email: emails.join(', '),
       };
 
-      await this.sendEmail(email, subject, templateName, templateParams, attachments);
+      await this.sendEmail(
+        user.email,
+        subject,
+        templateName,
+        templateParams,
+        attachments,
+      );
 
       this.logger.log(`${typeOfEmail} email resent successfully to: ${email}`);
       return { message: 'Email resent successfully' };
@@ -355,6 +435,9 @@ export class EmailService {
       return { message: 'No hay jurados activos para enviar certificados.', sent: 0, failed: 0, errors: [] };
     }
 
+    // Falla antes de generar PDFs si falta la configuración del evento.
+    const eventDateWithYear = await this.getEventDateWithYear();
+
     this.logger.log(`Found ${jurors.length} active jurors. Sending certificates...`);
 
     let sent = 0;
@@ -377,7 +460,7 @@ export class EmailService {
           juror.email,
           'Tu certificado de participación — V Feria Gamer',
           'juror_certificate',
-          { jurorName },
+          { jurorName, eventDateWithYear },
           attachments,
         );
 
@@ -422,6 +505,7 @@ export class EmailService {
       }
 
       const jurorName = `${user.firstName} ${user.lastName}`;
+      const eventDateWithYear = await this.getEventDateWithYear();
 
       // 2. Generar el PDF
       const pdfBuffer = await this.certificatesService.generateJurorCertificateHtml(userId);
@@ -437,7 +521,7 @@ export class EmailService {
         user.email,
         'Tu certificado de participación — V Feria Gamer',
         'juror_certificate',   // → src/email/templates/juror_certificate.hbs
-        { jurorName },
+        { jurorName, eventDateWithYear },
         attachments,
       );
 
@@ -493,12 +577,18 @@ export class EmailService {
       }
 
       if (this.emailClient) {
+        const client = this.emailClient;
         this.logger.log(`Enviando carga útil a ACS apuntando a ${to}...`);
 
-        const poller = await this.emailClient.beginSend(message, {
-          abortSignal: AbortSignal.timeout(15_000), // 15 segundos máximo
-        });
-        const result = await poller.pollUntilDone();
+        const result = await this.withRetry(
+          async () => {
+            const poller = await client.beginSend(message, {
+              abortSignal: AbortSignal.timeout(15_000), // 15 segundos máximo
+            });
+            return poller.pollUntilDone();
+          },
+          to,
+        );
 
         if (!result || result.status !== 'Succeeded') {
           this.logger.error(`[ACS] Envío no exitoso: ${result?.status}`);
@@ -507,7 +597,13 @@ export class EmailService {
           );
         }
 
-        this.logger.log(`✅ Correo disparado vía Azure ACS.`);
+        this.logger.log(`✅ Correo disparado vía Azure ACS (operación ${result.id}).`);
+      } else if (this.configService.get<string>('NODE_ENV') !== 'development') {
+        // Fuera de desarrollo, simular un envío haría que el usuario crea que el correo salió.
+        this.logger.error(
+          `[ACS] Sin credenciales (ACS_CONNECTION_STRING / ACS_SENDER_ADDRESS): no se envió el correo a ${to}.`,
+        );
+        throw new ServiceUnavailableException('El servicio de correo no está configurado.');
       } else {
         this.logger.warn(
           `⚠️ [MODO DEV] Plantilla compilada correctamente. Cancelando interred (Falso Positivo) al no detectar llaves de ACS.`,
@@ -542,6 +638,38 @@ export class EmailService {
         error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException('Error inesperado enviando correo');
+    }
+  }
+
+  /**
+   * Reintenta solo fallos transitorios de ACS (429, timeout, 5xx) con backoff exponencial.
+   * Cada intento fallido queda en el log; el último error se propaga a sendEmail.
+   */
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    to: string,
+    maxAttempts = 3,
+    baseDelayMs = 1_000,
+  ): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const statusCode = (error as any)?.statusCode;
+        const transient =
+          statusCode === 429 ||
+          (typeof statusCode === 'number' && statusCode >= 500) ||
+          (error instanceof Error && error.name === 'AbortError') ||
+          (error instanceof RestError && error.code === 'ETIMEDOUT');
+
+        if (!transient || attempt >= maxAttempts) throw error;
+
+        const delay = baseDelayMs * 2 ** (attempt - 1);
+        this.logger.warn(
+          `[ACS] Intento ${attempt}/${maxAttempts} falló para ${to} (${statusCode ?? (error as Error)?.name ?? 'unknown'}). Reintentando en ${delay} ms.`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
   }
 

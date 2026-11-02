@@ -9,13 +9,17 @@ import { AuthModule } from '../auth/auth.module';
 import { TeamRepository } from './repositories/team.repository';
 import { RecaptchaService } from './services/recaptcha.service'
 import { ConfigModule } from '@nestjs/config';
+import { SettingsModule } from '../settings/settings.module';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
     PrismaModule, 
     AuthModule, 
     HttpModule,
-    ConfigModule
+    ConfigModule,
+    SettingsModule,
+    UploadModule,
   ],
   controllers: [TeamsController],
   providers: [

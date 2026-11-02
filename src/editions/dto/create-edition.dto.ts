@@ -10,6 +10,7 @@ import {
 	Min,
 	IsIn,
 } from 'class-validator';
+import { IsNotBefore } from './is-not-before.decorator';
 
 export class CreateEditionDto {
 
@@ -52,6 +53,9 @@ export class CreateEditionDto {
 	@Type(() => Date)
 	@IsDate({
 		message: 'La fecha de finalización no es válida',
+	})
+	@IsNotBefore('startsAt', {
+		message: 'La fecha de finalización no puede ser anterior a la de inicio',
 	})
 	endsAt: Date;
 

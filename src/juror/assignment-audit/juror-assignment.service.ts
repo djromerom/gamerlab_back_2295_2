@@ -580,7 +580,6 @@ export class JurorAssignmentService implements OnModuleInit {
           isActive: true,
           assignedJurors: {
             some: {
-              isActive: true,
               OR: [
                 { roleId: this.jurorRoleId },
                 { roleId: this.professorRoleId },
@@ -591,7 +590,6 @@ export class JurorAssignmentService implements OnModuleInit {
         include: {
           assignedJurors: {
             where: {
-              isActive: true,
               OR: [
                 { roleId: this.jurorRoleId },
                 { roleId: this.professorRoleId },

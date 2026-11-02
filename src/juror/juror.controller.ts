@@ -9,7 +9,10 @@ import {
   Delete,
   UseGuards,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import { omitPassword } from '../common/utils/omit-password';
 
 import {
   ApiTags,
@@ -35,6 +38,7 @@ import { AuditLogQueryDto } from './dto/audit-log-query.dto';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { AppUser } from '../auth/jwt.strategy';
 import { AuthService } from '../auth/auth.service';
 
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -308,6 +312,8 @@ export class JurorController {
   // ─── Team-level queries ──────────────────────────────────────────────────────
 
   @Get('teams/:teamId/evaluation-stats')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ViewTeamEvaluationStats')
   @ApiOperation({
     summary: 'Obtener estadísticas de evaluación de un equipo',
     description:
@@ -324,17 +330,27 @@ export class JurorController {
   })
   @ApiBadRequestResponse({ description: 'ID de equipo inválido' })
   @ApiNotFoundResponse({ description: 'Equipo no encontrado' })
-  getTeamEvaluationStats(@Param('teamId') teamId: string) {
+  async getTeamEvaluationStats(
+    @Param('teamId') teamId: string,
+    @GetUser() user: AppUser,
+  ) {
     const teamIdNumber = parseInt(teamId, 10);
 
     if (isNaN(teamIdNumber)) {
       throw new BadRequestException('ID de equipo inválido');
     }
 
+    await this.jurorService.assertCanViewTeamEvaluationStats(
+      user,
+      teamIdNumber,
+    );
+
     return this.jurorService.getTeamEvaluationStats(teamIdNumber);
   }
 
   @Get('teams/:teamId/jurors-status')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListJurors')
   @ApiOperation({
     summary: 'Obtener estado de evaluación de los jurados de un equipo',
     description:
@@ -392,8 +408,8 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetJuror')
   @ApiOperation({ summary: 'Obtener jurado por ID' })
-  findOne(@Param('id') id: string) {
-    return this.jurorService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    return omitPassword(await this.jurorService.findOne(id));
   }
 
   @Patch(':id')
@@ -408,7 +424,8 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('DeleteJurror')
   @ApiOperation({ summary: 'Eliminar jurado' })
-  softdelete(@Param('id') id: string) {
-    return this.jurorService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async softdelete(@Param('id') id: string): Promise<void> {
+    await this.jurorService.remove(id);
   }
 }

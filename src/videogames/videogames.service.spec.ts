@@ -1,3 +1,4 @@
+import { blobRefsProvider } from '../upload/blob-reference.mock';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
@@ -63,6 +64,7 @@ describe('VideogamesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VideogamesService,
+        blobRefsProvider,
         { 
           provide: PrismaService, 
           useValue: prisma 
@@ -147,6 +149,7 @@ describe('VideogamesService – getMyLike', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VideogamesService,
+        blobRefsProvider,
         { 
           provide: PrismaService, 
           useValue: prisma 
@@ -188,6 +191,7 @@ describe('VideogamesService – getLikes', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VideogamesService,
+        blobRefsProvider,
         { 
           provide: PrismaService,
           useValue: prisma 

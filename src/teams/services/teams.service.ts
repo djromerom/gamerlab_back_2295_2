@@ -8,6 +8,7 @@ import {
   NotFoundException,
   UnauthorizedException,
   ForbiddenException,
+  HttpException,
 } from '@nestjs/common';
 import { AuthService } from '../../auth/auth.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -17,10 +18,15 @@ import { RegisterUserDto } from '../dto/register-user.dto';
 import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
+import { ValidateStudentCodesDto } from '../dto/validate-student-codes.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
 import { MemberDto } from '../dto/member.dto';
+import { ROLE_IDS } from '../../auth/constants/roles';
+import { SettingsService } from '../../settings/settings.service';
+import { stripPersonalData } from '../../common/utils/strip-personal-data';
+import { BlobReferenceService } from '../../upload/blob-reference.service';
 
 @Injectable()
 export class TeamsService {
@@ -31,7 +37,32 @@ export class TeamsService {
     private readonly teamRepository: TeamRepository,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
+
+  /** Task 28: la BD guarda `upload:<id>`; lo que llega como URL firmada se convierte antes de guardar. */
+  private async withBlobReferences<T extends { videogame?: any }>(dto: T, teamId?: number): Promise<T> {
+    if (!dto?.videogame) return dto;
+    const current =
+      teamId === undefined
+        ? null
+        : await this.prisma.videogame.findUnique({
+            where: { teamId },
+            select: { logoUrl: true, gameFileUrl: true, additionalImages: true },
+          });
+    return { ...dto, videogame: await this.blobRefs.referenceVideogameFields(dto.videogame, current) };
+  }
+
+  /** Respuesta de createTeam: el videojuego recien creado se devuelve con URL firmadas, nunca `upload:<id>`. */
+  private async withSignedCreated<T extends { videogame: any }>(created: T): Promise<T> {
+    return { ...created, videogame: await this.blobRefs.resolveVideogame(created.videogame) };
+  }
+
+  /** Task 28: firma al leer los archivos referenciados del videojuego de cada equipo. */
+  private async withSignedBlobs<T>(teams: T[]): Promise<T[]> {
+    return this.blobRefs.resolveTeamsVideogames(teams as any) as Promise<T[]>;
+  }
 
   async findByTeamName(teamName: string): Promise<any> {
     return await this.teamRepository.findByTeamName(teamName);
@@ -67,9 +98,17 @@ export class TeamsService {
     }
   }
 
-  async getFinalScoreByTeamCodePrefix(prefix: string): Promise<any[]> {
+  async getFinalScoreByTeamCodePrefix(prefix: string, user?: AppUser): Promise<any[]> {
     if (!prefix || typeof prefix !== 'string') {
       throw new BadRequestException('Invalid prefix');
+    }
+
+    // Contrato de by-n: con el ranking oculto responde [] (no 403) salvo al Administrador
+    try {
+      await this.assertRankingVisible(user);
+    } catch (e) {
+      if (e instanceof ForbiddenException) return [];
+      throw e;
     }
 
     const client: any = (this.prisma as any).teamFinalScore;
@@ -112,7 +151,7 @@ export class TeamsService {
       );
 
       if (!missingTeamName && !missingLogo) {
-        return this.applyTieBreakerToRanking(rows);
+        return this.signRankingLogos(await this.applyTieBreakerToRanking(rows));
       }
 
       const teamIds = Array.from(
@@ -186,18 +225,105 @@ export class TeamsService {
         return rr;
       });
 
-      return this.applyTieBreakerToRanking(enrichedRows);
+      return this.signRankingLogos(await this.applyTieBreakerToRanking(enrichedRows));
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch final scores by prefix');
     }
   }
 
+  /** Task 28: el ranking arrastra `logoUrl` del videojuego; si es una referencia se firma al leer. */
+  private async signRankingLogos(rows: any[]): Promise<any[]> {
+    return this.blobRefs.resolveKeys(rows, ['logoUrl', 'videogameLogoUrl']);
+  }
+
   async validateEmails(validateEmailsDto: ValidateEmailsDto) {
     return await this.teamRepository.checkEmailsExist(validateEmailsDto.emails);
   }
 
+  /** Para cada código, si ya lo tiene un integrante de otro equipo. */
+  async validateStudentCodes(
+    dto: ValidateStudentCodesDto,
+  ): Promise<{ [studentCode: string]: boolean }> {
+    const existing = await this.teamRepository.findExistingStudentCodes([
+      ...new Set(dto.studentCodes),
+    ]);
+    const result: { [studentCode: string]: boolean } = {};
+    dto.studentCodes.forEach((code) => {
+      result[code] = existing.has(code);
+    });
+    return result;
+  }
+
+  /**
+   * Todo lo que la inscripción pública puede revisar antes de escribir, con mensajes en
+   * español, para que el alumno sepa qué dato corregir.
+   */
+  private async assertTeamCanBeCreated(createTeamDto: CreateTeamDto) {
+    const { members, teamName, videogame } = createTeamDto;
+
+    const seenEmails = new Set<string>();
+    const seenCodes = new Set<string>();
+    for (const member of members) {
+      const email = member.memberEmail.trim().toLowerCase();
+      if (seenEmails.has(email)) {
+        throw new ConflictException(
+          `El correo ${member.memberEmail} está repetido en el equipo.`,
+        );
+      }
+      seenEmails.add(email);
+
+      if (seenCodes.has(member.studentCode)) {
+        throw new ConflictException(
+          `El código estudiantil ${member.studentCode} está repetido en el equipo.`,
+        );
+      }
+      seenCodes.add(member.studentCode);
+    }
+
+    const existingEmails = await this.teamRepository.checkEmailsExist(
+      members.map((member) => member.memberEmail),
+    );
+    const takenEmail = members.find((member) => existingEmails[member.memberEmail]);
+    if (takenEmail) {
+      throw new ConflictException(
+        `El correo ${takenEmail.memberEmail} ya está en uso.`,
+      );
+    }
+
+    const existingStudentCodes = await this.teamRepository.findExistingStudentCodes(
+      [...seenCodes],
+    );
+    const takenCode = members.find((member) =>
+      existingStudentCodes.has(member.studentCode),
+    );
+    if (takenCode) {
+      throw new ConflictException(
+        `El código estudiantil ${takenCode.studentCode} ya está registrado en otro equipo.`,
+      );
+    }
+
+    if (await this.teamRepository.findByTeamName(teamName)) {
+      throw new ConflictException(
+        `Ya existe un equipo con el nombre "${teamName}".`,
+      );
+    }
+
+    if (videogame?.vgName && (await this.teamRepository.findByVideogameName(videogame.vgName))) {
+      throw new ConflictException(
+        `Ya existe un videojuego con el nombre "${videogame.vgName}".`,
+      );
+    }
+  }
+
   async create(createTeamDto: CreateTeamDto) {
+    // En la inscripción pública el logo es obligatorio (decisión del 1 de noviembre). Se
+    // revisa antes del captcha para no gastar el token. La creación del admin lo sigue aceptando
+    // sin logo. `logoUrl: ""` ya llega como undefined (VideogameDto).
+    if (!createTeamDto.videogame?.logoUrl) {
+      throw new BadRequestException('El logo del videojuego es obligatorio.');
+    }
+
     try {
       const isRecaptchaValid = await this.recaptchaService.verify(
         createTeamDto.recaptchaToken,
@@ -217,43 +343,15 @@ export class TeamsService {
 
     const firstMember = createTeamDto.members[0];
 
-    const existingEmails = await this.teamRepository.checkEmailsExist([
-      firstMember.memberEmail,
-    ]);
+    await this.assertTeamCanBeCreated(createTeamDto);
 
-    if (existingEmails[firstMember.memberEmail]) {
-      throw new ConflictException(
-        `The email ${firstMember.memberEmail} is already in use.`,
-      );
-    }
-
-    const studentCodeMap = new Map<string, boolean>();
-    const studentCodes: string[] = [];
-
-    for (const member of createTeamDto.members) {
-      if (studentCodeMap.has(member.studentCode)) {
-        throw new ConflictException(
-          `Duplicate student code: ${member.studentCode} within request`,
-        );
-      }
-
-      studentCodeMap.set(member.studentCode, true);
-      studentCodes.push(member.studentCode);
-    }
-
-    const existingStudentCodes =
-      await this.teamRepository.findExistingStudentCodes(studentCodes);
-
-    for (const member of createTeamDto.members) {
-      if (existingStudentCodes.has(member.studentCode)) {
-        throw new ConflictException(
-          `Student code ${member.studentCode} is already in use.`,
-        );
-      }
-    }
+    // fuera del try: un archivo no válido es un 400, no un 500
+    const dtoWithRefs = await this.withBlobReferences(createTeamDto);
 
     try {
-      const result = await this.teamRepository.createTeam(createTeamDto);
+      const result = await this.withSignedCreated(
+        await this.teamRepository.createTeam(dtoWithRefs),
+      );
 
       this.logger.log(
         `Team created successfully for user: ${firstMember.memberEmail}`,
@@ -271,18 +369,23 @@ export class TeamsService {
 
       if (errorMessage.toLowerCase().includes('user already registered')) {
         throw new ConflictException(
-          `Email ${firstMember.memberEmail} is already registered.`,
+          `El correo ${firstMember.memberEmail} ya está registrado.`,
         );
       }
 
       if (errorMessage.toLowerCase().includes('team already exists')) {
         throw new ConflictException(
-          'A team with this information already exists.',
+          'Ya existe un equipo con esta información.',
         );
       }
 
+      // Los 400/404/409 del repositorio (NRC no encontrado, correo en uso…) llegan tal cual
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new InternalServerErrorException(
-        `Failed to create team: ${errorMessage}`,
+        `No se pudo registrar el equipo: ${errorMessage}`,
       );
     }
   }
@@ -296,7 +399,11 @@ export class TeamsService {
       );
     }
 
-    return await this.teamRepository.createTeam(createTeamDto);
+    return this.withSignedCreated(
+      await this.teamRepository.createTeam(
+        await this.withBlobReferences(createTeamDto),
+      ),
+    );
   }
 
   async registerUser(registerDto: RegisterUserDto) {
@@ -308,8 +415,17 @@ export class TeamsService {
     return await this.authService.registerUser(authRegisterPayload);
   }
 
-  async findAll(sortByLikes: boolean) {
-    return this.teamRepository.findAll(sortByLikes);
+  /**
+   * @param includePersonalData true only when the caller has the Administrador role (the controller
+   * resolves it with OptionalAdminRoleGuard). Everyone else, logged in or not, gets the list without
+   * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
+   */
+  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
+    const teams = await this.withSignedBlobs(
+      await this.teamRepository.findAll(sortByLikes),
+    );
+    const visible = includePersonalData ? teams : stripPersonalData(teams);
+    return this.markOwnTeams(visible, currentUserId);
   }
 
   async findOne(id: number): Promise<unknown> {
@@ -317,10 +433,19 @@ export class TeamsService {
       throw new BadRequestException('Invalid team id');
     }
 
-    return await this.teamRepository.findOne(id);
+    const team = await this.teamRepository.findOne(id);
+
+    if (!team) {
+      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+    }
+
+    return team;
   }
 
-  async findOneWithDetails(identifier: string): Promise<unknown> {
+  async findOneWithDetails(
+    identifier: string,
+    user: AppUser,
+  ): Promise<unknown> {
     let team =
       await this.teamRepository.findOneWithDetailsByLeaderId(identifier);
 
@@ -335,7 +460,25 @@ export class TeamsService {
       );
     }
 
-    return team;
+    // F1/BG-07: el detalle incluye correos y códigos estudiantiles. Un estudiante
+    // solo lo ve si es el líder o un integrante activo del equipo.
+    if (user.roleId === ROLE_IDS.STUDENT) {
+      const email = user.email?.toLowerCase();
+      const isLeader = team.userId === user.id;
+      const isMember =
+        !!email &&
+        (team.members ?? []).some(
+          (m: { email: string }) => m.email?.toLowerCase() === email,
+        );
+
+      if (!isLeader && !isMember) {
+        throw new ForbiddenException(
+          'You do not have permission to access this resource.',
+        );
+      }
+    }
+
+    return (await this.withSignedBlobs([team]))[0];
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto, currentUser: AppUser) {
@@ -354,7 +497,17 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.update(id, updateTeamDto, isAdmin);
+    const result = await this.teamRepository.update(
+      id,
+      await this.withBlobReferences(updateTeamDto, id),
+      isAdmin,
+    );
+    if (result && 'updatedVideogame' in result) {
+      result.updatedVideogame = await this.blobRefs.resolveVideogame(
+        result.updatedVideogame,
+      );
+    }
+    return result;
   }
 
   async updateTeamInfo(
@@ -377,7 +530,12 @@ export class TeamsService {
       );
     }
 
-    return this.teamRepository.updateTeamInfo(id, updateTeamDto, isAdmin);
+    const updated = await this.teamRepository.updateTeamInfo(
+      id,
+      await this.withBlobReferences(updateTeamDto, id),
+      isAdmin,
+    );
+    return updated ? (await this.withSignedBlobs([updated]))[0] : updated;
   }
 
   async updateMemberEmail(
@@ -393,7 +551,7 @@ export class TeamsService {
     }
 
     if (team.userId !== userId) {
-      throw new UnauthorizedException(
+      throw new ForbiddenException(
         'Solo el líder del equipo puede actualizar los emails de los integrantes',
       );
     }
@@ -458,32 +616,45 @@ export class TeamsService {
     return this.teamRepository.getTeamsWithLessThanThreeJurors();
   }
 
-  async getFinalScoreByVideogame(videogameId: number): Promise<any[] | null> {
+  /**
+   * Con `showRanking=false` solo el Administrador puede ver las notas finales.
+   * `by-n/:n` también pasa por aquí, pero convierte el Forbidden en `[]` (su contrato).
+   */
+  private async assertRankingVisible(user?: AppUser): Promise<void> {
+    if (user?.roleId === ROLE_IDS.ADMIN) return;
+    if (!(await this.settingsService.isRankingVisible())) {
+      throw new ForbiddenException('El ranking no está disponible');
+    }
+  }
+
+  async getFinalScoreByVideogame(videogameId: number, user?: AppUser): Promise<any[] | null> {
     if (!Number.isInteger(videogameId) || videogameId <= 0) {
       throw new BadRequestException('Invalid videogame id');
     }
+    await this.assertRankingVisible(user);
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return client.findMany({
+    return this.signRankingLogos(await client.findMany({
       where: {
         videogameId,
       },
-    });
+    }));
   }
 
-  async getFinalScoreByTeam(teamId: number): Promise<any[] | null> {
+  async getFinalScoreByTeam(teamId: number, user?: AppUser): Promise<any[] | null> {
     if (!Number.isInteger(teamId) || teamId <= 0) {
       throw new BadRequestException('Invalid team id');
     }
+    await this.assertRankingVisible(user);
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return client.findMany({
+    return this.signRankingLogos(await client.findMany({
       where: {
         teamId,
       },
-    });
+    }));
   }
 
   /**
@@ -805,8 +976,20 @@ export class TeamsService {
     return sortedRanking;
   }
 
-  async findPaged(page: number, limit: number, sortByLikes: boolean) {
-    return await this.teamRepository.findPaged(page, limit, sortByLikes);
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
+    const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+    result.data = await this.withSignedBlobs(result.data);
+    const visible = includePersonalData ? result : stripPersonalData(result);
+    return { ...visible, data: this.markOwnTeams(visible.data, currentUserId) };
+  }
+
+  /**
+   * Con sesión, agrega `isMine` (el usuario autenticado es el líder). Sin sesión no agrega nada.
+   * Reemplaza al cruce `team.userId === user.id` que hacía el front con el UUID del líder.
+   */
+  private markOwnTeams<T extends { userId?: string }>(teams: T[], currentUserId?: string) {
+    if (!currentUserId) return teams;
+    return teams.map((team) => ({ ...team, isMine: team.userId === currentUserId }));
   }
 
   async getLeaderStatus(email: string) {
@@ -844,19 +1027,45 @@ export class TeamsService {
     }
   }
 
+  /**
+   * BG-01: el permiso `UpdateTeam` lo tienen los estudiantes, por lo que sin esta
+   * verificación podrían tocar cualquier equipo. Solo el líder o un administrador.
+   */
+  private async assertLeaderOrAdmin(
+    teamId: number,
+    user: AppUser,
+  ): Promise<void> {
+    const team = await this.teamRepository.findOne(teamId);
+
+    if (!team) {
+      throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+    }
+
+    const isLeader = team.userId === user.id;
+    const isAdmin = user.roleId === ROLE_IDS.ADMIN;
+
+    if (!isLeader && !isAdmin) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource.',
+      );
+    }
+  }
+
   async addMember(
     id: number,
     memberDto: MemberDto,
-    user: User,
+    user: AppUser,
   ): Promise<Member | undefined> {
+    await this.assertLeaderOrAdmin(id, user);
     return await this.teamRepository.addMember(id, memberDto);
   }
 
   async deleteMember(
     teamId: number,
     memberId: number,
-    user: User,
+    user: AppUser,
   ): Promise<{ message: string; member: Member | null } | undefined> {
+    await this.assertLeaderOrAdmin(teamId, user);
     return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }

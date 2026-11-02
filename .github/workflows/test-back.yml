@@ -16,13 +16,74 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+          cache: npm
+
       - name: Install dependencies
         run: npm ci
 
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Build
+        run: npm run build
+
+      # TODO: la deuda actual de lint (~1000 errores sin contar prettier) impide hacerlo bloqueante;
+      # quitar continue-on-error cuando se limpie.
+      - name: Lint
+        run: npx eslint src
+        continue-on-error: true
+
       - name: Run tests
         run: npm run test:ci
-        continue-on-error: true
+
+  # Job to run the integration tests against a disposable PostgreSQL
+  # (test/*.e2e-spec.ts and src/**/*.db.spec.ts skip themselves without a database)
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: arkad
+          POSTGRES_PASSWORD: arkad
+          POSTGRES_DB: arkad_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U arkad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway database that only lives during this job; not a secret
+      DATABASE_URL: postgresql://arkad:arkad@localhost:5432/arkad_ci
+      INTEGRATION_DATABASE_URL: postgresql://arkad:arkad@localhost:5432/arkad_ci
+      RUN_DB_TESTS: '1'
+      NODE_ENV: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        run: npm run db:seed
+
+      - name: Run integration tests
+        run: npm run test:e2e -- --runInBand
+
+      - name: Run database unit tests
+        run: npx jest --runInBand --testPathPattern "\.db\.spec\.ts$"

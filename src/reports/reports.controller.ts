@@ -1,23 +1,47 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, Inject } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { SettingsService } from '../settings/settings.service';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { OptionalAdminRoleGuard } from 'src/auth/guards/admin-role.guard';
+import { IsAdmin } from 'src/auth/decorators/is-admin.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import * as ExcelJS from 'exceljs';
 import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse } from '@nestjs/swagger';
 
 @ApiTags('reports')
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) { }
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly settingsService: SettingsService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+  ) { }
 
+  // Caché de 10 min con el estado de showRanking en la clave: al ocultar el ranking no se
+  // sirven notas viejas. El administrador con el ranking oculto ve las notas y no usa la caché pública.
   @Public()
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(600000)
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('videojuegoData')
   @ApiOperation({ summary: 'Get videogames with subject and NRC' })
-  async getWithMateriaYNRC() {
-    return this.reportsService.getVideogamesData();
+  async getWithMateriaYNRC(@GetUser() user?: AppUser) {
+    const showRanking = await this.settingsService.isRankingVisible();
+    if (!showRanking && user?.roleId === ROLE_IDS.ADMIN) {
+      return this.reportsService.getVideogamesData(user);
+    }
+    const key = `reports:videojuegoData:showRanking=${showRanking}`;
+    const cached = await this.cacheManager.get(key);
+    if (cached !== undefined && cached !== null) return cached;
+    const data = await this.reportsService.getVideogamesData(user);
+    await this.cacheManager.set(key, data, 600000);
+    return data;
   }
 
   @Public()
@@ -27,28 +51,38 @@ export class ReportsController {
     return this.reportsService.getSubjects();
   }
 
+  // Sin caché. Con el ranking oculto el promedio va en null salvo para el administrador (ARK-SP1 T29).
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('NRCData')
   @ApiOperation({ summary: 'Get NRCs with average per NRC' })
-  async getNrcWithSubjectNameAndAverage() {
-    return this.reportsService.getNrcWithSubjectNameAndAverage();
+  async getNrcWithSubjectNameAndAverage(@GetUser() user?: AppUser) {
+    return this.reportsService.getNrcWithSubjectNameAndAverage(user);
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('DatosGraficoMateria')
   @ApiOperation({ summary: 'Get average score per subject (for charts)' })
-  async getAverageScorePerSubject() {
-    return this.reportsService.getSubjectAverageScores();
+  async getAverageScorePerSubject(@GetUser() user?: AppUser) {
+    return this.reportsService.getSubjectAverageScores(user);
   }
 
-  @Public()
+  // Devuelve correos de jurados: requiere sesión (BG-02).
+  // El administrador ve todos; cualquier otro usuario solo los jurados de su propio equipo (página "Mis jurados").
   @Get('JuradosData')
-  @ApiOperation({ summary: 'Get jurors data' })
-  async getJuradosData() {
-    return this.reportsService.getJuradosData();
+  @UseGuards(OptionalAdminRoleGuard)
+  @ApiOperation({ summary: 'Get jurors data (admin: all jurors; team leader: only the jurors of their team)' })
+  async getJuradosData(@IsAdmin() isAdmin: boolean, @GetUser('id') userId: string) {
+    if (isAdmin) {
+      return this.reportsService.getJuradosData();
+    }
+    return this.reportsService.getJuradosDataForTeamLeader(userId);
   }
 
   @Get('exportExcel')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export videogame report to Excel' })
   @ApiQuery({ name: 'materia', required: false, description: 'Subject name to filter' })
   @ApiQuery({ name: 'nrc', required: false, description: 'NRC code to filter', type: Number })
@@ -203,6 +237,8 @@ export class ReportsController {
   }
 
   @Get('exportJurados')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
   @ApiOperation({ summary: 'Export jurors report to Excel' })
   @ApiOkResponse({ description: 'Excel file with jurors and their status' })
   async exportJurados(
@@ -281,6 +317,10 @@ export class ReportsController {
           col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
         } 
       });
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
       res.setHeader('Content-Disposition', 'attachment; filename=reporte_jurados.xlsx');
       await workbook.xlsx.write(res);
       if (!res.writableEnded) res.end();

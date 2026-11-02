@@ -1,10 +1,11 @@
 // src/teams/dto/videogame.dto.ts
 import { IsString, IsNotEmpty, MaxLength, IsOptional, IsUrl, ValidateIf, IsArray, ArrayMaxSize } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { env } from 'node:process';
 import { isEnvSensitiveUrl } from 'src/common/decorators/isEnvSensitiveUrl.decorator';
+import { trimString, trimToUndefined } from '../../common/utils/trim-transform';
 
 export class VideogameDto {
+  @Transform(trimString)
   @IsString()
   @MaxLength(30, {
     message: 'El nombre del videojuego debe ser de máximo 30 caracteres',
@@ -16,17 +17,21 @@ export class VideogameDto {
   @IsOptional()
   description?: string;
 
+  // El registro sin logo envía `logoUrl: ""`; vacío cuenta como sin logo
+  @Transform(trimToUndefined)
   @IsString()
   @IsOptional()
   @isEnvSensitiveUrl({ message: 'La URL del logo del juego debe ser válida' })
   logoUrl?: string;
 
+  @Transform(trimString)
   @IsOptional()
   @IsString()
   @ValidateIf((o) => o.videoUrl && o.videoUrl.trim() !== '')
   @IsUrl({}, { message: 'La URL de YouTube debe ser válida' })
   videoUrl?: string;
 
+  @Transform(trimString)
   @IsOptional()
   @IsString()
   @ValidateIf((o) => o.repoUrl && o.repoUrl.trim() !== '')

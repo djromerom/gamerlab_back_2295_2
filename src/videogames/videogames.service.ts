@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -11,6 +12,9 @@ import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { VideogamesGateway } from './videogames.gateway';
 import { Prisma } from '@prisma/client';
+import { AppUser } from '../auth/jwt.strategy';
+import { ROLE_IDS } from '../auth/constants/roles';
+import { BlobReferenceService } from '../upload/blob-reference.service';
 
 @Injectable()
 export class VideogamesService {
@@ -18,6 +22,7 @@ export class VideogamesService {
   constructor(
     private prisma: PrismaService,
     private gateway: VideogamesGateway,
+    private readonly blobRefs: BlobReferenceService,
   ) { }
 
   private readonly MAX_LIKES_LOGO_ONLY = 20;
@@ -28,8 +33,9 @@ export class VideogamesService {
     throw new NotImplementedException('Method create not implemented yet');
   }
 
-  async findAll() {
+  async findAll(limit?: number, page = 1) {
     const videogames = await this.prisma.videogame.findMany({
+      ...(limit ? { orderBy: { id: 'asc' as const }, skip: (page - 1) * limit, take: limit } : {}),
       include: {
         team: {
           select: {
@@ -53,6 +59,7 @@ export class VideogamesService {
       },
     });
 
+    await this.blobRefs.resolveInPlace(videogames);
     return videogames.map((vg) => ({
       id: vg.id,
       name: vg.name,
@@ -231,30 +238,75 @@ export class VideogamesService {
       //additionalImages: vg.additionalImages,
       teamName: vg.team.teamName,
       status: vg.videogameStatus.status,
-      gameFileURL: vg.gameFileUrl || '',
+      gameFileURL: (await this.blobRefs.resolve(vg.gameFileUrl)) || '',
       entry: vg.entry || ''
     };
   }
 
-  async update(videogameId: number, videogameData: UpdateVideogameDto) {
+  async update(
+    videogameId: number,
+    videogameData: UpdateVideogameDto,
+    user: AppUser,
+  ) {
     const vg = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
+      include: { team: { select: { userId: true } } },
     });
 
     if (!vg) {
       throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
     }
 
-    const { vgName, ...restData } = videogameData;
+    // BG-01: el permiso `UpdateVideogame` lo tienen los estudiantes, pero solo
+    // pueden modificar el videojuego de SU equipo (el líder). El administrador
+    // puede modificar cualquiera.
+    const isAdmin = user.roleId === ROLE_IDS.ADMIN;
+    const isOwner = vg.team.userId === user.id;
+
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException(
+        'You do not have permission to modify this videogame.',
+      );
+    }
+
+    // El estado de aprobación (CONFIRMADO / PENDIENTE / RECHAZADO) lo decide
+    // un administrador: un estudiante no puede aprobar ni ocultar su propio juego.
+    if (!isAdmin && videogameData.videogameStatusId !== undefined) {
+      throw new ForbiddenException(
+        'Only an administrator can change the status of a videogame.',
+      );
+    }
+
+    // `name` (la columna) solo la cambia un administrador. Un no administrador
+    // que lo envíe igual al actual (o sin enviarlo) no cambia nada y se ignora.
+    const { name: requestedName, ...dataWithoutName } = videogameData;
+    if (
+      !isAdmin &&
+      requestedName !== undefined &&
+      requestedName.trim() !== vg.name.trim()
+    ) {
+      throw new ForbiddenException(
+        'Solo un administrador puede cambiar el nombre del videojuego',
+      );
+    }
+
+    // Task 28: se guarda la referencia del archivo, no la URL firmada
+    const { vgName, ...restData } =
+      await this.blobRefs.referenceVideogameFields(
+        isAdmin ? videogameData : dataWithoutName,
+        vg,
+      );
     const updateData: any = { ...restData };
     if (vgName !== undefined) {
       updateData.name = vgName;
     }
 
-    return this.prisma.videogame.update({
-      where: { id: videogameId },
-      data: updateData,
-    });
+    return this.blobRefs.resolveVideogame(
+      await this.prisma.videogame.update({
+        where: { id: videogameId },
+        data: updateData,
+      }),
+    );
   }
 
   //TODO: remove static game files, if there are any. possible interface with upload module?

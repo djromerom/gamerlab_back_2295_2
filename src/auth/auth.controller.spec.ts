@@ -5,6 +5,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheService } from '../cache/cache.service';
 
 // Smoke test to ensure the controller can be instantiated without errors.
@@ -36,6 +37,7 @@ describe('AuthController', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }])],
       controllers: [AuthController],
       providers: [
         {
@@ -70,5 +72,16 @@ describe('AuthController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+});
+describe('AuthController.getMyProfile: likeKey', () => {
+  it('agrega likeKey igual a la clave opaca del usuario', async () => {
+    process.env.SOCKET_KEY_SECRET = 'secreto-de-prueba';
+    const { opaqueUserKey } = await import('../common/utils/opaque-user-key');
+    const authService = { getMyProfile: jest.fn().mockResolvedValue({ id: 'u-1', firstName: 'Ana' }) };
+    const controller = new AuthController(authService as any);
+    const result: any = await controller.getMyProfile({ id: 'u-1' } as any);
+    expect(result).toMatchObject({ id: 'u-1', firstName: 'Ana' });
+    expect(result.likeKey).toBe(opaqueUserKey('u-1', 'secreto-de-prueba'));
   });
 });

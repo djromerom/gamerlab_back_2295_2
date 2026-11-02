@@ -1,16 +1,27 @@
-import { Controller, Get, Param, Post, UploadedFile, UseInterceptors, Query, Delete, BadRequestException, PayloadTooLargeException, UseFilters } from '@nestjs/common';
+import { Controller, Get, Param, Post, Req, UploadedFile, UseInterceptors, Query, Delete, BadRequestException, PayloadTooLargeException, UseFilters, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AzureStorageService } from './azure-storage.service';
 import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator'; // Add this import
 import { MulterExceptionFilter } from './multer-exception.filter';
+import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { RequiredService } from '../auth/decorators/required-service.decorator';
+import { PUBLIC_LIMITS, PublicThrottle } from '../common/throttle/public-throttle';
+import { isAllowedImage, isZip } from './file-signature';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { DEFAULT_SAS_TTL_SEC, MAX_SAS_TTL_SEC } from './azure-storage.service';
+import { ZipUploadAccessGuard } from './zip-upload-access.guard';
+import { RegistrationsOpenOrSessionGuard } from '../settings/registrations-open.guard';
 
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
   constructor(private readonly azureService: AzureStorageService) { }
 
+  // Público porque lo usa la inscripción web antes de crear la cuenta; con límite de peticiones (BG-02)
   @Public()
+  @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenOrSessionGuard)
+  @PublicThrottle(PUBLIC_LIMITS.imageUpload)
   @Post()
   @UseFilters(MulterExceptionFilter)
   @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
@@ -80,10 +91,20 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
+    if (!isAllowedImage(file.buffer)) {
+      throw new BadRequestException('El contenido del archivo no corresponde a una imagen permitida (JPEG, PNG, GIF, WebP)');
+    }
     return await this.azureService.uploadFile(file);
   }
 
   @Public()
+  // Orden: sesión opcional -> límite de anónimos (reCAPTCHA + 3/10 min por IP, upload-urls-y-zip)
+  // -> inscripciones abiertas o con sesión (inscripciones-back). Sin @PublicThrottle: con sesión no se limita.
+  @UseGuards(
+    OptionalJwtAuthGuard,
+    ZipUploadAccessGuard,
+    RegistrationsOpenOrSessionGuard,
+  )
   @Post('zip')
   @ApiOperation({ summary: 'Subir los archivos estáticos de un juego en forma de .zip' })
   @ApiBody({
@@ -99,7 +120,7 @@ export class UploadController {
   @UseFilters(MulterExceptionFilter)
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 1024 * 1024 * 500, // 500MB limit,
+      fileSize: 1024 * 1024 * 100, // 100MB limit,
       files: 1
     },
     fileFilter: (req, file, callback) => {
@@ -120,10 +141,15 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException('Archivo no encontrado. Se requiere un archivo .zip!');
     }
+    if (!isZip(file.buffer)) {
+      throw new BadRequestException('El contenido del archivo no corresponde a un .zip');
+    }
     return this.azureService.uploadFile(file);
   }
 
   @Get(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageUploads')
   @ApiOperation({ summary: 'Consultar un registro por ID' })
   @ApiParam({ name: 'id', description: 'UUID del registro en Postgres' })
   @ApiResponse({ status: 200, description: 'Registro encontrado' })
@@ -132,17 +158,23 @@ export class UploadController {
   }
 
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id/url')
   @ApiOperation({ summary: 'Generar URL temporal (SAS) de lectura para el blob' })
   @ApiParam({ name: 'id', description: 'UUID del registro en Postgres' })
-  @ApiQuery({ name: 'ttl', required: false, description: 'Tiempo de vida del SAS en segundos (min 60, por defecto 3 años)' })
+  @ApiQuery({ name: 'ttl', required: false, description: 'Tiempo de vida del SAS en segundos (min 60, máx 3 años; por defecto ~3 años)' })
   @ApiResponse({ status: 200, description: 'URL temporal generada', schema: { example: { url: 'https://.../blob.png?sv=...&sp=r&sig=...', expiresAt: '2025-10-23T15:30:00.000Z' } } })
-  async getSignedUrl(@Param('id') id: string, @Query('ttl') ttl?: string) {
-    const ttlSec = Number(ttl) || 100000000;
-    return this.azureService.getReadSasUrlById(id, ttlSec);
+  @ApiResponse({ status: 403, description: 'Archivo privado, sin sesión y subido hace más de 15 minutos' })
+  @ApiResponse({ status: 404, description: 'Registro no encontrado' })
+  async getSignedUrl(@Param('id') id: string, @Query('ttl') ttl?: string, @Req() req?: any) {
+    const requested = Number(ttl);
+    const ttlSec = Number.isFinite(requested) && requested > 0 ? Math.min(requested, MAX_SAS_TTL_SEC) : DEFAULT_SAS_TTL_SEC;
+    return this.azureService.getReadSasUrlById(id, ttlSec, !!req?.user);
   }
 
   @Post(':id/public')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageUploads')
   @ApiOperation({ summary: 'Marcar/Desmarcar un blob como público (flag en BD, no guarda SAS)' })
   @ApiParam({ name: 'id', description: 'UUID del registro' })
   @ApiQuery({ name: 'value', required: false, description: 'true/false (por defecto true)' })
@@ -152,6 +184,8 @@ export class UploadController {
   }
 
   @Delete(':id')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ManageUploads')
   @ApiOperation({ summary: 'Eliminar blob en Azure y registro en la BD' })
   @ApiParam({ name: 'id', description: 'UUID del registro' })
   @ApiResponse({ status: 200, description: 'Eliminado', schema: { example: { id: 'uuid', deleted: true } } })
