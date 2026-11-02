@@ -1,4 +1,7 @@
-import { findUserByEmailCaseInsensitive } from '../../common/utils/find-user-by-email';
+import {
+  findUserByEmailCaseInsensitive,
+  normalizeEmail,
+} from '../../common/utils/find-user-by-email';
 // src/teams/repositories/team.repository.ts
 import {
   Injectable,
@@ -60,43 +63,37 @@ export class TeamRepository implements ITeamRepository {
     return !!videogame;
   }
 
+  /**
+   * Para cada correo recibido, si ya lo usa un usuario o un integrante. No distingue mayúsculas
+   * ni espacios (`Santiagodd@…` pasaba aunque `santiagodd@…` existía); las claves de la
+   * respuesta son los correos tal como llegaron, para que el front los encuentre.
+   */
   async checkEmailsExist(
     emails: string[],
   ): Promise<{ [email: string]: boolean }> {
     const result: { [email: string]: boolean } = {};
-
-    // Initialize all emails as not existing
     emails.forEach((email) => {
       result[email] = false;
     });
 
-    // Find existing emails in the database
-    const existingUsers = await this.prisma.user.findMany({
-      where: {
-        email: {
-          in: emails,
-        },
-      },
-      select: {
-        email: true,
-      },
-    });
+    const normalized = [...new Set(emails.map(normalizeEmail))];
+    if (normalized.length === 0) return result;
 
-    // Find existing members that might not be users yet
-    const existingMembers = await this.prisma.member.findMany({
-      where: {
-        email: {
-          in: emails,
-        },
-      },
-      select: {
-        email: true,
-      },
-    });
+    // `equals` + `insensitive` se traduce a ILIKE: se escapan `%` y `_` (C1/F4)
+    const filters = normalized.map((email) => ({
+      email: { equals: escapeLike(email), mode: 'insensitive' as const },
+    }));
 
-    // Mark existing emails as true
-    [...existingUsers, ...existingMembers].forEach((user) => {
-      result[user.email] = true;
+    const [existingUsers, existingMembers] = await Promise.all([
+      this.prisma.user.findMany({ where: { OR: filters }, select: { email: true } }),
+      this.prisma.member.findMany({ where: { OR: filters }, select: { email: true } }),
+    ]);
+
+    const taken = new Set(
+      [...existingUsers, ...existingMembers].map((row) => normalizeEmail(row.email)),
+    );
+    emails.forEach((email) => {
+      result[email] = taken.has(normalizeEmail(email));
     });
 
     return result;

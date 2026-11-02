@@ -8,6 +8,7 @@ import {
   NotFoundException,
   UnauthorizedException,
   ForbiddenException,
+  HttpException,
 } from '@nestjs/common';
 import { AuthService } from '../../auth/auth.service';
 import { CreateTeamDto } from '../dto/create-team.dto';
@@ -17,6 +18,7 @@ import { RegisterUserDto } from '../dto/register-user.dto';
 import { TeamRepository } from '../repositories/team.repository';
 import { RecaptchaService } from './recaptcha.service';
 import { ValidateEmailsDto } from '../dto/validate-emails.dto';
+import { ValidateStudentCodesDto } from '../dto/validate-student-codes.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Member, Team, User, EditionStatus } from '@prisma/client';
 import { AppUser } from '../../auth/jwt.strategy';
@@ -239,7 +241,89 @@ export class TeamsService {
     return await this.teamRepository.checkEmailsExist(validateEmailsDto.emails);
   }
 
+  /** Para cada código, si ya lo tiene un integrante de otro equipo. */
+  async validateStudentCodes(
+    dto: ValidateStudentCodesDto,
+  ): Promise<{ [studentCode: string]: boolean }> {
+    const existing = await this.teamRepository.findExistingStudentCodes([
+      ...new Set(dto.studentCodes),
+    ]);
+    const result: { [studentCode: string]: boolean } = {};
+    dto.studentCodes.forEach((code) => {
+      result[code] = existing.has(code);
+    });
+    return result;
+  }
+
+  /**
+   * Todo lo que la inscripción pública puede revisar antes de escribir, con mensajes en
+   * español, para que el alumno sepa qué dato corregir.
+   */
+  private async assertTeamCanBeCreated(createTeamDto: CreateTeamDto) {
+    const { members, teamName, videogame } = createTeamDto;
+
+    const seenEmails = new Set<string>();
+    const seenCodes = new Set<string>();
+    for (const member of members) {
+      const email = member.memberEmail.trim().toLowerCase();
+      if (seenEmails.has(email)) {
+        throw new ConflictException(
+          `El correo ${member.memberEmail} está repetido en el equipo.`,
+        );
+      }
+      seenEmails.add(email);
+
+      if (seenCodes.has(member.studentCode)) {
+        throw new ConflictException(
+          `El código estudiantil ${member.studentCode} está repetido en el equipo.`,
+        );
+      }
+      seenCodes.add(member.studentCode);
+    }
+
+    const existingEmails = await this.teamRepository.checkEmailsExist(
+      members.map((member) => member.memberEmail),
+    );
+    const takenEmail = members.find((member) => existingEmails[member.memberEmail]);
+    if (takenEmail) {
+      throw new ConflictException(
+        `El correo ${takenEmail.memberEmail} ya está en uso.`,
+      );
+    }
+
+    const existingStudentCodes = await this.teamRepository.findExistingStudentCodes(
+      [...seenCodes],
+    );
+    const takenCode = members.find((member) =>
+      existingStudentCodes.has(member.studentCode),
+    );
+    if (takenCode) {
+      throw new ConflictException(
+        `El código estudiantil ${takenCode.studentCode} ya está registrado en otro equipo.`,
+      );
+    }
+
+    if (await this.teamRepository.findByTeamName(teamName)) {
+      throw new ConflictException(
+        `Ya existe un equipo con el nombre "${teamName}".`,
+      );
+    }
+
+    if (videogame?.vgName && (await this.teamRepository.findByVideogameName(videogame.vgName))) {
+      throw new ConflictException(
+        `Ya existe un videojuego con el nombre "${videogame.vgName}".`,
+      );
+    }
+  }
+
   async create(createTeamDto: CreateTeamDto) {
+    // En la inscripción pública el logo es obligatorio (decisión del 1 de noviembre). Se
+    // revisa antes del captcha para no gastar el token. La creación del admin lo sigue aceptando
+    // sin logo. `logoUrl: ""` ya llega como undefined (VideogameDto).
+    if (!createTeamDto.videogame?.logoUrl) {
+      throw new BadRequestException('El logo del videojuego es obligatorio.');
+    }
+
     try {
       const isRecaptchaValid = await this.recaptchaService.verify(
         createTeamDto.recaptchaToken,
@@ -259,40 +343,7 @@ export class TeamsService {
 
     const firstMember = createTeamDto.members[0];
 
-    const existingEmails = await this.teamRepository.checkEmailsExist([
-      firstMember.memberEmail,
-    ]);
-
-    if (existingEmails[firstMember.memberEmail]) {
-      throw new ConflictException(
-        `El correo ${firstMember.memberEmail} ya está en uso.`,
-      );
-    }
-
-    const studentCodeMap = new Map<string, boolean>();
-    const studentCodes: string[] = [];
-
-    for (const member of createTeamDto.members) {
-      if (studentCodeMap.has(member.studentCode)) {
-        throw new ConflictException(
-          `Duplicate student code: ${member.studentCode} within request`,
-        );
-      }
-
-      studentCodeMap.set(member.studentCode, true);
-      studentCodes.push(member.studentCode);
-    }
-
-    const existingStudentCodes =
-      await this.teamRepository.findExistingStudentCodes(studentCodes);
-
-    for (const member of createTeamDto.members) {
-      if (existingStudentCodes.has(member.studentCode)) {
-        throw new ConflictException(
-          `Student code ${member.studentCode} is already in use.`,
-        );
-      }
-    }
+    await this.assertTeamCanBeCreated(createTeamDto);
 
     // fuera del try: un archivo no válido es un 400, no un 500
     const dtoWithRefs = await this.withBlobReferences(createTeamDto);
@@ -318,18 +369,23 @@ export class TeamsService {
 
       if (errorMessage.toLowerCase().includes('user already registered')) {
         throw new ConflictException(
-          `Email ${firstMember.memberEmail} is already registered.`,
+          `El correo ${firstMember.memberEmail} ya está registrado.`,
         );
       }
 
       if (errorMessage.toLowerCase().includes('team already exists')) {
         throw new ConflictException(
-          'A team with this information already exists.',
+          'Ya existe un equipo con esta información.',
         );
       }
 
+      // Los 400/404/409 del repositorio (NRC no encontrado, correo en uso…) llegan tal cual
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new InternalServerErrorException(
-        `Failed to create team: ${errorMessage}`,
+        `No se pudo registrar el equipo: ${errorMessage}`,
       );
     }
   }
