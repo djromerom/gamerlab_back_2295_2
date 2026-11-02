@@ -39,6 +39,9 @@ describe('EditionsService', () => {
       delete: jest.fn().mockResolvedValue(mockEdition),
       count: jest.fn().mockResolvedValue(1),
     },
+    eventConfiguration: {
+      upsert: jest.fn().mockResolvedValue({ id: 1, editionId: 1 }),
+    },
     // $transaction can receive an array of promises or a callback function
     $transaction: jest.fn(async (arg) => {
       if (Array.isArray(arg)) {
@@ -92,8 +95,19 @@ describe('EditionsService', () => {
     it('should create an edition', async () => {
       const dto = { year: 2025, semester: 10, title: 'Test Edition', startsAt: new Date(), endsAt: new Date() };
       const result = await service.create(dto);
-      expect(prisma.edition.create).toHaveBeenCalledWith({ data: dto });
+      expect(prisma.edition.create).toHaveBeenCalledWith({
+        data: { ...dto, eventConfiguration: { create: {} } },
+      });
       expect(result).toEqual(mockEdition);
+    });
+
+    it('crea la configuración del evento junto con la edición, en la misma operación (ARK-123)', async () => {
+      const dto = { year: 2027, semester: 10, title: 'Nueva', startsAt: new Date(), endsAt: new Date() };
+      await service.create(dto);
+      // Anidada en el mismo create: o se crean las dos filas o ninguna. `create: {}` deja los
+      // valores por defecto de la tabla (todo cerrado).
+      const { data } = (prisma.edition.create as jest.Mock).mock.calls.at(-1)[0];
+      expect(data.eventConfiguration).toEqual({ create: {} });
     });
 
     it('rechaza con 400 una edición cuyo fin es anterior al inicio (M7)', async () => {
@@ -219,6 +233,25 @@ describe('EditionsService', () => {
         where: { id: 1 },
         data: { status: EditionStatus.ACTIVE },
       });
+    });
+
+    it('asegura la configuración del evento de la edición que se activa (ARK-123)', async () => {
+      await service.activate(1);
+      // upsert con `update: {}`: si la fila ya existe no se tocan sus interruptores.
+      expect(prisma.eventConfiguration.upsert).toHaveBeenCalledWith({
+        where: { editionId: 1 },
+        update: {},
+        create: { editionId: 1 },
+      });
+    });
+
+    it('no crea configuración cuando la edición está ARCHIVED (ARK-123)', async () => {
+      mockPrismaService.edition.findUnique.mockResolvedValueOnce({
+        ...mockEdition,
+        status: EditionStatus.ARCHIVED,
+      });
+      await expect(service.activate(1)).rejects.toThrow(BadRequestException);
+      expect(prisma.eventConfiguration.upsert).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when trying to activate an ARCHIVED edition', async () => {
