@@ -51,7 +51,9 @@ export const ROUTE_NOTES: Record<string, string> = {
   'PATCH /videogames/:id':
     'Estudiante: solo el videojuego de su equipo; el estado de aprobación solo lo cambia el Administrador (BG-01).',
   'GET /juror/teams/:teamId/evaluation-stats':
-    'Estudiante: solo las estadísticas de su propio equipo (BG-01).',
+    'Estudiante: solo las estadísticas de su propio equipo (BG-01). Solo devuelve conteos, sin datos de los jurados (ARK-110).',
+  'GET /juror/teams/:teamId/jurors-status':
+    'Solo Administrador (ListJurors no está concedido a ningún otro rol). El correo de cada jurado solo se incluye para el Administrador (ARK-110).',
   'GET /teams/:id':
     '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
   'GET /teams/:id/full':
