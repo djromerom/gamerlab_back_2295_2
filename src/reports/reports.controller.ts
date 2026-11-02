@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, Inject, HttpException } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -14,7 +14,9 @@ import { OptionalAdminRoleGuard } from 'src/auth/guards/admin-role.guard';
 import { IsAdmin } from 'src/auth/decorators/is-admin.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import * as ExcelJS from 'exceljs';
-import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse, ApiNotFoundResponse } from '@nestjs/swagger';
+import { ExcelExportService } from '../professors/excel-export.service';
+import { buildJurorAssignmentFileName, buildJurorAssignmentWorkbook } from './juror-assignment-export';
 
 @ApiTags('reports')
 @Controller('reports')
@@ -236,95 +238,42 @@ export class ReportsController {
     }
   }
 
+  // HU-16 (ARK-108): asignación de jurados de la edición (por defecto la activa) para enviarla a Rocío.
+  // Solo administrador: ExportAdminReports no está concedido a ningún otro rol (BG-01).
   @Get('exportJurados')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ExportAdminReports')
-  @ApiOperation({ summary: 'Export jurors report to Excel' })
-  @ApiOkResponse({ description: 'Excel file with jurors and their status' })
+  @ApiOperation({
+    summary: 'Export the juror assignment of an edition to Excel',
+    description:
+      'Una fila por jurado: estado, categoría, tipo (oficial o suplente), niveles y grupos asignados, revisados y pendientes de la edición. ' +
+      'Nombre: asignacion_jurados_<año>-<semestre>_<fecha>.xlsx. 404 "No hay asignaciones para exportar." si la edición no tiene asignaciones.',
+  })
+  @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Edición; por defecto la activa' })
+  @ApiOkResponse({ description: 'Excel file with the juror assignment' })
+  @ApiNotFoundResponse({ description: 'No hay edición activa, no existe la edición o no hay asignaciones' })
   async exportJurados(
     @Res() res: Response,
+    @Query('editionId', new ParseIntPipe({ optional: true })) editionId?: number,
   ) {
     try {
-      const data = await this.reportsService.getJuradosData();
-
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Jurados');
-
-      const columns: Partial<ExcelJS.Column>[] = [
-        { header: 'Nombre Jurado', key: 'nombre', width: 30 },
-        { header: 'Email Jurado', key: 'correo', width: 30 },
-        { header: 'Estado', key: 'estado', width: 15 },
-        { header: 'Juegos revisados', key: 'revisados', width: 40 },
-        { header: 'Juegos pendientes', key: 'pendientes', width: 40 },
-      ];
-
-      worksheet.columns = columns;
-
-      // header style
-      const headerRow = worksheet.getRow(1);
-      headerRow.eachCell((cell) => {
-        cell.font = { bold: true } as any;
-        cell.alignment = { horizontal: 'left', vertical: 'middle' } as any;
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFD6EAF8' },
-        } as any;
-      });
-
-      // Sort jurors: pending first, then confirmed/active, then others
-      const statusOrder = (s?: string) => {
-        const st = (s ?? '').toLowerCase();
-        if (st.includes('pend') || st.includes('pending') || st.includes('pendiente')) return 0;
-        if (st.includes('confirm') || st.includes('activo') || st.includes('active') || st.includes('confirmed')) return 1;
-        return 2;
-      };
-      data.sort((a, b) => statusOrder(a.estado) - statusOrder(b.estado));
-
-      data.forEach(item => {
-        const asignados = item.videojuegosAsignados || [];
-        const revisados = item.videojuegosCompletos || [];
-        const pendientes = asignados.filter(a => !revisados.includes(a));
-
-        worksheet.addRow({
-          nombre: item.nombre,
-          correo: item.correo,
-          estado: item.estado,
-          revisados: (revisados || []).join(', '),
-          pendientes: (pendientes || []).join(', '),
-        });
-      });
-
-      // Auto-size
-      const maxLens: number[] = columns.map(c => String(c.header ?? '').length);
-      worksheet.eachRow((row) => {
-        row.eachCell((cell, colNumber) => {
-          const v = String(cell.value ?? '');
-          if (v.length > (maxLens[colNumber - 1] ?? 0)) maxLens[colNumber - 1] = v.length;
-        });
-      });
-      // add autofilter for the header row
-      worksheet.autoFilter = {
-        from: { row: 1, column: 1 },
-        to: { row: 1, column: columns.length },
-      } as any;
-
-      worksheet.columns.forEach((col, idx) => {
-        const calculated = Math.min(Math.max((maxLens[idx] ?? 0) + 2, 18), 80);
-        col.width = calculated;
-        const key = String(columns[idx].key);
-        if (key === 'estado') {
-          col.alignment = { horizontal: 'center', vertical: 'middle' } as any;
-        } 
-      });
+      const { edition, rows } = await this.reportsService.getJurorAssignmentReport(editionId);
+      const workbook = buildJurorAssignmentWorkbook(rows, edition.title);
       res.setHeader(
         'Content-Type',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
-      res.setHeader('Content-Disposition', 'attachment; filename=reporte_jurados.xlsx');
+      res.setHeader(
+        'Content-Disposition',
+        ExcelExportService.buildContentDisposition(buildJurorAssignmentFileName(edition)),
+      );
       await workbook.xlsx.write(res);
       if (!res.writableEnded) res.end();
     } catch (error) {
+      if (error instanceof HttpException && !res.headersSent) {
+        res.status(error.getStatus()).json(error.getResponse());
+        return;
+      }
       console.error('Error exportJurados:', error);
       if (!res.headersSent) res.status(500).send('Error al generar el reporte de jurados'); else if (!res.writableEnded) res.end();
     }
