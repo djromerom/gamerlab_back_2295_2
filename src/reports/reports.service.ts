@@ -7,6 +7,12 @@ import { SettingsService } from '../settings/settings.service';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { countProgress } from '../evaluation/evaluation-progress';
+import { EditionStatus } from '@prisma/client';
+import {
+  JurorAssignmentRow,
+  sortJurorAssignmentRows,
+  toJurorAssignmentRow,
+} from './juror-assignment-export';
 
 // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 const ROL_JURADO_ID = 4;
@@ -402,6 +408,75 @@ async getNrcWithSubjectNameAndAverage(
   });
 
   return resultado;
+}
+
+/**
+ * HU-16 (ARK-108): asignación de jurados de una edición (por defecto la activa) para el Excel.
+ * Incluye a todo jurado activo y a cualquier otro usuario con grupos asignados en la edición.
+ * Solo cuenta grupos y evaluaciones de esa edición. 404 si no hay edición o no hay asignaciones.
+ */
+async getJurorAssignmentReport(editionId?: number): Promise<{
+  edition: { id: number; year: number; semester: number; title: string };
+  rows: JurorAssignmentRow[];
+}> {
+  const edition = await this.prisma.edition.findFirst({
+    where: editionId ? { id: editionId } : { status: EditionStatus.ACTIVE },
+    orderBy: { id: 'desc' },
+    select: { id: true, year: true, semester: true, title: true },
+  });
+  if (!edition) {
+    throw new NotFoundException(
+      editionId ? `No existe la edición ${editionId}.` : 'No hay una edición activa.',
+    );
+  }
+
+  const users = await this.prisma.user.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { roleId: ROL_JURADO_ID },
+        { teamsToEvaluate: { some: { editionId: edition.id, isActive: true } } },
+      ],
+    },
+    select: {
+      firstName: true,
+      lastName: true,
+      email: true,
+      jurorCategory: true,
+      jurorType: true,
+      confirmationStatus: { select: { status: true } },
+      teamsToEvaluate: {
+        where: { editionId: edition.id, isActive: true },
+        select: { teamCode: true, videogame: { select: { id: true, name: true } } },
+      },
+      evaluationsSubmitted: {
+        where: { editionId: edition.id, isActive: true },
+        select: { videogameId: true },
+      },
+    },
+  });
+
+  const rows = users.map((u) =>
+    toJurorAssignmentRow({
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      status: u.confirmationStatus?.status ?? null,
+      jurorCategory: u.jurorCategory,
+      jurorType: u.jurorType,
+      assigned: u.teamsToEvaluate.map((t) => ({
+        teamCode: t.teamCode,
+        videogameId: t.videogame?.id ?? null,
+        videogameName: t.videogame?.name ?? null,
+      })),
+      evaluatedVideogameIds: u.evaluationsSubmitted.map((e) => e.videogameId),
+    }),
+  );
+
+  if (rows.every((r) => r.totalAsignados === 0)) {
+    throw new NotFoundException('No hay asignaciones para exportar.');
+  }
+  return { edition, rows: sortJurorAssignmentRows(rows) };
 }
 
 async getJuradosData(): Promise<
