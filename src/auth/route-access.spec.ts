@@ -51,6 +51,8 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   ManageStaffAccounts: [],
   // HU-11: la mesa de escarapelas
   JurorCheckIn: ['Staff'],
+  // HU-21: los profesores lo ven en solo lectura (P-26)
+  ViewEvaluationTracking: ['Profesor'],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],

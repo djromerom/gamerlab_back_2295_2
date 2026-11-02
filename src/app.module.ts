@@ -32,6 +32,7 @@ import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
 import { StaffModule } from './staff/staff.module';
+import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
 import { TeamVerificationModule } from './team-verification/team-verification.module';
 
 @Module({
@@ -68,6 +69,7 @@ import { TeamVerificationModule } from './team-verification/team-verification.mo
     JurorBadgesModule,
     JurorCheckinModule,
     StaffModule,
+    EvaluationTrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
