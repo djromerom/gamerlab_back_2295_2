@@ -25,6 +25,11 @@ import { ROLE_IDS } from '../../auth/constants/roles';
 import { SettingsService } from '../../settings/settings.service';
 import { stripPersonalData } from '../../common/utils/strip-personal-data';
 import { BlobReferenceService } from '../../upload/blob-reference.service';
+import {
+  filterTeamForAudience,
+  isTeamLeaderOrMember,
+  resolveTeamAudience,
+} from '../team-visibility';
 
 @Injectable()
 export class TeamsService {
@@ -372,7 +377,11 @@ export class TeamsService {
     return this.markOwnTeams(visible, currentUserId);
   }
 
-  async findOne(id: number): Promise<unknown> {
+  /**
+   * ARK-112: un estudiante solo lee su propio equipo (líder o integrante activo); los demás
+   * roles con `GetTeam` lo reciben sin datos personales. Ver `team-visibility.ts`.
+   */
+  async findOne(id: number, user: AppUser): Promise<unknown> {
     if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestException('Invalid team id');
     }
@@ -383,7 +392,14 @@ export class TeamsService {
       throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     }
 
-    return team;
+    // El administrador no necesita la consulta de integrantes: lo ve todo igual
+    const ownsTeam =
+      user.roleId === ROLE_IDS.ADMIN ||
+      team.userId === user.id ||
+      (!!user.email &&
+        (await this.teamRepository.isActiveMember(team.id, user.email)));
+
+    return filterTeamForAudience(team, resolveTeamAudience(user, ownsTeam));
   }
 
   async findOneWithDetails(
@@ -404,25 +420,18 @@ export class TeamsService {
       );
     }
 
-    // F1/BG-07: el detalle incluye correos y códigos estudiantiles. Un estudiante
-    // solo lo ve si es el líder o un integrante activo del equipo.
-    if (user.roleId === ROLE_IDS.STUDENT) {
-      const email = user.email?.toLowerCase();
-      const isLeader = team.userId === user.id;
-      const isMember =
-        !!email &&
-        (team.members ?? []).some(
-          (m: { email: string }) => m.email?.toLowerCase() === email,
-        );
+    // ARK-112: el detalle incluye correos y códigos estudiantiles. Un estudiante solo lo ve
+    // si es el líder o un integrante activo del equipo (el repositorio ya trae solo los activos).
+    const memberEmails = ((team.members ?? []) as { email: string }[]).map(
+      (m) => m.email,
+    );
+    const audience = resolveTeamAudience(
+      user,
+      isTeamLeaderOrMember(user, team, memberEmails),
+    );
 
-      if (!isLeader && !isMember) {
-        throw new ForbiddenException(
-          'You do not have permission to access this resource.',
-        );
-      }
-    }
-
-    return (await this.withSignedBlobs([team]))[0];
+    const [signed] = await this.withSignedBlobs([team]);
+    return filterTeamForAudience(signed, audience);
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto, currentUser: AppUser) {

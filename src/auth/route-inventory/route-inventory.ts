@@ -53,9 +53,9 @@ export const ROUTE_NOTES: Record<string, string> = {
   'GET /juror/teams/:teamId/evaluation-stats':
     'Estudiante: solo las estadísticas de su propio equipo (BG-01).',
   'GET /teams/:id':
-    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    'Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
   'GET /teams/:id/full':
-    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    'Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
   'POST /upload':
     'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':

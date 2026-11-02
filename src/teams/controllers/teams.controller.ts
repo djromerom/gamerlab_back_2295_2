@@ -216,8 +216,8 @@ export class TeamsController {
   @Get(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetTeam')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.teamsService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @GetUser() user: AppUser) {
+    return this.teamsService.findOne(id, user);
   }
 
   @Patch(':id')
