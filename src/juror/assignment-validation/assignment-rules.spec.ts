@@ -5,6 +5,8 @@ import {
   extractTeamLevel,
   findBlockers,
   findWarnings,
+  hasNrcConflict,
+  isSeniorEvaluator,
 } from './assignment-rules';
 import {
   AssignmentChange,
@@ -530,6 +532,43 @@ describe('assignment-rules (HU-08)', () => {
       );
       expect(codes(result.blockers)).toEqual(['TEAM_NOT_IN_ACTIVE_EDITION']);
       expect(result.warnings).toEqual([]);
+    });
+  });
+
+  describe('ayudantes compartidos con HU-07', () => {
+    it('isSeniorEvaluator: profesor o jurado SENIOR', () => {
+      expect(
+        isSeniorEvaluator({ kind: 'PROFESSOR', jurorCategory: null }),
+      ).toBe(true);
+      expect(
+        isSeniorEvaluator({
+          kind: 'JUROR',
+          jurorCategory: JurorCategory.SENIOR,
+        }),
+      ).toBe(true);
+      expect(
+        isSeniorEvaluator({
+          kind: 'JUROR',
+          jurorCategory: JurorCategory.JUNIOR,
+        }),
+      ).toBe(false);
+      expect(isSeniorEvaluator({ kind: 'JUROR', jurorCategory: null })).toBe(
+        false,
+      );
+      expect(
+        isSeniorEvaluator({
+          kind: 'OTHER',
+          jurorCategory: JurorCategory.SENIOR,
+        }),
+      ).toBe(false);
+    });
+
+    it('hasNrcConflict: NRC compartido, salvo colegios', () => {
+      const teamNrcs = new Set([7, 8]);
+      expect(hasNrcConflict(1, [7], teamNrcs)).toBe(true);
+      expect(hasNrcConflict(1, [9], teamNrcs)).toBe(false);
+      expect(hasNrcConflict(0, [7], teamNrcs)).toBe(false);
+      expect(hasNrcConflict(2, [], teamNrcs)).toBe(false);
     });
   });
 });

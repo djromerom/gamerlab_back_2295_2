@@ -40,6 +40,30 @@ export function evaluatorLabel(evaluator: RuleEvaluator): string {
   return 'evaluador';
 }
 
+/** Senior para las reglas: el profesor (P-07) o el jurado de categoría SENIOR. */
+export function isSeniorEvaluator(
+  evaluator: Pick<RuleEvaluator, 'kind' | 'jurorCategory'>,
+): boolean {
+  return (
+    evaluator.kind === 'PROFESSOR' ||
+    (evaluator.kind === 'JUROR' &&
+      evaluator.jurorCategory === JurorCategory.SENIOR)
+  );
+}
+
+/** Regla 16: el evaluador dicta un NRC de los integrantes. No aplica a colegios (N0). */
+export function hasNrcConflict(
+  teamLevel: number | null,
+  managedNrcIds: Iterable<number>,
+  teamNrcIds: ReadonlySet<number>,
+): boolean {
+  if (teamLevel === 0) return false;
+  for (const nrcId of managedNrcIds) {
+    if (teamNrcIds.has(nrcId)) return true;
+  }
+  return false;
+}
+
 const subjectOf = (evaluator: RuleEvaluator) =>
   `El ${evaluatorLabel(evaluator)} ${evaluator.name}`.trim();
 
