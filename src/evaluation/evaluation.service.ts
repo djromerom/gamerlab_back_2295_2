@@ -210,42 +210,6 @@ export class EvaluationService {
     return { completed, assigned };
   }
 
-  async computeFinalScoreForVideogame(videogameId: number, editionId?: number) {
-    const weighting = editionId
-      ? await this.prisma.weighting.findUnique({ where: { editionId } })
-      : null;
-
-    const seniorPct = weighting?.seniorPct ?? 60;
-    const juniorPct = weighting?.juniorPct ?? 40;
-
-    const seniorAgg = await this.prisma.evaluation.aggregate({
-      _avg: { totalScore: true },
-      where: { videogameId, isSenior: true, isActive: true },
-    });
-
-    const juniorAgg = await this.prisma.evaluation.aggregate({
-      _avg: { totalScore: true },
-      where: { videogameId, isSenior: false, isActive: true },
-    });
-
-    const seniorAvg = seniorAgg._avg.totalScore ?? null;
-    const juniorAvg = juniorAgg._avg.totalScore ?? null;
-
-    if (seniorAvg == null && juniorAvg == null) return null;
-
-    if (seniorAvg == null) {
-      return Number(juniorAvg!.toFixed(2));
-    }
-
-    if (juniorAvg == null) {
-      return Number(seniorAvg!.toFixed(2));
-    }
-
-    const final = (seniorAvg * seniorPct + juniorAvg * juniorPct) / 100;
-
-    return Number(final.toFixed(2));
-  }
-
   /**
    * Lote de evaluaciones (U2). Fases:
    * (a) cada fila se valida en memoria (bloqueos U1, verificación HU-19, criterios y puntajes);

@@ -231,6 +231,7 @@ describe('TeamsService.create — revisiones antes de escribir', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any, // RankingService (HU-04)
     );
   });
 

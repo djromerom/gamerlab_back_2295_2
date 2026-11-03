@@ -243,6 +243,7 @@ This API uses **Swagger/OpenAPI** for comprehensive endpoint documentation.
 - **Teams** - Team creation and member management
 - **Videogames** - Game submission and evaluation system
 - **Evaluations** - Jury evaluation and scoring system
+- **Ranking** - Official ranking by level, winners, ties and tie-break decisions. The final score of every team comes from one database view, `vw_team_final_scores`: only the first 3 juror evaluations count, a missing group of grades is not counted as 0, and the score uses the edition's weighting and 2 decimals
 
 Among others. Feel free to checkout Swagger for detailed information on each one.
 
