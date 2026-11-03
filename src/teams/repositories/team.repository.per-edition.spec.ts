@@ -1,0 +1,235 @@
+import { ConflictException } from '@nestjs/common';
+import { TeamRepository } from './team.repository';
+
+/**
+ * ARK-128 (BG-17): la cuenta del estudiante se conserva entre ediciones; integrante, equipo y
+ * videojuego son de una edición. Quien participó en la edición 4 se inscribe en la 5 como
+ * cualquier otro, pero nadie puede estar dos veces en la misma edición.
+ */
+describe('TeamRepository — inscripción por edición (ARK-128)', () => {
+  const ACTIVE = 5;
+
+  const member = (email: string, studentCode: string) => ({
+    memberEmail: email,
+    memberFirstName: 'Ana',
+    memberLastName: 'Pérez',
+    studentCode,
+    nrc: ['9999'],
+  });
+
+  describe('checkEmailsExist', () => {
+    const build = (users: any[], members: any[]) => {
+      const prisma = {
+        user: { findMany: jest.fn().mockResolvedValue(users) },
+        member: { findMany: jest.fn().mockResolvedValue(members) },
+      };
+      return { prisma, repository: new TeamRepository(prisma as any, {} as any) };
+    };
+
+    it('la cuenta de un estudiante de una edición anterior no ocupa el correo', async () => {
+      const { repository } = build(
+        [{ email: 'lider4@uninorte.edu.co', roleId: 2, isActive: true }],
+        [],
+      );
+      await expect(
+        repository.checkEmailsExist(['lider4@uninorte.edu.co']),
+      ).resolves.toEqual({ 'lider4@uninorte.edu.co': false });
+    });
+
+    it('un integrante de la edición activa sí ocupa el correo', async () => {
+      const { repository } = build(
+        [],
+        [{ email: 'ya5@uninorte.edu.co' }],
+      );
+      await expect(
+        repository.checkEmailsExist(['YA5@uninorte.edu.co']),
+      ).resolves.toEqual({ 'YA5@uninorte.edu.co': true });
+    });
+
+    it('solo busca integrantes de la edición activa', async () => {
+      const { prisma, repository } = build([], []);
+      await repository.checkEmailsExist(['a@uninorte.edu.co']);
+      expect(prisma.member.findMany.mock.calls[0][0].where.edition).toEqual({
+        status: 'ACTIVE',
+      });
+    });
+
+    it('una cuenta de profesor, jurado o desactivada sigue ocupando el correo', async () => {
+      const { repository } = build(
+        [
+          { email: 'profe@uninorte.edu.co', roleId: 3, isActive: true },
+          { email: 'jurado@uninorte.edu.co', roleId: 4, isActive: true },
+          { email: 'baja@uninorte.edu.co', roleId: 2, isActive: false },
+        ],
+        [],
+      );
+      await expect(
+        repository.checkEmailsExist([
+          'profe@uninorte.edu.co',
+          'jurado@uninorte.edu.co',
+          'baja@uninorte.edu.co',
+        ]),
+      ).resolves.toEqual({
+        'profe@uninorte.edu.co': true,
+        'jurado@uninorte.edu.co': true,
+        'baja@uninorte.edu.co': true,
+      });
+    });
+  });
+
+  it('findExistingStudentCodes solo mira la edición activa', async () => {
+    const prisma = {
+      member: { findMany: jest.fn().mockResolvedValue([{ studentCode: '200' }]) },
+    };
+    const repository = new TeamRepository(prisma as any, {} as any);
+
+    await expect(repository.findExistingStudentCodes(['200', '300'])).resolves.toEqual(
+      new Set(['200']),
+    );
+    expect(prisma.member.findMany).toHaveBeenCalledWith({
+      where: { studentCode: { in: ['200', '300'] }, edition: { status: 'ACTIVE' } },
+      select: { studentCode: true },
+    });
+  });
+
+  it('findOneWithDetailsByLeaderId ("Mi equipo") busca el equipo de la edición activa', async () => {
+    const prisma = { team: { findFirst: jest.fn().mockResolvedValue(null) } };
+    const repository = new TeamRepository(prisma as any, {} as any);
+
+    await repository.findOneWithDetailsByLeaderId('u-1');
+
+    expect(prisma.team.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'u-1', edition: { status: 'ACTIVE' } },
+        orderBy: { editionId: 'desc' },
+      }),
+    );
+  });
+
+  describe('handleUser', () => {
+    const studentRole = { id: 2, name: 'Estudiante' };
+    const existing = { id: 'u-4', email: 'lider4@uninorte.edu.co' };
+    const makeTx = (teamInEdition: unknown) => ({
+      role: { findUnique: jest.fn().mockResolvedValue(studentRole) },
+      user: { findMany: jest.fn().mockResolvedValue([existing]), update: jest.fn() },
+      team: { findUnique: jest.fn().mockResolvedValue(teamInEdition) },
+    });
+    const auth = { registerUserTransaction: jest.fn() };
+    const repo = new TeamRepository({} as any, auth as any) as any;
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('el líder de la edición anterior reutiliza su cuenta y no recibe correo de verificación', async () => {
+      const tx = makeTx(null);
+
+      const result = await repo.handleUser(tx, member(existing.email, '100'), ACTIVE);
+
+      expect(result).toEqual({ userId: 'u-4', verificationToken: null });
+      expect(tx.team.findUnique).toHaveBeenCalledWith({
+        where: { userId_editionId: { userId: 'u-4', editionId: ACTIVE } },
+        select: { id: true },
+      });
+      expect(auth.registerUserTransaction).not.toHaveBeenCalled();
+    });
+
+    it('si ya lidera un equipo en la misma edición responde 409', async () => {
+      const tx = makeTx({ id: 99 });
+
+      await expect(
+        repo.handleUser(tx, member(existing.email, '100'), ACTIVE),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('createMembers', () => {
+    const makeTx = (duplicate: unknown) => ({
+      member: {
+        findFirst: jest.fn().mockResolvedValue(duplicate),
+        create: jest.fn().mockResolvedValue({ id: 1 }),
+      },
+      nRC: { findMany: jest.fn().mockResolvedValue([{ id: 41, code: 9999 }]) },
+    });
+    const repo = new TeamRepository({} as any, {} as any) as any;
+
+    it('crea al integrante de la edición 4 como integrante nuevo de la edición activa', async () => {
+      const tx = makeTx(null);
+
+      await repo.createMembers(tx, 10, ACTIVE, [member('int4@uninorte.edu.co', '200')]);
+
+      expect(tx.member.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ editionId: ACTIVE }),
+        }),
+      );
+      expect(tx.member.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ teamId: 10, editionId: ACTIVE }),
+        }),
+      );
+    });
+
+    it('un estudiante no puede estar dos veces en la misma edición (correo)', async () => {
+      const tx = makeTx({ email: 'Int4@uninorte.edu.co' });
+
+      await expect(
+        repo.createMembers(tx, 10, ACTIVE, [member('int4@uninorte.edu.co', '200')]),
+      ).rejects.toThrow('El correo int4@uninorte.edu.co ya está registrado en un equipo de esta edición');
+      expect(tx.member.create).not.toHaveBeenCalled();
+    });
+
+    it('un estudiante no puede estar dos veces en la misma edición (código)', async () => {
+      const tx = makeTx({ email: 'otro@uninorte.edu.co' });
+
+      await expect(
+        repo.createMembers(tx, 10, ACTIVE, [member('int4@uninorte.edu.co', '200')]),
+      ).rejects.toThrow('El código estudiantil 200 ya está registrado en un equipo de esta edición');
+    });
+  });
+
+  it('createTeam crea líder, equipo e integrantes en la edición activa', async () => {
+    const tx = {
+      edition: { findFirst: jest.fn().mockResolvedValue({ id: ACTIVE }) },
+      role: { findUnique: jest.fn().mockResolvedValue({ id: 2 }) },
+      user: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'u-4', email: 'lider4@uninorte.edu.co' }]),
+        update: jest.fn(),
+      },
+      team: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockImplementation(({ data }) => ({ id: 77, ...data })),
+      },
+      subject: { findFirst: jest.fn().mockResolvedValue({ abrevName: 'ABC', semester: 1 }) },
+      member: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 1 }),
+      },
+      nRC: { findMany: jest.fn().mockResolvedValue([{ id: 41, code: 9999 }]) },
+      videogame: { create: jest.fn().mockResolvedValue({ id: 5 }) },
+    };
+    const prisma = {
+      ...tx,
+      $transaction: jest.fn().mockImplementation((fn) => fn(tx)),
+    };
+    const auth = { registerUserTransaction: jest.fn(), sendVerificationEmail: jest.fn() };
+    const repository = new TeamRepository(prisma as any, auth as any);
+
+    await repository.createTeam({
+      teamName: 'Mismo nombre que en la edición 4',
+      isExternal: false,
+      members: [member('lider4@uninorte.edu.co', '100'), member('int4@uninorte.edu.co', '200')],
+      videogame: { vgName: 'Juego' },
+    } as any);
+
+    expect(tx.team.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: 'u-4', editionId: ACTIVE }),
+    });
+    expect(tx.member.create).toHaveBeenCalledTimes(2);
+    for (const call of tx.member.create.mock.calls) {
+      expect(call[0].data.editionId).toBe(ACTIVE);
+    }
+    expect(auth.registerUserTransaction).not.toHaveBeenCalled();
+    expect(auth.sendVerificationEmail).not.toHaveBeenCalled();
+  });
+});

@@ -6,6 +6,7 @@ import { findNrcIdsByCodes } from "src/nrcs/nrc-lookup";
 import { Member, Prisma } from "@prisma/client";
 import { AppUser } from "../auth/jwt.strategy";
 import { ROLE_IDS } from "../auth/constants/roles";
+import { activeEditionTeamOf } from "../teams/active-edition-team";
 
 @Injectable()
 export class StudentsService {
@@ -89,10 +90,9 @@ export class StudentsService {
         userId: string,
     ): Promise<Member[]> {
 
+        // ARK-128: solo los integrantes del equipo que lidera en la edición activa
         const whereClause: Prisma.MemberWhereInput = {
-            team: {
-                userId: userId
-            }
+            team: activeEditionTeamOf(userId),
         };
 
         const selectClause: Prisma.MemberSelect = {
@@ -127,8 +127,9 @@ export class StudentsService {
         if (!userId) {
             throw new NotFoundException("user not found");
         }
-        const videogame = await this.prisma.team.findUnique({
-            where: { userId: userId },
+        const videogame = await this.prisma.team.findFirst({
+            where: activeEditionTeamOf(userId),
+            orderBy: { editionId: 'desc' },
             select: {
                 videogame: {
                     select: {
@@ -173,8 +174,9 @@ export class StudentsService {
         if (!userId) {
             throw new NotFoundException("user not found");
         }
-        const videogame = await this.prisma.team.findUnique({
-            where: { userId: userId },
+        const videogame = await this.prisma.team.findFirst({
+            where: activeEditionTeamOf(userId),
+            orderBy: { editionId: 'desc' },
             select: {
                 videogame: {
                     select: {
@@ -253,8 +255,9 @@ export class StudentsService {
         }
 
         // 1. Obtener el equipo del estudiante con su videojuego y jurados asignados
-        const team = await this.prisma.team.findUnique({
-            where: { userId },
+        const team = await this.prisma.team.findFirst({
+            where: activeEditionTeamOf(userId),
+            orderBy: { editionId: 'desc' },
             select: {
                 id: true,
                 videogame: {

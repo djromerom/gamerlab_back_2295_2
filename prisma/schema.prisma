@@ -39,6 +39,7 @@ model Edition {
   eventConfiguration EventConfiguration?
   educationalFocuses EducationalFocus[]
   teams              Team[]
+  members            Member[]
   evaluations        Evaluation[]
   nrcs               NRC[]
   weighting          Weighting?
@@ -209,7 +210,8 @@ model User {
   microsoftOid         String?            @map("microsoft_oid")
   jurorCategory        JurorCategory?     @map("categoria_jurado")
   jurorType            JurorType?         @map("tipo_jurado")
-  createdTeam          Team?              @relation("createdTeam")
+  // ARK-128: un equipo por edición; la cuenta se conserva entre ediciones
+  createdTeams         Team[]             @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
   managedNrcs          NRC[]              @relation("ProfessorNRC")
   confirmationStatus   ConfirmationStatus @relation(fields: [confirmationStatusId], references: [id])
@@ -231,9 +233,9 @@ model User {
 
 model Team {
   id               Int             @id @default(autoincrement()) @map("id_equipo")
-  teamName         String          @unique @map("nombre_equipo") @db.VarChar(50)
+  teamName         String          @map("nombre_equipo") @db.VarChar(50)
   registrationDate DateTime        @default(now()) @map("fecha_registro")
-  userId           String          @unique @map("id_usuario")
+  userId           String          @map("id_usuario")
   editionId        Int             @map("id_edicion")
   isActive         Boolean         @default(true) @map("activo")
   isExternal       Boolean         @default(false) @map("externo")
@@ -250,6 +252,9 @@ model Team {
 
   @@unique([teamCode, editionId])
   @@unique([verificationCode, editionId])
+  // ARK-128: líder y nombre únicos dentro de cada edición, no en toda la BD
+  @@unique([userId, editionId])
+  @@unique([teamName, editionId])
   @@map("equipos")
 }
 
@@ -303,15 +308,21 @@ model Member {
   id          Int      @id @default(autoincrement()) @map("id_integrante")
   firstName   String   @map("nombre") @db.VarChar(50)
   lastName    String   @map("apellido") @db.VarChar(50)
-  email       String   @unique @map("correo") @db.VarChar(100)
-  studentCode String   @unique @map("codigo_estudiantil") @db.VarChar(100)
+  email       String   @map("correo") @db.VarChar(100)
+  studentCode String   @map("codigo_estudiantil") @db.VarChar(100)
   teamId      Int      @map("id_equipo")
+  // ARK-128: la edición del equipo, copiada aquí para que correo y código sean únicos por edición
+  editionId   Int      @map("id_edicion")
   isActive    Boolean  @default(true) @map("activo")
   updatedAt   DateTime @updatedAt @map("actualizado_en")
   createdAt   DateTime @default(now()) @map("creado_en")
   team        Team     @relation("TeamMembers", fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nrcs        NRC[]    @relation("MemberNRC")
+  edition     Edition  @relation(fields: [editionId], references: [id])
 
+  @@unique([email, editionId])
+  @@unique([studentCode, editionId])
+  @@index([editionId])
   @@map("integrante")
 }
 

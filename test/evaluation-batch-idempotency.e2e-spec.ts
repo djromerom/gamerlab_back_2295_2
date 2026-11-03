@@ -197,6 +197,7 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
             lastName: 'SP1',
             email: `it-sp1-${runId}-mem-${suffix}@uninorte.edu.co`,
             studentCode: `it-sp1-${runId}-${suffix}`,
+            editionId: edition.id,
             isActive: memberIsActive,
             nrcs: { connect: { id: nrcId } },
           },

@@ -86,12 +86,14 @@ describeIfDb('Lectura de un equipo por rol (PostgreSQL)', () => {
                 // Guardado con mayúsculas, como los registros antes de normalizar
                 email: mail(`Mem_${key}`).toUpperCase(),
                 studentCode: `it112${runId}${key}1`,
+                editionId,
               },
               {
                 firstName: 'IT',
                 lastName: `inactivo-${key}`,
                 email: mail(`baja-${key}`),
                 studentCode: `it112${runId}${key}2`,
+                editionId,
                 isActive: false,
               },
             ],

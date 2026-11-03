@@ -78,6 +78,7 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
             lastName: key,
             email: `it-ark98-${runId}-mem-${key}@uninorte.edu.co`,
             studentCode: `it98${runId}${key}`,
+            editionId,
             ...(nrcId ? { nrcs: { connect: { id: nrcId } } } : {}),
           },
         },

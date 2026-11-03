@@ -28,6 +28,11 @@ import {
   generateUniqueVerificationCode,
   isCollegeTeamCode,
 } from '../../team-verification/verification-code.util';
+import { ROLE_IDS } from '../../auth/constants/roles';
+import {
+  ACTIVE_EDITION_FILTER,
+  activeEditionTeamOf,
+} from '../active-edition-team';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -39,6 +44,7 @@ export class TeamRepository implements ITeamRepository {
     private readonly authService: AuthService,
   ) { }
 
+  /** ARK-128: el nombre del equipo es único dentro de la edición activa, no en toda la BD. */
   async findByTeamName(teamName: string): Promise<boolean> {
     const team = await this.prisma.team.findFirst({
       where: {
@@ -46,11 +52,13 @@ export class TeamRepository implements ITeamRepository {
           equals: escapeLike(teamName),
           mode: 'insensitive',
         },
+        edition: ACTIVE_EDITION_FILTER,
       },
     });
     return !!team;
   }
 
+  /** ARK-128: el videojuego es de una edición; un juego de una edición anterior no choca. */
   async findByVideogameName(videogameName: string): Promise<boolean> {
     const videogame = await this.prisma.videogame.findFirst({
       where: {
@@ -58,15 +66,20 @@ export class TeamRepository implements ITeamRepository {
           equals: escapeLike(videogameName),
           mode: 'insensitive',
         },
+        team: { edition: ACTIVE_EDITION_FILTER },
       },
     });
     return !!videogame;
   }
 
   /**
-   * Para cada correo recibido, si ya lo usa un usuario o un integrante. No distingue mayúsculas
-   * ni espacios (`Santiagodd@…` pasaba aunque `santiagodd@…` existía); las claves de la
-   * respuesta son los correos tal como llegaron, para que el front los encuentre.
+   * Para cada correo recibido, si ya está ocupado para inscribirse en la edición activa. No
+   * distingue mayúsculas ni espacios (`Santiagodd@…` pasaba aunque `santiagodd@…` existía); las
+   * claves de la respuesta son los correos tal como llegaron, para que el front los encuentre.
+   *
+   * ARK-128: ocupado = integrante de un equipo de la edición activa, o cuenta que no es de un
+   * estudiante activo (profesor, jurado, administrador o cuenta desactivada). La cuenta de un
+   * estudiante de una edición anterior NO lo ocupa: se reutiliza al inscribirse de nuevo.
    */
   async checkEmailsExist(
     emails: string[],
@@ -85,12 +98,21 @@ export class TeamRepository implements ITeamRepository {
     }));
 
     const [existingUsers, existingMembers] = await Promise.all([
-      this.prisma.user.findMany({ where: { OR: filters }, select: { email: true } }),
-      this.prisma.member.findMany({ where: { OR: filters }, select: { email: true } }),
+      this.prisma.user.findMany({
+        where: { OR: filters },
+        select: { email: true, roleId: true, isActive: true },
+      }),
+      this.prisma.member.findMany({
+        where: { OR: filters, edition: ACTIVE_EDITION_FILTER },
+        select: { email: true },
+      }),
     ]);
 
+    const blockingUsers = existingUsers.filter(
+      (user) => !(user.roleId === ROLE_IDS.STUDENT && user.isActive),
+    );
     const taken = new Set(
-      [...existingUsers, ...existingMembers].map((row) => normalizeEmail(row.email)),
+      [...blockingUsers, ...existingMembers].map((row) => normalizeEmail(row.email)),
     );
     emails.forEach((email) => {
       result[email] = taken.has(normalizeEmail(email));
@@ -108,6 +130,7 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  /** ARK-128: códigos estudiantiles ya usados por un integrante de la edición activa. */
   async findExistingStudentCodes(studentCodes: string[]): Promise<Set<string>> {
     if (studentCodes.length === 0) {
       return new Set();
@@ -118,6 +141,7 @@ export class TeamRepository implements ITeamRepository {
         studentCode: {
           in: studentCodes,
         },
+        edition: ACTIVE_EDITION_FILTER,
       },
       select: {
         studentCode: true,
@@ -151,9 +175,13 @@ export class TeamRepository implements ITeamRepository {
       let pendingLeaderEmail: string | null = null;
 
       const result = await this.prisma.$transaction(async (tx) => {
+        // ARK-128: líder, equipo e integrantes se validan y se crean en la misma edición
+        const editionId = await this.getActiveEditionId(tx);
+
         const { userId: finalUserId, verificationToken } = await this.handleUser(
           tx,
           createTeamDto.members[0],
+          editionId,
         );
 
         // Capture token so we can send the email after the tx commits
@@ -164,6 +192,7 @@ export class TeamRepository implements ITeamRepository {
           tx,
           createTeamDto,
           finalUserId,
+          editionId,
         );
         const members = await this.createMembers(
           tx,
@@ -376,9 +405,11 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
+  /** ARK-128: el equipo que el usuario lidera en la edición activa ("Mi equipo"). */
   async findOneWithDetailsByLeaderId(leaderId: string): Promise<any> {
     return this.prisma.team.findFirst({
-      where: { userId: leaderId },
+      where: activeEditionTeamOf(leaderId),
+      orderBy: { editionId: 'desc' },
       include: this.teamDetailsInclude,
     });
   }
@@ -461,12 +492,21 @@ export class TeamRepository implements ITeamRepository {
     await this.prisma.$transaction(async (tx) => {
       // Actualizar nombre del equipo si se proporciona
       if (teamName !== undefined) {
+        const current = await tx.team.findUnique({
+          where: { id: teamId },
+          select: { editionId: true },
+        });
+        if (!current) {
+          throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
+        }
+        // ARK-128: el nombre solo choca con otro equipo de la misma edición
         const existingTeam = await tx.team.findFirst({
           where: {
             teamName: {
               equals: escapeLike(teamName),
               mode: 'insensitive',
             },
+            editionId: current.editionId,
             id: {
               not: teamId,
             },
@@ -562,9 +602,11 @@ export class TeamRepository implements ITeamRepository {
     }
 
     // Verificar que el email no esté en uso
+    // ARK-128: el correo solo choca con otro integrante de la misma edición
     const existingEmail = await this.prisma.member.findFirst({
       where: {
         email: newEmail,
+        editionId: team.editionId,
         id: { not: memberId },
       },
     });
@@ -795,6 +837,7 @@ export class TeamRepository implements ITeamRepository {
   private async handleUser(
     tx: Prisma.TransactionClient,
     firstMember: MemberDto,
+    editionId: number,
   ): Promise<{ userId: string; verificationToken: string | null }> {
     const studentRole = await tx.role.findUnique({
       where: { name: 'Estudiante' },
@@ -809,18 +852,21 @@ export class TeamRepository implements ITeamRepository {
     );
 
     if (existingUser) {
+      // ARK-128: solo cuenta el equipo de la edición en la que se inscribe; haber liderado un
+      // equipo en una edición anterior no impide inscribirse en la nueva.
       const hasTeam = await tx.team.findUnique({
-        where: { userId: existingUser.id },
+        where: { userId_editionId: { userId: existingUser.id, editionId } },
+        select: { id: true },
       });
 
       if (hasTeam)
         throw new ConflictException({
           statusCode: 409,
-          message: `El usuario ${existingUser.email} ya pertenece a un equipo`,
+          message: `El usuario ${existingUser.email} ya pertenece a un equipo en esta edición`,
           field: 'memberEmail',
         });
 
-      // Existing user re-registering: no new email needed
+      // Cuenta existente (p. ej. de una edición anterior): se reutiliza, sin correo nuevo
       return { userId: existingUser.id, verificationToken: null };
     }
 
@@ -846,10 +892,24 @@ export class TeamRepository implements ITeamRepository {
     return { userId: createdUser.id, verificationToken };
   }
 
+  private async getActiveEditionId(tx: Prisma.TransactionClient): Promise<number> {
+    const activeEdition = await tx.edition.findFirst({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+
+    if (!activeEdition) {
+      throw new BadRequestException('No hay una edición activa configurada');
+    }
+    return activeEdition.id;
+  }
+
   private async createTeamRecord(
     tx: Prisma.TransactionClient,
     dto: CreateTeamDto,
     userId: string,
+    editionId: number,
   ) {
     if (dto.members.length === 0) {
       throw new BadRequestException('El equipo debe tener al menos un miembro');
@@ -861,29 +921,13 @@ export class TeamRepository implements ITeamRepository {
       );
     }
 
-    const activeEdition = await tx.edition.findFirst({
-      where: {
-        status: EditionStatus.ACTIVE,
-      },
-      orderBy: {
-        id: 'desc',
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!activeEdition) {
-      throw new BadRequestException('No hay una edición activa configurada');
-    }
-
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
     const teamCode = await this.generateTeamCode(firstMemberNrcCode);
 
     // HU-19: los equipos universitarios nacen con código de verificación; los de colegios (N0) no
     const verificationCode = isCollegeTeamCode(teamCode)
       ? null
-      : await generateUniqueVerificationCode(tx, activeEdition.id);
+      : await generateUniqueVerificationCode(tx, editionId);
 
     return await tx.team.create({
       data: {
@@ -892,7 +936,7 @@ export class TeamRepository implements ITeamRepository {
         userId,
         teamCode,
         verificationCode,
-        editionId: activeEdition.id,
+        editionId,
       },
     });
   }
@@ -973,12 +1017,28 @@ export class TeamRepository implements ITeamRepository {
   ) {
     const createdMembers: Member[] = [];
     for (const member of members) {
-      const checkIfExist = await tx.member.findUnique({
-        where: { email: member.memberEmail },
+      // ARK-128: un estudiante no puede estar dos veces en la misma edición, pero sí en
+      // ediciones distintas (correo y código son únicos por edición).
+      const checkIfExist = await tx.member.findFirst({
+        where: {
+          editionId,
+          OR: [
+            {
+              email: {
+                equals: escapeLike(member.memberEmail.trim()),
+                mode: 'insensitive',
+              },
+            },
+            { studentCode: member.studentCode },
+          ],
+        },
+        select: { email: true },
       });
       if (checkIfExist)
         throw new ConflictException(
-          `El correo ${member.memberEmail} ya está registrado en un equipo`,
+          normalizeEmail(checkIfExist.email) === normalizeEmail(member.memberEmail)
+            ? `El correo ${member.memberEmail} ya está registrado en un equipo de esta edición`
+            : `El código estudiantil ${member.studentCode} ya está registrado en un equipo de esta edición`,
         );
 
       const nrcRecords = await findNrcIdsByCodes(
@@ -1001,6 +1061,7 @@ export class TeamRepository implements ITeamRepository {
           lastName: member.memberLastName,
           studentCode: member.studentCode,
           teamId,
+          editionId,
           nrcs: {
             connect: nrcRecords.ids.map((id) => ({ id })),
           },
@@ -1082,9 +1143,14 @@ export class TeamRepository implements ITeamRepository {
         where: { email: dbMember?.email },
       });
 
+      // ARK-128: el correo solo choca con otro integrante de la misma edición
       const existingEmail = member.memberEmail
-        ? await tx.member.findUnique({
-          where: { email: member.memberEmail },
+        ? await tx.member.findFirst({
+          where: {
+            email: member.memberEmail,
+            editionId: team.editionId,
+            id: { not: member.id },
+          },
         })
         : null;
 
