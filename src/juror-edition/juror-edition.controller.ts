@@ -57,7 +57,12 @@ export class JurorEditionController {
           itemsPerPage: 20,
           totalPages: 1,
         },
-        edition: { id: 5, title: 'Feria Gamer 2026-30', status: 'ACTIVE' },
+        edition: {
+          id: 5,
+          title: 'Feria Gamer 2026-30',
+          status: 'ACTIVE',
+          writable: true,
+        },
         counts: { PENDING: 1, CONFIRMED: 0, DECLINED: 0, AUTOMATIC: 0 },
       },
     },
@@ -84,7 +89,10 @@ export class JurorEditionController {
       example: { sourceEditionId: 4, created: 37, skipped: 0, fallback: true },
     },
   })
-  @ApiResponse({ status: 400, description: 'La edición está archivada' })
+  @ApiResponse({
+    status: 400,
+    description: 'La edición es de solo lectura (archivada o ya terminó)',
+  })
   @ApiResponse({ status: 404, description: 'No hay edición anterior o activa' })
   importPrevious(@Body() dto: EditionIdDto, @GetUser('id') actorId: string) {
     return this.service.importPrevious(dto, actorId);
@@ -115,7 +123,11 @@ export class JurorEditionController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Validación o edición archivada' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validación o edición de solo lectura (archivada o ya terminó)',
+  })
   updateStatus(
     @Body() dto: UpdateJurorEditionStatusDto,
     @GetUser('id') actorId: string,
@@ -136,7 +148,8 @@ export class JurorEditionController {
   })
   @ApiResponse({
     status: 400,
-    description: 'La cuenta no es de rol Jurado o la edición está archivada',
+    description:
+      'La cuenta no es de rol Jurado o la edición es de solo lectura (archivada o ya terminó)',
   })
   @ApiResponse({
     status: 404,

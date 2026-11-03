@@ -31,6 +31,8 @@ export interface EditionSummary {
   id: number;
   title: string;
   status: EditionStatus;
+  /** Si la lista de jurados acepta cambios (ver `assertWritable`). */
+  writable: boolean;
 }
 
 export interface PaginatedEditionJurors

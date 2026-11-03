@@ -20,6 +20,12 @@ const active = {
   semester: 30,
 };
 const archived = { ...active, id: 3, status: 'ARCHIVED' };
+const finished = {
+  ...active,
+  id: 4,
+  status: 'INACTIVE',
+  endsAt: new Date('2026-05-30T00:00:00Z'),
+};
 
 const juror = (id: string, extra: object = {}) => ({
   id,
@@ -93,6 +99,7 @@ describe('JurorEditionService (HU-25)', () => {
         id: 5,
         title: 'Feria 2026-30',
         status: 'ACTIVE',
+        writable: true,
       });
       expect(result.data).toEqual([
         expect.objectContaining({
@@ -345,6 +352,17 @@ describe('JurorEditionService (HU-25)', () => {
           ACTOR,
         ),
       ).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('400 si la edición está inactiva y ya terminó (nota 1 de #218)', async () => {
+      prisma.edition.findUnique.mockResolvedValue(finished);
+      await expect(
+        service.updateStatus(
+          { editionId: 4, items: [{ jurorId: 'a', status: 'CONFIRMED' }] },
+          ACTOR,
+        ),
+      ).rejects.toThrow('La edición ya terminó');
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
