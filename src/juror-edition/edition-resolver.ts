@@ -11,12 +11,17 @@ const editionSelect = {
   status: true,
   year: true,
   semester: true,
+  endsAt: true,
 } as const;
 
-export type ResolvedEdition = EditionSummary & {
+export interface ResolvedEdition {
+  id: number;
+  title: string;
+  status: EditionStatus;
   year: number;
   semester: number;
-};
+  endsAt: Date;
+}
 
 /** La edición pedida o, si no se envía, la edición activa. 404 si no existe. */
 export async function resolveEdition(
@@ -43,13 +48,43 @@ export async function resolveEdition(
   return edition;
 }
 
-/** Las ediciones archivadas son de solo lectura: conservan su lista para los reportes. */
-export function assertWritable(edition: ResolvedEdition): void {
+/**
+ * Qué ediciones aceptan cambios en su lista de jurados (decidido el 2026-11-02, nota 1 de la
+ * revisión de #218):
+ * - ACTIVE: siempre (también después de la feria, hasta que se active otra).
+ * - INACTIVE: solo si aún no terminó (`endsAt` en el futuro): una edición que se está
+ *   preparando. Las anteriores (en producción, la 1 a la 4 están INACTIVE) son de solo lectura.
+ * - ARCHIVED: nunca.
+ * Las de solo lectura conservan su lista para los reportes.
+ */
+function readOnlyReason(
+  edition: Pick<ResolvedEdition, 'status' | 'endsAt'>,
+  now: Date,
+): string | null {
+  if (edition.status === EditionStatus.ACTIVE) return null;
   if (edition.status === EditionStatus.ARCHIVED) {
-    throw new BadRequestException(
-      'La edición está archivada: su lista de jurados es de solo lectura',
-    );
+    return 'La edición está archivada: su lista de jurados es de solo lectura';
   }
+  if (edition.endsAt.getTime() <= now.getTime()) {
+    return 'La edición ya terminó: su lista de jurados es de solo lectura';
+  }
+  return null;
+}
+
+export function isWritable(
+  edition: Pick<ResolvedEdition, 'status' | 'endsAt'>,
+  now: Date = new Date(),
+): boolean {
+  return readOnlyReason(edition, now) === null;
+}
+
+/** 400 si la lista de jurados de la edición es de solo lectura. */
+export function assertWritable(
+  edition: Pick<ResolvedEdition, 'status' | 'endsAt'>,
+  now: Date = new Date(),
+): void {
+  const reason = readOnlyReason(edition, now);
+  if (reason) throw new BadRequestException(reason);
 }
 
 /** La edición inmediatamente anterior por año y semestre (10, 20, 30). 404 si no hay. */
@@ -76,5 +111,10 @@ export async function findPreviousEdition(
 }
 
 export function toEditionSummary(edition: ResolvedEdition): EditionSummary {
-  return { id: edition.id, title: edition.title, status: edition.status };
+  return {
+    id: edition.id,
+    title: edition.title,
+    status: edition.status,
+    writable: isWritable(edition),
+  };
 }
