@@ -26,6 +26,7 @@ export class MembersService {
         email: email,
         studentCode: studentCode,
         teamId: teamId,
+        editionId: team.editionId,
       },
     });
   }

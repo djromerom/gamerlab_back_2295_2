@@ -1,4 +1,6 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PassThrough } from 'stream';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
@@ -16,6 +18,7 @@ describe('ReportsController', () => {
     getSubjectAverageScores: jest.fn(),
     getNrcWithSubjectNameAndAverage: jest.fn(),
     getJuradosData: jest.fn(),
+    getJurorAssignmentReport: jest.fn(),
     getVideogamesDataFilter: jest.fn(),
   };
 
@@ -67,25 +70,55 @@ describe('ReportsController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('exportJurados responde con Content-Type de hoja de cálculo y Content-Disposition', async () => {
-    mockReportsService.getJuradosData.mockResolvedValue([]);
+  function fakeResponse() {
     const headers: Record<string, string> = {};
-    const { PassThrough } = await import('stream');
     const res: any = new PassThrough();
     res.setHeader = (k: string, v: string) => {
       headers[k] = v;
     };
     res.status = jest.fn().mockReturnValue(res);
+    res.json = jest.fn().mockReturnValue(res);
     res.send = jest.fn();
     res.resume();
+    return { res, headers };
+  }
 
-    await controller.exportJurados(res);
+  it('exportJurados (HU-16) responde un Excel con la feria y la fecha en el nombre', async () => {
+    mockReportsService.getJurorAssignmentReport.mockResolvedValue({
+      edition: {
+        id: 3,
+        year: 2026,
+        semester: 30,
+        title: 'Feria Arkad 2026-30',
+      },
+      rows: [],
+    });
+    const { res, headers } = fakeResponse();
 
+    await controller.exportJurados(res, 3);
+
+    expect(mockReportsService.getJurorAssignmentReport).toHaveBeenCalledWith(3);
     expect(headers['Content-Type']).toBe(
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    expect(headers['Content-Disposition']).toBe(
-      'attachment; filename=reporte_jurados.xlsx',
+    expect(headers['Content-Disposition']).toMatch(
+      /^attachment; filename="asignacion_jurados_2026-30_\d{4}-\d{2}-\d{2}\.xlsx"; filename\*=UTF-8''asignacion_jurados_2026-30_/,
+    );
+  });
+
+  it('exportJurados (HU-16) sin asignaciones responde 404 con el mensaje en JSON', async () => {
+    mockReportsService.getJurorAssignmentReport.mockRejectedValue(
+      new NotFoundException('No hay asignaciones para exportar.'),
+    );
+    const { res } = fakeResponse();
+
+    await controller.exportJurados(res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'No hay asignaciones para exportar.',
+      }),
     );
   });
 });

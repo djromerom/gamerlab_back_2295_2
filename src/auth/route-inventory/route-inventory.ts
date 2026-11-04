@@ -33,6 +33,16 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
     'Cualquier usuario con sesión puede dar o quitar su propio like.',
   'GET /reports/JuradosData':
     'La usa la página "Mis jurados": el administrador ve todos los jurados y cualquier otro usuario solo los de su propio equipo (OptionalAdminRoleGuard, BG-02).',
+  'GET /ranking':
+    'Solo el Administrador (AdminRoleGuard): ranking oficial por nivel con empates (HU-04).',
+  'GET /ranking/winners':
+    'Solo el Administrador (AdminRoleGuard): ganadores de cada nivel (HU-04).',
+  'GET /ranking/ties':
+    'Solo el Administrador (AdminRoleGuard): empates detectados (HU-04).',
+  'GET /ranking/decisions':
+    'Solo el Administrador (AdminRoleGuard): decisiones de desempate registradas (HU-04).',
+  'POST /ranking/finalize':
+    'Solo el Administrador (AdminRoleGuard): define el ranking final (HU-04).',
 };
 
 /**
@@ -51,11 +61,13 @@ export const ROUTE_NOTES: Record<string, string> = {
   'PATCH /videogames/:id':
     'Estudiante: solo el videojuego de su equipo; el estado de aprobación solo lo cambia el Administrador (BG-01).',
   'GET /juror/teams/:teamId/evaluation-stats':
-    'Estudiante: solo las estadísticas de su propio equipo (BG-01).',
+    'Estudiante: solo las estadísticas de su propio equipo (BG-01). Solo devuelve conteos, sin datos de los jurados (ARK-110).',
+  'GET /juror/teams/:teamId/jurors-status':
+    'Solo Administrador (ListJurors no está concedido a ningún otro rol). El correo de cada jurado solo se incluye para el Administrador (ARK-110).',
   'GET /teams/:id':
-    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    'Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
   'GET /teams/:id/full':
-    '⚠️ BG-07: cualquier rol con GetTeam (incluido Estudiante) puede leer cualquier equipo.',
+    'Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
   'POST /upload':
     'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':
@@ -68,6 +80,10 @@ export const ROUTE_NOTES: Record<string, string> = {
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
   'GET /reports/JuradosData':
     'Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol.',
+  'POST /ranking/ties/decision':
+    'Profesor: solo empates entre grupos de sus NRC (RankingService.decide); el Administrador, cualquier empate pendiente (HU-04).',
+  'GET /ranking/my-ties':
+    'Profesor: solo los empates que le toca decidir (HU-04).',
   'GET /reports/DatosGraficoMateria':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
 };

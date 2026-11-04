@@ -50,7 +50,7 @@ export class JurorCheckinController {
   @ApiOperation({
     summary: 'Busca jurados por nombre para registrar su llegada a mano',
     description:
-      'Incluye a los jurados sin escarapela (`hasBadge: false`). Máximo 20 resultados.',
+      'Solo jurados de la edición activa (externos confirmados y profesores con NRC activo en ella). Incluye a los que no tienen escarapela (`hasBadge: false`). Máximo 20 resultados.',
   })
   @ApiResponse({
     status: 200,
@@ -81,7 +81,7 @@ export class JurorCheckinController {
   })
   @ApiResponse({
     status: 404,
-    description: 'El jurado no existe o no está activo',
+    description: 'No es jurado de la edición activa o no hay edición activa',
   })
   manual(@Body() dto: ManualCheckInDto, @GetUser('id') staffId: string) {
     return this.checkinService.checkInManually(dto.jurorId, staffId);

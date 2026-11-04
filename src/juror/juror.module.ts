@@ -4,6 +4,7 @@ import { JurorController } from './juror.controller';
 import { AuthModule } from '../auth/auth.module';
 import { JurorAssignmentService } from './assignment-audit/juror-assignment.service';
 import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment-audit.service';
+import { AssignmentValidationService } from './assignment-validation/assignment-validation.service';
 
 @Module({
   imports: [AuthModule],
@@ -12,6 +13,7 @@ import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment
     JurorService,
     JurorAssignmentService,
     JurorAssignmentAuditService,
+    AssignmentValidationService,
   ],
 })
 export class JurorModule {}

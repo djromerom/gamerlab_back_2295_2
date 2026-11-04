@@ -1,12 +1,13 @@
 import {
   BadRequestException,
-  ConflictException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { assertEditionWritable } from '../../editions/active-edition';
 import {
   JurorCategory,
   ManualJurorAssignmentAction,
@@ -17,14 +18,27 @@ import {
 import { PaginatedResult } from '../../common/types/paginated-result.type';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JurorAssignmentAuditService } from './juror-assignment-audit.service';
+import { extractTeamLevel } from '../assignment-validation/assignment-rules';
+import {
+  AssignmentChange,
+  RuleEvaluator,
+  RuleTeam,
+} from '../assignment-validation/assignment-rules.types';
+import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
 
 type EvaluatorForValidation = {
   id: string;
   roleId: number;
   jurorCategory?: JurorCategory | null;
-  role?: {
-    name: string;
-  } | null;
+  firstName?: string | null;
+  lastName?: string | null;
+};
+
+type TeamForValidation = {
+  id: number;
+  teamCode: string;
+  editionId: number;
+  assignedJurors: Array<{ id: string }>;
 };
 
 type AuditLogFilters = {
@@ -51,6 +65,7 @@ export class JurorAssignmentService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jurorAssignmentAuditService: JurorAssignmentAuditService,
+    private readonly assignmentValidation: AssignmentValidationService,
   ) {}
 
   async onModuleInit() {
@@ -88,70 +103,52 @@ export class JurorAssignmentService implements OnModuleInit {
     );
   }
 
-  private extractLevelFromTeamCode(teamCode?: string | null): number | null {
-    if (!teamCode) return null;
+  /** Traduce el usuario al formato de las reglas de HU-08. */
+  private toRuleEvaluator(evaluator: EvaluatorForValidation): RuleEvaluator {
+    const kind =
+      evaluator.roleId === this.professorRoleId
+        ? 'PROFESSOR'
+        : evaluator.roleId === this.jurorRoleId
+          ? 'JUROR'
+          : 'OTHER';
 
-    const match = teamCode.match(/^N(\d+)/i);
-
-    if (!match || !match[1]) {
-      return null;
-    }
-
-    return parseInt(match[1], 10);
+    return {
+      id: evaluator.id,
+      name: `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
+      kind,
+      jurorCategory: evaluator.jurorCategory ?? null,
+    };
   }
 
-  private getEvaluatorLabel(evaluator: EvaluatorForValidation): string {
-    if (evaluator.roleId === this.professorRoleId) {
-      return 'profesor';
-    }
-
-    if (evaluator.roleId === this.jurorRoleId) {
-      return evaluator.jurorCategory
-        ? `jurado ${evaluator.jurorCategory.toLowerCase()}`
-        : 'jurado';
-    }
-
-    return 'evaluador';
+  private toRuleTeam(team: TeamForValidation): RuleTeam {
+    return {
+      id: team.id,
+      teamCode: team.teamCode,
+      editionId: team.editionId,
+      jurorIds: team.assignedJurors.map((juror) => juror.id),
+    };
   }
 
-  private validateEvaluatorRole(evaluator: EvaluatorForValidation) {
-    const isJuror = evaluator.roleId === this.jurorRoleId;
-    const isProfessor = evaluator.roleId === this.professorRoleId;
-
-    if (!isJuror && !isProfessor) {
-      throw new BadRequestException(
-        'El usuario debe ser un jurado o un profesor.',
-      );
-    }
-  }
-
-  private validateEvaluatorCategoryForLevel(
-    evaluator: EvaluatorForValidation,
-    teamLevel: number,
+  /**
+   * HU-08: valida con el servicio centralizado. Lanza los bloqueos y, si hay
+   * advertencias sin confirmar, un 409 ASSIGNMENT_WARNINGS. Devuelve las
+   * advertencias aceptadas.
+   */
+  private async validateChanges(
+    team: TeamForValidation,
+    evaluators: EvaluatorForValidation[],
+    changes: AssignmentChange[],
+    confirmWarnings: boolean,
   ) {
-    this.validateEvaluatorRole(evaluator);
+    const result = await this.assignmentValidation.validate({
+      teams: [this.toRuleTeam(team)],
+      evaluators: evaluators.map((evaluator) =>
+        this.toRuleEvaluator(evaluator),
+      ),
+      changes,
+    });
 
-    // [MODIFICADO]: Se eliminó la restricción que impedía a los profesores evaluar equipos de nivel distinto a 0 (manual assignment).
-    // [ANTES]: if (teamLevel !== 0) { throw new BadRequestException(...) }
-    if (evaluator.roleId === this.professorRoleId) {
-      return;
-    }
-
-    if (evaluator.roleId === this.jurorRoleId) {
-      if (!evaluator.jurorCategory) {
-        throw new BadRequestException(
-          'El jurado no tiene categoría asignada (JUNIOR/SENIOR).',
-        );
-      }
-
-      if (teamLevel === 0 && evaluator.jurorCategory === JurorCategory.JUNIOR) {
-        throw new BadRequestException(
-          'Los jurados JUNIOR no pueden ser asignados a colegios (nivel 0).',
-        );
-      }
-
-      return;
-    }
+    return this.assignmentValidation.enforce(result, confirmWarnings);
   }
 
   private formatAssignedJurors(
@@ -181,7 +178,11 @@ export class JurorAssignmentService implements OnModuleInit {
       throw new NotFoundException('Evaluador no encontrado o inactivo.');
     }
 
-    this.validateEvaluatorRole(evaluator);
+    if (this.toRuleEvaluator(evaluator).kind === 'OTHER') {
+      throw new BadRequestException(
+        'El usuario debe ser un jurado o un profesor.',
+      );
+    }
 
     return evaluator;
   }
@@ -191,6 +192,7 @@ export class JurorAssignmentService implements OnModuleInit {
       where: { id: teamId },
       include: {
         videogame: true,
+        edition: { select: { status: true, title: true } },
         assignedJurors: {
           where: {
             isActive: true,
@@ -215,33 +217,28 @@ export class JurorAssignmentService implements OnModuleInit {
       throw new NotFoundException('Equipo no encontrado o inactivo.');
     }
 
+    // ARK-130 (HU-27): asignar, reasignar y quitar solo en equipos de la edición activa
+    assertEditionWritable(team.edition, 'los jurados del equipo');
+
     return team;
   }
 
-  async assign(jurorId: string, teamId: number, actorUserId: string) {
+  async assign(
+    jurorId: string,
+    teamId: number,
+    actorUserId: string,
+    confirmWarnings = false,
+  ) {
     try {
       const evaluator = await this.findActiveEvaluator(jurorId);
       const team = await this.findActiveTeam(teamId);
 
-      const teamLevel = this.extractLevelFromTeamCode(team.teamCode);
-
-      if (teamLevel === null) {
-        throw new BadRequestException(
-          'No se pudo determinar el nivel del equipo. El código debe tener formato N<número>-..., por ejemplo N0-COLEGIOS-01 o N1-AYP-06.',
-        );
-      }
-
-      this.validateEvaluatorCategoryForLevel(evaluator, teamLevel);
-
-      const isAlreadyAssigned = team.assignedJurors.some(
-        (juror) => juror.id === jurorId,
+      const acceptedWarnings = await this.validateChanges(
+        team,
+        [evaluator],
+        [{ type: 'ADD', jurorId, teamId }],
+        confirmWarnings,
       );
-
-      if (isAlreadyAssigned) {
-        throw new ConflictException(
-          'El evaluador ya está asignado a este equipo.',
-        );
-      }
 
       const updatedTeam = await this.prisma.$transaction(async (tx) => {
         await tx.team.update({
@@ -262,7 +259,10 @@ export class JurorAssignmentService implements OnModuleInit {
             teamId,
             jurorId,
             newJurorId: jurorId,
-            notes: 'Asignación manual desde módulo admin.',
+            notes: AssignmentValidationService.auditNote(
+              'Asignación manual desde módulo admin.',
+              acceptedWarnings,
+            ),
           },
           tx,
         );
@@ -312,13 +312,10 @@ export class JurorAssignmentService implements OnModuleInit {
           ),
           cantidadJurados: updatedTeam.assignedJurors.length,
         },
+        advertenciasAceptadas: acceptedWarnings,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException ||
-        error instanceof ConflictException
-      ) {
+      if (error instanceof HttpException) {
         throw error;
       }
 
@@ -334,6 +331,7 @@ export class JurorAssignmentService implements OnModuleInit {
     newJurorId: string,
     teamId: number,
     actorUserId: string,
+    confirmWarnings = false,
   ) {
     try {
       if (currentJurorId === newJurorId) {
@@ -355,25 +353,16 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
-      const isNewAlreadyAssigned = team.assignedJurors.some(
-        (juror) => juror.id === newJurorId,
+      // Reasignar = quitar al actual y agregar al nuevo (bloqueos y advertencias de HU-08).
+      const acceptedWarnings = await this.validateChanges(
+        team,
+        [newEvaluator],
+        [
+          { type: 'REMOVE', jurorId: currentJurorId, teamId },
+          { type: 'ADD', jurorId: newJurorId, teamId },
+        ],
+        confirmWarnings,
       );
-
-      if (isNewAlreadyAssigned) {
-        throw new ConflictException(
-          'El nuevo evaluador ya está asignado a este equipo.',
-        );
-      }
-
-      const teamLevel = this.extractLevelFromTeamCode(team.teamCode);
-
-      if (teamLevel === null) {
-        throw new BadRequestException(
-          'No se pudo determinar el nivel del equipo. El código debe tener formato N<número>-...',
-        );
-      }
-
-      this.validateEvaluatorCategoryForLevel(newEvaluator, teamLevel);
 
       const updatedTeam = await this.prisma.$transaction(async (tx) => {
         await tx.team.update({
@@ -406,7 +395,10 @@ export class JurorAssignmentService implements OnModuleInit {
             jurorId: newJurorId,
             previousJurorId: currentJurorId,
             newJurorId,
-            notes: 'Reasignación manual desde módulo admin.',
+            notes: AssignmentValidationService.auditNote(
+              'Reasignación manual desde módulo admin.',
+              acceptedWarnings,
+            ),
           },
           tx,
         );
@@ -456,13 +448,10 @@ export class JurorAssignmentService implements OnModuleInit {
           ),
           cantidadJurados: updatedTeam.assignedJurors.length,
         },
+        advertenciasAceptadas: acceptedWarnings,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException ||
-        error instanceof ConflictException
-      ) {
+      if (error instanceof HttpException) {
         throw error;
       }
 
@@ -473,7 +462,12 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
-  async unassign(jurorId: string, teamId: number, actorUserId: string) {
+  async unassign(
+    jurorId: string,
+    teamId: number,
+    actorUserId: string,
+    confirmWarnings = false,
+  ) {
     try {
       await this.findActiveEvaluator(jurorId);
       const team = await this.findActiveTeam(teamId);
@@ -487,6 +481,14 @@ export class JurorAssignmentService implements OnModuleInit {
           'El evaluador no está asignado a este equipo.',
         );
       }
+
+      // HU-08: advierte si el grupo queda con menos jurados que el mínimo.
+      const acceptedWarnings = await this.validateChanges(
+        team,
+        [],
+        [{ type: 'REMOVE', jurorId, teamId }],
+        confirmWarnings,
+      );
 
       const updatedTeam = await this.prisma.$transaction(async (tx) => {
         await tx.team.update({
@@ -507,7 +509,10 @@ export class JurorAssignmentService implements OnModuleInit {
             teamId,
             jurorId,
             previousJurorId: jurorId,
-            notes: 'Desasignación manual desde módulo admin.',
+            notes: AssignmentValidationService.auditNote(
+              'Desasignación manual desde módulo admin.',
+              acceptedWarnings,
+            ),
           },
           tx,
         );
@@ -557,12 +562,10 @@ export class JurorAssignmentService implements OnModuleInit {
           ),
           cantidadJurados: updatedTeam.assignedJurors.length,
         },
+        advertenciasAceptadas: acceptedWarnings,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
+      if (error instanceof HttpException) {
         throw error;
       }
 
@@ -926,7 +929,7 @@ export class JurorAssignmentService implements OnModuleInit {
           teamName: team.teamName,
           teamCode: team.teamCode,
           videojuego: team.videogame?.name ?? null,
-          nivel: this.extractLevelFromTeamCode(team.teamCode),
+          nivel: extractTeamLevel(team.teamCode),
           totalJuradosAsignados: jurados.length,
           juradosQueEvaluaron,
           // [MODIFICADO]: Se ajustó el cálculo a 3 - juradosQueEvaluaron para reflejar que siempre se requieren 3 evaluaciones en total, independientemente de cuántos jurados estén asignados.

@@ -27,6 +27,14 @@ import { ROLE_IDS } from '../../auth/constants/roles';
 import { SettingsService } from '../../settings/settings.service';
 import { stripPersonalData } from '../../common/utils/strip-personal-data';
 import { BlobReferenceService } from '../../upload/blob-reference.service';
+import {
+  filterTeamForAudience,
+  isTeamLeaderOrMember,
+  resolveTeamAudience,
+} from '../team-visibility';
+import { RankingService } from '../../ranking/ranking.service';
+import { resolveListEdition } from '../../editions/list-edition';
+import { assertTeamWritable, findActiveEdition } from '../../editions/active-edition';
 
 @Injectable()
 export class TeamsService {
@@ -39,6 +47,7 @@ export class TeamsService {
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly blobRefs: BlobReferenceService,
+    private readonly ranking: RankingService,
   ) { }
 
   /** Task 28: la BD guarda `upload:<id>`; lo que llega como URL firmada se convierte antes de guardar. */
@@ -114,10 +123,7 @@ export class TeamsService {
     const client: any = (this.prisma as any).teamFinalScore;
 
     try {
-      const activeEdition = await this.prisma.edition.findFirst({
-        where: { status: EditionStatus.ACTIVE },
-        select: { id: true },
-      });
+      const activeEdition = await findActiveEdition(this.prisma);
 
       if (!activeEdition) {
         return [];
@@ -151,7 +157,7 @@ export class TeamsService {
       );
 
       if (!missingTeamName && !missingLogo) {
-        return this.signRankingLogos(await this.applyTieBreakerToRanking(rows));
+        return this.signRankingLogos(await this.ranking.orderRows(rows, activeEdition.id));
       }
 
       const teamIds = Array.from(
@@ -225,7 +231,7 @@ export class TeamsService {
         return rr;
       });
 
-      return this.signRankingLogos(await this.applyTieBreakerToRanking(enrichedRows));
+      return this.signRankingLogos(await this.ranking.orderRows(enrichedRows, activeEdition.id));
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch final scores by prefix');
@@ -420,15 +426,25 @@ export class TeamsService {
    * resolves it with OptionalAdminRoleGuard). Everyone else, logged in or not, gets the list without
    * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
    */
-  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
+  /**
+   * ARK-129 (HU-26): solo la edición pedida o, por defecto, la activa. Sin edición activa la
+   * lista sale vacía (no se mezclan ediciones). 404 si `editionId` no existe.
+   */
+  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number) {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) return [];
     const teams = await this.withSignedBlobs(
-      await this.teamRepository.findAll(sortByLikes),
+      await this.teamRepository.findAll(sortByLikes, edition.id),
     );
     const visible = includePersonalData ? teams : stripPersonalData(teams);
-    return this.markOwnTeams(visible, currentUserId);
+    return await this.markOwnTeams(visible, currentUserId);
   }
 
-  async findOne(id: number): Promise<unknown> {
+  /**
+   * ARK-112: un estudiante solo lee su propio equipo (líder o integrante activo); los demás
+   * roles con `GetTeam` lo reciben sin datos personales. Ver `team-visibility.ts`.
+   */
+  async findOne(id: number, user: AppUser): Promise<unknown> {
     if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestException('Invalid team id');
     }
@@ -439,7 +455,14 @@ export class TeamsService {
       throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     }
 
-    return team;
+    // El administrador no necesita la consulta de integrantes: lo ve todo igual
+    const ownsTeam =
+      user.roleId === ROLE_IDS.ADMIN ||
+      team.userId === user.id ||
+      (!!user.email &&
+        (await this.teamRepository.isActiveMember(team.id, user.email)));
+
+    return filterTeamForAudience(team, resolveTeamAudience(user, ownsTeam));
   }
 
   async findOneWithDetails(
@@ -460,25 +483,18 @@ export class TeamsService {
       );
     }
 
-    // F1/BG-07: el detalle incluye correos y códigos estudiantiles. Un estudiante
-    // solo lo ve si es el líder o un integrante activo del equipo.
-    if (user.roleId === ROLE_IDS.STUDENT) {
-      const email = user.email?.toLowerCase();
-      const isLeader = team.userId === user.id;
-      const isMember =
-        !!email &&
-        (team.members ?? []).some(
-          (m: { email: string }) => m.email?.toLowerCase() === email,
-        );
+    // ARK-112: el detalle incluye correos y códigos estudiantiles. Un estudiante solo lo ve
+    // si es el líder o un integrante activo del equipo (el repositorio ya trae solo los activos).
+    const memberEmails = ((team.members ?? []) as { email: string }[]).map(
+      (m) => m.email,
+    );
+    const audience = resolveTeamAudience(
+      user,
+      isTeamLeaderOrMember(user, team, memberEmails),
+    );
 
-      if (!isLeader && !isMember) {
-        throw new ForbiddenException(
-          'You do not have permission to access this resource.',
-        );
-      }
-    }
-
-    return (await this.withSignedBlobs([team]))[0];
+    const [signed] = await this.withSignedBlobs([team]);
+    return filterTeamForAudience(signed, audience);
   }
 
   async update(id: number, updateTeamDto: UpdateTeamDto, currentUser: AppUser) {
@@ -496,6 +512,9 @@ export class TeamsService {
         'You do not have permission to access this resource.',
       );
     }
+
+    // ARK-130 (HU-27): los equipos de ediciones anteriores son de solo lectura
+    await assertTeamWritable(this.prisma, id);
 
     const result = await this.teamRepository.update(
       id,
@@ -530,6 +549,8 @@ export class TeamsService {
       );
     }
 
+    await assertTeamWritable(this.prisma, id);
+
     const updated = await this.teamRepository.updateTeamInfo(
       id,
       await this.withBlobReferences(updateTeamDto, id),
@@ -555,6 +576,8 @@ export class TeamsService {
         'Solo el líder del equipo puede actualizar los emails de los integrantes',
       );
     }
+
+    await assertTeamWritable(this.prisma, teamId);
 
     const member = await this.teamRepository.findMemberById(memberId);
 
@@ -657,339 +680,49 @@ export class TeamsService {
     }));
   }
 
-  /**
-   * Normaliza cualquier puntaje a número con dos decimales.
-   */
-  private normalizeScore(value: any): number | null {
-    if (value === null || value === undefined) {
-      return null;
-    }
-
-    const score = Number(value);
-
-    if (Number.isNaN(score)) {
-      return null;
-    }
-
-    return Number(score.toFixed(2));
-  }
-
-  /**
-   * Calcula el puntaje de desempate de un videojuego.
-   *
-   * Fórmula:
-   * 70% promedio de jurados + 30% promedio de profesores.
-   *
-   * Esta función solo calcula el puntaje; no decide si hay empate.
-   */
-  private async getTieBreakerScore(
-    videogameId: number,
-    editionId?: number,
-  ): Promise<{
-    jurorScore: number | null;
-    professorScore: number | null;
-    tieBreakerScore: number | null;
-  }> {
-    const professorRole = await this.prisma.role.findFirst({
-      where: {
-        name: 'Profesor',
-        isActive: true,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!professorRole) {
+  /** Igual que `findAll`, paginado; incluye `edition` (con `readOnly`) para el selector del admin. */
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number) {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) {
       return {
-        jurorScore: null,
-        professorScore: null,
-        tieBreakerScore: null,
-      };
-    }
-
-    const baseWhere: any = {
-      videogameId,
-      isActive: true,
-    };
-
-    if (editionId) {
-      baseWhere.editionId = editionId;
-    }
-
-    const professorAgg = await this.prisma.evaluation.aggregate({
-      _avg: {
-        totalScore: true,
-      },
-      where: {
-        ...baseWhere,
-        juror: {
-          roleId: professorRole.id,
+        data: [],
+        metaData: {
+          totalItems: 0,
+          totalPages: 0,
+          itemsPerPage: Math.max(limit, 1),
+          currentPage: Math.max(page, 1),
+          itemsOnCurrentPage: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
         },
-      },
-    });
-
-    const jurorAgg = await this.prisma.evaluation.aggregate({
-      _avg: {
-        totalScore: true,
-      },
-      where: {
-        ...baseWhere,
-        juror: {
-          roleId: {
-            not: professorRole.id,
-          },
-        },
-      },
-    });
-
-    const jurorScore = this.normalizeScore(jurorAgg._avg.totalScore);
-    const professorScore = this.normalizeScore(professorAgg._avg.totalScore);
-
-    if (jurorScore === null && professorScore === null) {
-      return {
-        jurorScore,
-        professorScore,
-        tieBreakerScore: null,
+        edition: null,
       };
     }
-
-    if (jurorScore === null) {
-      return {
-        jurorScore,
-        professorScore,
-        tieBreakerScore: professorScore,
-      };
-    }
-
-    if (professorScore === null) {
-      return {
-        jurorScore,
-        professorScore,
-        tieBreakerScore: jurorScore,
-      };
-    }
-
-    const tieBreakerScore = Number(
-      (jurorScore * 0.7 + professorScore * 0.3).toFixed(2),
-    );
-
-    return {
-      jurorScore,
-      professorScore,
-      tieBreakerScore,
-    };
-  }
-
-  /**
-   * Guarda el ranking final calculado en la tabla resultado_ranking.
-   */
-  private async persistRankingResults(rows: any[]): Promise<void> {
-    await Promise.all(
-      rows.map(async (row, index) => {
-        const teamId = Number(row.teamId ?? row.team_id);
-        const videogameId = Number(row.videogameId ?? row.videogame_id);
-        const editionId = Number(row.editionId ?? row.edition_id);
-
-        if (
-          !Number.isInteger(teamId) ||
-          !Number.isInteger(videogameId) ||
-          !Number.isInteger(editionId) ||
-          teamId <= 0 ||
-          videogameId <= 0 ||
-          editionId <= 0
-        ) {
-          return;
-        }
-
-        const baseScore = this.normalizeScore(
-          row.finalScore ?? row.final_score ?? row.finalscore,
-        );
-
-        const rankingScore = this.normalizeScore(row.rankingScore);
-
-        await this.prisma.rankingResult.upsert({
-          where: {
-            teamId_videogameId_editionId: {
-              teamId,
-              videogameId,
-              editionId,
-            },
-          },
-          update: {
-            baseScore: baseScore ?? 0,
-            rankingScore: rankingScore ?? 0,
-            tieBreakerScore: row.tieBreakerScore,
-            jurorTieBreakerScore: row.jurorTieBreakerScore,
-            professorTieBreakerScore: row.professorTieBreakerScore,
-            wasTied: row.wasTied ?? false,
-            finalPosition: index + 1,
-          },
-          create: {
-            teamId,
-            videogameId,
-            editionId,
-            baseScore: baseScore ?? 0,
-            rankingScore: rankingScore ?? 0,
-            tieBreakerScore: row.tieBreakerScore,
-            jurorTieBreakerScore: row.jurorTieBreakerScore,
-            professorTieBreakerScore: row.professorTieBreakerScore,
-            wasTied: row.wasTied ?? false,
-            finalPosition: index + 1,
-          },
-        });
-      }),
-    );
-  }
-
-  /**
-   * Aplica la lógica de desempate sobre un listado de equipos.
-   *
-   * Correcciones importantes:
-   * - Solo compara equipos de la misma edición.
-   * - No marca como empatados los equipos sin calificación real.
-   * - No aplica desempate si finalScore es 0 o menor.
-   */
-  private async applyTieBreakerToRanking(rows: any[]): Promise<any[]> {
-    const scoreGroups = new Map<string, any[]>();
-
-    for (const row of rows) {
-      const finalScore = this.normalizeScore(
-        row.finalScore ?? row.final_score ?? row.finalscore,
-      );
-
-      const editionId = Number(row.editionId ?? row.edition_id);
-
-      if (
-        finalScore === null ||
-        finalScore <= 0 ||
-        !Number.isInteger(editionId) ||
-        editionId <= 0
-      ) {
-        continue;
-      }
-
-      const groupKey = `${editionId}-${finalScore}`;
-
-      if (!scoreGroups.has(groupKey)) {
-        scoreGroups.set(groupKey, []);
-      }
-
-      scoreGroups.get(groupKey)!.push(row);
-    }
-
-    const tiedRows = new Set<any>();
-
-    for (const group of scoreGroups.values()) {
-      if (group.length > 1) {
-        group.forEach((row) => tiedRows.add(row));
-      }
-    }
-
-    const result = await Promise.all(
-      rows.map(async (row) => {
-        const baseScore = this.normalizeScore(
-          row.finalScore ?? row.final_score ?? row.finalscore,
-        );
-
-        if (!tiedRows.has(row)) {
-          return {
-            ...row,
-            wasTied: false,
-            jurorTieBreakerScore: null,
-            professorTieBreakerScore: null,
-            tieBreakerScore: null,
-            rankingScore: baseScore,
-          };
-        }
-
-        const videogameId = Number(row.videogameId ?? row.videogame_id);
-        const editionId = Number(row.editionId ?? row.edition_id);
-
-        if (!Number.isInteger(videogameId) || videogameId <= 0) {
-          return {
-            ...row,
-            wasTied: true,
-            jurorTieBreakerScore: null,
-            professorTieBreakerScore: null,
-            tieBreakerScore: null,
-            rankingScore: baseScore,
-          };
-        }
-
-        const tieBreaker = await this.getTieBreakerScore(
-          videogameId,
-          Number.isInteger(editionId) && editionId > 0 ? editionId : undefined,
-        );
-
-        return {
-          ...row,
-          wasTied: true,
-          jurorTieBreakerScore: tieBreaker.jurorScore,
-          professorTieBreakerScore: tieBreaker.professorScore,
-          tieBreakerScore: tieBreaker.tieBreakerScore,
-          // El puntaje general del ranking se mantiene como el puntaje base.
-          // El tieBreakerScore solo se usa para ordenar equipos que ya estaban empatados.
-          rankingScore: baseScore,
-        };
-      }),
-    );
-
-    const sortedRanking = result.sort((a, b) => {
-      const baseA =
-        this.normalizeScore(a.finalScore ?? a.final_score ?? a.finalscore) ??
-        -Infinity;
-
-      const baseB =
-        this.normalizeScore(b.finalScore ?? b.final_score ?? b.finalscore) ??
-        -Infinity;
-
-      // Primero se ordena por puntaje final general.
-      if (baseA !== baseB) {
-        return baseB - baseA;
-      }
-
-      const editionA = Number(a.editionId ?? a.edition_id);
-      const editionB = Number(b.editionId ?? b.edition_id);
-
-      // Evita comparar desempates entre ediciones distintas.
-      if (editionA !== editionB) {
-        return editionA - editionB;
-      }
-
-      const tieA = this.normalizeScore(a.tieBreakerScore) ?? baseA;
-      const tieB = this.normalizeScore(b.tieBreakerScore) ?? baseB;
-
-      // Solo si el puntaje base es igual, se usa el puntaje de desempate.
-      if (tieA !== tieB) {
-        return tieB - tieA;
-      }
-
-      const codeA = String(a.teamCode ?? a.team_code ?? '');
-      const codeB = String(b.teamCode ?? b.team_code ?? '');
-
-      return codeA.localeCompare(codeB);
-    });
-
-    await this.persistRankingResults(sortedRanking);
-
-    return sortedRanking;
-  }
-
-  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
-    const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+    const result = await this.teamRepository.findPaged(page, limit, sortByLikes, edition.id);
     result.data = await this.withSignedBlobs(result.data);
     const visible = includePersonalData ? result : stripPersonalData(result);
-    return { ...visible, data: this.markOwnTeams(visible.data, currentUserId) };
+    return { ...visible, data: await this.markOwnTeams(visible.data, currentUserId), edition };
   }
 
   /**
    * Con sesión, agrega `isMine` (el usuario autenticado es el líder). Sin sesión no agrega nada.
    * Reemplaza al cruce `team.userId === user.id` que hacía el front con el UUID del líder.
+   * ARK-128: el líder puede tener equipos de ediciones anteriores; "mi equipo" es solo el de la
+   * edición activa (el panel del estudiante no debe mostrar el de la edición pasada).
    */
-  private markOwnTeams<T extends { userId?: string }>(teams: T[], currentUserId?: string) {
+  private async markOwnTeams<T extends { userId?: string; editionId?: number }>(
+    teams: T[],
+    currentUserId?: string,
+  ) {
     if (!currentUserId) return teams;
-    return teams.map((team) => ({ ...team, isMine: team.userId === currentUserId }));
+    const activeEditionId = (await findActiveEdition(this.prisma))?.id;
+    return teams.map((team) => ({
+      ...team,
+      isMine:
+        team.userId === currentUserId &&
+        activeEditionId !== undefined &&
+        team.editionId === activeEditionId,
+    }));
   }
 
   async getLeaderStatus(email: string) {
@@ -1007,6 +740,9 @@ export class TeamsService {
       this.logger.warn(`Delete failed: Team ${id} not found.`);
       throw new NotFoundException(`Team with ID ${id} not found.`);
     }
+
+    // ARK-130: no se borra un equipo de una edición anterior (lo necesitan reportes e historial)
+    await assertTeamWritable(this.prisma, id);
 
     try {
       const team = await this.teamRepository.remove(id);
@@ -1057,6 +793,7 @@ export class TeamsService {
     user: AppUser,
   ): Promise<Member | undefined> {
     await this.assertLeaderOrAdmin(id, user);
+    await assertTeamWritable(this.prisma, id);
     return await this.teamRepository.addMember(id, memberDto);
   }
 
@@ -1066,6 +803,7 @@ export class TeamsService {
     user: AppUser,
   ): Promise<{ message: string; member: Member | null } | undefined> {
     await this.assertLeaderOrAdmin(teamId, user);
+    await assertTeamWritable(this.prisma, teamId);
     return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }

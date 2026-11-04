@@ -2,12 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CheckInMethod, EditionStatus, Prisma } from '@prisma/client';
 import { JurorBadgesService } from '../juror-badges/juror-badges.service';
 import {
-  eligibleJurorsWhere,
   jurorCategoryLabel,
   jurorFullName,
   jurorSelect,
 } from '../juror-badges/juror-label';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { PrismaService } from '../prisma/prisma.service';
+import { findActiveEdition } from '../editions/active-edition';
 
 const SEARCH_LIMIT = 20;
 
@@ -46,11 +47,7 @@ export class JurorCheckinService {
   ) {}
 
   private async getActiveEditionId(): Promise<number> {
-    const edition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const edition = await findActiveEdition(this.prisma);
     if (!edition) {
       throw new NotFoundException('No hay una edición activa configurada');
     }
@@ -69,14 +66,17 @@ export class JurorCheckinService {
     );
   }
 
-  /** Check-in buscando al jurado por nombre; sirve también si no tiene escarapela. */
+  /**
+   * Check-in buscando al jurado por nombre; sirve también si no tiene escarapela.
+   * Solo para jurados de la edición activa (BG-16).
+   */
   async checkInManually(
     jurorId: string,
     staffId: string,
   ): Promise<CheckInResult> {
     const editionId = await this.getActiveEditionId();
     const juror = await this.prisma.user.findFirst({
-      where: eligibleJurorsWhere([jurorId]),
+      where: jurorsOfEdition(editionId, [jurorId]),
       select: {
         id: true,
         jurorBadges: {
@@ -87,7 +87,7 @@ export class JurorCheckinService {
       },
     });
     if (!juror) {
-      throw new NotFoundException('El jurado no existe o no está activo');
+      throw new NotFoundException('No es jurado de la edición activa');
     }
     return this.register(
       juror.id,
@@ -98,14 +98,14 @@ export class JurorCheckinService {
     );
   }
 
-  /** Busca jurados activos por nombre o apellido (cada palabra debe coincidir). */
+  /** Busca jurados de la edición activa por nombre o apellido (cada palabra debe coincidir). */
   async search(query: string): Promise<JurorSearchItem[]> {
     const editionId = await this.getActiveEditionId();
     const words = query.trim().split(/\s+/).filter(Boolean);
 
     const jurors = await this.prisma.user.findMany({
       where: {
-        ...eligibleJurorsWhere(),
+        ...jurorsOfEdition(editionId),
         AND: words.map((word) => ({
           OR: [
             { firstName: { contains: word, mode: 'insensitive' } },

@@ -32,7 +32,10 @@ import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
 import { StaffModule } from './staff/staff.module';
+import { JurorEditionModule } from './juror-edition/juror-edition.module';
+import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
 import { TeamVerificationModule } from './team-verification/team-verification.module';
+import { RankingModule } from './ranking/ranking.module';
 
 @Module({
   imports: [
@@ -63,11 +66,14 @@ import { TeamVerificationModule } from './team-verification/team-verification.mo
     TestimonialsModule,
     EducationalFocusesModule,
     TeamVerificationModule,
+    RankingModule,
     HighlightedGamesModule,
     HistoricalsModule,
     JurorBadgesModule,
     JurorCheckinModule,
     StaffModule,
+    JurorEditionModule,
+    EvaluationTrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

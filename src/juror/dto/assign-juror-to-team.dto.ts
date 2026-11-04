@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ConfirmWarningsField } from './confirm-warnings.decorator';
 
 export class AssignJurorToTeamDto {
   @IsString()
@@ -11,4 +12,7 @@ export class AssignJurorToTeamDto {
   @Min(1, { message: 'El ID del equipo debe ser mayor a 0' })
   @IsNotEmpty({ message: 'El ID del equipo es obligatorio' })
   teamId: number;
+
+  @ConfirmWarningsField()
+  confirmWarnings?: boolean;
 }

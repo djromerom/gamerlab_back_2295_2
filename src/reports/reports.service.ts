@@ -7,6 +7,14 @@ import { SettingsService } from '../settings/settings.service';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { countProgress } from '../evaluation/evaluation-progress';
+import { EditionStatus } from '@prisma/client';
+import { activeEditionTeamOf } from '../teams/active-edition-team';
+import {
+  JurorAssignmentRow,
+  sortJurorAssignmentRows,
+  toJurorAssignmentRow,
+} from './juror-assignment-export';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 const ROL_JURADO_ID = 4;
@@ -404,6 +412,75 @@ async getNrcWithSubjectNameAndAverage(
   return resultado;
 }
 
+/**
+ * HU-16 (ARK-108): asignación de jurados de una edición (por defecto la activa) para el Excel.
+ * Incluye a todo jurado activo y a cualquier otro usuario con grupos asignados en la edición.
+ * Solo cuenta grupos y evaluaciones de esa edición. 404 si no hay edición o no hay asignaciones.
+ */
+async getJurorAssignmentReport(editionId?: number): Promise<{
+  edition: { id: number; year: number; semester: number; title: string };
+  rows: JurorAssignmentRow[];
+}> {
+  const edition = await this.prisma.edition.findFirst({
+    where: editionId ? { id: editionId } : ACTIVE_EDITION_WHERE,
+    orderBy: { id: 'desc' },
+    select: { id: true, year: true, semester: true, title: true },
+  });
+  if (!edition) {
+    throw new NotFoundException(
+      editionId ? `No existe la edición ${editionId}.` : 'No hay una edición activa.',
+    );
+  }
+
+  const users = await this.prisma.user.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { roleId: ROL_JURADO_ID },
+        { teamsToEvaluate: { some: { editionId: edition.id, isActive: true } } },
+      ],
+    },
+    select: {
+      firstName: true,
+      lastName: true,
+      email: true,
+      jurorCategory: true,
+      jurorType: true,
+      confirmationStatus: { select: { status: true } },
+      teamsToEvaluate: {
+        where: { editionId: edition.id, isActive: true },
+        select: { teamCode: true, videogame: { select: { id: true, name: true } } },
+      },
+      evaluationsSubmitted: {
+        where: { editionId: edition.id, isActive: true },
+        select: { videogameId: true },
+      },
+    },
+  });
+
+  const rows = users.map((u) =>
+    toJurorAssignmentRow({
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      status: u.confirmationStatus?.status ?? null,
+      jurorCategory: u.jurorCategory,
+      jurorType: u.jurorType,
+      assigned: u.teamsToEvaluate.map((t) => ({
+        teamCode: t.teamCode,
+        videogameId: t.videogame?.id ?? null,
+        videogameName: t.videogame?.name ?? null,
+      })),
+      evaluatedVideogameIds: u.evaluationsSubmitted.map((e) => e.videogameId),
+    }),
+  );
+
+  if (rows.every((r) => r.totalAsignados === 0)) {
+    throw new NotFoundException('No hay asignaciones para exportar.');
+  }
+  return { edition, rows: sortJurorAssignmentRows(rows) };
+}
+
 async getJuradosData(): Promise<
   {
     id: string; // El ID del User es string (UUID)
@@ -504,8 +581,10 @@ async getJuradosData(): Promise<
    * Mismo formato que getJuradosData, pero sin los jurados de otros equipos (BG-02).
    */
   async getJuradosDataForTeamLeader(userId: string) {
+    // ARK-128: el equipo que lidera en la edición activa, no uno de una edición anterior
     const team = await this.prisma.team.findFirst({
-      where: { userId, isActive: true },
+      where: { ...activeEditionTeamOf(userId), isActive: true },
+      orderBy: { editionId: 'desc' },
       select: { id: true, videogame: { select: { id: true, name: true, isActive: true } } },
     });
     const videogame = team?.videogame;

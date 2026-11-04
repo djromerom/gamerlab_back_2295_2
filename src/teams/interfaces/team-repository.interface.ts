@@ -20,6 +20,7 @@ export interface ITeamRepository {
   findPaged(page: number, limit: number): Promise<any>;
   findOneWithDetails(id: number): Promise<any>;
   findOneWithDetailsByLeaderId(leaderId: string): Promise<any>;
+  isActiveMember(teamId: number, email: string): Promise<boolean>;
   
   // Overloaded update methods to support both signatures  
   update(id: number, data: UpdateTeamDto, isAdmin: boolean): Promise<{

@@ -17,6 +17,8 @@ import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 import { CreateDetailEvaluationDto } from './dto/createEvaluationDetails.dto';
 import { createHash } from 'crypto';
 import { countProgress } from './evaluation-progress';
+import { ACTIVE_EDITION_CONFIG_WHERE } from '../settings/active-edition-config';
+import { findActiveEdition } from '../editions/active-edition';
 
 /** Quien califica: el usuario de la sesión. */
 type EvaluationActor = {
@@ -54,7 +56,9 @@ export class EvaluationService {
   ) {}
 
   private async checkEvaluationsOpen() {
-    const config = await this.prisma.eventConfiguration.findFirst();
+    const config = await this.prisma.eventConfiguration.findFirst({
+      where: ACTIVE_EDITION_CONFIG_WHERE,
+    });
 
     if (!config?.evaluationsOpen) {
       throw new ForbiddenException(
@@ -164,11 +168,7 @@ export class EvaluationService {
   async getEvaluationProgressForEdition(editionId?: number) {
     let id = editionId;
     if (id === undefined) {
-      const active = await this.prisma.edition.findFirst({
-        where: { status: EditionStatus.ACTIVE },
-        orderBy: { id: 'desc' },
-        select: { id: true },
-      });
+      const active = await findActiveEdition(this.prisma);
       if (!active) return { completed: 0, assigned: 0 };
       id = active.id;
     }
@@ -205,42 +205,6 @@ export class EvaluationService {
       assigned += progress.assigned;
     }
     return { completed, assigned };
-  }
-
-  async computeFinalScoreForVideogame(videogameId: number, editionId?: number) {
-    const weighting = editionId
-      ? await this.prisma.weighting.findUnique({ where: { editionId } })
-      : null;
-
-    const seniorPct = weighting?.seniorPct ?? 60;
-    const juniorPct = weighting?.juniorPct ?? 40;
-
-    const seniorAgg = await this.prisma.evaluation.aggregate({
-      _avg: { totalScore: true },
-      where: { videogameId, isSenior: true, isActive: true },
-    });
-
-    const juniorAgg = await this.prisma.evaluation.aggregate({
-      _avg: { totalScore: true },
-      where: { videogameId, isSenior: false, isActive: true },
-    });
-
-    const seniorAvg = seniorAgg._avg.totalScore ?? null;
-    const juniorAvg = juniorAgg._avg.totalScore ?? null;
-
-    if (seniorAvg == null && juniorAvg == null) return null;
-
-    if (seniorAvg == null) {
-      return Number(juniorAvg!.toFixed(2));
-    }
-
-    if (juniorAvg == null) {
-      return Number(seniorAvg!.toFixed(2));
-    }
-
-    const final = (seniorAvg * seniorPct + juniorAvg * juniorPct) / 100;
-
-    return Number(final.toFixed(2));
   }
 
   /**
@@ -626,11 +590,7 @@ export class EvaluationService {
   }
 
   private async findActiveEdition() {
-    const activeEdition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const activeEdition = await findActiveEdition(this.prisma);
 
     if (!activeEdition) {
       throw new BadRequestException('No hay una edición activa configurada');

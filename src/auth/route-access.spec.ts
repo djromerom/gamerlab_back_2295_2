@@ -51,6 +51,13 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   ManageStaffAccounts: [],
   // HU-11: la mesa de escarapelas
   JurorCheckIn: ['Staff'],
+  // HU-21: los profesores lo ven en solo lectura (P-26)
+  ViewEvaluationTracking: ['Profesor'],
+  // HU-25: jurados por edición, solo Administrador
+  ListEditionJurors: [],
+  ManageEditionJurors: [],
+  // HU-26: estudiantes por edición, solo Administrador
+  ListEditionStudents: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],
@@ -197,6 +204,40 @@ describe('Control de acceso de las rutas (BG-01)', () => {
       }
 
       expect(denied).toEqual([]);
+    });
+
+    // ARK-110: las dos rutas de jurados por equipo, una por una
+    it.each([
+      [
+        'GET /juror/teams/:teamId/jurors-status',
+        {
+          Estudiante: 'sin permiso',
+          Profesor: 'sin permiso',
+          Jurado: 'sin permiso',
+          Staff: 'sin permiso',
+        },
+      ],
+      [
+        'GET /juror/teams/:teamId/evaluation-stats',
+        {
+          Estudiante: 'permitido',
+          Profesor: 'permitido',
+          Jurado: 'permitido',
+          Staff: 'sin permiso',
+        },
+      ],
+    ])('%s exige permiso según el rol (ARK-110)', async (key, expected) => {
+      const route = permissionRoutes.find((r) => r.key === key);
+      expect(route).toBeDefined();
+
+      const guard = newGuard();
+      const results: Record<string, string> = {};
+      for (const roleName of NON_ADMIN_ROLES) {
+        results[roleName] = await attempt(guard, route!, roleName);
+      }
+
+      expect(results).toEqual(expected);
+      expect(await attempt(guard, route!, ADMIN_ROLE_NAME)).toBe('permitido');
     });
 
     describe.each(NON_ADMIN_ROLES)('rol %s', (roleName) => {

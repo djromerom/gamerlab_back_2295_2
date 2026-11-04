@@ -16,15 +16,6 @@ export type LabeledJuror = Prisma.UserGetPayload<{
   select: typeof jurorSelect;
 }>;
 
-/** Jurados y profesores activos: los dos califican y llevan escarapela. */
-export function eligibleJurorsWhere(ids?: string[]): Prisma.UserWhereInput {
-  return {
-    isActive: true,
-    role: { name: { in: [JUROR_ROLE_NAME, PROFESSOR_ROLE_NAME] } },
-    ...(ids ? { id: { in: ids } } : {}),
-  };
-}
-
 /** Todo profesor cuenta como senior (P-07); el resto usa su categoría. */
 export function jurorCategoryLabel(juror: LabeledJuror): string {
   const category =

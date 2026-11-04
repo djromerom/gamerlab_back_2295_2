@@ -25,6 +25,7 @@ describe('Ranking sin edición activa (ARK-SP1)', () => {
     prisma,
     settings,
     blobRefsPassthrough(),
+    { orderRows: async (rows: any[]) => rows } as any, // RankingService (HU-04)
   );
   const reports = new ReportsService(prisma, settings, blobRefsPassthrough());
   const admin = { id: 'a', roleId: ROLE_IDS.ADMIN } as any;

@@ -43,6 +43,7 @@ describe('TeamVerificationService', () => {
     teamCode: 'N10-ABC-1001',
     verificationCode: 'K7M2QX',
     assignedJurors: [{ id: jurorId }],
+    edition: { status: 'ACTIVE', title: 'Edición 1' },
   };
 
   const failedAt = (n: number, at = new Date()) =>
@@ -442,6 +443,15 @@ describe('TeamVerificationService', () => {
   });
 
   describe('administración', () => {
+    it('ARK-130: no regenera el código de un equipo de una edición anterior', async () => {
+      prismaMock.team.findFirst.mockResolvedValueOnce({
+        ...universityTeam,
+        edition: { status: 'INACTIVE', title: 'Feria 4' },
+      });
+      await expect(service.regenerate(10, adminId)).rejects.toThrow(/solo lectura/);
+      expect(prismaMock.teamVerificationLog.create).not.toHaveBeenCalled();
+    });
+
     it('regenerar guarda un código nuevo y lo registra con el administrador', async () => {
       prismaMock.team.findFirst
         .mockResolvedValueOnce(universityTeam) // findTeamForAdmin

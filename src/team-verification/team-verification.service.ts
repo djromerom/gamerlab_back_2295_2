@@ -7,6 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { assertEditionWritable } from '../editions/active-edition';
 import { EditionStatus, Prisma, TeamVerificationAction } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerifyTeamDto } from './dto/verify-team.dto';
@@ -14,6 +15,7 @@ import {
   generateUniqueVerificationCode,
   isCollegeTeamCode,
 } from './verification-code.util';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 export const MAX_FAILED_ATTEMPTS = 5;
 export const ATTEMPT_WINDOW_MINUTES = 10;
@@ -35,7 +37,7 @@ export class TeamVerificationService {
       where: {
         id: dto.teamId,
         isActive: true,
-        edition: { status: EditionStatus.ACTIVE },
+        edition: ACTIVE_EDITION_WHERE,
       },
       select: {
         id: true,
@@ -167,7 +169,7 @@ export class TeamVerificationService {
       where: {
         id: { in: teamIds },
         isActive: true,
-        edition: { status: EditionStatus.ACTIVE },
+        edition: ACTIVE_EDITION_WHERE,
       },
       select: {
         id: true,
@@ -231,7 +233,7 @@ export class TeamVerificationService {
       where: {
         userId,
         isActive: true,
-        edition: { status: EditionStatus.ACTIVE },
+        edition: ACTIVE_EDITION_WHERE,
       },
       select: { id: true, teamCode: true, verificationCode: true },
     });
@@ -261,6 +263,8 @@ export class TeamVerificationService {
 
   async regenerate(teamId: number, adminId: string) {
     const team = await this.findTeamForAdmin(teamId);
+    // ARK-130 (HU-27): el código de un equipo de una edición anterior no se cambia
+    assertEditionWritable(team.edition, 'el equipo');
 
     const code = await generateUniqueVerificationCode(
       this.prisma,
@@ -293,6 +297,7 @@ export class TeamVerificationService {
         editionId: true,
         teamCode: true,
         verificationCode: true,
+        edition: { select: { status: true, title: true } },
       },
     });
 

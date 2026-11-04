@@ -13,7 +13,7 @@ describe('VideogamesService.update — propiedad (BG-01)', () => {
   };
   const service = new VideogamesService(prisma as any, {} as any, blobRefsPassthrough());
 
-  const game = { id: 7, name: 'Juego actual', team: { userId: 'leader-1' } };
+  const game = { id: 7, name: 'Juego actual', team: { userId: 'leader-1', edition: { status: 'ACTIVE', title: 'E5' } } };
   const student = (id: string) => ({ id, roleId: ROLE_IDS.STUDENT }) as any;
   const admin = { id: 'admin-1', roleId: ROLE_IDS.ADMIN } as any;
 

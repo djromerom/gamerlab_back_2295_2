@@ -29,8 +29,11 @@ export class EditionsService {
     this.ensureDatesInOrder(createEditionDto.startsAt, createEditionDto.endsAt);
     await this.ensureYearSemesterIsFree(createEditionDto.year, createEditionDto.semester);
     try {
+      // La configuración del evento (inscripciones, evaluaciones, ranking) nace con la edición,
+      // cerrada por defecto, en la misma operación. Sin ella los interruptores del panel
+      // devolvían 404 (ARK-123).
       const result = await this.prisma.edition.create({
-        data: createEditionDto,
+        data: { ...createEditionDto, eventConfiguration: { create: {} } },
       });
       this.logger.log(`Edition #${result.id} created successfully`);
       return result;
@@ -287,6 +290,14 @@ export class EditionsService {
         const result = await tx.edition.update({
           where: { id },
           data: { status: EditionStatus.ACTIVE },
+        });
+
+        // Las ediciones creadas antes de ARK-123 pueden no tener configuración del evento.
+        // `update: {}` deja intactos los interruptores de las que ya la tienen.
+        await tx.eventConfiguration.upsert({
+          where: { editionId: id },
+          update: {},
+          create: { editionId: id },
         });
 
         this.logger.log(`Edition #${id} activated successfully`);

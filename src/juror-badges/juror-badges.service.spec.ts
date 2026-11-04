@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { REQUIRED_SERVICE_KEY } from '../auth/decorators/required-service.decorator';
 import { CertificatesService } from '../certificates/certificates.service';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { PrismaService } from '../prisma/prisma.service';
 import { JurorBadgesController } from './juror-badges.controller';
 import { JurorBadgesService } from './juror-badges.service';
@@ -119,7 +120,7 @@ describe('JurorBadgesService', () => {
         {
           jurorId: 'ghost',
           name: null,
-          reason: 'No es un jurado o profesor activo',
+          reason: 'No es jurado de la edición activa',
         },
         {
           jurorId: 'u1',
@@ -127,6 +128,18 @@ describe('JurorBadgesService', () => {
           reason: 'Falta el nombre o el apellido del jurado',
         },
       ]);
+    });
+
+    it('solo considera a los jurados de la edición activa (BG-16)', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.jurorBadge.findMany.mockResolvedValue([]);
+      prisma.jurorBadge.createMany.mockResolvedValue({ count: 0 });
+
+      await service.generate(['u1']);
+
+      expect(callArg<{ where: unknown }>(prisma.user.findMany).where).toEqual(
+        jurorsOfEdition(3, ['u1']),
+      );
     });
 
     it('falla si no hay edición activa', async () => {
@@ -154,10 +167,13 @@ describe('JurorBadgesService', () => {
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
-    it('404 si el usuario no es un jurado activo', async () => {
+    it('404 si el usuario no es jurado de la edición activa (BG-16)', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       await expect(service.regenerate('x')).rejects.toBeInstanceOf(
         NotFoundException,
+      );
+      expect(callArg<{ where: unknown }>(prisma.user.findFirst).where).toEqual(
+        jurorsOfEdition(3, ['x']),
       );
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
@@ -182,20 +198,59 @@ describe('JurorBadgesService', () => {
         { jurorId: 'p1', name: 'Ana Pérez', category: 'Senior', token: 'tok' },
       ]);
     });
+
+    it('excluye escarapelas viejas de quien ya no es jurado de la edición (BG-16)', async () => {
+      prisma.jurorBadge.findMany.mockResolvedValue([]);
+
+      await service.list();
+
+      expect(
+        callArg<{ where: unknown }>(prisma.jurorBadge.findMany).where,
+      ).toMatchObject({
+        editionId: 3,
+        isActive: true,
+        juror: jurorsOfEdition(3),
+      });
+    });
   });
 
   describe('validateToken', () => {
-    it('solo acepta tokens activos de la edición activa', async () => {
+    it('solo acepta tokens activos de la edición activa y de jurados de ella (BG-16)', async () => {
       prisma.jurorBadge.findFirst.mockResolvedValue(null);
       await expect(service.validateToken('viejo')).rejects.toBeInstanceOf(
         NotFoundException,
       );
       expect(
         callArg<{ where: unknown }>(prisma.jurorBadge.findFirst).where,
-      ).toMatchObject({
+      ).toEqual({
         token: 'viejo',
         isActive: true,
-        edition: { status: 'ACTIVE' },
+        editionId: 3,
+        juror: jurorsOfEdition(3),
+      });
+    });
+
+    it('sin edición activa responde 404 sin buscar la escarapela', async () => {
+      prisma.edition.findFirst.mockResolvedValue(null);
+      await expect(service.validateToken('tok')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.jurorBadge.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('devuelve los datos de la escarapela válida', async () => {
+      prisma.jurorBadge.findFirst.mockResolvedValue({
+        id: 7,
+        jurorId: 'u1',
+        editionId: 3,
+        juror: juror('u1'),
+      });
+      await expect(service.validateToken('tok')).resolves.toEqual({
+        badgeId: 7,
+        jurorId: 'u1',
+        editionId: 3,
+        name: 'Ana Pérez',
+        category: 'Junior',
       });
     });
   });

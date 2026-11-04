@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { REQUIRED_SERVICE_KEY } from '../auth/decorators/required-service.decorator';
@@ -210,7 +211,7 @@ describe('JurorCheckinService', () => {
       ).toBe(10);
     });
 
-    it('un jurado inexistente, inactivo o que no es jurado responde 404', async () => {
+    it('quien no es jurado de la edición activa responde 404 (BG-16)', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -219,10 +220,8 @@ describe('JurorCheckinService', () => {
       const where = callArg<{ where: Record<string, unknown> }>(
         prisma.user.findFirst,
       ).where;
-      expect(where.isActive).toBe(true);
-      expect(where.role).toEqual({
-        name: { in: ['Jurado', 'Profesor'] },
-      });
+      expect(where).toEqual(jurorsOfEdition(3, [JUROR_ID]));
+      expect(prisma.jurorAttendance.create).not.toHaveBeenCalled();
     });
 
     it('sin edición activa responde 404', async () => {
@@ -288,7 +287,7 @@ describe('JurorCheckinService', () => {
         select: Record<string, unknown>;
       }>(prisma.user.findMany);
       expect(query.where.AND).toHaveLength(2);
-      expect(query.where.isActive).toBe(true);
+      expect(query.where).toMatchObject(jurorsOfEdition(3));
       expect(query.take).toBe(20);
       expect(query.select).not.toHaveProperty('email');
     });

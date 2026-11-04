@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from "@nestjs/common";
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { StudentsEvaluations, StudentsGrade} from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
@@ -6,6 +6,8 @@ import { findNrcIdsByCodes } from "src/nrcs/nrc-lookup";
 import { Member, Prisma } from "@prisma/client";
 import { AppUser } from "../auth/jwt.strategy";
 import { ROLE_IDS } from "../auth/constants/roles";
+import { activeEditionTeamOf } from "../teams/active-edition-team";
+import { assertEditionWritable } from "../editions/active-edition";
 
 @Injectable()
 export class StudentsService {
@@ -37,7 +39,11 @@ export class StudentsService {
                     select: {
                         id: true,
                         team: {
-                            select: { userId: true, editionId: true }
+                            select: {
+                                userId: true,
+                                editionId: true,
+                                edition: { select: { status: true, title: true } },
+                            }
                         }
                     }
                 });
@@ -50,6 +56,9 @@ export class StudentsService {
                         'You are not authorized to modify NRCs for this member.',
                     );
                 }
+
+                // ARK-130 (HU-27): los integrantes de ediciones anteriores son de solo lectura
+                assertEditionWritable(member.team.edition, 'el integrante');
 
 
                 const newNrc = await findNrcIdsByCodes(
@@ -76,7 +85,7 @@ export class StudentsService {
 
             });
         } catch (error) {
-            if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+            if (error instanceof HttpException) {
                 throw error;
             }
             console.error('Failed to set NRCs for member:', error);
@@ -89,10 +98,9 @@ export class StudentsService {
         userId: string,
     ): Promise<Member[]> {
 
+        // ARK-128: solo los integrantes del equipo que lidera en la edición activa
         const whereClause: Prisma.MemberWhereInput = {
-            team: {
-                userId: userId
-            }
+            team: activeEditionTeamOf(userId),
         };
 
         const selectClause: Prisma.MemberSelect = {
@@ -127,8 +135,9 @@ export class StudentsService {
         if (!userId) {
             throw new NotFoundException("user not found");
         }
-        const videogame = await this.prisma.team.findUnique({
-            where: { userId: userId },
+        const videogame = await this.prisma.team.findFirst({
+            where: activeEditionTeamOf(userId),
+            orderBy: { editionId: 'desc' },
             select: {
                 videogame: {
                     select: {
@@ -173,8 +182,9 @@ export class StudentsService {
         if (!userId) {
             throw new NotFoundException("user not found");
         }
-        const videogame = await this.prisma.team.findUnique({
-            where: { userId: userId },
+        const videogame = await this.prisma.team.findFirst({
+            where: activeEditionTeamOf(userId),
+            orderBy: { editionId: 'desc' },
             select: {
                 videogame: {
                     select: {
@@ -253,8 +263,9 @@ export class StudentsService {
         }
 
         // 1. Obtener el equipo del estudiante con su videojuego y jurados asignados
-        const team = await this.prisma.team.findUnique({
-            where: { userId },
+        const team = await this.prisma.team.findFirst({
+            where: activeEditionTeamOf(userId),
+            orderBy: { editionId: 'desc' },
             select: {
                 id: true,
                 videogame: {

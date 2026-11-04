@@ -67,9 +67,6 @@ jobs:
           file: ./Dockerfile 
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}:${{ steps.resolve-tag.outputs.tag }}
           push: true
-          # Layer cache in GitHub Actions: unchanged layers (e.g. npm ci) are reused across deploys
-          cache-from: type=gha,scope=back
-          cache-to: type=gha,scope=back,mode=max
     
   # Conditional jobs to dispatch repository events for test deployments (dev branch) 
   test-dispatch:
