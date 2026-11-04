@@ -100,6 +100,7 @@ describe('Cableado de NRCData y DatosGraficoMateria con el ranking oculto (ARK-S
       expect(res.status).toBe(200);
       expect(reports[metodo]).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'admin', roleId: ROLE_IDS.ADMIN }),
+        undefined, // ARK-135: sin ?editionId= (la edición activa)
       );
     },
   );
@@ -110,6 +111,7 @@ describe('Cableado de NRCData y DatosGraficoMateria con el ranking oculto (ARK-S
       await get(url, studentToken);
       expect(reports[metodo]).toHaveBeenCalledWith(
         expect.objectContaining({ roleId: ROLE_IDS.STUDENT }),
+        undefined,
       );
     },
   );
@@ -119,7 +121,7 @@ describe('Cableado de NRCData y DatosGraficoMateria con el ranking oculto (ARK-S
     async (url, metodo) => {
       const res = await get(url);
       expect(res.status).toBe(200);
-      expect(reports[metodo]).toHaveBeenCalledWith(undefined);
+      expect(reports[metodo]).toHaveBeenCalledWith(undefined, undefined);
     },
   );
 });

@@ -11,6 +11,8 @@ describe('ReportsService.getVideogamesData — ranking oculto (ARK-SP1 #1)', () 
     videogame: { findMany: jest.fn() },
     teamFinalScore: { findMany: jest.fn() },
     evaluation: { findMany: jest.fn() },
+    // ARK-135: los reportes se calculan sobre la edición activa
+    edition: { findFirst: jest.fn().mockResolvedValue({ id: 3, title: 'Feria 3', status: 'ACTIVE' }) },
   };
   const settings = { isRankingVisible: jest.fn() };
   const service = new ReportsService(prisma as any, settings as any, blobRefsPassthrough());

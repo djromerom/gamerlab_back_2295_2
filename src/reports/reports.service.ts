@@ -15,6 +15,13 @@ import {
   toJurorAssignmentRow,
 } from './juror-assignment-export';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { resolveListEdition } from '../editions/list-edition';
+
+/**
+ * ARK-135 (BG-22): id de edición que nunca existe. Sin edición activa los reportes salen
+ * vacíos (o en cero) en lugar de mezclar las evaluaciones de ediciones anteriores.
+ */
+const NO_EDITION_ID = -1;
 
 // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 const ROL_JURADO_ID = 4;
@@ -27,6 +34,15 @@ export class ReportsService {
     private readonly blobRefs: BlobReferenceService,
   ) {}
 
+  /**
+   * ARK-135 (BG-22): la edición de un reporte. La pedida (404 si no existe) o, por defecto, la
+   * activa; sin edición activa, un id que no coincide con nada (el reporte sale vacío).
+   */
+  private async reportEditionId(editionId?: number): Promise<number> {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    return edition?.id ?? NO_EDITION_ID;
+  }
+
   private async signLogo(value?: string | null): Promise<string | null> {
     return (await this.blobRefs.resolve(value)) ?? null;
   }
@@ -35,7 +51,7 @@ export class ReportsService {
    * Lista pública de juegos (home). Con `showRanking=false` y un usuario que no es
    * Administrador se omiten las notas: promedio, criterios, finalScore, avgJunior, avgSenior.
    */
-  async getVideogamesData(user?: AppUser): Promise<
+  async getVideogamesData(user?: AppUser, editionId?: number): Promise<
     {
       id: number | string;
       nombre: string;
@@ -49,11 +65,13 @@ export class ReportsService {
       codigoEquipo?: string | null;
     }[]
   > {
+    const reportEditionId = await this.reportEditionId(editionId);
     const hideRanking =
       user?.roleId !== ROLE_IDS.ADMIN &&
       !(await this.settingsService.isRankingVisible());
     const videojuegos = await this.prisma.videogame.findMany({
-      where: { isActive: true },
+      // ARK-135: solo los juegos de la edición del reporte
+      where: { isActive: true, team: { editionId: reportEditionId } },
       include: {
         team: {
           include: {
@@ -228,7 +246,9 @@ export class ReportsService {
    */
   async getSubjectAverageScores(
     user?: AppUser,
+    editionId?: number,
   ): Promise<{ name: string; value: number | null }[]> {
+    const reportEditionId = await this.reportEditionId(editionId);
     const hideRanking =
       user?.roleId !== ROLE_IDS.ADMIN &&
       !(await this.settingsService.isRankingVisible());
@@ -243,7 +263,8 @@ export class ReportsService {
       where: { isActive: true },
       include: {
         nrcs: {
-          where: { isActive: true },
+          // ARK-135: las materias son globales; los NRC y sus evaluaciones, de la edición
+          where: { isActive: true, editionId: reportEditionId },
           include: {
             members: {
               include: {
@@ -304,15 +325,17 @@ export class ReportsService {
  */
 async getNrcWithSubjectNameAndAverage(
   user?: AppUser,
+  editionId?: number,
 ): Promise<
   { id: number; codigo: number; materiaNombre: string; promedioxNRC?: number | null }[]
 > {
+  const reportEditionId = await this.reportEditionId(editionId);
   const hideRanking =
     user?.roleId !== ROLE_IDS.ADMIN &&
     !(await this.settingsService.isRankingVisible());
-  // 1. Obtener TODOS los NRCs activos con su información básica
+  // 1. Los NRC activos de la edición del reporte (ARK-135: antes, los de todas las ediciones)
   const todosLosNrcsActivos = await this.prisma.nRC.findMany({
-    where: { isActive: true },
+    where: { isActive: true, editionId: reportEditionId },
     select: {
       id: true,
       code: true,
@@ -340,7 +363,7 @@ async getNrcWithSubjectNameAndAverage(
 
   // 2. Obtener videojuegos y sus evaluaciones para calcular promedios por NRC
   const videojuegosConInfo = await this.prisma.videogame.findMany({
-    where: { isActive: true },
+    where: { isActive: true, team: { editionId: reportEditionId } },
     include: {
       team: {
         include: {
@@ -481,7 +504,12 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
   return { edition, rows: sortJurorAssignmentRows(rows) };
 }
 
-async getJuradosData(): Promise<
+/**
+ * Reporte de jurados (Estadísticas → tabla por jurado). ARK-135 (BG-22): los juegos asignados y
+ * los evaluados son solo los de la edición del reporte (por defecto la activa). La lista de
+ * jurados sigue siendo la de las cuentas de jurado activas (la cuenta es global).
+ */
+async getJuradosData(editionId?: number): Promise<
   {
     id: string; // El ID del User es string (UUID)
     nombre: string;
@@ -494,6 +522,8 @@ async getJuradosData(): Promise<
   // 1. Obtener todos los usuarios que tienen el rol de "Jurado"
   //    Asumimos que tienes un ID o nombre específico para el rol de jurado.
   //    Por ejemplo, si el rol "Jurado" tiene id_rol = 3
+
+  const reportEditionId = await this.reportEditionId(editionId);
 
   const juradosUsuarios = await this.prisma.user.findMany({
     where: {
@@ -513,6 +543,7 @@ async getJuradosData(): Promise<
       teamsToEvaluate: {
         where: {
           isActive: true, // Solo equipos activos
+          editionId: reportEditionId,
           videogame: { // Asegurarse que el equipo tenga un videojuego asociado y activo
             isActive: true,
           }
@@ -529,8 +560,7 @@ async getJuradosData(): Promise<
       evaluationsSubmitted: {
         where: {
           isActive: true, // Solo evaluaciones activas
-          // Opcional: podrías filtrar por edición activa aquí si es relevante
-          // editionId: EDICION_ACTIVA_ID,
+          editionId: reportEditionId,
         },
         select: {
           videogame: {
@@ -626,7 +656,8 @@ async getJuradosData(): Promise<
 
   async getVideogamesDataFilter(
     materia?: string,
-    nrc?: number
+    nrc?: number,
+    editionId?: number,
   ): Promise<{
     id: number | string;
     nombre: string;
@@ -642,10 +673,13 @@ async getJuradosData(): Promise<
     evaluacionesCompletadas?: number;
     totalJuradosAsignados?: number;
   }[]> {
+    const reportEditionId = await this.reportEditionId(editionId);
     const videojuegos = await this.prisma.videogame.findMany({
       where: { 
         isActive: true,
         team: {
+          // ARK-135: el Excel es de una sola edición
+          editionId: reportEditionId,
           members: {
             some: {
               nrcs: {

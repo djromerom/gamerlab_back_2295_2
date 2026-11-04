@@ -17,6 +17,11 @@ import * as ExcelJS from 'exceljs';
 import { ApiTags, ApiOperation, ApiQuery, ApiOkResponse, ApiNotFoundResponse } from '@nestjs/swagger';
 import { ExcelExportService } from '../professors/excel-export.service';
 import { buildJurorAssignmentFileName, buildJurorAssignmentWorkbook } from './juror-assignment-export';
+import { editionIdQuery } from '../editions/list-edition';
+
+/** ARK-135 (BG-22): todos los reportes son de una edición; por defecto la activa. */
+const EDITION_QUERY_DESCRIPTION =
+  'Edición del reporte; por defecto la activa. Las demás se consultan como historial. 400 si no es un entero positivo, 404 si no existe.';
 
 @ApiTags('reports')
 @Controller('reports')
@@ -33,15 +38,21 @@ export class ReportsController {
   @UseGuards(OptionalJwtAuthGuard)
   @Get('videojuegoData')
   @ApiOperation({ summary: 'Get videogames with subject and NRC' })
-  async getWithMateriaYNRC(@GetUser() user?: AppUser) {
+  @ApiQuery({ name: 'editionId', required: false, type: Number, description: EDITION_QUERY_DESCRIPTION })
+  async getWithMateriaYNRC(
+    @GetUser() user?: AppUser,
+    @Query('editionId') editionIdParam?: string,
+  ) {
+    const editionId = editionIdQuery(editionIdParam);
     const showRanking = await this.settingsService.isRankingVisible();
     if (!showRanking && user?.roleId === ROLE_IDS.ADMIN) {
-      return this.reportsService.getVideogamesData(user);
+      return this.reportsService.getVideogamesData(user, editionId);
     }
-    const key = `reports:videojuegoData:showRanking=${showRanking}`;
+    // ARK-135: la edición va en la clave; sin editionId es la activa del momento
+    const key = `reports:videojuegoData:showRanking=${showRanking}:edition=${editionId ?? 'active'}`;
     const cached = await this.cacheManager.get(key);
     if (cached !== undefined && cached !== null) return cached;
-    const data = await this.reportsService.getVideogamesData(user);
+    const data = await this.reportsService.getVideogamesData(user, editionId);
     await this.cacheManager.set(key, data, 600000);
     return data;
   }
@@ -58,16 +69,30 @@ export class ReportsController {
   @UseGuards(OptionalJwtAuthGuard)
   @Get('NRCData')
   @ApiOperation({ summary: 'Get NRCs with average per NRC' })
-  async getNrcWithSubjectNameAndAverage(@GetUser() user?: AppUser) {
-    return this.reportsService.getNrcWithSubjectNameAndAverage(user);
+  @ApiQuery({ name: 'editionId', required: false, type: Number, description: EDITION_QUERY_DESCRIPTION })
+  async getNrcWithSubjectNameAndAverage(
+    @GetUser() user?: AppUser,
+    @Query('editionId') editionIdParam?: string,
+  ) {
+    return this.reportsService.getNrcWithSubjectNameAndAverage(
+      user,
+      editionIdQuery(editionIdParam),
+    );
   }
 
   @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @Get('DatosGraficoMateria')
   @ApiOperation({ summary: 'Get average score per subject (for charts)' })
-  async getAverageScorePerSubject(@GetUser() user?: AppUser) {
-    return this.reportsService.getSubjectAverageScores(user);
+  @ApiQuery({ name: 'editionId', required: false, type: Number, description: EDITION_QUERY_DESCRIPTION })
+  async getAverageScorePerSubject(
+    @GetUser() user?: AppUser,
+    @Query('editionId') editionIdParam?: string,
+  ) {
+    return this.reportsService.getSubjectAverageScores(
+      user,
+      editionIdQuery(editionIdParam),
+    );
   }
 
   // Devuelve correos de jurados: requiere sesión (BG-02).
@@ -75,9 +100,19 @@ export class ReportsController {
   @Get('JuradosData')
   @UseGuards(OptionalAdminRoleGuard)
   @ApiOperation({ summary: 'Get jurors data (admin: all jurors; team leader: only the jurors of their team)' })
-  async getJuradosData(@IsAdmin() isAdmin: boolean, @GetUser('id') userId: string) {
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description: `Solo administrador. ${EDITION_QUERY_DESCRIPTION} El líder siempre ve los jurados de su equipo de la edición activa.`,
+  })
+  async getJuradosData(
+    @IsAdmin() isAdmin: boolean,
+    @GetUser('id') userId: string,
+    @Query('editionId') editionIdParam?: string,
+  ) {
     if (isAdmin) {
-      return this.reportsService.getJuradosData();
+      return this.reportsService.getJuradosData(editionIdQuery(editionIdParam));
     }
     return this.reportsService.getJuradosDataForTeamLeader(userId);
   }
@@ -88,15 +123,19 @@ export class ReportsController {
   @ApiOperation({ summary: 'Export videogame report to Excel' })
   @ApiQuery({ name: 'materia', required: false, description: 'Subject name to filter' })
   @ApiQuery({ name: 'nrc', required: false, description: 'NRC code to filter', type: Number })
+  @ApiQuery({ name: 'editionId', required: false, type: Number, description: EDITION_QUERY_DESCRIPTION })
   @ApiOkResponse({ description: 'Excel file with the report' })
   async exportToExcel(
     @Res() res: Response,
     @Query('materia') materia?: string,
     @Query('nrc') nrc?: number,
+    @Query('editionId') editionIdParam?: string,
   ) {
+    // Fuera del try: un editionId inválido es 400, no el 500 genérico del Excel
+    const editionId = editionIdQuery(editionIdParam);
     try {
       // Obtener los datos filtrados
-      const data = await this.reportsService.getVideogamesDataFilter(materia, nrc);
+      const data = await this.reportsService.getVideogamesDataFilter(materia, nrc, editionId);
 
       // Crear el libro de Excel
       const workbook = new ExcelJS.Workbook();
@@ -227,6 +266,11 @@ export class ReportsController {
         res.end();
       }
     } catch (error) {
+      // ARK-135: una edición que no existe responde su 404, no el 500 genérico
+      if (error instanceof HttpException && !res.headersSent) {
+        res.status(error.getStatus()).json(error.getResponse());
+        return;
+      }
       console.error('Error al generar Excel:', error);
       // Evitar enviar otra respuesta si los headers ya fueron enviados (por ejemplo, por workbook.xlsx.write fallando a medias)
       if (!res.headersSent) {
