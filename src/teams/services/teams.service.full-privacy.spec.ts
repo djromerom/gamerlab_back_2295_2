@@ -102,6 +102,16 @@ describe('TeamsService — lectura de un equipo por rol (ARK-112)', () => {
       expect(team).toMatchObject({ id: 10, teamCode: 'N1-IST-4' });
     });
 
+    it('historial: un equipo de una edición anterior se lee como propio, sin filtrar por edición activa', async () => {
+      repository.findOne.mockResolvedValue({ ...row, editionId: 1 });
+      await expect(service.findOne(10, member)).resolves.toMatchObject({
+        id: 10,
+        verificationCode: 'AB12CD34',
+      });
+      expect(repository.findOne).toHaveBeenCalledWith(10);
+      expect(repository.findOneWithDetailsByLeaderId).not.toHaveBeenCalled();
+    });
+
     it('responde 404 antes de comprobar la pertenencia', async () => {
       repository.findOne.mockResolvedValue(null);
       await expect(service.findOne(99, otherStudent)).rejects.toThrow(
