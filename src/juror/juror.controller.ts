@@ -23,7 +23,6 @@ import {
   ApiNotFoundResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
-  ApiInternalServerErrorResponse,
   ApiQuery,
 } from '@nestjs/swagger';
 
@@ -61,41 +60,6 @@ export class JurorController {
     private readonly jurorAssignmentService: JurorAssignmentService,
     private readonly authService: AuthService,
   ) {}
-
-  // ─── Automatic assignment ────────────────────────────────────────────────────
-
-  @Get('evaluations-assignment')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('AssignJurors')
-  @ApiOperation({
-    summary: 'Asignar evaluaciones automáticamente',
-    description: `
-      Asigna automáticamente jurados a cada equipo confirmado, agrupando por nivel.
-      Los jurados se distribuyen equitativamente entre los equipos del mismo nivel.
-
-      **Reglas de asignación:**
-      - Los jurados solo pueden evaluar equipos del mismo nivel.
-      - El nivel se extrae del código del equipo, formato N<número>-...
-      - Ejemplos: N0-COLEGIOS-01, N1-AYP-06, N2-AYP2-05, N3-DATOS-08, N4-DATOS2-20.
-
-      **Niveles:**
-      - N0: Colegios.
-      - N1: AYP1.
-      - N2: AYP2.
-      - N3: DATOS 1, POO.
-      - N4: DATOS 2.
-    `,
-  })
-  @ApiOkResponse({ description: 'Evaluaciones asignadas correctamente' })
-  @ApiBadRequestResponse({
-    description: 'No se encontraron equipos con formato de nivel válido',
-  })
-  @ApiUnauthorizedResponse({ description: 'No autenticado' })
-  @ApiForbiddenResponse({ description: 'No tiene permisos para asignar jurados' })
-  @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
-  AsignEvaluations() {
-    return this.jurorService.asingEvaluations();
-  }
 
   // ─── CRUD Juror ──────────────────────────────────────────────────────────────
 

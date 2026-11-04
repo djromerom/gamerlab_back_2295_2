@@ -17,6 +17,8 @@ const ALLOWED: Record<string, string> = {
   'juror-edition/juror-edition.controller.ts': 'ejemplo de Swagger',
   'students/students.controller.ts': 'ejemplo de Swagger',
   'professors/professors.swagger-examples.ts': 'ejemplo de Swagger',
+  'juror/automatic-assignment/automatic-assignment.swagger.ts':
+    'ejemplo de Swagger',
 };
 
 function sourceFiles(dir: string): string[] {
