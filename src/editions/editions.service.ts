@@ -7,7 +7,7 @@ import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Edition, EditionStatus } from '@prisma/client';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
-import { HistoricalsService } from '../historicals/historicals.service';
+import { DUMP_TX_OPTIONS, HistoricalsService } from '../historicals/historicals.service';
 import { BlobReferenceService } from '../upload/blob-reference.service';
 
 const DUPLICATE_EDITION_MESSAGE = 'La edición ya existe';
@@ -323,15 +323,30 @@ export class EditionsService {
       );
     }
 
-    this.logger.log(`Creating historical dump for edition #${id}`);
-    // Crear dump histórico (lanza si ya existe o si no tiene equipos)
-    await this.historicalsService.createHistoricalEditionDump(id);
+    // ARK-137 (TA-17): volcado y cambio de estado en UNA transacción. Antes eran dos pasos: si el
+    // segundo fallaba, la edición quedaba INACTIVE con volcado y ya no se podía archivar («ya existe
+    // un volcado»). Marcar primero con `status: INACTIVE` en el where bloquea la fila: un segundo
+    // archivado simultáneo (o una activación) espera y luego no encuentra la edición INACTIVE.
+    // Archivar no borra datos vivos (equipos, integrantes, evaluaciones, asignaciones): ver
+    // docs/edition-closure.md.
+    const result = await this.prisma.$transaction(async (tx) => {
+      const marked = await tx.edition.updateMany({
+        where: { id, status: EditionStatus.INACTIVE },
+        data: { status: EditionStatus.ARCHIVED },
+      });
+      if (marked.count === 0) {
+        throw new BadRequestException(
+          `La edición #${id} cambió de estado mientras se archivaba (otro archivado o una activación). Recarga e intenta de nuevo.`,
+        );
+      }
 
-    // Marcar como ARCHIVED
-    const result = await this.prisma.edition.update({
-      where: { id },
-      data: { status: EditionStatus.ARCHIVED },
-    });
+      this.logger.log(`Creating historical dump for edition #${id}`);
+      // Lanza si ya existe un volcado; una edición sin equipos se archiva sin volcado
+      const dump = await this.historicalsService.dumpEdition(tx, id, { allowEmpty: true });
+      this.logger.log(`Edition #${id}: ${dump.teamsDumpedCount} teams dumped`);
+
+      return tx.edition.findUniqueOrThrow({ where: { id } });
+    }, DUMP_TX_OPTIONS);
 
     this.logger.log(`Edition #${id} archived successfully`);
     return result;
