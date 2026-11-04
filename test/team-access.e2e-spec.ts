@@ -11,8 +11,12 @@ import { blobRefsPassthrough } from '../src/upload/blob-reference.mock';
  * es líder, un integrante inactivo y un correo con `_` (comodín de ILIKE) que no debe pasar
  * por el de otra persona.
  *
+ * Historial (nota de revisión, ARK-128): un estudiante con equipo en una edición anterior y
+ * otro en la activa sigue leyendo el anterior como propio, pidiéndolo por id de equipo.
+ *
  * Solo corre si INTEGRATION_DATABASE_URL apunta a una base DESECHABLE con migraciones y seed
- * (necesita el rol Estudiante). Crea su propia edición (inactiva) y borra al final lo que generó.
+ * (necesita el rol Estudiante y una edición activa). Crea sus propias ediciones (inactiva y
+ * archivada) y borra al final lo que generó.
  */
 const url = process.env.INTEGRATION_DATABASE_URL;
 const describeIfDb = url ? describe : describe.skip;
@@ -35,6 +39,7 @@ describeIfDb('Lectura de un equipo por rol (PostgreSQL)', () => {
   const runId = Date.now().toString(36).slice(-5);
   const userIds: string[] = [];
   let editionId: number;
+  let pastEditionId: number | undefined;
   const teams: Record<'a' | 'b', { id: number; leaderId: string }> = {} as any;
   const mail = (s: string) => `it-ark112-${runId}-${s}@uninorte.edu.co`;
 
@@ -105,9 +110,10 @@ describeIfDb('Lectura de un equipo por rol (PostgreSQL)', () => {
   });
 
   afterAll(async () => {
-    if (editionId) {
-      await prisma.team.deleteMany({ where: { editionId } });
-      await prisma.edition.delete({ where: { id: editionId } });
+    for (const id of [editionId, pastEditionId]) {
+      if (!id) continue;
+      await prisma.team.deleteMany({ where: { editionId: id } });
+      await prisma.edition.delete({ where: { id } });
     }
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.$disconnect();
@@ -181,6 +187,82 @@ describeIfDb('Lectura de un equipo por rol (PostgreSQL)', () => {
       ).rejects.toThrow(ForbiddenException);
     } finally {
       await prisma.team.deleteMany({ where: { id: { in: created } } });
+    }
+  });
+
+  it('historial: el equipo de una edición anterior se sigue leyendo como propio por su id', async () => {
+    const active = await prisma.edition.findFirstOrThrow({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+    });
+    const past = await prisma.edition.create({
+      data: {
+        year: 2098,
+        semester: 20 + (Date.now() % 7),
+        title: `it-ark112-${runId}-anterior`,
+        startsAt: new Date(Date.UTC(2098, 0, 1)),
+        endsAt: new Date(Date.UTC(2098, 0, 31)),
+        status: EditionStatus.ARCHIVED,
+      },
+    });
+    pastEditionId = past.id;
+
+    // El mismo estudiante lidera un equipo en la edición anterior y otro en la activa
+    const leader = await student('lider-h');
+    const memberEmail = mail('mem-h');
+    const team = (edition: number, key: string) =>
+      prisma.team.create({
+        data: {
+          teamName: `it-ark112-${runId}-${key}`,
+          userId: leader.id,
+          editionId: edition,
+          teamCode: `N1-I2-${runId}${key}`,
+          verificationCode: `H${runId}${key}`.slice(0, 8),
+          videogame: { create: { name: `it-ark112-${runId}-${key}` } },
+          members: {
+            create: {
+              firstName: 'IT',
+              lastName: `mem-${key}`,
+              email: memberEmail,
+              studentCode: `it112${runId}h${key}`,
+              editionId: edition,
+            },
+          },
+        },
+      });
+    const pastTeam = await team(past.id, 'p');
+    const currentTeam = await team(active.id, 'c');
+    try {
+      const member = await student('mem-h', memberEmail);
+      const code = `H${runId}p`.slice(0, 8);
+
+      // Líder e integrante leen el equipo anterior completo, por las dos rutas
+      for (const u of [leader, member]) {
+        await expect(service.findOne(pastTeam.id, u)).resolves.toMatchObject({
+          id: pastTeam.id,
+          verificationCode: code,
+        });
+        await expect(
+          service.findOneWithDetails(String(pastTeam.id), u),
+        ).resolves.toMatchObject({ id: pastTeam.id, verificationCode: code });
+      }
+
+      // Por id de líder ("Mi equipo") sale el de la edición activa, no el anterior
+      await expect(
+        service.findOneWithDetails(leader.id, leader),
+      ).resolves.toMatchObject({ id: currentTeam.id });
+
+      // Otro estudiante sigue sin poder leer el equipo anterior
+      const leaderA = {
+        id: teams.a.leaderId,
+        email: mail('lider-a'),
+        roleId: ROLE_IDS.STUDENT,
+      } as any;
+      await expect(service.findOne(pastTeam.id, leaderA)).rejects.toThrow(
+        ForbiddenException,
+      );
+    } finally {
+      await prisma.team.deleteMany({ where: { id: currentTeam.id } });
     }
   });
 
