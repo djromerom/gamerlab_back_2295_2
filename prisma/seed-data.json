@@ -605,6 +605,14 @@
         "createdAt": "2026-11-02T06:00:00.000Z",
         "updatedAt": "2026-11-02T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 62,
+        "name": "LIST_EDITION_STUDENTS",
+        "description": "Permite ver qué estudiantes participan en cada edición y su estado",
+        "createdAt": "2026-11-03T06:00:00.000Z",
+        "updatedAt": "2026-11-03T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1230,6 +1238,16 @@
         "createdAt": "2026-11-02T06:00:00.000Z",
         "updatedAt": "2026-11-02T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 63,
+        "name": "ListEditionStudents",
+        "description": "Listar los estudiantes de una edición con su equipo y su estado",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-03T06:00:00.000Z",
+        "updatedAt": "2026-11-03T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1675,6 +1693,13 @@
         "permissionId": 61,
         "createdAt": "2026-11-02T06:00:00.000Z",
         "updatedAt": "2026-11-02T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 63,
+        "permissionId": 62,
+        "createdAt": "2026-11-03T06:00:00.000Z",
+        "updatedAt": "2026-11-03T06:00:00.000Z",
         "isActive": true
       }
     ]
