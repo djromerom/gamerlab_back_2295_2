@@ -23,6 +23,7 @@ import { RequiredService } from 'src/auth/decorators/required-service.decorator'
 import { CreateNrcDto } from './dto/create-nrc.dto';
 import { UpdateNrcDto } from './dto/update-nrc.dto';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { editionIdQuery, ListEdition } from '../editions/list-edition';
 
 @ApiTags('NRCs')
 @Controller('nrcs')
@@ -32,9 +33,53 @@ export class NrcsController {
   @Get()
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListNrcs')
-  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResult<NRC>> {
+  @ApiOperation({ summary: 'Lista paginada de NRC de una edición (administrador)' })
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-136: NRC de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía). 400 si no es un entero positivo, 404 si la edición no existe.',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: {
+        data: [{ id: 12, code: 2501, subjectId: 1, professorId: 'uuid', editionId: 4, isActive: true }],
+        metadata: { totalItems: 1, itemsOnCurrentPage: 1, currentPage: 1, itemsPerPage: 20, totalPages: 1 },
+        edition: { id: 4, title: 'Feria 2026-1', status: 'INACTIVE', readOnly: true },
+      },
+    },
+  })
+  findAll(
+    @Query() query: PaginationQueryDto,
+    @Query('editionId') editionIdParam?: string,
+  ): Promise<PaginatedResult<NRC> & { edition: ListEdition | null }> {
     const { includeInactive, limit, page } = query;
-    return this.nrcService.findAll(includeInactive, limit, page);
+    return this.nrcService.findAll(
+      includeInactive,
+      limit,
+      page,
+      editionIdQuery(editionIdParam),
+    );
+  }
+
+  @Get('registration-readiness')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListNrcs')
+  @ApiOperation({
+    summary: 'Si la edición activa tiene NRC activos (aviso antes de abrir inscripciones)',
+    description:
+      'ARK-136 (BG-23): el panel lo consulta al abrir las inscripciones. Sin NRC activos nadie termina de inscribirse; solo informa, no bloquea.',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: { edition: { id: 5, title: 'Feria 2026-2' }, activeNrcCount: 0, hasActiveNrcs: false },
+    },
+  })
+  registrationReadiness() {
+    return this.nrcService.registrationReadiness();
   }
 
   @Public()

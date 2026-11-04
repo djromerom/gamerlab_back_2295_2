@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { assertNrcWritable, findActiveEdition } from '../editions/active-edition';
+import { ListEdition, resolveListEdition } from '../editions/list-edition';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, NRC } from '@prisma/client';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
@@ -16,14 +17,35 @@ import { UpdateNrcDto } from './dto/update-nrc.dto';
 export class NrcsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * ARK-136 (BG-23): lista del administrador. Solo los NRC de la edición pedida o, por defecto,
+   * la activa (antes mezclaba todas las ediciones). Sin edición activa, lista vacía. `edition`
+   * (con `readOnly`) le dice al front si la edición se consulta como historial.
+   */
   async findAll(
     includeInactive: boolean,
     limit: number,
     page: number,
-  ): Promise<PaginatedResult<NRC>> {
+    editionId?: number,
+  ): Promise<PaginatedResult<NRC> & { edition: ListEdition | null }> {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) {
+      return {
+        data: [],
+        metadata: {
+          totalItems: 0,
+          itemsOnCurrentPage: 0,
+          currentPage: page,
+          itemsPerPage: limit,
+          totalPages: 0,
+        },
+        edition: null,
+      };
+    }
+
     const offset = (page - 1) * limit;
 
-    const whereClause: Prisma.NRCWhereInput = {};
+    const whereClause: Prisma.NRCWhereInput = { editionId: edition.id };
 
     if (!includeInactive) whereClause.isActive = true;
 
@@ -54,6 +76,29 @@ export class NrcsService {
         itemsPerPage: limit,
         totalPages: totalPages,
       },
+      edition,
+    };
+  }
+
+  /**
+   * ARK-136 (BG-23): si la edición activa ya tiene NRC activos. El panel lo consulta antes de abrir
+   * las inscripciones: sin NRC nadie puede terminar de inscribirse (el equipo exige al menos uno).
+   * Solo informa; abrir las inscripciones no se bloquea en el back.
+   */
+  async registrationReadiness(): Promise<{
+    edition: { id: number; title: string } | null;
+    activeNrcCount: number;
+    hasActiveNrcs: boolean;
+  }> {
+    const edition = await findActiveEdition(this.prisma);
+    if (!edition) return { edition: null, activeNrcCount: 0, hasActiveNrcs: false };
+    const activeNrcCount = await this.prisma.nRC.count({
+      where: { editionId: edition.id, isActive: true },
+    });
+    return {
+      edition: { id: edition.id, title: edition.title },
+      activeNrcCount,
+      hasActiveNrcs: activeNrcCount > 0,
     };
   }
 
