@@ -650,6 +650,16 @@ export class TeamRepository implements ITeamRepository {
           where: { id },
         });
 
+        // ARK-128: la cuenta se conserva entre ediciones. Si el líder tiene equipos en otras
+        // ediciones, se borra solo este equipo; borrar la cuenta fallaba (500, por la llave
+        // foránea de sus otros equipos) y dejaba al administrador sin poder eliminar el equipo.
+        const otherTeams = await tx.team.count({
+          where: { userId: teamToDelete.user.id },
+        });
+        if (otherTeams > 0) {
+          return deletedTeam;
+        }
+
         // Delete verification tokens for the user
         await tx.verificationToken.deleteMany({
           where: { email: teamToDelete.user.email },
@@ -921,6 +931,22 @@ export class TeamRepository implements ITeamRepository {
       );
     }
 
+    // ARK-128: el nombre es único por edición. La inscripción pública ya lo revisa antes, pero
+    // la creación del administrador (POST /teams/admin) llega directo aquí; sin esta revisión el
+    // índice único respondía un 409 técnico ("nombre_equipo, id_edicion").
+    const sameName = await tx.team.findFirst({
+      where: {
+        editionId,
+        teamName: { equals: escapeLike(dto.teamName.trim()), mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    if (sameName) {
+      throw new ConflictException(
+        `Ya existe un equipo con el nombre "${dto.teamName}" en esta edición.`,
+      );
+    }
+
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
     const teamCode = await this.generateTeamCode(firstMemberNrcCode);
 
@@ -1094,6 +1120,28 @@ export class TeamRepository implements ITeamRepository {
     id: number,
     data: UpdateTeamDto,
   ) {
+    // ARK-128: el nombre solo choca con otro equipo de la misma edición (mensaje claro en vez
+    // del 409 técnico del índice único)
+    if (data?.teamName !== undefined) {
+      const current = await tx.team.findUnique({
+        where: { id },
+        select: { editionId: true },
+      });
+      if (!current) throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+      const sameName = await tx.team.findFirst({
+        where: {
+          editionId: current.editionId,
+          id: { not: id },
+          teamName: { equals: escapeLike(data.teamName.trim()), mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (sameName) {
+        throw new ConflictException(
+          `Ya existe un equipo con el nombre "${data.teamName}" en esta edición.`,
+        );
+      }
+    }
     return await tx.team.update({
       where: { id: id },
       data: {
@@ -1126,7 +1174,7 @@ export class TeamRepository implements ITeamRepository {
     const updatedMembers: UpdateMemberDto[] = [];
     const team = await tx.team.findUnique({
       where: { id },
-      select: { editionId: true },
+      select: { editionId: true, userId: true },
     });
     if (!team) throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     for (const member of members) {
@@ -1139,9 +1187,14 @@ export class TeamRepository implements ITeamRepository {
           `No se encontró a un usuario con id ${member.id}`,
         );
 
-      const isLeader = await tx.user.findUnique({
+      // ARK-128: es líder si la cuenta de su correo es la que lidera ESTE equipo. Tener cuenta
+      // ya no basta: alguien pudo liderar un equipo en otra edición y ser integrante aquí, y
+      // editarlo no debe cambiar el correo de su cuenta (que es la de su otro equipo).
+      const memberUser = await tx.user.findUnique({
         where: { email: dbMember?.email },
+        select: { id: true },
       });
+      const isLeader = !!memberUser && memberUser.id === team.userId;
 
       // ARK-128: el correo solo choca con otro integrante de la misma edición
       const existingEmail = member.memberEmail
@@ -1156,7 +1209,7 @@ export class TeamRepository implements ITeamRepository {
 
       if (existingEmail)
         throw new ConflictException(
-          `Ya existe un registro con el correo ${existingEmail.email}`,
+          `El correo ${existingEmail.email} ya está registrado en un equipo de esta edición`,
         );
 
       const nrcRecords = await findNrcIdsByCodes(

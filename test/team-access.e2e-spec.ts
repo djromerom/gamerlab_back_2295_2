@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EditionStatus, PrismaClient } from '@prisma/client';
 import { ROLE_IDS } from '../src/auth/constants/roles';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -133,9 +133,55 @@ describeIfDb('Lectura de un equipo por rol (PostgreSQL)', () => {
     await expect(
       service.findOneWithDetails(String(teams.b.id), leaderA),
     ).rejects.toThrow(ForbiddenException);
+    // ARK-128: por id de líder solo se busca el equipo de la edición ACTIVA; esta edición es
+    // inactiva, así que no hay equipo que mostrar (404). El 403 por id de líder se cubre abajo.
     await expect(
       service.findOneWithDetails(teams.b.leaderId, leaderA),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('ARK-128: por id de líder, en la edición activa, cada líder lee el suyo y no el de otro', async () => {
+    const active = await prisma.edition.findFirstOrThrow({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+    });
+    const created: number[] = [];
+    try {
+      const leaders: Record<'c' | 'd', any> = {} as any;
+      for (const key of ['c', 'd'] as const) {
+        leaders[key] = await student(`lider-${key}`);
+        const t = await prisma.team.create({
+          data: {
+            teamName: `it-ark128-${runId}-${key}`,
+            userId: leaders[key].id,
+            editionId: active.id,
+            // 12 caracteres como máximo: prefijo (6) + runId (5) + clave (1)
+            teamCode: `N1-I8-${runId}${key}`,
+            verificationCode: `W${runId}${key}`.slice(0, 8),
+            videogame: { create: { name: `it-ark128-${runId}-${key}` } },
+            members: {
+              create: {
+                firstName: 'IT',
+                lastName: `lider-${key}`,
+                email: leaders[key].email,
+                studentCode: `it128${runId}${key}`,
+                editionId: active.id,
+              },
+            },
+          },
+        });
+        created.push(t.id);
+      }
+
+      await expect(
+        service.findOneWithDetails(leaders.c.id, leaders.c),
+      ).resolves.toMatchObject({ id: created[0] });
+      await expect(
+        service.findOneWithDetails(leaders.d.id, leaders.c),
+      ).rejects.toThrow(ForbiddenException);
+    } finally {
+      await prisma.team.deleteMany({ where: { id: { in: created } } });
+    }
   });
 
   it('un integrante activo que no es líder lee su equipo (correo sin distinguir mayúsculas)', async () => {

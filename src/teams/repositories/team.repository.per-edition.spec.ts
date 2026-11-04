@@ -186,6 +186,141 @@ describe('TeamRepository — inscripción por edición (ARK-128)', () => {
     });
   });
 
+  describe('nombre de equipo repetido en la misma edición (creación y edición del administrador)', () => {
+    const repo = new TeamRepository({} as any, {} as any) as any;
+
+    it('createTeamRecord responde 409 con mensaje claro y no crea el equipo', async () => {
+      const tx = {
+        team: { findFirst: jest.fn().mockResolvedValue({ id: 99 }), create: jest.fn() },
+      };
+
+      await expect(
+        repo.createTeamRecord(
+          tx,
+          { teamName: 'Equipo Beta', members: [member('a@uninorte.edu.co', '1')] },
+          'u-1',
+          ACTIVE,
+        ),
+      ).rejects.toThrow('Ya existe un equipo con el nombre "Equipo Beta" en esta edición.');
+      expect(tx.team.findFirst.mock.calls[0][0].where.editionId).toBe(ACTIVE);
+      expect(tx.team.create).not.toHaveBeenCalled();
+    });
+
+    it('updateTeam compara solo con otros equipos de la edición del equipo', async () => {
+      const tx = {
+        team: {
+          findUnique: jest.fn().mockResolvedValue({ editionId: ACTIVE }),
+          findFirst: jest.fn().mockResolvedValue(null),
+          update: jest.fn().mockResolvedValue({ id: 7 }),
+        },
+      };
+
+      await repo.updateTeam(tx, 7, { teamName: 'Equipo Alpha' });
+
+      expect(tx.team.findFirst.mock.calls[0][0].where).toMatchObject({
+        editionId: ACTIVE,
+        id: { not: 7 },
+      });
+      expect(tx.team.update).toHaveBeenCalled();
+    });
+
+    it('updateTeam responde 409 si otro equipo de la misma edición ya usa el nombre', async () => {
+      const tx = {
+        team: {
+          findUnique: jest.fn().mockResolvedValue({ editionId: ACTIVE }),
+          findFirst: jest.fn().mockResolvedValue({ id: 8 }),
+          update: jest.fn(),
+        },
+      };
+
+      await expect(repo.updateTeam(tx, 7, { teamName: 'Equipo Alpha' })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(tx.team.update).not.toHaveBeenCalled();
+    });
+
+    it('updateTeam sin teamName no consulta nombres', async () => {
+      const tx = {
+        team: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn().mockResolvedValue({}) },
+      };
+
+      await repo.updateTeam(tx, 7, { isExternal: true });
+
+      expect(tx.team.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateMembers: quién es el líder', () => {
+    const repo = new TeamRepository({} as any, {} as any) as any;
+    const makeTx = (memberUserId: string | null) => ({
+      team: { findUnique: jest.fn().mockResolvedValue({ editionId: ACTIVE, userId: 'lider-514' }) },
+      member: {
+        findUnique: jest.fn().mockResolvedValue({ id: 17, email: 'viejo@uninorte.edu.co' }),
+        findFirst: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({ id: 17 }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          // 1.ª: la cuenta del correo actual del integrante; 2.ª: ¿el correo nuevo ya es de otra cuenta?
+          .mockResolvedValueOnce(memberUserId ? { id: memberUserId } : null)
+          .mockResolvedValueOnce({ id: 'otra-cuenta', email: 'nuevo@uninorte.edu.co' }),
+        update: jest.fn(),
+      },
+      nRC: { findMany: jest.fn().mockResolvedValue([]) },
+    });
+
+    it('un integrante con cuenta de OTRA edición no se trata como líder: no se toca su cuenta', async () => {
+      const tx = makeTx('lider-de-la-edicion-3');
+
+      await repo.updateMembers(tx, 514, [{ id: 17, memberEmail: 'nuevo@uninorte.edu.co' }]);
+
+      expect(tx.member.update).toHaveBeenCalled();
+      expect(tx.user.update).not.toHaveBeenCalled();
+    });
+
+    it('el líder de este equipo sí actualiza su cuenta (y choca si el correo es de otra)', async () => {
+      const tx = makeTx('lider-514');
+
+      await expect(
+        repo.updateMembers(tx, 514, [{ id: 17, memberEmail: 'nuevo@uninorte.edu.co' }]),
+      ).rejects.toThrow('El correo nuevo@uninorte.edu.co ya está en uso por otro usuario');
+    });
+  });
+
+  describe('remove: la cuenta del líder se conserva si tiene equipos en otras ediciones', () => {
+    const build = (otherTeams: number) => {
+      const tx = {
+        team: {
+          findUnique: jest.fn().mockResolvedValue({ id: 514, user: { id: 'u-4', email: 'l@u.co' } }),
+          delete: jest.fn().mockResolvedValue({ id: 514 }),
+          count: jest.fn().mockResolvedValue(otherTeams),
+        },
+        verificationToken: { deleteMany: jest.fn() },
+        user: { delete: jest.fn() },
+      };
+      const prisma = { $transaction: jest.fn().mockImplementation((fn) => fn(tx)) };
+      return { tx, repository: new TeamRepository(prisma as any, {} as any) };
+    };
+
+    it('con equipo en otra edición borra solo el equipo', async () => {
+      const { tx, repository } = build(1);
+
+      await expect(repository.remove(514)).resolves.toEqual({ id: 514 });
+      expect(tx.team.count).toHaveBeenCalledWith({ where: { userId: 'u-4' } });
+      expect(tx.user.delete).not.toHaveBeenCalled();
+      expect(tx.verificationToken.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('sin otros equipos borra también la cuenta (comportamiento anterior)', async () => {
+      const { tx, repository } = build(0);
+
+      await repository.remove(514);
+
+      expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: 'u-4' } });
+    });
+  });
+
   it('createTeam crea líder, equipo e integrantes en la edición activa', async () => {
     const tx = {
       edition: { findFirst: jest.fn().mockResolvedValue({ id: ACTIVE }) },
