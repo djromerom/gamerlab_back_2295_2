@@ -1,0 +1,93 @@
+# ARKAD-13 (TA-02): prueba controlada de la caché `gha` del build de Docker.
+# TEMPORAL: se borra junto con el PR cuando se tengan los números.
+#
+# Qué mide: el mismo commit, construido 3 veces SIN caché y 3 veces CON la caché `gha`
+# (cache-from + cache-to, igual que Deploy-back), cada una en un runner nuevo y con un cambio
+# de código simulado para que `COPY . .` se invalide como en un deploy real.
+# No hace login, no sube imágenes y no despliega. La caché usa el alcance `bench-back`,
+# distinto del de producción (`back`).
+#
+# Cómo leerlo: en cada job de `measure`, el paso "Resultado" imprime `BENCH variant=... seconds=...`
+# (solo el paso de build) y el resumen del job; el tiempo total del job incluye Buildx y checkout.
+name: Bench-docker-build
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/bench-docker-build.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CACHE_SCOPE: bench-back
+
+jobs:
+  # Llena la caché con el commit actual (equivale al deploy anterior).
+  warmup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build (llena la caché)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          cache-to: type=gha,scope=${{ env.CACHE_SCOPE }},mode=max
+
+  measure:
+    needs: warmup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1 # uno a la vez, alternando variantes, para que se parezcan a deploys sucesivos
+      matrix:
+        include:
+          - { variant: nocache, rep: 1 }
+          - { variant: gha, rep: 1 }
+          - { variant: nocache, rep: 2 }
+          - { variant: gha, rep: 2 }
+          - { variant: nocache, rep: 3 }
+          - { variant: gha, rep: 3 }
+    steps:
+      - uses: actions/checkout@v4
+
+      # Un deploy real cambia el código pero no package-lock.json.
+      - name: Simular cambio de código
+        run: echo "// bench ${{ matrix.variant }}-${{ matrix.rep }}-${{ github.run_id }}" >> src/main.ts
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Inicio
+        run: echo "BENCH_T0=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Build sin caché
+        if: matrix.variant == 'nocache'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          no-cache: true
+
+      - name: Build con caché gha
+        if: matrix.variant == 'gha'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,scope=${{ env.CACHE_SCOPE }},mode=max
+
+      - name: Resultado
+        run: |
+          SECONDS_BUILD=$(( $(date +%s) - BENCH_T0 ))
+          echo "BENCH variant=${{ matrix.variant }} rep=${{ matrix.rep }} seconds=${SECONDS_BUILD}"
+          echo "| ${{ matrix.variant }} | ${{ matrix.rep }} | ${SECONDS_BUILD} s |" >> "$GITHUB_STEP_SUMMARY"
