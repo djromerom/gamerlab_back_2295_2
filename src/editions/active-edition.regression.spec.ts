@@ -16,6 +16,7 @@ const ALLOWED: Record<string, string> = {
     'activar una edición escribe el estado ACTIVE',
   'juror-edition/juror-edition.controller.ts': 'ejemplo de Swagger',
   'students/students.controller.ts': 'ejemplo de Swagger',
+  'professors/professors.swagger-examples.ts': 'ejemplo de Swagger',
 };
 
 function sourceFiles(dir: string): string[] {

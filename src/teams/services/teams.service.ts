@@ -635,8 +635,14 @@ export class TeamsService {
     }
   }
 
-  async getTeamsWithLessThanThreeJurors(): Promise<any[]> {
-    return this.teamRepository.getTeamsWithLessThanThreeJurors();
+  /**
+   * ARK-132 (BG-19): equipos confirmados con menos de 3 jurados, solo de la edición pedida o, por
+   * defecto, de la activa (sin edición activa, lista vacía). 404 si `editionId` no existe.
+   */
+  async getTeamsWithLessThanThreeJurors(editionId?: number): Promise<any[]> {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) return [];
+    return this.teamRepository.getTeamsWithLessThanThreeJurors(edition.id);
   }
 
   /**

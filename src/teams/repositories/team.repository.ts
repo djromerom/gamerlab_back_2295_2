@@ -683,7 +683,8 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  async getTeamsWithLessThanThreeJurors(): Promise<
+  /** ARK-132: solo los equipos de `editionId` (la resuelve el servicio). */
+  async getTeamsWithLessThanThreeJurors(editionId: number): Promise<
     Array<{
       id: number;
       nombre: string;
@@ -715,6 +716,7 @@ export class TeamRepository implements ITeamRepository {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId,
           videogame: {
             videogameStatusId: confirmedStatus.id,
           },

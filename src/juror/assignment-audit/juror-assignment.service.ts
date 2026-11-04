@@ -25,6 +25,7 @@ import {
   RuleTeam,
 } from '../assignment-validation/assignment-rules.types';
 import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
+import { resolveListEdition } from '../../editions/list-edition';
 
 type EvaluatorForValidation = {
   id: string;
@@ -812,11 +813,23 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
-  async getEvaluationTracking(teamId?: number, jurorId?: string) {
+  /**
+   * ARK-132 (BG-19): alimenta la pantalla Asignación de jurados. Solo equipos de la edición
+   * pedida o, por defecto, la activa (sin edición activa, lista vacía). La edición se resuelve
+   * fuera del try para que el 404 de una edición inexistente no se vuelva 500.
+   */
+  async getEvaluationTracking(teamId?: number, jurorId?: string, editionId?: number) {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) {
+      if (teamId) throw new NotFoundException('Equipo no encontrado o sin videojuego.');
+      return [];
+    }
+
     try {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: edition.id,
           ...(teamId ? { id: teamId } : {}),
           ...(jurorId
             ? {

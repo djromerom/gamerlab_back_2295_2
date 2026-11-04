@@ -40,5 +40,5 @@ export interface ITeamRepository {
   findExistingStudentCodes(studentCodes: string[]): Promise<Set<string>>;
   findMemberById(memberId: number): Promise<Member | null>;
   findUserById(userId: string): Promise<User | null>;
-  getTeamsWithLessThanThreeJurors(): Promise<Array<any>>;
+  getTeamsWithLessThanThreeJurors(editionId: number): Promise<Array<any>>;
 }
