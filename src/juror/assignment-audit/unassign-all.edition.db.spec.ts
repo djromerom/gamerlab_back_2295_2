@@ -161,7 +161,7 @@ maybe('Quitar asignaciones solo en la edición activa (BD real)', () => {
       },
     });
     expect(log.notes).toContain(`(id ${ids.current})`);
-    expect(log.notes).toContain('1 asignaciones');
+    expect(log.notes).toContain('se eliminó 1 asignación');
   });
 
   it('quitar todas: vacía la edición activa y deja intacta la anterior', async () => {
