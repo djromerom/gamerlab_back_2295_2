@@ -8,6 +8,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { findActiveEdition, NO_ACTIVE_EDITION_MESSAGE } from '../editions/active-edition';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import {
@@ -380,15 +381,11 @@ export class JurorService {
     const MAX_PER_JUROR = 6;
     const results: string[] = [];
 
-    const latestEdition = await this.prisma.edition.findFirst({
-      orderBy: {
-        id: 'desc',
-      },
-    });
+    // ARK-130 (HU-27): la edición activa, no «la de id más alto» (puede ser una recién creada)
+    const latestEdition = await findActiveEdition(this.prisma);
 
-    // MODIFICADO: Se implemento el BadRequest para esta validacion
     if (!latestEdition) {
-      throw new BadRequestException('No hay ediciones disponibles.');
+      throw new BadRequestException(NO_ACTIVE_EDITION_MESSAGE);
     }
 
     const teams = await this.getTeams(latestEdition.id);

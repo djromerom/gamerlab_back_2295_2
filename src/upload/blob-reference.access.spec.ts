@@ -45,7 +45,7 @@ describe('Task 28 ronda 2 - control de acceso al referenciar', () => {
 
   describe('PATCH /teams/:id/info (TeamsService.updateTeamInfo)', () => {
     const repository = { findOne: jest.fn(), updateTeamInfo: jest.fn() };
-    const prisma = { videogame: { findUnique: jest.fn() } };
+    const prisma = { videogame: { findUnique: jest.fn() }, team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) } };
     let service: TeamsService;
     beforeEach(() => {
       repository.findOne.mockResolvedValue({ id: 1, userId: 'u1' });
@@ -72,7 +72,7 @@ describe('Task 28 ronda 2 - control de acceso al referenciar', () => {
   describe('PATCH /teams/:id completo (TeamsService.update)', () => {
     it('rechaza una referencia ajena y resuelve updatedVideogame en la respuesta', async () => {
       const repository = { findOne: jest.fn().mockResolvedValue({ id: 1, userId: 'u1' }), update: jest.fn() };
-      const prisma = { videogame: { findUnique: jest.fn().mockResolvedValue(null) } };
+      const prisma = { videogame: { findUnique: jest.fn().mockResolvedValue(null) }, team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) } };
       const service = new TeamsService({} as any, repository as any, {} as any, prisma as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, {} as any);
       const user = { id: 'u1', roleId: ROLE_IDS.STUDENT } as any;
       await expect(service.update(1, { isExternal: false, videogame: { gameFileUrl: 'upload:foreign' } } as any, user)).rejects.toThrow(
@@ -100,7 +100,7 @@ describe('Task 28 ronda 2 - control de acceso al referenciar', () => {
     const prisma = { videogame: { findUnique: jest.fn(), update: jest.fn() } };
     let service: VideogamesService;
     beforeEach(() => {
-      prisma.videogame.findUnique.mockResolvedValue({ id: 1, logoUrl: 'upload:stored', team: { userId: 'u1' } });
+      prisma.videogame.findUnique.mockResolvedValue({ id: 1, logoUrl: 'upload:stored', team: { userId: 'u1', edition: { status: 'ACTIVE', title: 'E5' } } });
       prisma.videogame.update.mockImplementation(async ({ data }: any) => ({ id: 1, ...data }));
       service = new VideogamesService(prisma as any, {} as any, blobRefs);
     });

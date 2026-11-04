@@ -17,7 +17,7 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
     {} as any,
     repository as any,
     {} as any,
-    {} as any,
+    { team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) } } as any, // ARK-130: el equipo es de la edición activa
     {} as any,
     blobRefsPassthrough(),
     {} as any, // RankingService (HU-04)

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ROLE_IDS } from '../auth/constants/roles';
 
@@ -23,7 +23,7 @@ describe('StudentsService.editNrc — líder o administrador', () => {
     prisma.$transaction.mockImplementation((cb: any) => cb(tx));
     tx.member.findUnique.mockResolvedValue({
       id: 5,
-      team: { userId: 'leader-1' },
+      team: { userId: 'leader-1', edition: { status: 'ACTIVE', title: 'Edición 5' } },
     });
     // findNrcIdsByCodes (nrc-por-edicion) cruza por código: el mock debe traerlo.
     tx.nRC.findMany.mockResolvedValue([{ id: 1, code: 100 }]);
@@ -37,6 +37,15 @@ describe('StudentsService.editNrc — líder o administrador', () => {
   it('permite al administrador en un equipo ajeno', async () => {
     await expect(service.editNrc(admin, 5, [100])).resolves.toEqual({ id: 5 });
     expect(tx.member.update).toHaveBeenCalled();
+  });
+
+  it('ARK-130: un integrante de una edición anterior responde 400, no 500', async () => {
+    tx.member.findUnique.mockResolvedValue({
+      id: 5,
+      team: { userId: 'leader-1', edition: { status: 'INACTIVE', title: 'Feria 4' } },
+    });
+    await expect(service.editNrc(admin, 5, [100])).rejects.toThrow(BadRequestException);
+    expect(tx.member.update).not.toHaveBeenCalled();
   });
 
   it('rechaza a otro estudiante', async () => {

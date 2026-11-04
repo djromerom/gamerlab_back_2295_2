@@ -24,7 +24,7 @@ describe('TeamsService — referencia de blob (Task 28)', () => {
       expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
     }));
     const blobRefs = new BlobReferenceService(azure as any, prisma as any);
-    service = new TeamsService({} as any, repository as any, {} as any, { videogame: { findUnique: jest.fn().mockResolvedValue(null) }, edition: { findFirst: jest.fn().mockResolvedValue({ id: 5, title: 'E5', status: 'ACTIVE' }), findMany: jest.fn().mockResolvedValue([{ id: 5 }]) } } as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, {} as any);
+    service = new TeamsService({} as any, repository as any, {} as any, { videogame: { findUnique: jest.fn().mockResolvedValue(null) }, team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) }, edition: { findFirst: jest.fn().mockResolvedValue({ id: 5, title: 'E5', status: 'ACTIVE' }), findMany: jest.fn().mockResolvedValue([{ id: 5 }]) } } as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, {} as any);
   });
 
   const teamWith = (videogame: any) => ({ id: 1, teamName: 'T', videogame, members: [] });

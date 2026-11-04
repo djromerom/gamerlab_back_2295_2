@@ -33,6 +33,7 @@ import {
   ACTIVE_EDITION_FILTER,
   activeEditionTeamOf,
 } from '../active-edition-team';
+import { findActiveEdition } from '../../editions/active-edition';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -908,11 +909,7 @@ export class TeamRepository implements ITeamRepository {
   }
 
   private async getActiveEditionId(tx: Prisma.TransactionClient): Promise<number> {
-    const activeEdition = await tx.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const activeEdition = await findActiveEdition(tx);
 
     if (!activeEdition) {
       throw new BadRequestException('No hay una edición activa configurada');

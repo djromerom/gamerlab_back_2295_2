@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from "@nestjs/common";
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException, HttpException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { StudentsEvaluations, StudentsGrade} from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
@@ -7,6 +7,7 @@ import { Member, Prisma } from "@prisma/client";
 import { AppUser } from "../auth/jwt.strategy";
 import { ROLE_IDS } from "../auth/constants/roles";
 import { activeEditionTeamOf } from "../teams/active-edition-team";
+import { assertEditionWritable } from "../editions/active-edition";
 
 @Injectable()
 export class StudentsService {
@@ -38,7 +39,11 @@ export class StudentsService {
                     select: {
                         id: true,
                         team: {
-                            select: { userId: true, editionId: true }
+                            select: {
+                                userId: true,
+                                editionId: true,
+                                edition: { select: { status: true, title: true } },
+                            }
                         }
                     }
                 });
@@ -51,6 +56,9 @@ export class StudentsService {
                         'You are not authorized to modify NRCs for this member.',
                     );
                 }
+
+                // ARK-130 (HU-27): los integrantes de ediciones anteriores son de solo lectura
+                assertEditionWritable(member.team.edition, 'el integrante');
 
 
                 const newNrc = await findNrcIdsByCodes(
@@ -77,7 +85,7 @@ export class StudentsService {
 
             });
         } catch (error) {
-            if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+            if (error instanceof HttpException) {
                 throw error;
             }
             console.error('Failed to set NRCs for member:', error);

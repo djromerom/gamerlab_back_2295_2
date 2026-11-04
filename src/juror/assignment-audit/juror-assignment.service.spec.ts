@@ -85,6 +85,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         teamCode: 'N0-COL-01',
         editionId: 1,
         teamName: 'Equipo Colegio Dev',
+        edition: { status: 'ACTIVE', title: 'Edición 1' },
         videogame: { id: 1, name: 'Juego Colegio' },
         assignedJurors: [],
     };
@@ -95,6 +96,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         teamCode: 'N1-AYP-01',
         editionId: 1,
         teamName: 'Equipo AYP Dev',
+        edition: { status: 'ACTIVE', title: 'Edición 1' },
         videogame: { id: 2, name: 'Juego AYP' },
         assignedJurors: [],
     };
@@ -828,5 +830,43 @@ describe('JurorAssignmentService - manual assignment module', () => {
         expect(result[0].juradosQueEvaluaron).toBe(1);
         // Siempre se requieren 3 evaluaciones: pendientes = 3 - evaluaron.
         expect(result[0].juradosPendientes).toBe(2);
+    });
+
+    describe('ARK-130 (HU-27): solo equipos de la edición activa', () => {
+        const pastTeam = {
+            ...n1Team,
+            edition: { status: 'INACTIVE', title: 'Feria 4' },
+            assignedJurors: [
+                {
+                    id: juniorJuror.id,
+                    roleId: 4,
+                    jurorCategory: JurorCategory.JUNIOR,
+                    firstName: juniorJuror.firstName,
+                    lastName: juniorJuror.lastName,
+                    email: juniorJuror.email,
+                },
+            ],
+        };
+
+        it('asignar a un equipo de una edición anterior responde 400 y no guarda', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce(pastTeam);
+            await expect(
+                service.assign(seniorJuror.id, n1Team.id, actorUserId),
+            ).rejects.toThrow(/Feria 4.*solo lectura/);
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+
+        it('reasignar y quitar también se rechazan', async () => {
+            prismaMock.user.findUnique.mockResolvedValue(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValue(pastTeam);
+            await expect(
+                service.reassign(juniorJuror.id, seniorJuror.id, n1Team.id, actorUserId),
+            ).rejects.toThrow(BadRequestException);
+            await expect(
+                service.unassign(juniorJuror.id, n1Team.id, actorUserId),
+            ).rejects.toThrow(BadRequestException);
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
     });
 });

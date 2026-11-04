@@ -34,6 +34,7 @@ import {
 } from '../team-visibility';
 import { RankingService } from '../../ranking/ranking.service';
 import { resolveListEdition } from '../../editions/list-edition';
+import { assertTeamWritable, findActiveEdition } from '../../editions/active-edition';
 
 @Injectable()
 export class TeamsService {
@@ -122,10 +123,7 @@ export class TeamsService {
     const client: any = (this.prisma as any).teamFinalScore;
 
     try {
-      const activeEdition = await this.prisma.edition.findFirst({
-        where: { status: EditionStatus.ACTIVE },
-        select: { id: true },
-      });
+      const activeEdition = await findActiveEdition(this.prisma);
 
       if (!activeEdition) {
         return [];
@@ -515,6 +513,9 @@ export class TeamsService {
       );
     }
 
+    // ARK-130 (HU-27): los equipos de ediciones anteriores son de solo lectura
+    await assertTeamWritable(this.prisma, id);
+
     const result = await this.teamRepository.update(
       id,
       await this.withBlobReferences(updateTeamDto, id),
@@ -548,6 +549,8 @@ export class TeamsService {
       );
     }
 
+    await assertTeamWritable(this.prisma, id);
+
     const updated = await this.teamRepository.updateTeamInfo(
       id,
       await this.withBlobReferences(updateTeamDto, id),
@@ -573,6 +576,8 @@ export class TeamsService {
         'Solo el líder del equipo puede actualizar los emails de los integrantes',
       );
     }
+
+    await assertTeamWritable(this.prisma, teamId);
 
     const member = await this.teamRepository.findMemberById(memberId);
 
@@ -710,20 +715,13 @@ export class TeamsService {
     currentUserId?: string,
   ) {
     if (!currentUserId) return teams;
-    const activeEditionIds = new Set(
-      (
-        await this.prisma.edition.findMany({
-          where: { status: EditionStatus.ACTIVE },
-          select: { id: true },
-        })
-      ).map((edition) => edition.id),
-    );
+    const activeEditionId = (await findActiveEdition(this.prisma))?.id;
     return teams.map((team) => ({
       ...team,
       isMine:
         team.userId === currentUserId &&
-        team.editionId !== undefined &&
-        activeEditionIds.has(team.editionId),
+        activeEditionId !== undefined &&
+        team.editionId === activeEditionId,
     }));
   }
 
@@ -742,6 +740,9 @@ export class TeamsService {
       this.logger.warn(`Delete failed: Team ${id} not found.`);
       throw new NotFoundException(`Team with ID ${id} not found.`);
     }
+
+    // ARK-130: no se borra un equipo de una edición anterior (lo necesitan reportes e historial)
+    await assertTeamWritable(this.prisma, id);
 
     try {
       const team = await this.teamRepository.remove(id);
@@ -792,6 +793,7 @@ export class TeamsService {
     user: AppUser,
   ): Promise<Member | undefined> {
     await this.assertLeaderOrAdmin(id, user);
+    await assertTeamWritable(this.prisma, id);
     return await this.teamRepository.addMember(id, memberDto);
   }
 
@@ -801,6 +803,7 @@ export class TeamsService {
     user: AppUser,
   ): Promise<{ message: string; member: Member | null } | undefined> {
     await this.assertLeaderOrAdmin(teamId, user);
+    await assertTeamWritable(this.prisma, teamId);
     return await this.teamRepository.deleteMember(teamId, memberId);
   }
 }

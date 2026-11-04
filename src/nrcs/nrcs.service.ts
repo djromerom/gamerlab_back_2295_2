@@ -4,8 +4,9 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { assertNrcWritable, findActiveEdition } from '../editions/active-edition';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma, NRC, EditionStatus } from '@prisma/client';
+import { Prisma, NRC } from '@prisma/client';
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
 import { SelectOption } from './types/select-option.type';
 import { CreateNrcDto } from './dto/create-nrc.dto';
@@ -59,11 +60,7 @@ export class NrcsService {
   async findForSelect(
     includeSubjects: boolean = false,
   ): Promise<SelectOption[]> {
-    const activeEdition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const activeEdition = await findActiveEdition(this.prisma);
 
     let selectClause: Prisma.NRCSelect = {
       id: true,
@@ -111,17 +108,7 @@ export class NrcsService {
   async create(dto: CreateNrcDto) {
     const { code, subjectId, professorId, isActive } = dto;
 
-    const activeEdition = await this.prisma.edition.findFirst({
-      where: {
-        status: EditionStatus.ACTIVE,
-      },
-      orderBy: {
-        id: 'desc',
-      },
-      select: {
-        id: true,
-      },
-    });
+    const activeEdition = await findActiveEdition(this.prisma);
 
     if (!activeEdition) {
       throw new BadRequestException('No hay una edición activa configurada');
@@ -166,6 +153,9 @@ export class NrcsService {
     if (!existingNrc) {
       throw new NotFoundException(`NRC con ID ${id} no encontrado.`);
     }
+
+    // ARK-130 (HU-27): los NRC de ediciones anteriores son de solo lectura
+    await assertNrcWritable(this.prisma, id);
 
     // Check if the code is being updated and conflicts with another ACTIVE NRC
     if (dto.code !== undefined) {
@@ -235,6 +225,8 @@ export class NrcsService {
     if (!nrc.isActive) {
       throw new ConflictException(`NRC con ID ${id} ya está inactivo.`);
     }
+
+    await assertNrcWritable(this.prisma, id);
 
     return this.prisma.nRC.update({
       where: { id },

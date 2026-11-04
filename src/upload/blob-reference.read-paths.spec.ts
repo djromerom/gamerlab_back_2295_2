@@ -64,7 +64,7 @@ describe('Referencia de blob en el resto de lecturas y escrituras (Task 28)', ()
     });
 
     it('PATCH guarda la referencia, no la URL firmada', async () => {
-      prisma.videogame.findUnique.mockResolvedValue({ id: 1, team: { userId: 'u1' } });
+      prisma.videogame.findUnique.mockResolvedValue({ id: 1, team: { userId: 'u1', edition: { status: 'ACTIVE', title: 'E5' } } });
       uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'L9', isPublic: true, createdAt: new Date() });
       await service.update(
         1,

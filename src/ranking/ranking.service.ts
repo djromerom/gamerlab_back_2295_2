@@ -26,6 +26,7 @@ import {
   registrationReason,
   validateOrder,
 } from './ranking.logic';
+import { findActiveEdition } from '../editions/active-edition';
 
 const personName = (u: { firstName: string; lastName: string }) =>
   `${u.firstName} ${u.lastName}`.trim();
@@ -564,11 +565,7 @@ export class RankingService {
         throw new NotFoundException(`No existe la edición ${editionId}.`);
       return editionId;
     }
-    const active = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const active = await findActiveEdition(this.prisma);
     if (!active) throw new NotFoundException('No hay una edición activa.');
     return active.id;
   }

@@ -57,6 +57,7 @@ describe('NrcsService', () => {
       mockPrismaService.nRC.findUnique.mockResolvedValue({
         id: 5,
         editionId: 1,
+        edition: { status: 'ACTIVE', title: 'Edición 1' },
       });
       mockPrismaService.nRC.findFirst.mockResolvedValue(null);
       mockPrismaService.nRC.update.mockRejectedValue(p2002());
@@ -64,6 +65,28 @@ describe('NrcsService', () => {
       await expect(service.update(5, { code: 1234 })).rejects.toBeInstanceOf(
         ConflictException,
       );
+    });
+  });
+
+  describe('ARK-130 (HU-27): NRC de una edición anterior', () => {
+    const pastNrc = {
+      id: 7,
+      editionId: 4,
+      isActive: true,
+      code: 1111,
+      edition: { status: 'INACTIVE', title: 'Feria 4' },
+    };
+
+    it('update responde 400 y no escribe', async () => {
+      mockPrismaService.nRC.findUnique.mockResolvedValue(pastNrc);
+      await expect(service.update(7, { code: 2222 })).rejects.toThrow(/el NRC.*Feria 4/);
+      expect(mockPrismaService.nRC.update).not.toHaveBeenCalled();
+    });
+
+    it('remove responde 400 y no lo desactiva', async () => {
+      mockPrismaService.nRC.findUnique.mockResolvedValue(pastNrc);
+      await expect(service.remove(7)).rejects.toThrow(/solo lectura/);
+      expect(mockPrismaService.nRC.update).not.toHaveBeenCalled();
     });
   });
 });

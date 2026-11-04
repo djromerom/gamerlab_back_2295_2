@@ -74,11 +74,13 @@ describe('ProfessorsService', () => {
       ),
     ).rejects.toThrow('NRC 10 does not belong to the active edition');
 
-    expect(mockPrismaService.edition.findFirst).toHaveBeenCalledWith({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    // ARK-130: la edición activa sale del método central (findActiveEdition)
+    expect(mockPrismaService.edition.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: EditionStatus.ACTIVE },
+        orderBy: { id: 'desc' },
+      }),
+    );
     expect(mockPrismaService.nRC.findFirst).not.toHaveBeenCalled();
   });
 

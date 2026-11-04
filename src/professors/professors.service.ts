@@ -17,6 +17,7 @@ import { SelectOption } from './types/select-option.type';
 import { Response } from 'express';
 import { ExcelExportService, NrcSheetData } from './excel-export.service';
 import { seesAllProfessors } from './professor-panel-query.service';
+import { findActiveEdition, ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 @Injectable()
 export class ProfessorsService {
@@ -564,11 +565,7 @@ export class ProfessorsService {
     page: number,
     professorId: string,
   ) {
-    const activeEdition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const activeEdition = await findActiveEdition(this.prisma);
 
     const matchingNrcs = await this.prisma.nRC.findMany({
       where: {
@@ -603,11 +600,7 @@ export class ProfessorsService {
     professorId: string,
   ) {
     const offset = (page - 1) * limit;
-    const activeEdition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const activeEdition = await findActiveEdition(this.prisma);
 
     if (!activeEdition || editionId !== activeEdition.id) {
       throw new NotFoundException(
@@ -1163,7 +1156,7 @@ export class ProfessorsService {
     }
 
     const activeEdition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
+      where: ACTIVE_EDITION_WHERE,
       include: { eventConfiguration: true },
       orderBy: { id: 'desc' },
     });
@@ -1227,7 +1220,7 @@ export class ProfessorsService {
       where: {
         ...owner,
         isActive: true,
-        edition: { status: EditionStatus.ACTIVE },
+        edition: ACTIVE_EDITION_WHERE,
       },
       select: { id: true, code: true, editionId: true },
     });
