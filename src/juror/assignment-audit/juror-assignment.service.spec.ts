@@ -807,6 +807,13 @@ describe('JurorAssignmentService - manual assignment module', () => {
     });
 
     it('debe devolver seguimiento de evaluaciones por equipo', async () => {
+        // ARK-132: el seguimiento se limita a la edición activa
+        (prismaMock as any).edition ??= { findFirst: jest.fn() };
+        (prismaMock as any).edition.findFirst.mockResolvedValueOnce({
+            id: 1,
+            title: 'Edición 1',
+            status: 'ACTIVE',
+        });
         prismaMock.team.findMany.mockResolvedValueOnce([
             {
                 id: n1Team.id,

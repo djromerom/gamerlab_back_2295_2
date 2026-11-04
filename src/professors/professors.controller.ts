@@ -51,6 +51,7 @@ import { BatchTeamEvaluationDto } from './dto/batch-team-evaluation.dto';
 import { ProfessorsService } from './professors.service';
 import { SelectOption } from './types/select-option.type';
 import * as EX from './professors.swagger-examples';
+import { editionIdQuery } from '../editions/list-edition';
 
 @ApiTags('Professors')
 @ApiBearerAuth()
@@ -279,6 +280,13 @@ export class ProfessorsController {
     description: 'Items per page (pagination)',
     example: 20,
   })
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: evaluaciones de equipos de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía). 404 si la edición no existe.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Juror evaluations for university teams',
@@ -287,9 +295,15 @@ export class ProfessorsController {
   async getJurorEvaluations(
     @Query() query: PaginationQueryDto,
     @GetUser('id') professorId: string,
+    @Query('editionId') editionIdParam?: string,
   ) {
     const { limit, page } = query;
-    return this.professorsService.getJurorEvaluations(professorId, limit, page);
+    return this.professorsService.getJurorEvaluations(
+      professorId,
+      limit,
+      page,
+      editionIdQuery(editionIdParam),
+    );
   }
 
   /**

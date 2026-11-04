@@ -8,7 +8,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { findActiveEdition, NO_ACTIVE_EDITION_MESSAGE } from '../editions/active-edition';
+import {
+  ACTIVE_EDITION_WHERE,
+  findActiveEdition,
+  NO_ACTIVE_EDITION_MESSAGE,
+} from '../editions/active-edition';
+import { resolveListEdition } from '../editions/list-edition';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import {
@@ -131,16 +136,28 @@ export class JurorService {
     };
   }
 
+  /**
+   * ARK-132 (BG-19): la edición de un listado de jurados y equipos (la pedida o la activa). `null`
+   * si no se pidió ninguna y no hay edición activa: el listado sale vacío, sin mezclar ediciones.
+   * 404 si `editionId` no existe. Va fuera de los try/catch que convierten todo en 500.
+   */
+  private async listEditionId(editionId?: number): Promise<number | null> {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    return edition?.id ?? null;
+  }
+
+  /** ARK-132: evaluados y pendientes del jurado, solo en la edición activa. */
   private async getEvaluationStats(
     jurorId: string,
   ): Promise<{ evaluated: string[]; unevaluated: string[] }> {
     const [evaluated, assignedTeams] = await this.prisma.$transaction([
       this.prisma.evaluation.findMany({
-        where: { jurorId },
+        where: { jurorId, Edition: ACTIVE_EDITION_WHERE },
         select: { videogame: { select: { id: true, name: true } } },
       }),
       this.prisma.team.findMany({
         where: {
+          edition: ACTIVE_EDITION_WHERE,
           assignedJurors: {
             some: { id: jurorId },
           },
@@ -229,12 +246,19 @@ export class JurorService {
     }
   }
 
+  /**
+   * ARK-132 (BG-19): las cuentas de jurado son globales; los conteos de evaluados y pendientes son
+   * de la edición pedida o, por defecto, de la activa (sin edición activa, en cero).
+   */
   async findAll(
     includeInactive: boolean,
     limit: number,
     page: number,
+    editionId?: number,
   ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
+    // -1: sin edición activa no hay evaluaciones ni equipos que contar
+    const statsEditionId = (await this.listEditionId(editionId)) ?? -1;
 
     // Se ha modificado esta variable para incluir tanto a jurados como a profesores en el listado
     const whereClause: Prisma.UserWhereInput = {
@@ -250,6 +274,7 @@ export class JurorService {
         orderBy: { lastName: 'asc' },
         include: {
           evaluationsSubmitted: {
+            where: { editionId: statsEditionId },
             select: { videogame: { select: { id: true, name: true } } },
           },
         },
@@ -257,6 +282,7 @@ export class JurorService {
       this.prisma.user.count({ where: whereClause }),
       this.prisma.team.findMany({
         where: {
+          editionId: statsEditionId,
           assignedJurors: { some: { roleId: this.jurorRoleId } },
           videogame: { isNot: null },
         },
@@ -955,11 +981,15 @@ export class JurorService {
     return filtered;
   }
 
-  async getEvaluatorsWithTeams(): Promise<any[]> {
+  /** ARK-132 (BG-19): jurados con sus equipos de la edición pedida o, por defecto, la activa. */
+  async getEvaluatorsWithTeams(editionId?: number): Promise<any[]> {
+    const listEditionId = await this.listEditionId(editionId);
+    if (listEditionId === null) return [];
     try {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: listEditionId,
           assignedJurors: {
             some: {
               isActive: true,
@@ -1051,11 +1081,15 @@ export class JurorService {
     }
   }
 
-  async getTeamsWithLessThanThreeJurors(): Promise<any[]> {
+  /** ARK-132 (BG-19): solo equipos de la edición pedida o, por defecto, la activa. */
+  async getTeamsWithLessThanThreeJurors(editionId?: number): Promise<any[]> {
+    const listEditionId = await this.listEditionId(editionId);
+    if (listEditionId === null) return [];
     try {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: listEditionId,
           videogame: {
             videogameStatusId: this.confirmedStatusId,
           },
@@ -1124,7 +1158,11 @@ export class JurorService {
     }
   }
 
-  async getTeamsAssignedToJuror(jurorId: string): Promise<any[]> {
+  /** ARK-132 (BG-19): equipos del jurado en la edición pedida o, por defecto, la activa. */
+  async getTeamsAssignedToJuror(
+    jurorId: string,
+    editionId?: number,
+  ): Promise<any[]> {
     try {
       // Verificar que el jurado existe
       const juror = await this.prisma.user.findUnique({
@@ -1140,9 +1178,13 @@ export class JurorService {
         throw new BadRequestException('El usuario no es un jurado');
       }
 
+      const listEditionId = await this.listEditionId(editionId);
+      if (listEditionId === null) return [];
+
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: listEditionId,
           assignedJurors: {
             some: {
               id: jurorId,

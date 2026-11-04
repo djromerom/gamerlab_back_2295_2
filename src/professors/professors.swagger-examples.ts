@@ -116,6 +116,7 @@ export const NRC_REPORT_BY_CODE_RESPONSE_EXAMPLE = {
 };
 
 export const JUROR_EVALUATIONS_RESPONSE_EXAMPLE = {
+  edition: { id: 5, title: 'Arkad 2026-2', status: 'ACTIVE', readOnly: false },
   data: [
     {
       teamCode: 'ABC-123',

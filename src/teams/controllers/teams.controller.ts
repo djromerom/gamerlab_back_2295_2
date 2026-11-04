@@ -32,7 +32,7 @@ import { ValidateEmailsDto } from '../dto/validate-emails.dto';
 import { ValidateStudentCodesDto } from '../dto/validate-student-codes.dto';
 import { MemberDto } from '../dto/member.dto';
 import { RegistrationsOpenGuard } from '../../settings/registrations-open.guard';
-import { parseEditionIdParam } from '../../editions/list-edition';
+import { editionIdQuery, parseEditionIdParam } from '../../editions/list-edition';
 
 /**
  * Tope de `limit` en GET /teams. Más alto que el común (100) porque la vista «Todos» de la tabla de
@@ -102,8 +102,19 @@ export class TeamsController {
   @Get('incomplete-jurors')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  getTeamsWithIncompleteJurors() {
-    return this.teamsService.getTeamsWithLessThanThreeJurors();
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: equipos confirmados con menos de 3 jurados de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía). 404 si la edición no existe.',
+  })
+  getTeamsWithIncompleteJurors(
+    @Query('editionId') @Optional() editionIdParam?: string,
+  ) {
+    return this.teamsService.getTeamsWithLessThanThreeJurors(
+      editionIdQuery(editionIdParam),
+    );
   }
 
   @Public()

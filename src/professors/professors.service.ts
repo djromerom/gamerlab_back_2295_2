@@ -18,6 +18,7 @@ import { Response } from 'express';
 import { ExcelExportService, NrcSheetData } from './excel-export.service';
 import { seesAllProfessors } from './professor-panel-query.service';
 import { findActiveEdition, ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { ListEdition, resolveListEdition } from '../editions/list-edition';
 
 @Injectable()
 export class ProfessorsService {
@@ -455,16 +456,26 @@ export class ProfessorsService {
   // en equipos universitarios (isExternal = false). Se usa en el panel "Calificaciones Uninorte"
   // para mostrar también los equipos que el profesor evaluó actuando como jurado.
   // [AUTOR]: IA  |  [FECHA]: 27/5/2026
+  //
+  // ARK-132 (BG-19): solo las evaluaciones de equipos de la edición pedida o, por defecto, de la
+  // activa, como el resto del panel del profesor (HU-03). Sin edición activa, lista vacía; 404 si
+  // `editionId` no existe. La respuesta dice de qué edición es (`edition`).
   async getJurorEvaluations(
     professorId: string,
     limit: number,
     page: number,
-  ): Promise<PaginatedResult<any>> {
+    editionId?: number,
+  ): Promise<PaginatedResult<any> & { edition: ListEdition | null }> {
     const offset = (page - 1) * limit;
+    const edition = await resolveListEdition(this.prisma, editionId);
 
     // Obtener evaluaciones donde el profesor es el jurado, de equipos universitarios
+    // (-1: sin edición activa no hay equipos)
     const evaluations = await this.prisma.evaluation.findMany({
-      where: { jurorId: professorId },
+      where: {
+        jurorId: professorId,
+        videogame: { team: { editionId: edition?.id ?? -1 } },
+      },
       select: {
         videogameId: true,
         totalScore: true,
@@ -547,6 +558,7 @@ export class ProfessorsService {
     });
 
     return {
+      edition,
       data,
       metadata: {
         totalItems,

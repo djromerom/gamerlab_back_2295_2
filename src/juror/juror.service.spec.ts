@@ -31,7 +31,21 @@ describe('JurorService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    // ARK-132: los listados resuelven la edición (por defecto, la activa)
+    edition: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn(),
+  };
+
+  const activeEdition = {
+    id: 5,
+    title: 'Arkad 2026-2',
+    status: 'ACTIVE',
+    year: 2026,
+    semester: 2,
+    endsAt: new Date('2026-11-26T23:00:00Z'),
   };
 
   const authMock = {
@@ -62,6 +76,7 @@ describe('JurorService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.edition.findFirst.mockResolvedValue(activeEdition);
 
     prismaMock.$transaction.mockImplementation(async (arg: any) => {
       if (Array.isArray(arg)) {
@@ -590,6 +605,84 @@ describe('JurorService', () => {
         ],
         cantidadEquipos: 2,
       });
+    });
+  });
+
+  // ARK-132 (BG-19): las listas usan la edición activa por defecto o la pedida
+  describe('listas por edición (ARK-132)', () => {
+    it('getEvaluatorsWithTeams filtra por la edición activa', async () => {
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+      await service.getEvaluatorsWithTeams();
+      expect(prismaMock.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ editionId: activeEdition.id }),
+        }),
+      );
+    });
+
+    it('getEvaluatorsWithTeams con editionId usa esa edición', async () => {
+      prismaMock.edition.findUnique.mockResolvedValueOnce({
+        ...activeEdition,
+        id: 4,
+        status: 'INACTIVE',
+      });
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+      await service.getEvaluatorsWithTeams(4);
+      expect(prismaMock.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ editionId: 4 }),
+        }),
+      );
+    });
+
+    it('sin edición activa las listas salen vacías sin consultar equipos', async () => {
+      prismaMock.edition.findFirst.mockResolvedValue(null);
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        role: { name: 'Jurado' },
+      });
+      await expect(service.getEvaluatorsWithTeams()).resolves.toEqual([]);
+      await expect(service.getTeamsWithLessThanThreeJurors()).resolves.toEqual([]);
+      await expect(service.getTeamsAssignedToJuror(baseJuror.id)).resolves.toEqual([]);
+      expect(prismaMock.team.findMany).not.toHaveBeenCalled();
+    });
+
+    it('una edición que no existe responde 404 (no 500)', async () => {
+      prismaMock.edition.findUnique.mockResolvedValue(null);
+      await expect(service.getEvaluatorsWithTeams(99)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(
+        service.getTeamsWithLessThanThreeJurors(99),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        role: { name: 'Jurado' },
+      });
+      await expect(
+        service.getTeamsAssignedToJuror(baseJuror.id, 99),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('findAll cuenta evaluados y pendientes solo de la edición', async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([]);
+      prismaMock.user.count.mockResolvedValueOnce(0);
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+      await service.findAll(false, 10, 1);
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: {
+            evaluationsSubmitted: expect.objectContaining({
+              where: { editionId: activeEdition.id },
+            }),
+          },
+        }),
+      );
+      expect(prismaMock.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ editionId: activeEdition.id }),
+        }),
+      );
     });
   });
 

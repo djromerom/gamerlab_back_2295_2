@@ -44,6 +44,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 import { AuthService } from '../auth/auth.service';
 
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { editionIdQuery } from '../editions/list-edition';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 
 import { JurorListItem } from './types/juror-list-item.type';
@@ -121,19 +122,41 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')
   @ApiOperation({ summary: 'Lista de evaluadores con sus equipos asignados' })
-  getEvaluatorsWithTeams() {
-    return this.jurorService.getEvaluatorsWithTeams();
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: equipos de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía). 404 si la edición no existe.',
+  })
+  getEvaluatorsWithTeams(@Query('editionId') editionIdParam?: string) {
+    return this.jurorService.getEvaluatorsWithTeams(
+      editionIdQuery(editionIdParam),
+    );
   }
 
   @Get()
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')
   @ApiOperation({ summary: 'Listar todos los jurados paginados' })
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: edición de los conteos de evaluados y pendientes. Por defecto, la edición activa (sin edición activa, en cero). 404 si la edición no existe.',
+  })
   findAll(
     @Query() query: PaginationQueryDto,
+    @Query('editionId') editionIdParam?: string,
   ): Promise<PaginatedResult<JurorListItem>> {
     const { includeInactive, limit, page } = query;
-    return this.jurorService.findAll(includeInactive, limit, page);
+    return this.jurorService.findAll(
+      includeInactive,
+      limit,
+      page,
+      editionIdQuery(editionIdParam),
+    );
   }
 
   // ─── Manual assignment ───────────────────────────────────────────────────────
@@ -305,10 +328,17 @@ export class JurorController {
   })
   @ApiQuery({ name: 'teamId', required: false, type: Number })
   @ApiQuery({ name: 'jurorId', required: false, type: String })
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description: 'Edición a consultar (por defecto la activa). Las demás son historial de solo lectura.',
+  })
   @ApiOkResponse({ description: 'Lista de equipos con seguimiento de evaluación' })
   getEvaluationTracking(
     @Query('teamId') teamId?: string,
     @Query('jurorId') jurorId?: string,
+    @Query('editionId') editionIdParam?: string,
   ) {
     const teamIdNumber = teamId ? parseInt(teamId, 10) : undefined;
 
@@ -319,6 +349,7 @@ export class JurorController {
     return this.jurorAssignmentService.getEvaluationTracking(
       teamIdNumber,
       jurorId,
+      editionIdQuery(editionIdParam),
     );
   }
 
@@ -421,8 +452,21 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')
   @ApiOperation({ summary: 'Equipos asignados a un jurado específico' })
-  getTeamsAssignedToJuror(@Param('id') id: string) {
-    return this.jurorService.getTeamsAssignedToJuror(id);
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: equipos de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía). 404 si la edición no existe.',
+  })
+  getTeamsAssignedToJuror(
+    @Param('id') id: string,
+    @Query('editionId') editionIdParam?: string,
+  ) {
+    return this.jurorService.getTeamsAssignedToJuror(
+      id,
+      editionIdQuery(editionIdParam),
+    );
   }
 
   @Get(':id')
