@@ -61,6 +61,8 @@ describe('Task 28 ronda 1', () => {
       videogame: { findMany: jest.fn() },
       teamFinalScore: { findMany: jest.fn().mockResolvedValue([]) },
       evaluation: { findMany: jest.fn().mockResolvedValue([]) },
+      // ARK-135: los reportes son de la edición activa
+      edition: { findFirst: jest.fn().mockResolvedValue({ id: 1, title: 'E1', status: 'ACTIVE' }) },
     };
 
     it('getVideogamesData y getVideogamesDataFilter firman el logo', async () => {

@@ -13,6 +13,8 @@ describe('ReportsService', () => {
     videogame: { findMany: jest.fn() },
     teamFinalScore: { findMany: jest.fn() },
     evaluation: { findMany: jest.fn() },
+    // ARK-135: los reportes se calculan sobre la edición activa
+    edition: { findFirst: jest.fn().mockResolvedValue({ id: 3, title: 'Feria 3', status: 'ACTIVE' }) },
   };
 
   beforeEach(async () => {

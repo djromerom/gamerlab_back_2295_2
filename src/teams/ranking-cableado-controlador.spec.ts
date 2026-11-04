@@ -141,6 +141,7 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
     await get('/reports/videojuegoData', adminToken);
     expect(reports.getVideogamesData).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'admin', roleId: ROLE_IDS.ADMIN }),
+      undefined, // ARK-135: sin ?editionId= (la edición activa)
     );
     expect(cache.get).not.toHaveBeenCalled();
   });
