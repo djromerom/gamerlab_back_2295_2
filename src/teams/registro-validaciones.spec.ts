@@ -160,7 +160,10 @@ describe('TeamRepository.checkEmailsExist', () => {
       user: {
         findMany: jest
           .fn()
-          .mockResolvedValue([{ email: 'santiagodd@uninorte.edu.co' }]),
+          // Cuenta de profesor: sí ocupa el correo (ARK-128)
+          .mockResolvedValue([
+            { email: 'santiagodd@uninorte.edu.co', roleId: 3, isActive: true },
+          ]),
       },
       member: { findMany: jest.fn().mockResolvedValue([]) },
     };
@@ -187,7 +190,7 @@ describe('TeamRepository.checkEmailsExist', () => {
           { email: { equals: 'nuevo@uninorte.edu.co', mode: 'insensitive' } },
         ],
       },
-      select: { email: true },
+      select: { email: true, roleId: true, isActive: true },
     });
   });
 

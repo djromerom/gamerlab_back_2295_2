@@ -6,7 +6,12 @@ import { TeamRepository } from './team.repository';
  */
 describe('TeamRepository — NRC por edición', () => {
   const tx = {
-    member: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    member: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     nRC: { findMany: jest.fn() },
     team: { findUnique: jest.fn() },
     user: { findUnique: jest.fn(), update: jest.fn() },
@@ -18,6 +23,7 @@ describe('TeamRepository — NRC por edición', () => {
     jest.clearAllMocks();
     tx.nRC.findMany.mockResolvedValue([{ id: 41, code: 9999 }]);
     tx.member.findUnique.mockResolvedValue(null);
+    tx.member.findFirst.mockResolvedValue(null);
     tx.member.create.mockResolvedValue({ id: 1 });
     tx.member.update.mockResolvedValue({ id: 1 });
     tx.team.findUnique.mockResolvedValue({ id: 10, editionId: 4 });

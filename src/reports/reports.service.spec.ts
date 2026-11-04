@@ -59,7 +59,10 @@ describe('ReportsService', () => {
       const result = await service.getJuradosDataForTeamLeader('student-1');
 
       expect(mockPrismaService.team.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'student-1', isActive: true } }),
+        // ARK-128: solo el equipo de la edición activa
+        expect.objectContaining({
+          where: { userId: 'student-1', isActive: true, edition: { status: 'ACTIVE' } },
+        }),
       );
       const query = mockPrismaService.user.findMany.mock.calls[0][0];
       expect(query.where.teamsToEvaluate).toEqual({ some: { id: 7 } });

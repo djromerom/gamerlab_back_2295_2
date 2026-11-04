@@ -358,6 +358,8 @@ export class EmailService {
       const team = user
         ? await this.prisma.team.findFirst({
           where: { user: { id: user.id } },
+          // ARK-128: el líder puede tener equipos en varias ediciones; se toma el más reciente
+          orderBy: { editionId: 'desc' },
           select: { id: true },
         })
         : null;

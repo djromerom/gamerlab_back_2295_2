@@ -102,8 +102,8 @@ async function main() {
             });
 
             const team = await prisma.team.upsert({
-                where: { teamName: `Equipo ${teamCode}` },
-                update: { isActive: true, editionId: edition.id },
+                where: { teamName_editionId: { teamName: `Equipo ${teamCode}`, editionId: edition.id } },
+                update: { isActive: true },
                 create: {
                     teamName: `Equipo ${teamCode}`,
                     teamCode: teamCode,

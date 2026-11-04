@@ -8,6 +8,7 @@ import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { countProgress } from '../evaluation/evaluation-progress';
 import { EditionStatus } from '@prisma/client';
+import { activeEditionTeamOf } from '../teams/active-edition-team';
 import {
   JurorAssignmentRow,
   sortJurorAssignmentRows,
@@ -579,8 +580,10 @@ async getJuradosData(): Promise<
    * Mismo formato que getJuradosData, pero sin los jurados de otros equipos (BG-02).
    */
   async getJuradosDataForTeamLeader(userId: string) {
+    // ARK-128: el equipo que lidera en la edición activa, no uno de una edición anterior
     const team = await this.prisma.team.findFirst({
-      where: { userId, isActive: true },
+      where: { ...activeEditionTeamOf(userId), isActive: true },
+      orderBy: { editionId: 'desc' },
       select: { id: true, videogame: { select: { id: true, name: true, isActive: true } } },
     });
     const videogame = team?.videogame;

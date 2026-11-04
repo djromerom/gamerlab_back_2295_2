@@ -432,7 +432,7 @@ export class TeamsService {
       await this.teamRepository.findAll(sortByLikes),
     );
     const visible = includePersonalData ? teams : stripPersonalData(teams);
-    return this.markOwnTeams(visible, currentUserId);
+    return await this.markOwnTeams(visible, currentUserId);
   }
 
   /**
@@ -672,16 +672,35 @@ export class TeamsService {
     const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
     result.data = await this.withSignedBlobs(result.data);
     const visible = includePersonalData ? result : stripPersonalData(result);
-    return { ...visible, data: this.markOwnTeams(visible.data, currentUserId) };
+    return { ...visible, data: await this.markOwnTeams(visible.data, currentUserId) };
   }
 
   /**
    * Con sesión, agrega `isMine` (el usuario autenticado es el líder). Sin sesión no agrega nada.
    * Reemplaza al cruce `team.userId === user.id` que hacía el front con el UUID del líder.
+   * ARK-128: el líder puede tener equipos de ediciones anteriores; "mi equipo" es solo el de la
+   * edición activa (el panel del estudiante no debe mostrar el de la edición pasada).
    */
-  private markOwnTeams<T extends { userId?: string }>(teams: T[], currentUserId?: string) {
+  private async markOwnTeams<T extends { userId?: string; editionId?: number }>(
+    teams: T[],
+    currentUserId?: string,
+  ) {
     if (!currentUserId) return teams;
-    return teams.map((team) => ({ ...team, isMine: team.userId === currentUserId }));
+    const activeEditionIds = new Set(
+      (
+        await this.prisma.edition.findMany({
+          where: { status: EditionStatus.ACTIVE },
+          select: { id: true },
+        })
+      ).map((edition) => edition.id),
+    );
+    return teams.map((team) => ({
+      ...team,
+      isMine:
+        team.userId === currentUserId &&
+        team.editionId !== undefined &&
+        activeEditionIds.has(team.editionId),
+    }));
   }
 
   async getLeaderStatus(email: string) {
