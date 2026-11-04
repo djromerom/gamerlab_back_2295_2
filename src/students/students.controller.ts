@@ -17,10 +17,57 @@ import { AppUser } from 'src/auth/jwt.strategy';
 import { EditNrcDto } from './dto/editNrc.dto';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { EditionStudentsService } from './edition-students.service';
+import { ListEditionStudentsQueryDto } from './dto/list-edition-students-query.dto';
+import { EditionStudentsList } from './types/edition-students.type';
 
 @Controller('students')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) { }
+  constructor(
+    private readonly studentsService: StudentsService,
+    private readonly editionStudentsService: EditionStudentsService,
+  ) { }
+
+  // ARK-129 (HU-26): estudiantes de una edición con su equipo y su estado. Solo Administrador.
+  @Get('/participation')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ListEditionStudents')
+  @ApiTags('Students')
+  @ApiOperation({
+    summary: 'Estudiantes inscritos en una edición (por defecto, la activa) con su equipo y su estado',
+  })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        edition: { id: 5, title: 'Arkad 2026-2', status: 'ACTIVE', readOnly: false },
+        summary: {
+          total: 2,
+          active: 2,
+          inactive: 0,
+          byVideogameStatus: { PENDIENTE: 1, CONFIRMADO: 1, RECHAZADO: 0 },
+        },
+        data: [
+          {
+            memberId: 812,
+            firstName: 'Ana',
+            lastName: 'Pérez',
+            email: 'aperez@uninorte.edu.co',
+            studentCode: '200123456',
+            isActive: true,
+            isLeader: true,
+            team: { id: 301, teamName: 'Pixel', teamCode: 'N2-ISI-014', isActive: true },
+            videogameStatus: 'CONFIRMADO',
+            accountStatus: 'CONFIRMADO',
+          },
+        ],
+        metadata: { totalItems: 2, itemsOnCurrentPage: 2, currentPage: 1, itemsPerPage: 20, totalPages: 1 },
+      },
+    },
+  })
+  listEditionStudents(@Query() query: ListEditionStudentsQueryDto): Promise<EditionStudentsList> {
+    return this.editionStudentsService.list(query);
+  }
 
   @Get()
   @UseGuards(RolePermissionGuard)

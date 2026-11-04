@@ -228,7 +228,8 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  async findAll(sortByLikes = false): Promise<Team[]> {
+  /** ARK-129: `editionId` limita el listado a esa edición (el servicio resuelve la activa). */
+  async findAll(sortByLikes = false, editionId?: number): Promise<Team[]> {
     const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
       { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
     ];
@@ -241,6 +242,7 @@ export class TeamRepository implements ITeamRepository {
     }
 
     return this.prisma.team.findMany({
+      where: editionId === undefined ? undefined : { editionId },
       orderBy: orderBy,
       include: {
         videogame: {
@@ -284,7 +286,7 @@ export class TeamRepository implements ITeamRepository {
     return member !== null;
   }
 
-  async findPaged(page = 1, limit = 10, sortByLikes = false) {
+  async findPaged(page = 1, limit = 10, sortByLikes = false, editionId?: number) {
     const currentPage = Math.max(page, 1);
     const itemsPerPage = Math.max(limit, 1);
 
@@ -298,8 +300,11 @@ export class TeamRepository implements ITeamRepository {
     } else {
       orderBy.push({ id: 'asc' });
     }
+    const where: Prisma.TeamWhereInput | undefined =
+      editionId === undefined ? undefined : { editionId };
     const [teams, totalItems] = await this.prisma.$transaction([
       this.prisma.team.findMany({
+        where,
         skip: (currentPage - 1) * itemsPerPage,
         take: itemsPerPage,
         orderBy: orderBy,
@@ -321,7 +326,7 @@ export class TeamRepository implements ITeamRepository {
           },
         },
       }),
-      this.prisma.team.count(),
+      this.prisma.team.count({ where }),
     ]);
 
     const itemsOnCurrentPage = teams.length;

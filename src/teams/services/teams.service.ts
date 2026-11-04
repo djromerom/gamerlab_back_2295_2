@@ -33,6 +33,7 @@ import {
   resolveTeamAudience,
 } from '../team-visibility';
 import { RankingService } from '../../ranking/ranking.service';
+import { resolveListEdition } from '../../editions/list-edition';
 
 @Injectable()
 export class TeamsService {
@@ -427,9 +428,15 @@ export class TeamsService {
    * resolves it with OptionalAdminRoleGuard). Everyone else, logged in or not, gets the list without
    * member emails, student codes or leader email (BG-02). ListTeams is not enough: Estudiante has it.
    */
-  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
+  /**
+   * ARK-129 (HU-26): solo la edición pedida o, por defecto, la activa. Sin edición activa la
+   * lista sale vacía (no se mezclan ediciones). 404 si `editionId` no existe.
+   */
+  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number) {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) return [];
     const teams = await this.withSignedBlobs(
-      await this.teamRepository.findAll(sortByLikes),
+      await this.teamRepository.findAll(sortByLikes, edition.id),
     );
     const visible = includePersonalData ? teams : stripPersonalData(teams);
     return await this.markOwnTeams(visible, currentUserId);
@@ -668,11 +675,28 @@ export class TeamsService {
     }));
   }
 
-  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string) {
-    const result = await this.teamRepository.findPaged(page, limit, sortByLikes);
+  /** Igual que `findAll`, paginado; incluye `edition` (con `readOnly`) para el selector del admin. */
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number) {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) {
+      return {
+        data: [],
+        metaData: {
+          totalItems: 0,
+          totalPages: 0,
+          itemsPerPage: Math.max(limit, 1),
+          currentPage: Math.max(page, 1),
+          itemsOnCurrentPage: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+        edition: null,
+      };
+    }
+    const result = await this.teamRepository.findPaged(page, limit, sortByLikes, edition.id);
     result.data = await this.withSignedBlobs(result.data);
     const visible = includePersonalData ? result : stripPersonalData(result);
-    return { ...visible, data: await this.markOwnTeams(visible.data, currentUserId) };
+    return { ...visible, data: await this.markOwnTeams(visible.data, currentUserId), edition };
   }
 
   /**

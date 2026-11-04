@@ -3,7 +3,7 @@ import { blobRefsPassthrough } from '../../upload/blob-reference.mock';
 
 describe('TeamsService.findAll / findPaged: isMine', () => {
   const repository = { findAll: jest.fn(), findPaged: jest.fn() };
-  const prisma = { edition: { findMany: jest.fn() } };
+  const prisma = { edition: { findMany: jest.fn(), findFirst: jest.fn() } };
   const service = new TeamsService({} as any, repository as any, {} as any, prisma as any, {} as any, blobRefsPassthrough(), {} as any);
   const teams = () => [
     { id: 1, userId: 'lider-1', name: 'A', editionId: 5 },
@@ -13,6 +13,7 @@ describe('TeamsService.findAll / findPaged: isMine', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     prisma.edition.findMany.mockResolvedValue([{ id: 5 }]);
+    prisma.edition.findFirst.mockResolvedValue({ id: 5, title: 'Arkad 5', status: 'ACTIVE' });
     repository.findAll.mockResolvedValue(teams());
     repository.findPaged.mockResolvedValue({ data: teams(), metaData: { totalItems: 2 } });
   });
@@ -26,6 +27,7 @@ describe('TeamsService.findAll / findPaged: isMine', () => {
     const result: any = await service.findPaged(1, 10, false, false, 'lider-1');
     expect(result.data.map((t: any) => t.isMine)).toEqual([true, false]);
     expect(result.metaData).toEqual({ totalItems: 2 });
+    expect(result.edition).toEqual({ id: 5, title: 'Arkad 5', status: 'ACTIVE', readOnly: false });
   });
 
   it('sin sesión no agrega isMine', async () => {

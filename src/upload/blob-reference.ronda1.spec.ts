@@ -102,9 +102,15 @@ describe('Task 28 ronda 1', () => {
 
   describe('TeamsService', () => {
     const repository = { findAll: jest.fn(), findOne: jest.fn(), updateTeamInfo: jest.fn() };
-    const prisma = { teamFinalScore: { findMany: jest.fn() }, videogame: { findUnique: jest.fn().mockResolvedValue(null) } };
+    const prisma = {
+      teamFinalScore: { findMany: jest.fn() },
+      videogame: { findUnique: jest.fn().mockResolvedValue(null) },
+      // ARK-129: GET /teams resuelve la edición activa
+      edition: { findFirst: jest.fn() },
+    };
     let service: TeamsService;
     beforeEach(() => {
+      prisma.edition.findFirst.mockResolvedValue({ id: 5, title: 'E5', status: 'ACTIVE' });
       service = new TeamsService({} as any, repository as any, {} as any, prisma as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, { orderRows: async (rows: any[]) => rows } as any);
     });
 

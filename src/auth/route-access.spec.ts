@@ -56,6 +56,8 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   // HU-25: jurados por edición, solo Administrador
   ListEditionJurors: [],
   ManageEditionJurors: [],
+  // HU-26: estudiantes por edición, solo Administrador
+  ListEditionStudents: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],

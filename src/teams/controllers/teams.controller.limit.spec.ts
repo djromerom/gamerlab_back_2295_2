@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { MAX_TEAMS_LIST_LIMIT, TeamsController } from './teams.controller';
 
 /** M9: el listado público de equipos respeta `limit` y lo recorta a 100; sin `limit` no cambia. */
@@ -9,13 +10,27 @@ describe('TeamsController.getTeams — limit (M9)', () => {
 
   it('sin limit devuelve la lista completa como hasta ahora', () => {
     controller.getTeams(false, undefined, undefined, undefined, true);
-    expect(service.findAll).toHaveBeenCalledWith(true, false, undefined);
+    expect(service.findAll).toHaveBeenCalledWith(true, false, undefined, undefined);
     expect(service.findPaged).not.toHaveBeenCalled();
   });
 
   it('con solo limit pagina desde la página 1', () => {
     controller.getTeams(false, undefined, undefined, '10');
-    expect(service.findPaged).toHaveBeenCalledWith(1, 10, false, false, undefined);
+    expect(service.findPaged).toHaveBeenCalledWith(1, 10, false, false, undefined, undefined);
+  });
+
+  it('ARK-129: editionId se pasa al servicio (paginado y lista completa)', () => {
+    controller.getTeams(true, undefined, '1', '10', undefined, '4');
+    expect(service.findPaged).toHaveBeenCalledWith(1, 10, false, true, undefined, 4);
+    controller.getTeams(false, undefined, undefined, undefined, undefined, '4');
+    expect(service.findAll).toHaveBeenCalledWith(false, false, undefined, 4);
+  });
+
+  it('ARK-129: editionId inválido responde 400', () => {
+    for (const bad of ['abc', '0', '-3', '2.5']) {
+      expect(() => controller.getTeams(false, undefined, undefined, undefined, undefined, bad)).toThrow(BadRequestException);
+    }
+    expect(service.findAll).not.toHaveBeenCalled();
   });
 
   it('el tope propio de /teams es 1000', () => {
@@ -24,23 +39,23 @@ describe('TeamsController.getTeams — limit (M9)', () => {
 
   it('recorta limit=5000 a 1000', () => {
     controller.getTeams(false, undefined, '2', '5000');
-    expect(service.findPaged).toHaveBeenCalledWith(2, 1000, false, false, undefined);
+    expect(service.findPaged).toHaveBeenCalledWith(2, 1000, false, false, undefined, undefined);
   });
 
   it('limit=999999 (vista «Todos» del admin) pide hasta 1000, no 100', () => {
     controller.getTeams(true, undefined, '1', '999999');
-    expect(service.findPaged).toHaveBeenCalledWith(1, 1000, false, true, undefined);
+    expect(service.findPaged).toHaveBeenCalledWith(1, 1000, false, true, undefined, undefined);
   });
 
   it('limit=null (lo manda juryManagement) devuelve la lista completa como antes', () => {
     controller.getTeams(false, undefined, '1', 'null');
-    expect(service.findAll).toHaveBeenCalledWith(false, false, undefined);
+    expect(service.findAll).toHaveBeenCalledWith(false, false, undefined, undefined);
     expect(service.findPaged).not.toHaveBeenCalled();
   });
 
   it('un page suelto sin limit devuelve la lista completa', () => {
     controller.getTeams(false, undefined, '3');
-    expect(service.findAll).toHaveBeenCalledWith(false, false, undefined);
+    expect(service.findAll).toHaveBeenCalledWith(false, false, undefined, undefined);
     expect(service.findPaged).not.toHaveBeenCalled();
   });
 });
