@@ -950,7 +950,11 @@ export class TeamRepository implements ITeamRepository {
     }
 
     const firstMemberNrcCode = Number(dto.members[0].nrc[0]);
-    const teamCode = await this.generateTeamCode(firstMemberNrcCode);
+    const teamCode = await this.generateTeamCode(
+      tx,
+      firstMemberNrcCode,
+      editionId,
+    );
 
     // HU-19: los equipos universitarios nacen con código de verificación; los de colegios (N0) no
     const verificationCode = isCollegeTeamCode(teamCode)
@@ -969,11 +973,15 @@ export class TeamRepository implements ITeamRepository {
     });
   }
 
-  private async generateTeamCode(nrcCode: number): Promise<string> {
+  private async generateTeamCode(
+    tx: Prisma.TransactionClient,
+    nrcCode: number,
+    editionId: number,
+  ): Promise<string> {
     const subjectData = await this.getSubjectAbreviation(nrcCode);
     const abrev = subjectData.abrevName ?? this.genRandomAbrev();
     const teamSemester = subjectData.semester ?? 0;
-    const teamNumber = await this.getTeamNumber(teamSemester);
+    const teamNumber = await this.getTeamNumber(tx, teamSemester, editionId);
 
     return `N${teamSemester}-${abrev}-${teamNumber}`;
   }
@@ -1009,9 +1017,19 @@ export class TeamRepository implements ITeamRepository {
     return { abrevName: subject.abrevName, semester: subject.semester };
   }
 
-  private async getTeamNumber(semester: number): Promise<string> {
-    const teams = await this.prisma.team.findMany({
+  /**
+   * El consecutivo del código (N2-ISI-201, 202…) arranca de nuevo en cada edición: solo cuentan
+   * los equipos de la edición en la que se inscribe el grupo. La unicidad en BD es
+   * (teamCode, editionId), así que el mismo código puede existir en ediciones distintas.
+   */
+  private async getTeamNumber(
+    tx: Prisma.TransactionClient,
+    semester: number,
+    editionId: number,
+  ): Promise<string> {
+    const teams = await tx.team.findMany({
       where: {
+        editionId,
         teamCode: {
           startsWith: `N${semester}-`,
         },
