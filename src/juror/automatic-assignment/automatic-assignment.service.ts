@@ -10,6 +10,10 @@ import { JurorType, ManualJurorAssignmentAction, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  EDITION_READ_ONLY,
+  requireActiveEdition,
+} from '../../editions/active-edition';
+import {
   resolveEdition,
   ResolvedEdition,
   toEditionSummary,
@@ -62,7 +66,19 @@ export interface AutoAssignmentConfirmResult {
  * - `confirm`: vuelve a calcular sobre la edición activa dentro de una
  *   transacción; si el plan ya no es el mismo responde 409 y no guarda nada.
  *   Si coincide, agrega las asignaciones y su bitácora; ante cualquier error
- *   se revierte todo.
+ *   se revierte todo. Un `editionId` que no sea el de la activa da 400
+ *   `EDITION_READ_ONLY`. `maxTeamsPerJuror` debe ser el mismo de la vista
+ *   previa: con otro límite el plan sale distinto y responde 409.
+ *
+ * Límite conocido (concurrencia): `confirm` no toma ningún bloqueo. Dos
+ * confirmaciones simultáneas, o una asignación manual que se guarde mientras
+ * corre la transacción, no se detectan entre sí: las dos leen la misma foto y
+ * pueden dejar un grupo o un jurado por encima de los límites (`connect` no
+ * duplica el par equipo-jurado, pero la bitácora sí quedaría doble). Es una
+ * operación de un administrador, unas pocas veces por edición; si se vuelve un
+ * problema, la solución es un `pg_advisory_xact_lock` al inicio de la
+ * transacción (y en la asignación manual).
+ *
  * El algoritmo está documentado en `automatic-assignment.planner.ts`.
  */
 @Injectable()
@@ -72,7 +88,9 @@ export class AutomaticAssignmentService {
   constructor(private readonly prisma: PrismaService) {}
 
   async preview(dto: AutoAssignmentPreviewDto): Promise<AutoAssignmentPreview> {
-    const edition = await resolveEdition(this.prisma, dto.editionId);
+    const edition = dto.editionId
+      ? await resolveEdition(this.prisma, dto.editionId)
+      : await requireActiveEdition(this.prisma);
     const { input, backupJurorsExcluded } = await this.loadSnapshot(
       this.prisma,
       edition,
@@ -91,7 +109,8 @@ export class AutomaticAssignmentService {
     dto: AutoAssignmentConfirmDto,
     actorUserId: string,
   ): Promise<AutoAssignmentConfirmResult> {
-    const edition = await resolveEdition(this.prisma);
+    const edition = await requireActiveEdition(this.prisma);
+    this.assertIsActiveEdition(dto.editionId, edition);
     const limits = this.limitsFrom(dto);
 
     try {
@@ -109,7 +128,7 @@ export class AutomaticAssignmentService {
                 'La asignación cambió desde la vista previa (equipos, jurados o asignaciones nuevas). No se guardó nada: genera la vista previa otra vez.',
             });
           }
-          this.assertNoBlockers(input, plan.assignments);
+          this.assertNoBlockers(input, plan.assignments, edition);
 
           const teamsUpdated = await this.save(tx, plan, actorUserId);
           return {
@@ -143,6 +162,19 @@ export class AutomaticAssignmentService {
     };
   }
 
+  /** Solo se guarda en la edición activa: las demás son de solo lectura (ARK-130). */
+  private assertIsActiveEdition(
+    editionId: number | undefined,
+    active: ResolvedEdition,
+  ) {
+    if (editionId === undefined || editionId === active.id) return;
+    throw new BadRequestException({
+      statusCode: 400,
+      code: EDITION_READ_ONLY,
+      message: `La asignación automática solo se confirma en la edición activa («${active.title}», id ${active.id}). La edición ${editionId} es de solo lectura: la vista previa con editionId es solo una simulación. No se guardó nada.`,
+    });
+  }
+
   private assertCanPlan(input: PlannerInput, edition: ResolvedEdition) {
     if (!input.teams.some((team) => team.assignable)) {
       throw new BadRequestException(
@@ -156,16 +188,30 @@ export class AutomaticAssignmentService {
     }
   }
 
-  /** Defensa extra: los bloqueos de HU-08 sobre el plan completo. */
-  private assertNoBlockers(input: PlannerInput, added: PlannedAssignment[]) {
+  /**
+   * Defensa extra: los bloqueos de HU-08 sobre el plan completo, incluidos los
+   * de edición activa de ARK-131. Equipos y jurados salen de la edición activa,
+   * así que nunca deberían dispararse.
+   */
+  private assertNoBlockers(
+    input: PlannerInput,
+    added: PlannedAssignment[],
+    edition: ResolvedEdition,
+  ) {
     const blockers = findBlockers({
       teams: input.teams.map((team) => ({
         id: team.id,
         teamCode: team.teamCode,
-        editionId: 0,
+        editionId: edition.id,
+        editionTitle: edition.title,
         jurorIds: team.assigned.map((e) => e.id),
       })),
-      evaluators: input.jurors,
+      // Salen de `jurorsOfEdition`: participan en la edición activa.
+      evaluators: input.jurors.map((juror) => ({
+        ...juror,
+        participatesInActiveEdition: true,
+      })),
+      activeEdition: { id: edition.id, title: edition.title },
       changes: added.map((a) => ({ type: 'ADD' as const, ...a })),
     });
     if (blockers.length > 0) {

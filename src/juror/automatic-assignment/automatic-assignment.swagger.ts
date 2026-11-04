@@ -12,6 +12,16 @@ export const AUTO_ASSIGNMENT_RULES_DOC = `
       - Cada grupo universitario recibe, si es posible, un senior.
       - Lo ya asignado es fijo (P-21): no se quita y cuenta en la carga.
 
+      **Confirmación:**
+      - \`maxTeamsPerJuror\` debe enviarse igual en preview y en confirm (o no
+        enviarse en ninguno); si cambia, confirm responde 409
+        \`AUTO_ASSIGNMENT_OUTDATED\`.
+      - Confirm guarda siempre en la edición activa; un \`editionId\` distinto
+        responde 400 \`EDITION_READ_ONLY\`.
+      - Sin bloqueo de concurrencia: dos confirmaciones simultáneas, o una
+        asignación manual hecha mientras se guarda, no se detectan entre sí.
+        No ejecutar la automática mientras otro administrador asigna a mano.
+
       **Alertas (\`alerts[].code\`):** TEAM_INCOMPLETE, TEAM_WITHOUT_SENIOR,
       SCHOOL_WITHOUT_SENIOR_JURORS, UNREADABLE_TEAM_LEVEL,
       JUROR_MISSING_CATEGORY, JUROR_FIXED_MIXED_LEVELS.

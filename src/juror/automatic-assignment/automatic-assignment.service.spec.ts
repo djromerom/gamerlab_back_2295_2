@@ -12,6 +12,10 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  EDITION_READ_ONLY,
+  NO_ACTIVE_EDITION,
+} from '../../editions/active-edition';
 import { jurorsOfEdition } from '../../juror-edition/jurors-of-edition';
 import {
   AUTO_ASSIGNMENT_AUDIT_NOTE,
@@ -275,6 +279,42 @@ describe('AutomaticAssignmentService (HU-07)', () => {
       await expect(
         service.confirm({ assignments: assignments.slice(1) }, 'admin-1'),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('400 EDITION_READ_ONLY si editionId no es la edición activa, sin abrir la transacción', async () => {
+      const { assignments } = await service.preview({});
+
+      const error = await service
+        .confirm({ assignments, editionId: 4 }, 'admin-1')
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: EDITION_READ_ONLY,
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(tx.team.update).not.toHaveBeenCalled();
+    });
+
+    it('acepta editionId cuando es la edición activa', async () => {
+      const { assignments } = await service.preview({});
+
+      await expect(
+        service.confirm({ assignments, editionId: 5 }, 'admin-1'),
+      ).resolves.toMatchObject({ saved: 6 });
+    });
+
+    it('404 NO_ACTIVE_EDITION si no hay edición activa', async () => {
+      prisma.edition.findFirst.mockResolvedValue(null);
+
+      const error = await service
+        .confirm({ assignments: [] }, 'admin-1')
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(NotFoundException);
+      expect((error as NotFoundException).getResponse()).toMatchObject({
+        code: NO_ACTIVE_EDITION,
+      });
     });
 
     it('confirma siempre sobre la edición activa', async () => {

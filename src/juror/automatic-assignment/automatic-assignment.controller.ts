@@ -76,12 +76,18 @@ export class AutomaticAssignmentController {
       quita ninguna asignación existente (P-21). Si el plan cambió responde 409
       \`AUTO_ASSIGNMENT_OUTDATED\` y no guarda nada. Si falla al guardar, se
       revierte todo.
+      ${AUTO_ASSIGNMENT_RULES_DOC}
     `,
   })
   @ApiOkResponse({ description: 'Asignaciones guardadas' })
   @ApiConflictResponse(AUTO_ASSIGNMENT_OUTDATED_DOC)
-  @ApiBadRequestResponse({ description: 'Datos inválidos o edición sin datos' })
-  @ApiNotFoundResponse({ description: 'No hay edición activa' })
+  @ApiBadRequestResponse({
+    description:
+      'Datos inválidos, edición sin datos o `editionId` distinto de la edición activa (`code: EDITION_READ_ONLY`)',
+  })
+  @ApiNotFoundResponse({
+    description: 'No hay edición activa (`code: NO_ACTIVE_EDITION`)',
+  })
   @ApiUnauthorizedResponse({ description: 'No autenticado' })
   @ApiForbiddenResponse({ description: 'Sin permisos' })
   @ApiInternalServerErrorResponse({

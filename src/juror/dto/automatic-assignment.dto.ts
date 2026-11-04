@@ -18,7 +18,7 @@ export class AutoAssignmentLimitsDto {
     example: 3,
     default: 3,
     description:
-      'Máximo de grupos por jurado en la edición. Por defecto 3 (DEFAULT_ASSIGNMENT_LIMITS).',
+      'Máximo de grupos por jurado en la edición. Por defecto 3 (DEFAULT_ASSIGNMENT_LIMITS). Debe enviarse igual en preview y en confirm (o no enviarse en ninguno): con otro valor el plan recalculado es distinto y confirm responde 409 AUTO_ASSIGNMENT_OUTDATED.',
   })
   @IsOptional()
   @Type(() => Number)
@@ -65,4 +65,15 @@ export class AutoAssignmentConfirmDto extends AutoAssignmentLimitsDto {
   @ValidateNested({ each: true })
   @Type(() => PlannedAssignmentDto)
   assignments: PlannedAssignmentDto[];
+
+  @ApiPropertyOptional({
+    example: 5,
+    description:
+      'Opcional. Si se envía debe ser la edición activa: con otra edición responde 400 EDITION_READ_ONLY y no guarda nada (la confirmación siempre guarda en la activa).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'editionId debe ser un número entero' })
+  @Min(1, { message: 'editionId debe ser mayor que 0' })
+  editionId?: number;
 }
