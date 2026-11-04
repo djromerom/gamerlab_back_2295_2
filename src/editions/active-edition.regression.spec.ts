@@ -57,4 +57,20 @@ describe('Edición activa: una sola fuente (HU-27)', () => {
       [],
     );
   });
+
+  // Decisión del 2026-11-04 (Scrum, revisión del PR): la información de la edición se edita en
+  // cualquier edición; solo los datos de la feria (equipos, NRC, jurados...) son de solo lectura.
+  it.each([
+    'editions/editions.service.ts',
+    'testimonials/testimonials.service.ts',
+    'highlighted-games/highlighted-games.service.ts',
+    'educational-focuses/educational-focuses.service.ts',
+  ])(
+    '%s (información de la edición) no usa las guardas de escritura',
+    (rel) => {
+      const file = files.find((f) => f.rel === rel);
+      expect(file).toBeDefined();
+      expect(file!.text).not.toMatch(/assert\w*Writable/);
+    },
+  );
 });

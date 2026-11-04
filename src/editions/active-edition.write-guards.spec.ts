@@ -1,10 +1,13 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TeamsService } from '../teams/services/teams.service';
 import { VideogamesService } from '../videogames/videogames.service';
-import { SettingsService } from '../settings/settings.service';
+import {
+  SettingsService,
+  WEIGHTS_NOT_CONFIGURED,
+} from '../settings/settings.service';
 import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 import { ROLE_IDS } from '../auth/constants/roles';
-import { EDITION_READ_ONLY } from './active-edition';
+import { EDITION_READ_ONLY, NO_ACTIVE_EDITION } from './active-edition';
 
 /**
  * ARK-130 (HU-27): las escrituras rechazan datos de una edición que no es la activa, y lo exige
@@ -170,10 +173,53 @@ describe('Escrituras sobre una edición anterior (HU-27)', () => {
       );
     });
 
-    it('al leer sin editionId también usa la activa; sin edición activa devuelve null', async () => {
+    // Revisión de DevOps: antes salía 200 con cuerpo vacío y GradeWeightsPage fallaba en res.json()
+    const notFoundCode = async (call: Promise<unknown>) => {
+      const error = await call.then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(error).toBeInstanceOf(NotFoundException);
+      return ((error as NotFoundException).getResponse() as { code: string })
+        .code;
+    };
+
+    it('GET /settings/weights sin edición activa: 404 NO_ACTIVE_EDITION', async () => {
       prisma.edition.findFirst.mockResolvedValue(null);
-      await expect(service.getLatest()).resolves.toBeNull();
+      expect(await notFoundCode(service.getLatest())).toBe(NO_ACTIVE_EDITION);
       expect(prisma.weighting.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('la edición activa sin ponderados: 404 WEIGHTS_NOT_CONFIGURED', async () => {
+      prisma.edition.findFirst.mockResolvedValue({
+        id: 3,
+        status: 'ACTIVE',
+        title: 'Feria 3',
+      });
+      prisma.weighting.findUnique.mockResolvedValue(null);
+      expect(await notFoundCode(service.getLatest())).toBe(
+        WEIGHTS_NOT_CONFIGURED,
+      );
+    });
+
+    it('con ponderados devuelve los de la edición activa', async () => {
+      prisma.edition.findFirst.mockResolvedValue({
+        id: 3,
+        status: 'ACTIVE',
+        title: 'Feria 3',
+      });
+      prisma.weighting.findUnique.mockResolvedValue({
+        editionId: 3,
+        seniorPct: 60,
+        juniorPct: 40,
+      });
+      await expect(service.getLatest()).resolves.toMatchObject({
+        editionId: 3,
+        seniorPct: 60,
+      });
+      expect(prisma.weighting.findUnique).toHaveBeenCalledWith({
+        where: { editionId: 3 },
+      });
     });
   });
 });

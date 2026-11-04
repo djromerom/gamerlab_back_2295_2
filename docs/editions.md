@@ -7,7 +7,8 @@ Una **edición** es una feria (por ejemplo, «Feria Gamer 2026 - S2»). Solo una
 | | Qué se hace | Dónde se exige |
 |---|---|---|
 | **Leer** | Todo listado acepta `?editionId=`; si no se envía, usa la edición ACTIVE. Las demás ediciones se consultan como historial. | `resolveListEdition` (`src/editions/list-edition.ts`) y `resolveEdition` (`src/juror-edition/edition-resolver.ts`) |
-| **Escribir** | Inscribir, editar, borrar, asignar jurados, cambiar NRC, ponderados y calificar solo sobre datos de la edición ACTIVE. Lo exige el **servidor**, no la pantalla. | `assertTeamWritable`, `assertNrcWritable`, `assertVideogameWritable`, `assertMemberWritable` y `assertEditionWritable` (`src/editions/active-edition.ts`) |
+| **Escribir** | Inscribir, editar y borrar equipos, integrantes y videojuegos, asignar jurados, cambiar NRC y ponderados solo sobre datos de la edición ACTIVE. Lo exige el **servidor**, no la pantalla, **también para el administrador**. | `assertTeamWritable`, `assertNrcWritable`, `assertVideogameWritable`, `assertMemberWritable` y `assertEditionWritable` (`src/editions/active-edition.ts`) |
+| **Calificar** | Ya usaba solo la edición activa antes de HU-27 (`EvaluationService`: el videojuego debe ser de la edición activa); HU-27 no agregó una guarda nueva, solo cambió esa búsqueda al método central. | `findEvaluationBlockers` en `src/evaluation/evaluation.service.ts` |
 | **Una sola fuente** | La edición activa sale de `findActiveEdition` / `requireActiveEdition`, o del filtro `ACTIVE_EDITION_WHERE` dentro de otra consulta. Nunca «la edición con el id más alto»: una edición nueva se crea INACTIVE. | `src/editions/active-edition.ts`. La prueba `active-edition.regression.spec.ts` falla si alguien filtra la edición a mano. |
 
 Intentar modificar datos de otra edición responde **400**:
@@ -19,6 +20,19 @@ Intentar modificar datos de otra edición responde **400**:
   "message": "No se puede modificar el equipo: pertenece a «Feria gamer - S2», que no es la edición activa. Las ediciones anteriores son de solo lectura."
 }
 ```
+
+Sin edición activa, las rutas que la necesitan responden **404** con `code: "NO_ACTIVE_EDITION"` (`requireActiveEdition`). Por ejemplo, `GET /settings/weights` responde 404 `NO_ACTIVE_EDITION`, o 404 `WEIGHTS_NOT_CONFIGURED` si la edición activa aún no tiene ponderados; nunca un 200 vacío.
+
+### Qué sí se edita en una edición que no es la activa (decisión del 2026-11-04)
+
+Decidido con la Scrum Master (revisión del PR de ARK-130): **solo la información de la edición** se puede editar en cualquier edición, también en las anteriores, porque es la vitrina del historial de ferias:
+
+- datos de la edición: título, descripción, fechas y fotos (`editions`);
+- testimonios (`testimonials`), juegos destacados (`highlighted-games`) y enfoques educativos (`educational-focuses`).
+
+**Todo lo demás de una edición anterior es de solo lectura, también para el administrador:** equipos, integrantes, videojuegos, NRC, asignaciones de jurados, códigos de verificación y ponderados. En consecuencia, un dato mal cargado o un equipo de prueba de una edición anterior ya no se corrige ni se borra desde la plataforma: conviene revisarlos antes de activar la edición siguiente.
+
+La prueba `active-edition.regression.spec.ts` falla si alguno de los módulos de información de la edición empieza a usar las guardas de escritura.
 
 **Excepción:** la lista de jurados de una edición (HU-25) también acepta cambios en una edición INACTIVE que aún no terminó, para prepararla antes de activarla (`isWritable` en `edition-resolver.ts`, decisión del 2026-11-02).
 

@@ -38,6 +38,9 @@ export type ActiveEdition = Prisma.EditionGetPayload<{
 export const NO_ACTIVE_EDITION_MESSAGE =
   'No hay una edición activa. Actívala en Ediciones antes de continuar.';
 
+/** Código del 404 cuando no hay edición activa (el front lo distingue de «no encontrado»). */
+export const NO_ACTIVE_EDITION = 'NO_ACTIVE_EDITION';
+
 /** La edición activa o `null` (periodo entre ediciones). */
 export async function findActiveEdition(
   prisma: EditionClient,
@@ -55,7 +58,13 @@ export async function requireActiveEdition(
   message: string = NO_ACTIVE_EDITION_MESSAGE,
 ): Promise<ActiveEdition> {
   const edition = await findActiveEdition(prisma);
-  if (!edition) throw new NotFoundException(message);
+  if (!edition) {
+    throw new NotFoundException({
+      statusCode: 404,
+      code: NO_ACTIVE_EDITION,
+      message,
+    });
+  }
   return edition;
 }
 

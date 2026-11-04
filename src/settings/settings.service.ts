@@ -5,9 +5,11 @@ import { CreateWeightDto } from './dto/create-weight.dto';
 import {
   ACTIVE_EDITION_WHERE,
   assertEditionWritable,
-  findActiveEdition,
   requireActiveEdition,
 } from '../editions/active-edition';
+
+/** Código del 404 cuando la edición aún no tiene ponderados. */
+export const WEIGHTS_NOT_CONFIGURED = 'WEIGHTS_NOT_CONFIGURED';
 
 @Injectable()
 export class SettingsService {
@@ -15,12 +17,22 @@ export class SettingsService {
 
   /**
    * Ponderados de una edición; sin `editionId`, los de la edición activa (ARK-130: antes era «la de
-   * id más alto», que puede ser una edición recién creada e inactiva). Sin edición activa: null.
+   * id más alto», que puede ser una edición recién creada e inactiva).
+   * Siempre responde JSON (antes un `null` salía como 200 con cuerpo vacío y el front fallaba):
+   * - sin edición activa: 404 `NO_ACTIVE_EDITION`;
+   * - la edición no tiene ponderados: 404 `WEIGHTS_NOT_CONFIGURED`.
    */
   async getByEdition(editionId?: number) {
-    const id = editionId || (await findActiveEdition(this.prisma))?.id;
-    if (!id) return null;
-    return this.prisma.weighting.findUnique({ where: { editionId: id } });
+    const id = editionId || (await requireActiveEdition(this.prisma)).id;
+    const weighting = await this.prisma.weighting.findUnique({ where: { editionId: id } });
+    if (!weighting) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: WEIGHTS_NOT_CONFIGURED,
+        message: `La edición ${id} no tiene ponderados configurados.`,
+      });
+    }
+    return weighting;
   }
 
   /** Ponderados de la edición activa (la ruta conserva el nombre «latest»). */
