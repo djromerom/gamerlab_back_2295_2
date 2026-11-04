@@ -224,7 +224,11 @@ export class JurorController {
   @Delete('assignments/all')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  @ApiOperation({ summary: 'Eliminar todas las asignaciones de evaluadores' })
+  @ApiOperation({
+    summary: 'Eliminar todas las asignaciones de evaluadores de la edición activa',
+    description:
+      'Solo vacía los equipos de la edición activa; las asignaciones de ediciones anteriores se conservan como historial. Responde `asignacionesEliminadas`, `equiposAfectados` y `edicion`. 400 si no hay asignaciones; 404 NO_ACTIVE_EDITION sin edición activa.',
+  })
   removeAllJurorAssignments(@GetUser('id') actorUserId: string) {
     return this.jurorAssignmentService.unassignAll(actorUserId);
   }
@@ -253,7 +257,11 @@ export class JurorController {
   @Delete(':id/assignments')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  @ApiOperation({ summary: 'Eliminar todas las asignaciones de un jurado' })
+  @ApiOperation({
+    summary: 'Eliminar todas las asignaciones de un jurado en la edición activa',
+    description:
+      'Solo quita al evaluador de los equipos de la edición activa; sus asignaciones de ediciones anteriores se conservan. Responde `asignacionesEliminadas`, `evaluador` y `edicion`. 404 NO_ACTIVE_EDITION sin edición activa.',
+  })
   removeAllAssignmentsFromJuror(
     @Param('id') id: string,
     @GetUser('id') actorUserId: string,
