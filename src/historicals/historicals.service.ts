@@ -4,6 +4,13 @@ import { UpdateHistoricalMemberDto } from './dto/update-historical-member.dto';
 import { UpdateHistoricalVideogameDto } from './dto/update-historical-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { BlobReferenceService } from '../upload/blob-reference.service';
+import { EditionStatus, Prisma } from '@prisma/client';
+
+/**
+ * ARK-137: el volcado de una edición grande (151 equipos en producción) es una transacción
+ * interactiva con una escritura por equipo; el límite por defecto de Prisma (5 s) se queda corto.
+ */
+export const DUMP_TX_OPTIONS = { maxWait: 10_000, timeout: 120_000 } as const;
 
 @Injectable()
 export class HistoricalsService {
@@ -89,20 +96,53 @@ export class HistoricalsService {
     return Promise.all(historicalVideogames.map((v) => this.blobRefs.resolveVideogame(v)));
   }
 
-  // Create a dump from the current teams, members and videogames of a given edition
+  /**
+   * `POST /historicals/create-historical-edition-dump/:editionId`: volcado suelto, sin archivar.
+   *
+   * ARK-137 (TA-17): solo sirve para recuperar el volcado de una edición que ya está ARCHIVED y no
+   * lo tiene. Sobre una edición ACTIVE o INACTIVE dejaba un volcado incompleto (los equipos que se
+   * inscribían después no entraban) y, como ya «existía un volcado», `POST /editions/:id/archive`
+   * quedaba bloqueado. Para cerrar una edición se usa siempre ese endpoint.
+   */
   async createHistoricalEditionDump(editionId: number) {
-    // Verificar que la edición exista y no exista ya un dump para esa edición
     const edition = await this.prisma.edition.findUnique({ where: { id: editionId } });
     if (!edition) {
       throw new BadRequestException(`Edition with ID ${editionId} is not a valid edition ID`);
     }
-    const existingDump = await this.prisma.historicalTeam.findFirst({ where: { editionId } });
-    if (existingDump) {
-      throw new BadRequestException(`A historical dump already exists for edition with ID ${editionId}`);
+    if (edition.status !== EditionStatus.ARCHIVED) {
+      throw new BadRequestException(
+        `La edición ${editionId} está ${edition.status}: para cerrarla usa POST /editions/${editionId}/archive, ` +
+          'que vuelca el historial y la marca ARCHIVED en una sola operación. Este endpoint solo recupera ' +
+          'el volcado de una edición ya archivada.',
+      );
     }
-    // Crear los dumps de equipos, miembros y videojuegos
-    const teamsToDump = await this.prisma.team.findMany({
-      where: { editionId },
+    return this.prisma.$transaction((tx) => this.dumpEdition(tx, editionId), DUMP_TX_OPTIONS);
+  }
+
+  /**
+   * Copia los equipos activos de la edición, sus integrantes (con sus NRC de esa edición) y su
+   * videojuego (con likes y nota final) a las tablas históricas, dentro de la transacción `tx`.
+   * No borra ni modifica nada de las tablas de trabajo (equipos, integrantes, videojuegos,
+   * evaluaciones, asignaciones): siguen ahí como historial de solo lectura (HU-27).
+   *
+   * - 400 si la edición ya tiene volcado: nunca duplica el historial.
+   * - Sin equipos: 404, salvo `allowEmpty` (archivar una edición vacía es válido).
+   * - Si una escritura falla, sale el error y la transacción completa se deshace.
+   */
+  async dumpEdition(
+    tx: Prisma.TransactionClient,
+    editionId: number,
+    { allowEmpty = false }: { allowEmpty?: boolean } = {},
+  ): Promise<{ success: true; message: string; teamsDumpedCount: number }> {
+    const existingDump = await tx.historicalTeam.findFirst({ where: { editionId } });
+    if (existingDump) {
+      throw new BadRequestException(
+        `La edición ${editionId} ya tiene volcado histórico; no se vuelve a volcar para no duplicar el historial.`,
+      );
+    }
+    // Solo equipos activos: los demás listados los tratan como inexistentes.
+    const teamsToDump = await tx.team.findMany({
+      where: { editionId, isActive: true },
       include: {
         members: { include: { nrcs: { where: { editionId } } } },
         videogame: {
@@ -113,18 +153,21 @@ export class HistoricalsService {
       },
     });
     if (teamsToDump.length === 0) {
+      if (allowEmpty) {
+        return { success: true, message: 'La edición no tiene equipos: no había nada que volcar', teamsDumpedCount: 0 };
+      }
       throw new NotFoundException(`No teams found for edition with ID ${editionId}`);
     }
 
     // Leer scores finales de la vista para guardarlos en el snapshot
-    const scoreRows = await this.prisma.teamFinalScore.findMany({
+    const scoreRows = await tx.teamFinalScore.findMany({
       where: { editionId },
     });
     const scoreByTeamId = new Map(scoreRows.map((r) => [r.teamId, r.finalScore ?? null]));
 
-    const dumpOperations = teamsToDump.map((team) => {
+    for (const team of teamsToDump) {
       const finalScore = scoreByTeamId.get(team.id) ?? null;
-      return this.prisma.historicalTeam.create({
+      await tx.historicalTeam.create({
         data: {
           teamName: team.teamName,
           editionId: team.editionId,
@@ -159,20 +202,14 @@ export class HistoricalsService {
           }),
         },
       });
-    });
-
-    try {
-      const result = await this.prisma.$transaction(dumpOperations);
-      this.logger.log(`Volcado completado exitosamente para la edición ${editionId}.`);
-      return {
-        success: true,
-        message: 'Volcado histórico realizado correctamente',
-        teamsDumpedCount: result.length,
-      };
-    } catch (error) {
-      this.logger.error('Error durante el volcado histórico', error);
-      throw new InternalServerErrorException('Hubo un error crítico al realizar el volcado histórico.');
     }
+
+    this.logger.log(`Volcado completado para la edición ${editionId}: ${teamsToDump.length} equipos.`);
+    return {
+      success: true,
+      message: 'Volcado histórico realizado correctamente',
+      teamsDumpedCount: teamsToDump.length,
+    };
   }
 
   // Retorna equipos históricos de una edición, ordenados por finalScore DESC

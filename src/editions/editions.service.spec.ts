@@ -33,6 +33,7 @@ describe('EditionsService', () => {
       create: jest.fn().mockResolvedValue(mockEdition),
       findMany: jest.fn().mockResolvedValue([mockEdition]),
       findUnique: jest.fn().mockResolvedValue(mockEdition),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ ...mockEdition, status: EditionStatus.ARCHIVED }),
       findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({ ...mockEdition, title: 'Updated' }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -60,6 +61,11 @@ describe('EditionsService', () => {
   };
 
   const mockHistoricalsService = {
+    dumpEdition: jest.fn().mockResolvedValue({
+      success: true,
+      message: 'Volcado histórico realizado correctamente',
+      teamsDumpedCount: 3,
+    }),
     createHistoricalEditionDump: jest.fn().mockResolvedValue({
       success: true,
       message: 'Volcado histórico realizado correctamente',
@@ -269,29 +275,17 @@ describe('EditionsService', () => {
   });
 
   describe('archive', () => {
-    it('should create historical dump and mark edition as ARCHIVED when INACTIVE', async () => {
-      // Arrange: mock del dump retorna 3 equipos procesados
-      const dumpResult = {
-        success: true,
-        message: 'Volcado histórico realizado correctamente',
-        teamsDumpedCount: 3,
-      };
-      mockHistoricalsService.createHistoricalEditionDump.mockResolvedValueOnce(dumpResult);
-      mockPrismaService.edition.update.mockResolvedValueOnce({
-        ...mockEdition,
-        status: EditionStatus.ARCHIVED,
-      });
-
+    // ARK-137: volcado y cambio de estado van en una sola transacción
+    it('marca la edición ARCHIVED y vuelca el historial en la misma transacción', async () => {
       const result = await service.archive(1);
 
-      expect(historicalsService.createHistoricalEditionDump).toHaveBeenCalledWith(1);
-      expect(historicalsService.createHistoricalEditionDump).toHaveBeenCalledTimes(1);
-      expect(dumpResult.success).toBe(true);
-      expect(dumpResult.teamsDumpedCount).toBeGreaterThan(0);
-      expect(prisma.edition.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ timeout: expect.any(Number) }));
+      expect(prisma.edition.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, status: EditionStatus.INACTIVE },
         data: { status: EditionStatus.ARCHIVED },
       });
+      expect(mockHistoricalsService.dumpEdition).toHaveBeenCalledWith(mockPrismaService, 1, { allowEmpty: true });
+      expect(mockHistoricalsService.createHistoricalEditionDump).not.toHaveBeenCalled();
       expect(result.status).toEqual(EditionStatus.ARCHIVED);
     });
 
@@ -301,7 +295,8 @@ describe('EditionsService', () => {
         status: EditionStatus.ACTIVE,
       });
       await expect(service.archive(1)).rejects.toThrow(BadRequestException);
-      expect(mockHistoricalsService.createHistoricalEditionDump).not.toHaveBeenCalled();
+      expect(mockHistoricalsService.dumpEdition).not.toHaveBeenCalled();
+      expect(prisma.edition.updateMany).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when trying to archive an already ARCHIVED edition', async () => {
@@ -310,16 +305,21 @@ describe('EditionsService', () => {
         status: EditionStatus.ARCHIVED,
       });
       await expect(service.archive(1)).rejects.toThrow(BadRequestException);
-      expect(mockHistoricalsService.createHistoricalEditionDump).not.toHaveBeenCalled();
+      expect(mockHistoricalsService.dumpEdition).not.toHaveBeenCalled();
     });
 
-    it('should propagate error if createHistoricalEditionDump fails (dump already exists)', async () => {
-      mockHistoricalsService.createHistoricalEditionDump.mockRejectedValueOnce(
-        new BadRequestException(`A historical dump already exists for edition with ID 1`),
+    it('si otra petición la archivó o activó en medio, responde 400 y no vuelca', async () => {
+      mockPrismaService.edition.updateMany.mockResolvedValueOnce({ count: 0 });
+      await expect(service.archive(1)).rejects.toThrow(/cambió de estado/);
+      expect(mockHistoricalsService.dumpEdition).not.toHaveBeenCalled();
+    });
+
+    it('si el volcado falla, el error sale de la transacción (que deshace el ARCHIVED)', async () => {
+      mockHistoricalsService.dumpEdition.mockRejectedValueOnce(
+        new BadRequestException('La edición 1 ya tiene volcado histórico'),
       );
       await expect(service.archive(1)).rejects.toThrow(BadRequestException);
-      // Should NOT mark as ARCHIVED if the dump failed
-      expect(prisma.edition.update).not.toHaveBeenCalled();
+      expect(prisma.edition.findUniqueOrThrow).not.toHaveBeenCalled();
     });
   });
 
