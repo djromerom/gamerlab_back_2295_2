@@ -14,6 +14,7 @@ import {
   sortJurorAssignmentRows,
   toJurorAssignmentRow,
 } from './juror-assignment-export';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 // ¡AJUSTA ESTE ID SEGÚN TU CONFIGURACIÓN DE ROLES!
 const ROL_JURADO_ID = 4;
@@ -421,7 +422,7 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
   rows: JurorAssignmentRow[];
 }> {
   const edition = await this.prisma.edition.findFirst({
-    where: editionId ? { id: editionId } : { status: EditionStatus.ACTIVE },
+    where: editionId ? { id: editionId } : ACTIVE_EDITION_WHERE,
     orderBy: { id: 'desc' },
     select: { id: true, year: true, semester: true, title: true },
   });

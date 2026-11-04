@@ -7,6 +7,7 @@ import {
   PanelSortOrder,
   ProfessorPanelQueryDto,
 } from './dto/professor-panel-query.dto';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 export interface PanelEdition {
   id: number;
@@ -137,7 +138,7 @@ export class ProfessorPanelQueryService {
       where: {
         ...(seesAllProfessors(roleId) ? {} : { professorId }),
         isActive: true,
-        edition: { status: EditionStatus.ACTIVE },
+        edition: ACTIVE_EDITION_WHERE,
         ...(editionId ? { editionId } : {}),
         ...(nrcId ? { id: nrcId } : {}),
       },

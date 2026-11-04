@@ -105,6 +105,7 @@ describe('Task 28 ronda 1', () => {
     const prisma = {
       teamFinalScore: { findMany: jest.fn() },
       videogame: { findUnique: jest.fn().mockResolvedValue(null) },
+      team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) },
       // ARK-129: GET /teams resuelve la edición activa
       edition: { findFirst: jest.fn() },
     };
@@ -162,7 +163,7 @@ describe('Task 28 ronda 1', () => {
       ]);
       expect(((await service.findAll()) as any)[0].additionalImages).toEqual([SIGNED('I1')]);
 
-      prisma.videogame.findUnique.mockResolvedValue({ id: 1, team: { userId: 'u1' } });
+      prisma.videogame.findUnique.mockResolvedValue({ id: 1, team: { userId: 'u1', edition: { status: 'ACTIVE', title: 'E5' } } });
       uploadPrisma.upload.findFirst.mockResolvedValue({ id: 'I9', isPublic: true, createdAt: new Date() });
       await service.update(
         1,

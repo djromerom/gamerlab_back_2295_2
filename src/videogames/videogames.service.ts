@@ -7,6 +7,7 @@ import {
   NotFoundException,
   NotImplementedException,
 } from '@nestjs/common';
+import { assertEditionWritable, assertVideogameWritable } from '../editions/active-edition';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
 import { UpdateVideogameDto } from './dto/update-videogame.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -250,7 +251,11 @@ export class VideogamesService {
   ) {
     const vg = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
-      include: { team: { select: { userId: true } } },
+      include: {
+        team: {
+          select: { userId: true, edition: { select: { status: true, title: true } } },
+        },
+      },
     });
 
     if (!vg) {
@@ -268,6 +273,9 @@ export class VideogamesService {
         'You do not have permission to modify this videogame.',
       );
     }
+
+    // ARK-130 (HU-27): el videojuego de una edición anterior es de solo lectura
+    assertEditionWritable(vg.team.edition, 'el videojuego');
 
     // El estado de aprobación (CONFIRMADO / PENDIENTE / RECHAZADO) lo decide
     // un administrador: un estudiante no puede aprobar ni ocultar su propio juego.
@@ -318,6 +326,8 @@ export class VideogamesService {
     if (!vg) {
       throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
     }
+
+    await assertVideogameWritable(this.prisma, videogameId);
 
     return this.prisma.videogame.delete({
       where: { id: videogameId },

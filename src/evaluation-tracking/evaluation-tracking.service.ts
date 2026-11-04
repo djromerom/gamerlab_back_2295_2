@@ -17,6 +17,7 @@ import {
   parseFairDate,
   todayInBogota,
 } from './hourly-buckets';
+import { findActiveEdition } from '../editions/active-edition';
 
 export interface GroupTracking {
   teamId: number;
@@ -71,11 +72,7 @@ export class EvaluationTrackingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getActiveEditionId(): Promise<number> {
-    const edition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const edition = await findActiveEdition(this.prisma);
     if (!edition) {
       throw new NotFoundException('No hay una edición activa configurada');
     }

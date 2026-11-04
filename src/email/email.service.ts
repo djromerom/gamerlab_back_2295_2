@@ -25,6 +25,7 @@ import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 import { EmailClient } from '@azure/communication-email';
 import { RestError } from '@azure/core-rest-pipeline';
 import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
+import { findActiveEdition } from '../editions/active-edition';
 
 @Injectable()
 export class EmailService {
@@ -98,10 +99,7 @@ export class EmailService {
   /** Fecha del evento con el año de la edición activa, p. ej. "27 de noviembre de 2026". */
   private async getEventDateWithYear(): Promise<string> {
     const { eventDate } = this.getEventInfo();
-    const edition = await this.prisma.edition.findFirst({
-      where: { status: 'ACTIVE' },
-      select: { year: true },
-    });
+    const edition = await findActiveEdition(this.prisma);
     if (!edition) {
       throw new InternalServerErrorException(
         'Configuración faltante: no hay una edición activa para determinar el año del evento.',

@@ -8,6 +8,7 @@ import {
 } from '../juror-badges/juror-label';
 import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { PrismaService } from '../prisma/prisma.service';
+import { findActiveEdition } from '../editions/active-edition';
 
 const SEARCH_LIMIT = 20;
 
@@ -46,11 +47,7 @@ export class JurorCheckinService {
   ) {}
 
   private async getActiveEditionId(): Promise<number> {
-    const edition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const edition = await findActiveEdition(this.prisma);
     if (!edition) {
       throw new NotFoundException('No hay una edición activa configurada');
     }

@@ -1,6 +1,7 @@
 import { EditionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveEdition } from '../juror-edition/edition-resolver';
+import { findActiveEdition } from './active-edition';
 
 type EditionClient = Pick<PrismaService, 'edition'>;
 
@@ -24,11 +25,7 @@ export async function resolveListEdition(
   editionId?: number,
 ): Promise<ListEdition | null> {
   if (editionId === undefined) {
-    const active = await prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true, title: true, status: true },
-    });
+    const active = await findActiveEdition(prisma);
     return active ? toListEdition(active) : null;
   }
   return toListEdition(await resolveEdition(prisma, editionId));

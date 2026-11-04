@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EditionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EditionSummary } from './juror-edition.types';
+import { findActiveEdition } from '../editions/active-edition';
 
 type EditionClient = Pick<PrismaService, 'edition'>;
 
@@ -33,11 +34,7 @@ export async function resolveEdition(
         where: { id: editionId },
         select: editionSelect,
       })
-    : await prisma.edition.findFirst({
-        where: { status: EditionStatus.ACTIVE },
-        orderBy: { id: 'desc' },
-        select: editionSelect,
-      });
+    : await findActiveEdition(prisma);
   if (!edition) {
     throw new NotFoundException(
       editionId

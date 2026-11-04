@@ -17,7 +17,7 @@ export class SettingsController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('GetWeight')
   @ApiOperation({ summary: 'Get weighting configuration for the latest edition' })
-  @ApiResponse({ status: 200, description: 'Weighting configuration for latest edition', schema: { example: {
+  @ApiResponse({ status: 200, description: 'Weighting configuration for the active edition', schema: { example: {
     id: 1,
     editionId: 2,
     seniorPct: 60,
@@ -25,7 +25,7 @@ export class SettingsController {
     createdAt: '2025-11-22T19:29:27.461Z',
     updatedAt: '2025-11-22T19:29:27.461Z'
   } } })
-  @ApiResponse({ status: 404, description: 'Weighting not found for latest edition' })
+  @ApiResponse({ status: 404, description: 'ARK-130: sin edición activa (code NO_ACTIVE_EDITION) o la edición activa no tiene ponderados (code WEIGHTS_NOT_CONFIGURED)' })
   getLatest() {
     return this.settingsService.getLatest();
   }
@@ -43,7 +43,7 @@ export class SettingsController {
     createdAt: '2025-11-22T19:29:27.461Z',
     updatedAt: '2025-11-22T19:29:27.461Z'
   } } })
-  @ApiResponse({ status: 404, description: 'Weighting not found' })
+  @ApiResponse({ status: 404, description: 'La edición no tiene ponderados (code WEIGHTS_NOT_CONFIGURED)' })
   getByEdition(@Param('editionId') editionId: string) {
     return this.settingsService.getByEdition(Number(editionId));
   }

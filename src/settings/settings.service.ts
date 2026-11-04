@@ -2,25 +2,42 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EventConfiguration, EditionStatus } from '@prisma/client';
 import { CreateWeightDto } from './dto/create-weight.dto';
+import {
+  ACTIVE_EDITION_WHERE,
+  assertEditionWritable,
+  requireActiveEdition,
+} from '../editions/active-edition';
+
+/** Código del 404 cuando la edición aún no tiene ponderados. */
+export const WEIGHTS_NOT_CONFIGURED = 'WEIGHTS_NOT_CONFIGURED';
 
 @Injectable()
 export class SettingsService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Ponderados de una edición; sin `editionId`, los de la edición activa (ARK-130: antes era «la de
+   * id más alto», que puede ser una edición recién creada e inactiva).
+   * Siempre responde JSON (antes un `null` salía como 200 con cuerpo vacío y el front fallaba):
+   * - sin edición activa: 404 `NO_ACTIVE_EDITION`;
+   * - la edición no tiene ponderados: 404 `WEIGHTS_NOT_CONFIGURED`.
+   */
   async getByEdition(editionId?: number) {
-    // If no editionId is provided, resolve the latest edition ID internally
-    let id = editionId;
-    if (!id) {
-      const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
-      id = latest?.id ?? 1;
+    const id = editionId || (await requireActiveEdition(this.prisma)).id;
+    const weighting = await this.prisma.weighting.findUnique({ where: { editionId: id } });
+    if (!weighting) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: WEIGHTS_NOT_CONFIGURED,
+        message: `La edición ${id} no tiene ponderados configurados.`,
+      });
     }
-    return this.prisma.weighting.findUnique({ where: { editionId: id } });
+    return weighting;
   }
 
+  /** Ponderados de la edición activa (la ruta conserva el nombre «latest»). */
   async getLatest() {
-    const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
-    const editionId = latest?.id ?? 1;
-    return this.getByEdition(editionId);
+    return this.getByEdition();
   }
 
   async upsertWeights(dto: CreateWeightDto) {
@@ -35,9 +52,19 @@ export class SettingsService {
       // dto.juniorPct = 100 - dto.seniorPct;
       throw new BadRequestException('The sum of seniorPct and juniorPct must equal 100');
     }
-    // determine editionId: use provided one or fallback to latest edition
-    const latest = await this.prisma.edition.findFirst({ orderBy: { id: 'desc' } });
-    const editionId = dto.editionId ?? latest?.id ?? 1;
+    // ARK-130 (HU-27): por defecto la edición activa; los ponderados de una edición anterior
+    // son historial y no se cambian (cambiarían notas finales ya publicadas).
+    const edition = dto.editionId
+      ? await this.prisma.edition.findUnique({
+          where: { id: dto.editionId },
+          select: { id: true, status: true, title: true },
+        })
+      : await requireActiveEdition(this.prisma);
+    if (!edition) {
+      throw new NotFoundException(`La edición ${dto.editionId} no existe`);
+    }
+    assertEditionWritable(edition, 'los ponderados');
+    const editionId = edition.id;
 
     return this.prisma.weighting.upsert({
       where: { editionId },
@@ -84,7 +111,7 @@ export class SettingsService {
    */
   async isRankingVisible(): Promise<boolean> {
     const cfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: { status: EditionStatus.ACTIVE } },
+      where: { edition: ACTIVE_EDITION_WHERE },
       select: { showRanking: true },
     });
     return cfg?.showRanking === true;
@@ -127,7 +154,7 @@ export class SettingsService {
   // Sin configuración de la edición activa se considera cerrada: la lee el front público y no debe fallar con 404
   async getRegistrationsOpen(): Promise<{ registrationsOpen: boolean }> {
     const activeCnfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: { status: EditionStatus.ACTIVE } },
+      where: { edition: ACTIVE_EDITION_WHERE },
       select: { registrationsOpen: true },
     });
     return { registrationsOpen: activeCnfg?.registrationsOpen ?? false };
@@ -147,7 +174,7 @@ export class SettingsService {
 
   private async getActiveConfig(): Promise<EventConfiguration> {
     const activeCnfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: { status: EditionStatus.ACTIVE } },
+      where: { edition: ACTIVE_EDITION_WHERE },
     });
     if (!activeCnfg)
       throw new NotFoundException(

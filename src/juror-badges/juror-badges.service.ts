@@ -16,6 +16,7 @@ import {
   jurorFullName,
   jurorSelect,
 } from './juror-label';
+import { findActiveEdition } from '../editions/active-edition';
 
 export interface SkippedBadge {
   jurorId: string;
@@ -37,11 +38,7 @@ export class JurorBadgesService {
   }
 
   private async getActiveEdition() {
-    const edition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true, title: true },
-    });
+    const edition = await findActiveEdition(this.prisma);
     if (!edition) {
       throw new BadRequestException('No hay una edición activa configurada');
     }
@@ -212,11 +209,7 @@ export class JurorBadgesService {
    * activa, es de la edición activa y su dueño es jurado de esa edición (BG-16).
    */
   async validateToken(token: string) {
-    const edition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const edition = await findActiveEdition(this.prisma);
     const badge = edition
       ? await this.prisma.jurorBadge.findFirst({
           where: {

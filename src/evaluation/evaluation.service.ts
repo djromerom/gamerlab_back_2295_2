@@ -18,6 +18,7 @@ import { CreateDetailEvaluationDto } from './dto/createEvaluationDetails.dto';
 import { createHash } from 'crypto';
 import { countProgress } from './evaluation-progress';
 import { ACTIVE_EDITION_CONFIG_WHERE } from '../settings/active-edition-config';
+import { findActiveEdition } from '../editions/active-edition';
 
 /** Quien califica: el usuario de la sesión. */
 type EvaluationActor = {
@@ -167,11 +168,7 @@ export class EvaluationService {
   async getEvaluationProgressForEdition(editionId?: number) {
     let id = editionId;
     if (id === undefined) {
-      const active = await this.prisma.edition.findFirst({
-        where: { status: EditionStatus.ACTIVE },
-        orderBy: { id: 'desc' },
-        select: { id: true },
-      });
+      const active = await findActiveEdition(this.prisma);
       if (!active) return { completed: 0, assigned: 0 };
       id = active.id;
     }
@@ -593,11 +590,7 @@ export class EvaluationService {
   }
 
   private async findActiveEdition() {
-    const activeEdition = await this.prisma.edition.findFirst({
-      where: { status: EditionStatus.ACTIVE },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
+    const activeEdition = await findActiveEdition(this.prisma);
 
     if (!activeEdition) {
       throw new BadRequestException('No hay una edición activa configurada');

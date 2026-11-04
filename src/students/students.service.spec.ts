@@ -19,7 +19,7 @@ describe('StudentsService.editNrc — NRC por edición', () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     tx.member.findUnique.mockResolvedValue({
       id: 1,
-      team: { userId: 'u1', editionId: 4 },
+      team: { userId: 'u1', editionId: 4, edition: { status: 'ACTIVE', title: 'Edición 4' } },
     });
     tx.member.update.mockResolvedValue({ id: 1 });
   });

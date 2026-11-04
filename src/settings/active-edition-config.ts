@@ -1,4 +1,5 @@
 import { EditionStatus, Prisma } from '@prisma/client';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 /**
  * Filtro de la configuración del evento (`configuracion_evento`) de la edición ACTIVA.
@@ -9,5 +10,5 @@ import { EditionStatus, Prisma } from '@prisma/client';
  * activa, no tiene efecto (ARK-123).
  */
 export const ACTIVE_EDITION_CONFIG_WHERE = {
-  edition: { status: EditionStatus.ACTIVE },
+  edition: ACTIVE_EDITION_WHERE,
 } satisfies Prisma.EventConfigurationWhereInput;

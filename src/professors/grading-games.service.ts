@@ -14,6 +14,7 @@ import {
   seesAllProfessors,
   sortPanelTeams,
 } from './professor-panel-query.service';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 /** Fila de `GET /professors/grading-games` (mismo formato que antes de HU-03). */
 export interface GradingGameRow {
@@ -166,7 +167,7 @@ export class GradingGamesService {
 
     const [activeEdition, finalScores, evaluations] = await Promise.all([
       this.prisma.edition.findFirst({
-        where: { status: EditionStatus.ACTIVE },
+        where: ACTIVE_EDITION_WHERE,
         include: { eventConfiguration: true },
         orderBy: { id: 'desc' },
       }),

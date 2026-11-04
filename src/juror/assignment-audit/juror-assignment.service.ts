@@ -7,6 +7,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { assertEditionWritable } from '../../editions/active-edition';
 import {
   JurorCategory,
   ManualJurorAssignmentAction,
@@ -191,6 +192,7 @@ export class JurorAssignmentService implements OnModuleInit {
       where: { id: teamId },
       include: {
         videogame: true,
+        edition: { select: { status: true, title: true } },
         assignedJurors: {
           where: {
             isActive: true,
@@ -214,6 +216,9 @@ export class JurorAssignmentService implements OnModuleInit {
     if (!team || !team.isActive) {
       throw new NotFoundException('Equipo no encontrado o inactivo.');
     }
+
+    // ARK-130 (HU-27): asignar, reasignar y quitar solo en equipos de la edición activa
+    assertEditionWritable(team.edition, 'los jurados del equipo');
 
     return team;
   }
