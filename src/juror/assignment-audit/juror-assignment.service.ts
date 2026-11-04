@@ -52,6 +52,24 @@ type TeamForValidation = {
   assignedJurors: Array<{ id: string }>;
 };
 
+/**
+ * ARK-133: la bitácora no tiene columna de edición, así que la edición va al inicio de `notes`
+ * con un formato fijo («Edición «Feria 5» (id 5)») para poder filtrarla después.
+ */
+function editionNote(edition: Pick<ActiveEdition, 'id' | 'title'>): string {
+  return `Edición «${edition.title}» (id ${edition.id})`;
+}
+
+/** «1 asignación» / «3 asignaciones»: los mensajes de quitar no dicen «1 equipos». */
+function count(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** «Se eliminó» / «Se eliminaron» según la cantidad. */
+function removedVerb(n: number, singular: string, plural: string): string {
+  return n === 1 ? singular : plural;
+}
+
 type AuditLogFilters = {
   jurorId?: string;
   teamId?: number;
@@ -643,11 +661,19 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
+  /**
+   * ARK-133 (BG-20): «quitar todas» solo toca equipos de la edición activa. Las asignaciones de
+   * ediciones anteriores son historial (reportes, seguimiento, certificados) y no se borran.
+   */
   async unassignAll(actorUserId: string) {
+    // Fuera del try: sin edición activa es un 404 claro, no un 500
+    const edition = await requireActiveEdition(this.prisma);
+
     try {
       const teamsWithAssignments = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: edition.id,
           assignedJurors: {
             some: {
               OR: [
@@ -679,9 +705,11 @@ export class JurorAssignmentService implements OnModuleInit {
 
       if (assignmentCount === 0) {
         throw new BadRequestException(
-          'No hay asignaciones de evaluadores activas para eliminar.',
+          `No hay asignaciones de evaluadores en «${edition.title}» para eliminar.`,
         );
       }
+
+      const teamCount = teamsWithAssignments.length;
 
       await this.prisma.$transaction(async (tx) => {
         for (const team of teamsWithAssignments) {
@@ -699,18 +727,23 @@ export class JurorAssignmentService implements OnModuleInit {
           {
             action: ManualJurorAssignmentAction.UNASSIGN_ALL,
             actorUserId,
-            notes: `Se eliminaron manualmente ${assignmentCount} asignaciones de evaluadores.`,
+            notes: `${editionNote(edition)}: ${removedVerb(assignmentCount, 'se eliminó', 'se eliminaron')} manualmente ${count(assignmentCount, 'asignación', 'asignaciones')} de evaluadores en ${count(teamCount, 'equipo', 'equipos')}.`,
           },
           tx,
         );
       });
 
       return {
-        message:
-          'Todas las asignaciones de evaluadores han sido eliminadas correctamente.',
+        message: `${removedVerb(assignmentCount, 'Se eliminó', 'Se eliminaron')} ${count(assignmentCount, 'asignación', 'asignaciones')} de evaluadores en ${count(teamCount, 'equipo', 'equipos')} de «${edition.title}».`,
         asignacionesEliminadas: assignmentCount,
+        equiposAfectados: teamCount,
+        edicion: { id: edition.id, title: edition.title },
       };
     } catch (error) {
+      // El 400 de «no hay asignaciones» llegaba al front como 500
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.error(
         'Error al eliminar todas las asignaciones de evaluadores:',
         error,
@@ -721,13 +754,16 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
+  /** ARK-133 (BG-20): solo quita al evaluador de los equipos de la edición activa. */
   async unassignAllFromEvaluator(jurorId: string, actorUserId: string) {
     try {
       const evaluator = await this.findActiveEvaluator(jurorId);
+      const edition = await requireActiveEdition(this.prisma);
 
       const assignedTeams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: edition.id,
           assignedJurors: {
             some: {
               id: jurorId,
@@ -739,16 +775,20 @@ export class JurorAssignmentService implements OnModuleInit {
         },
       });
 
+      const evaluatorInfo = {
+        id: evaluator.id,
+        nombre:
+          `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
+        email: evaluator.email,
+      };
+      const editionInfo = { id: edition.id, title: edition.title };
+
       if (assignedTeams.length === 0) {
         return {
-          message: 'El evaluador no tiene asignaciones para eliminar.',
+          message: `El evaluador no tiene asignaciones en «${edition.title}» para eliminar.`,
           asignacionesEliminadas: 0,
-          evaluador: {
-            id: evaluator.id,
-            nombre:
-              `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
-            email: evaluator.email,
-          },
+          evaluador: evaluatorInfo,
+          edicion: editionInfo,
         };
       }
 
@@ -772,28 +812,20 @@ export class JurorAssignmentService implements OnModuleInit {
             actorUserId,
             jurorId,
             previousJurorId: jurorId,
-            notes: `Se eliminaron todas las asignaciones del evaluador ${jurorId}.`,
+            notes: `${editionNote(edition)}: ${removedVerb(assignedTeams.length, 'se eliminó', 'se eliminaron')} ${count(assignedTeams.length, 'asignación', 'asignaciones')} del evaluador ${jurorId}.`,
           },
           tx,
         );
       });
 
       return {
-        message:
-          'Todas las asignaciones del evaluador han sido eliminadas correctamente.',
+        message: `${removedVerb(assignedTeams.length, 'Se quitó', 'Se quitaron')} ${count(assignedTeams.length, 'equipo', 'equipos')} de «${edition.title}» al evaluador.`,
         asignacionesEliminadas: assignedTeams.length,
-        evaluador: {
-          id: evaluator.id,
-          nombre:
-            `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
-          email: evaluator.email,
-        },
+        evaluador: evaluatorInfo,
+        edicion: editionInfo,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
+      if (error instanceof HttpException) {
         throw error;
       }
 
