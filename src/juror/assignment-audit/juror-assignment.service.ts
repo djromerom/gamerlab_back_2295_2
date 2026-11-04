@@ -7,7 +7,11 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
-import { assertEditionWritable } from '../../editions/active-edition';
+import {
+  ActiveEdition,
+  requireActiveEdition,
+} from '../../editions/active-edition';
+import { jurorsOfEdition } from '../../juror-edition/jurors-of-edition';
 import {
   JurorCategory,
   ManualJurorAssignmentAction,
@@ -18,7 +22,10 @@ import {
 import { PaginatedResult } from '../../common/types/paginated-result.type';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JurorAssignmentAuditService } from './juror-assignment-audit.service';
-import { extractTeamLevel } from '../assignment-validation/assignment-rules';
+import {
+  extractTeamLevel,
+  findTeamEditionBlocker,
+} from '../assignment-validation/assignment-rules';
 import {
   AssignmentChange,
   RuleEvaluator,
@@ -32,12 +39,15 @@ type EvaluatorForValidation = {
   jurorCategory?: JurorCategory | null;
   firstName?: string | null;
   lastName?: string | null;
+  /** ARK-131: si participa en la edición activa (solo se calcula para quien se agrega). */
+  participatesInActiveEdition?: boolean;
 };
 
 type TeamForValidation = {
   id: number;
   teamCode: string;
   editionId: number;
+  edition?: { title: string | null } | null;
   assignedJurors: Array<{ id: string }>;
 };
 
@@ -117,6 +127,7 @@ export class JurorAssignmentService implements OnModuleInit {
       name: `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
       kind,
       jurorCategory: evaluator.jurorCategory ?? null,
+      participatesInActiveEdition: evaluator.participatesInActiveEdition,
     };
   }
 
@@ -125,6 +136,7 @@ export class JurorAssignmentService implements OnModuleInit {
       id: team.id,
       teamCode: team.teamCode,
       editionId: team.editionId,
+      editionTitle: team.edition?.title ?? null,
       jurorIds: team.assignedJurors.map((juror) => juror.id),
     };
   }
@@ -135,12 +147,14 @@ export class JurorAssignmentService implements OnModuleInit {
    * advertencias aceptadas.
    */
   private async validateChanges(
+    activeEdition: ActiveEdition,
     team: TeamForValidation,
     evaluators: EvaluatorForValidation[],
     changes: AssignmentChange[],
     confirmWarnings: boolean,
   ) {
     const result = await this.assignmentValidation.validate({
+      activeEdition: { id: activeEdition.id, title: activeEdition.title },
       teams: [this.toRuleTeam(team)],
       evaluators: evaluators.map((evaluator) =>
         this.toRuleEvaluator(evaluator),
@@ -187,7 +201,37 @@ export class JurorAssignmentService implements OnModuleInit {
     return evaluator;
   }
 
-  private async findActiveTeam(teamId: number) {
+  /**
+   * ARK-131 (BG-18): participa en la edición activa según HU-25 (`jurorsOfEdition`, la única
+   * definición): jurado externo confirmado en la edición o profesor con un NRC activo en ella.
+   */
+  private async participatesInEdition(
+    evaluatorId: string,
+    editionId: number,
+  ): Promise<boolean> {
+    const found = await this.prisma.user.findFirst({
+      where: jurorsOfEdition(editionId, [evaluatorId]),
+      select: { id: true },
+    });
+    return !!found;
+  }
+
+  /** Evaluador activo que se agrega, con su participación en la edición activa. */
+  private async findEvaluatorToAdd(
+    evaluatorId: string,
+    activeEdition: ActiveEdition,
+  ) {
+    const evaluator = await this.findActiveEvaluator(evaluatorId);
+    return {
+      ...evaluator,
+      participatesInActiveEdition: await this.participatesInEdition(
+        evaluator.id,
+        activeEdition.id,
+      ),
+    };
+  }
+
+  private async findActiveTeam(teamId: number, activeEdition: ActiveEdition) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
       include: {
@@ -217,8 +261,19 @@ export class JurorAssignmentService implements OnModuleInit {
       throw new NotFoundException('Equipo no encontrado o inactivo.');
     }
 
-    // ARK-130 (HU-27): asignar, reasignar y quitar solo en equipos de la edición activa
-    assertEditionWritable(team.edition, 'los jurados del equipo');
+    // ARK-130/131: asignar, reasignar y quitar solo en equipos de la edición activa. Es la
+    // misma regla de HU-08 (bloqueo TEAM_NOT_IN_ACTIVE_EDITION); se revisa aquí primero para
+    // que el 400 llegue antes que los 404 de «no está asignado».
+    const editionBlocker = findTeamEditionBlocker(
+      { ...team, editionTitle: team.edition?.title ?? null },
+      activeEdition,
+    );
+    if (editionBlocker) {
+      this.assignmentValidation.enforce({
+        blockers: [editionBlocker],
+        warnings: [],
+      });
+    }
 
     return team;
   }
@@ -230,10 +285,12 @@ export class JurorAssignmentService implements OnModuleInit {
     confirmWarnings = false,
   ) {
     try {
-      const evaluator = await this.findActiveEvaluator(jurorId);
-      const team = await this.findActiveTeam(teamId);
+      const activeEdition = await requireActiveEdition(this.prisma);
+      const evaluator = await this.findEvaluatorToAdd(jurorId, activeEdition);
+      const team = await this.findActiveTeam(teamId, activeEdition);
 
       const acceptedWarnings = await this.validateChanges(
+        activeEdition,
         team,
         [evaluator],
         [{ type: 'ADD', jurorId, teamId }],
@@ -340,8 +397,12 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
-      const newEvaluator = await this.findActiveEvaluator(newJurorId);
-      const team = await this.findActiveTeam(teamId);
+      const activeEdition = await requireActiveEdition(this.prisma);
+      const newEvaluator = await this.findEvaluatorToAdd(
+        newJurorId,
+        activeEdition,
+      );
+      const team = await this.findActiveTeam(teamId, activeEdition);
 
       const isCurrentAssigned = team.assignedJurors.some(
         (juror) => juror.id === currentJurorId,
@@ -355,6 +416,7 @@ export class JurorAssignmentService implements OnModuleInit {
 
       // Reasignar = quitar al actual y agregar al nuevo (bloqueos y advertencias de HU-08).
       const acceptedWarnings = await this.validateChanges(
+        activeEdition,
         team,
         [newEvaluator],
         [
@@ -469,8 +531,11 @@ export class JurorAssignmentService implements OnModuleInit {
     confirmWarnings = false,
   ) {
     try {
+      // Quitar no exige que el evaluador participe en la edición (ARK-131): un jurado que
+      // dejó de participar (declinó, perdió su NRC) se debe poder retirar de sus grupos.
+      const activeEdition = await requireActiveEdition(this.prisma);
       await this.findActiveEvaluator(jurorId);
-      const team = await this.findActiveTeam(teamId);
+      const team = await this.findActiveTeam(teamId, activeEdition);
 
       const isAssigned = team.assignedJurors.some(
         (juror) => juror.id === jurorId,
@@ -484,6 +549,7 @@ export class JurorAssignmentService implements OnModuleInit {
 
       // HU-08: advierte si el grupo queda con menos jurados que el mínimo.
       const acceptedWarnings = await this.validateChanges(
+        activeEdition,
         team,
         [],
         [{ type: 'REMOVE', jurorId, teamId }],

@@ -19,7 +19,8 @@ import {
  *
  * Funciones puras (sin base de datos) para que las reutilicen la asignación
  * manual, la automática (HU-07), los suplentes (HU-09) y la contingencia (HU-14).
- * - Bloqueos: integridad y colegios (P-08). No se pueden saltar.
+ * - Bloqueos: integridad, colegios (P-08) y edición activa (ARK-131: el equipo es de la
+ *   edición activa y el evaluador participa en ella). No se pueden saltar.
  * - Advertencias: reglas de negocio que el administrador puede aceptar.
  */
 
@@ -95,6 +96,53 @@ export function findEvaluatorBlocker(
 }
 
 /**
+ * ARK-131 (BG-18): asignar, reasignar y quitar solo sobre equipos de la edición activa. Las
+ * ediciones anteriores son historial (HU-27); el mensaje es el mismo de `EDITION_READ_ONLY`.
+ */
+export function findTeamEditionBlocker(
+  team: Pick<RuleTeam, 'id' | 'teamCode' | 'editionId' | 'editionTitle'>,
+  activeEdition: { id: number } | undefined,
+): AssignmentBlocker | null {
+  if (!activeEdition || team.editionId === activeEdition.id) return null;
+  const edition = team.editionTitle
+    ? `«${team.editionTitle}»`
+    : 'una edición anterior';
+  return {
+    code: 'TEAM_NOT_IN_ACTIVE_EDITION',
+    message:
+      `No se pueden modificar los jurados del equipo ${team.teamCode}: pertenece a ${edition}, ` +
+      'que no es la edición activa. Las ediciones anteriores son de solo lectura.',
+    teamId: team.id,
+  };
+}
+
+/**
+ * ARK-131 (BG-18): solo se agrega a quien participa en la edición activa (HU-25,
+ * `jurorsOfEdition`): jurado externo confirmado en la edición o profesor con un NRC activo
+ * en ella. Quitar no lo exige: un jurado que dejó de participar se debe poder retirar.
+ */
+export function findEvaluatorEditionBlocker(
+  evaluator: RuleEvaluator,
+  team: Pick<RuleTeam, 'id'>,
+  activeEdition: { title: string | null } | undefined,
+): AssignmentBlocker | null {
+  if (evaluator.participatesInActiveEdition !== false) return null;
+  const edition = activeEdition?.title
+    ? `«${activeEdition.title}»`
+    : 'la edición activa';
+  const requirement =
+    evaluator.kind === 'PROFESSOR'
+      ? 'un profesor participa cuando tiene al menos un NRC activo en la edición'
+      : 'el jurado debe estar confirmado en Jurados de la edición';
+  return {
+    code: 'EVALUATOR_NOT_IN_EDITION',
+    message: `${subjectOf(evaluator)} no participa en ${edition}: ${requirement}.`,
+    jurorId: evaluator.id,
+    teamId: team.id,
+  };
+}
+
+/**
  * Aplica los cambios en orden sobre el estado de los equipos y devuelve los
  * bloqueos. Una reasignación es `REMOVE` del actual seguido de `ADD` del nuevo.
  */
@@ -102,10 +150,19 @@ export function findBlockers(input: AssignmentRulesInput): AssignmentBlocker[] {
   const { teamsById, evaluatorsById } = indexInput(input);
   const jurorsByTeam = initialJurorsByTeam(input.teams);
   const blockers: AssignmentBlocker[] = [];
+  const teamsOutOfEdition = new Set<number>();
 
   for (const change of input.changes) {
     const team = getOrThrow(teamsById, change.teamId, 'equipo');
     const jurors = jurorsByTeam.get(team.id)!;
+
+    const editionBlocker = findTeamEditionBlocker(team, input.activeEdition);
+    if (editionBlocker) {
+      // Un bloqueo por equipo aunque haya varios cambios (reasignar = quitar + agregar)
+      if (!teamsOutOfEdition.has(team.id)) blockers.push(editionBlocker);
+      teamsOutOfEdition.add(team.id);
+      continue;
+    }
 
     if (change.type === 'REMOVE') {
       jurors.delete(change.jurorId);
@@ -113,7 +170,9 @@ export function findBlockers(input: AssignmentRulesInput): AssignmentBlocker[] {
     }
 
     const evaluator = getOrThrow(evaluatorsById, change.jurorId, 'evaluador');
-    const blocker = findEvaluatorBlocker(evaluator, team);
+    const blocker =
+      findEvaluatorBlocker(evaluator, team) ??
+      findEvaluatorEditionBlocker(evaluator, team, input.activeEdition);
     if (blocker) {
       blockers.push(blocker);
       continue;
