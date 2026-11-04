@@ -273,7 +273,14 @@ Make sure your `.env` file is properly configured. Key variables include:
 - `DATABASE_URL`: Database connection (automatically set for Docker)
 - `JWT_SECRET`: Secret for JWT token signing
 - `ACS_*`: Azure Communication Services configuration (`ACS_CONNECTION_STRING`, `ACS_SENDER_ADDRESS`) for sending emails
-- `AZURE_*`: Azure Blob Storage configuration for file uploads (`AZURE_BLOB_SAS_URL`, `AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`)
+- `AZURE_*`: Azure Blob Storage configuration for file uploads (`AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`)
+
+`.env.example` is the single reference for every variable: what it is, whether it is required, where to get it and how to rotate it. It never contains real values.
+
+When your change reads a **new environment variable**:
+1. Add it to `.env.example` with its four comment lines (`Que`, `Obligatoria`, `Obtener`, `Rotar`) right above it, and leave the value empty (or a harmless local default such as `NODE_ENV=development`).
+2. Run `npm run check:env`. The `Test-back` workflow runs the same check on every pull request.
+3. Never put real keys, passwords or connection strings in the repo, in a PR, in a chat or in a shared document. Real values live in the server's `.env` and in GitHub Secrets (see the project's access guide, `variables-y-accesos`).
 
 ## Pushing Changes
 <a name="pushing-changes"></a>

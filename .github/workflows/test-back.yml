@@ -18,6 +18,15 @@ jobs:
           node-version: '20'
           cache: npm
 
+      # Variables de entorno ordenadas (ARK-43): lo usado en el codigo esta documentado en .env.example,
+      # cada variable explica que es / como obtenerla / como rotarla, y no hay .env, cookies.txt, llaves, etc. versionados.
+      # TODO: arrancó como aviso; quitar continue-on-error (y marcarlo como check requerido) cuando pase limpio un sprint.
+      - name: Check environment variables docs
+        run: |
+          npm run check:env:test
+          npm run check:env
+        continue-on-error: true
+
       - name: Install dependencies
         run: npm ci
 
