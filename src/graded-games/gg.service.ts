@@ -3,9 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VideogameResponseDto } from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
-import { ForbiddenException } from '@nestjs/common';
 import { BlobReferenceService } from '../upload/blob-reference.service';
-import { ACTIVE_EDITION_CONFIG_WHERE } from '../settings/active-edition-config';
+import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 
 /**
@@ -26,13 +25,9 @@ export class GradedGamesService {
     private readonly prisma: PrismaService,
     private readonly blobRefs: BlobReferenceService,
   ) {}
-  private async checkEvaluationsOpen() {
-    const config = await this.prisma.eventConfiguration.findFirst({
-      where: ACTIVE_EDITION_CONFIG_WHERE,
-    });
-    if (!config?.evaluationsOpen) {
-      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
-    }
+  /** ARK-134: interruptor de la edición activa (nunca la fila de otra edición). */
+  private checkEvaluationsOpen() {
+    return assertEvaluationsOpen(this.prisma);
   }
 
   // Búsqueda flexible de juegos calificados
