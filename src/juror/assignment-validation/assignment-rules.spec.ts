@@ -424,4 +424,112 @@ describe('assignment-rules (HU-08)', () => {
       expect(codes(result.blockers)).toEqual(['SCHOOL_REQUIRES_SENIOR']);
     });
   });
+  describe('ARK-131 (BG-18): edición activa', () => {
+    const feria5 = { id: 5, title: 'Feria 5' };
+    const team4: RuleTeam = {
+      ...team(1, 'N1-AYP-01', ['x1'], 4),
+      editionTitle: 'Feria 4',
+    };
+    const team5 = team(2, 'N1-AYP-02', [], 5);
+    const withEdition = (
+      teams: RuleTeam[],
+      evaluators: RuleEvaluator[],
+      changes: AssignmentChange[],
+    ): AssignmentRulesInput => ({
+      ...input(teams, evaluators, changes),
+      activeEdition: feria5,
+    });
+
+    it('agregar a un equipo de la edición 4 con la 5 activa es un bloqueo', () => {
+      const blockers = findBlockers(
+        withEdition([team4], [senior], [add('senior', 1)]),
+      );
+      expect(blockers).toEqual([
+        expect.objectContaining({
+          code: 'TEAM_NOT_IN_ACTIVE_EDITION',
+          teamId: 1,
+          message: expect.stringMatching(
+            /N1-AYP-01: pertenece a «Feria 4».*solo lectura/,
+          ),
+        }),
+      ]);
+    });
+
+    it('quitar y reasignar en la edición 4 también se bloquean (un bloqueo por equipo)', () => {
+      expect(
+        codes(findBlockers(withEdition([team4], [], [remove('x1', 1)]))),
+      ).toEqual(['TEAM_NOT_IN_ACTIVE_EDITION']);
+      expect(
+        codes(
+          findBlockers(
+            withEdition([team4], [senior], [remove('x1', 1), add('senior', 1)]),
+          ),
+        ),
+      ).toEqual(['TEAM_NOT_IN_ACTIVE_EDITION']);
+    });
+
+    it('un equipo de la edición 5 (activa) no se bloquea', () => {
+      expect(
+        findBlockers(withEdition([team5], [senior], [add('senior', 2)])),
+      ).toEqual([]);
+    });
+
+    it('sin activeEdition no se revisa la edición (compatibilidad)', () => {
+      expect(findBlockers(input([team4], [senior], [add('senior', 1)]))).toEqual(
+        [],
+      );
+    });
+
+    it('un evaluador que no participa en la edición activa no se puede agregar', () => {
+      const notJuror = { ...senior, participatesInActiveEdition: false };
+      const notProfessor = { ...professor, participatesInActiveEdition: false };
+
+      const [jurorBlocker] = findBlockers(
+        withEdition([team5], [notJuror], [add('senior', 2)]),
+      );
+      expect(jurorBlocker).toMatchObject({
+        code: 'EVALUATOR_NOT_IN_EDITION',
+        jurorId: 'senior',
+        teamId: 2,
+      });
+      expect(jurorBlocker.message).toMatch(
+        /no participa en «Feria 5».*confirmado en Jurados de la edición/,
+      );
+
+      const [professorBlocker] = findBlockers(
+        withEdition([team5], [notProfessor], [add('prof', 2)]),
+      );
+      expect(professorBlocker.message).toMatch(/NRC activo en la edición/);
+    });
+
+    it('participar (true) o no comprobado (undefined) no bloquea', () => {
+      const participates = { ...senior, participatesInActiveEdition: true };
+      expect(
+        findBlockers(withEdition([team5], [participates], [add('senior', 2)])),
+      ).toEqual([]);
+      expect(
+        findBlockers(withEdition([team5], [senior], [add('senior', 2)])),
+      ).toEqual([]);
+    });
+
+    it('quitar a quien ya no participa no se bloquea', () => {
+      const notJuror = { ...senior, participatesInActiveEdition: false };
+      expect(
+        findBlockers(
+          withEdition([team(2, 'N1-AYP-02', ['senior'], 5)], [notJuror], [
+            remove('senior', 2),
+          ]),
+        ),
+      ).toEqual([]);
+    });
+
+    it('evaluateAssignmentChanges no calcula advertencias si el equipo es de otra edición', () => {
+      const result = evaluateAssignmentChanges(
+        withEdition([team4], [], [remove('x1', 1)]),
+        emptyContext(),
+      );
+      expect(codes(result.blockers)).toEqual(['TEAM_NOT_IN_ACTIVE_EDITION']);
+      expect(result.warnings).toEqual([]);
+    });
+  });
 });

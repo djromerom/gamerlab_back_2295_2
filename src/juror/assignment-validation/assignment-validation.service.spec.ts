@@ -150,6 +150,58 @@ describe('AssignmentValidationService (HU-08)', () => {
       ).toThrow(BadRequestException);
     });
 
+    it('ARK-131: el equipo de otra edición es 400 EDITION_READ_ONLY con la regla en `blocker`', () => {
+      let thrown: unknown;
+      try {
+        service.enforce({
+          blockers: [
+            {
+              code: 'TEAM_NOT_IN_ACTIVE_EDITION',
+              message: 'Solo lectura',
+              teamId: 7,
+            },
+          ],
+          warnings: [],
+        });
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(BadRequestException);
+      expect((thrown as BadRequestException).getResponse()).toEqual({
+        statusCode: 400,
+        code: 'EDITION_READ_ONLY',
+        blocker: 'TEAM_NOT_IN_ACTIVE_EDITION',
+        message: 'Solo lectura',
+        teamId: 7,
+      });
+    });
+
+    it('ARK-131: los demás bloqueos llevan su propio código', () => {
+      let thrown: unknown;
+      try {
+        service.enforce({
+          blockers: [
+            {
+              code: 'EVALUATOR_NOT_IN_EDITION',
+              message: 'No participa',
+              jurorId: 'j1',
+              teamId: 2,
+            },
+          ],
+          warnings: [],
+        });
+      } catch (error) {
+        thrown = error;
+      }
+      expect((thrown as BadRequestException).getResponse()).toMatchObject({
+        statusCode: 400,
+        code: 'EVALUATOR_NOT_IN_EDITION',
+        message: 'No participa',
+        jurorId: 'j1',
+      });
+      expect((thrown as BadRequestException).message).toBe('No participa');
+    });
+
     it('un duplicado es 409 aunque se confirme', () => {
       expect(() =>
         service.enforce(

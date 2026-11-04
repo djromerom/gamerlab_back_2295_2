@@ -20,12 +20,19 @@ export interface RuleEvaluator {
   name: string;
   kind: EvaluatorKind;
   jurorCategory: JurorCategory | null;
+  /**
+   * ARK-131 (BG-18): si participa en la edición activa según `jurorsOfEdition` (HU-25).
+   * `undefined` = no se comprobó (no bloquea); `false` bloquea agregarlo.
+   */
+  participatesInActiveEdition?: boolean;
 }
 
 export interface RuleTeam {
   id: number;
   teamCode: string;
   editionId: number;
+  /** Nombre de la edición del equipo, para el mensaje de solo lectura (ARK-131). */
+  editionTitle?: string | null;
   /** Jurados y profesores activos asignados hoy al equipo. */
   jurorIds: string[];
 }
@@ -47,6 +54,11 @@ export interface AssignmentRulesInput {
   /** Cambios en orden (reasignar = REMOVE + ADD). */
   changes: AssignmentChange[];
   limits?: Partial<AssignmentLimits>;
+  /**
+   * ARK-131 (BG-18): la edición activa. Si se indica, todo cambio (agregar o quitar) sobre un
+   * equipo de otra edición es un bloqueo. Sin indicarla no se revisa la edición.
+   */
+  activeEdition?: { id: number; title: string | null };
 }
 
 /** Datos extra que solo necesitan las advertencias (se cargan aparte). */
@@ -67,7 +79,9 @@ export type AssignmentBlockerCode =
   | 'UNREADABLE_TEAM_LEVEL'
   | 'MISSING_JUROR_CATEGORY'
   | 'SCHOOL_REQUIRES_SENIOR'
-  | 'DUPLICATE_ASSIGNMENT';
+  | 'DUPLICATE_ASSIGNMENT'
+  | 'TEAM_NOT_IN_ACTIVE_EDITION'
+  | 'EVALUATOR_NOT_IN_EDITION';
 
 export type AssignmentWarningCode =
   | 'JUROR_OVER_LIMIT'
