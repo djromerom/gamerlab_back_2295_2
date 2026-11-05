@@ -152,10 +152,12 @@ Let's break down the environment variables:
 - **`USER_PROFILE_CACHE_TTL`**: Cache time-to-live for user profiles in minutes (default: 15)
 - **`RECAPTCHA_*`** Google ReCAPTCHA configuration for signup form
 - **`ACS_CONNECTION_STRING`** / **`ACS_SENDER_ADDRESS`**: Azure Communication Services credentials and verified sender address for confirmation, password reset, team and certificate emails. If missing, emails are only simulated when `NODE_ENV=development`; in any other environment sending fails with 503
-- **`AZURE_*`**: Azure Blob Storage configuration (`AZURE_BLOB_SAS_URL`, `AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`) for file uploads
+- **`AZURE_*`**: Azure Blob Storage configuration (`AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY`, `AZURE_CONTAINER`) for file uploads
 - **`TRUST_PROXY`**: Set it when the API runs behind a reverse proxy or load balancer (for example `1` for one proxy hop). Without it every request looks like it comes from the proxy's IP, and all users share one rate limit (see [Rate limiting](#rate-limiting)).
 
-**Note:** If you're part of the development team, you can ask for these keys from the team lead.
+`.env.example` documents every variable (what it is, whether it is required, where to get it, how to rotate it) and `npm run check:env` verifies it stays in sync with the code. It never holds real values.
+
+**Note:** Don't ask for keys over chat or shared documents. If you're part of the development team, ask the DevOps owner for access following the project's access guide (`variables-y-accesos`).
 
 ### Rate limiting
 <a name="rate-limiting"></a>
