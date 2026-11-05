@@ -51,6 +51,8 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   ManageStaffAccounts: [],
   // HU-11: la mesa de escarapelas
   JurorCheckIn: ['Staff'],
+  // HU-29: la mesa de escarapelas ve quién llegó y quién falta (solo lectura)
+  ViewJurorAttendance: ['Staff'],
   // HU-21: los profesores lo ven en solo lectura (P-26)
   ViewEvaluationTracking: ['Profesor'],
   // HU-25: jurados por edición, solo Administrador
