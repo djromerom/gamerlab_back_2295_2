@@ -61,6 +61,10 @@ La **cuenta** del estudiante, del jurado y del profesor es una sola para todas l
 
 `Videogame`, `VideogameLike`, `TeamVerification`, `TeamVerificationLog`, `EvaluationDetail` (por su evaluación), `EvaluationIdempotency`, `JurorAssignmentAuditLog` y la asignación jurado-equipo (`_JurorTeamAssignment`). Para saber su edición se mira la del equipo. `HistoricalMember`, `HistoricalMemberNrc` y `HistoricalVideogame` cuelgan de `HistoricalTeam`.
 
+## Cierre de edición
+
+Qué hace «archivar», qué queda vivo, qué ve cada rol de una edición archivada y el procedimiento de cierre: ver [`edition-closure.md`](./edition-closure.md) (TA-17 / ARK-137). En resumen, archivar copia la edición a las tablas históricas y **no borra** ningún dato vivo.
+
 ## Pendientes que se apoyan en esta regla
 
 - BG-18: la validación de HU-08 y la participación del evaluador en la edición (el bloqueo por edición del equipo ya está en `JurorAssignmentService`).

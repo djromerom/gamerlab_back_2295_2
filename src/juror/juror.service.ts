@@ -8,7 +8,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { findActiveEdition, NO_ACTIVE_EDITION_MESSAGE } from '../editions/active-edition';
+import {
+  ACTIVE_EDITION_WHERE,
+  findActiveEdition,
+  NO_ACTIVE_EDITION_MESSAGE,
+} from '../editions/active-edition';
+import { resolveListEdition } from '../editions/list-edition';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import {
@@ -25,6 +31,7 @@ import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { JurorListItem } from './types/juror-list-item.type';
+import { PROFESSOR_MUST_BE_SENIOR_MESSAGE } from '../professors/professor-juror-profile';
 
 @Injectable()
 export class JurorService {
@@ -124,6 +131,7 @@ export class JurorService {
       lastSignInAt: user.lastSignInAt,
       jurorCategory: user.jurorCategory,
       jurorType: user.jurorType,
+      isProfessor: user.roleId === this.professorRoleId,
       evaluatedCount: evaluatedNames.length,
       evaluatedGameNames: evaluatedNames,
       unevaluatedCount: unevaluatedNames.length,
@@ -131,16 +139,28 @@ export class JurorService {
     };
   }
 
+  /**
+   * ARK-132 (BG-19): la edición de un listado de jurados y equipos (la pedida o la activa). `null`
+   * si no se pidió ninguna y no hay edición activa: el listado sale vacío, sin mezclar ediciones.
+   * 404 si `editionId` no existe. Va fuera de los try/catch que convierten todo en 500.
+   */
+  private async listEditionId(editionId?: number): Promise<number | null> {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    return edition?.id ?? null;
+  }
+
+  /** ARK-132: evaluados y pendientes del jurado, solo en la edición activa. */
   private async getEvaluationStats(
     jurorId: string,
   ): Promise<{ evaluated: string[]; unevaluated: string[] }> {
     const [evaluated, assignedTeams] = await this.prisma.$transaction([
       this.prisma.evaluation.findMany({
-        where: { jurorId },
+        where: { jurorId, Edition: ACTIVE_EDITION_WHERE },
         select: { videogame: { select: { id: true, name: true } } },
       }),
       this.prisma.team.findMany({
         where: {
+          edition: ACTIVE_EDITION_WHERE,
           assignedJurors: {
             some: { id: jurorId },
           },
@@ -229,18 +249,33 @@ export class JurorService {
     }
   }
 
+  /**
+   * ARK-132 (BG-19): las cuentas de jurado son globales; los conteos de evaluados y pendientes son
+   * de la edición pedida o, por defecto, de la activa (sin edición activa, en cero).
+   *
+   * ARK-140 (BG-25): con `participating`, solo los evaluadores de esa edición según HU-25
+   * (`jurorsOfEdition`: jurados Confirmados y profesores con NRC activo; sin Pendientes ni
+   * Declinados), y `jurorType` es el de la edición (`jurado_edicion.tipo`). Es la lista de la
+   * pantalla de asignación; Personal → Jurados sigue viendo a todos.
+   */
   async findAll(
     includeInactive: boolean,
     limit: number,
     page: number,
+    editionId?: number,
+    participating = false,
   ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
+    // -1: sin edición activa no hay evaluaciones ni equipos que contar
+    const statsEditionId = (await this.listEditionId(editionId)) ?? -1;
 
     // Se ha modificado esta variable para incluir tanto a jurados como a profesores en el listado
-    const whereClause: Prisma.UserWhereInput = {
-      isActive: true,
-      OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
-    };
+    const whereClause: Prisma.UserWhereInput = participating
+      ? jurorsOfEdition(statsEditionId)
+      : {
+          isActive: true,
+          OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
+        };
 
     const [users, total, allGames] = await this.prisma.$transaction([
       this.prisma.user.findMany({
@@ -250,14 +285,22 @@ export class JurorService {
         orderBy: { lastName: 'asc' },
         include: {
           evaluationsSubmitted: {
+            where: { editionId: statsEditionId },
             select: { videogame: { select: { id: true, name: true } } },
+          },
+          jurorEditions: {
+            where: { editionId: statsEditionId },
+            select: { type: true },
           },
         },
       }),
       this.prisma.user.count({ where: whereClause }),
+      // ARK-140: la carga cuenta todos los equipos asignados de la edición, también los de
+      // profesores (antes solo los equipos que tenían algún jurado externo).
       this.prisma.team.findMany({
         where: {
-          assignedJurors: { some: { roleId: this.jurorRoleId } },
+          isActive: true,
+          editionId: statsEditionId,
           videogame: { isNot: null },
         },
         select: {
@@ -279,7 +322,12 @@ export class JurorService {
       const evaluated = user.evaluationsSubmitted.map((e) => e.videogame.name);
       const assigned = gameMap.get(user.id) || [];
       const unevaluated = assigned.filter((name) => !evaluated.includes(name));
-      return this.mapToJurorListItem(user, evaluated, unevaluated);
+      const item = this.mapToJurorListItem(user, evaluated, unevaluated);
+      // El tipo de la edición manda (HU-25); los profesores no tienen fila y conservan el suyo.
+      if (participating && user.jurorEditions[0]) {
+        item.jurorType = user.jurorEditions[0].type;
+      }
+      return item;
     });
 
     return {
@@ -304,8 +352,30 @@ export class JurorService {
     return user;
   }
 
+  /**
+   * La tabla de jurados lista jurados y profesores, así que ambos se editan desde ahí (ARK-139).
+   * findOne sigue siendo solo para jurados (GET y DELETE /juror/:id no cambian).
+   */
+  private async findEditableEvaluator(id: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    const isEvaluator =
+      user?.roleId === this.jurorRoleId ||
+      user?.roleId === this.professorRoleId;
+    if (!user || !isEvaluator || !user.isActive) {
+      throw new NotFoundException('Juror not found or inactive.');
+    }
+    return user;
+  }
+
   async update(id: string, dto: UpdateJurorDto): Promise<JurorListItem> {
-    const juror = await this.findOne(id);
+    const juror = await this.findEditableEvaluator(id);
+    if (
+      juror.roleId === this.professorRoleId &&
+      dto.jurorCategory !== undefined &&
+      dto.jurorCategory !== JurorCategory.SENIOR
+    ) {
+      throw new BadRequestException(PROFESSOR_MUST_BE_SENIOR_MESSAGE);
+    }
 
     const email = dto.email?.trim().toLowerCase();
     if (email) {
@@ -363,502 +433,6 @@ export class JurorService {
       return parseInt(match[1], 10);
     }
     return null;
-  }
-
-  // Para modificar la lista de correos permitidos para calificar colegios,
-  // puedes editar esta constante. Podrías mover esto a variables de entorno en un futuro.
-  private readonly COLEGIO_JUROR_EMAILS = [
-    'edangulo@uninorte.edu.co',
-    'rramos@uninorte.edu.co',
-    'mrgamarra@uninorte.edu.co',
-    'katherineospino@uninorte.edu.co',
-    'pineresm@uninorte.edu.co',
-    'djromero@uninorte.edu.co',
-  ];
-
-  async asingEvaluations(): Promise<{ message: string; details: string[] }> {
-    const MAX_PER_TEAM = 3;
-    const MAX_PER_JUROR = 6;
-    const results: string[] = [];
-
-    // ARK-130 (HU-27): la edición activa, no «la de id más alto» (puede ser una recién creada)
-    const latestEdition = await findActiveEdition(this.prisma);
-
-    if (!latestEdition) {
-      throw new BadRequestException(NO_ACTIVE_EDITION_MESSAGE);
-    }
-
-    const teams = await this.getTeams(latestEdition.id);
-    const allJurorsMap = await this.getJurors(false);
-    const allProfessorsMap = await this.getJurors(true);
-
-    // MODIFICADO: Se añadio el BadRequestException a esta otra validacion
-    if (teams.length === 0) {
-      throw new BadRequestException(
-        'No hay equipos confirmados y activos para asignar.',
-      );
-    }
-
-    const allEvaluators = new Map<string, number>();
-    for (const [id, count] of allJurorsMap) allEvaluators.set(id, count);
-    for (const [id, count] of allProfessorsMap) allEvaluators.set(id, count);
-
-    // MODIFICACION: Validación nueva — sin evaluadores la asignación no tiene sentido
-    if (allEvaluators.size === 0) {
-      throw new BadRequestException(
-        'No hay jurados ni profesores activos disponibles para realizar la asignación.',
-      );
-    }
-
-    const users = await this.prisma.user.findMany({
-      where: { id: { in: Array.from(allEvaluators.keys()) } },
-      select: { id: true, email: true },
-    });
-
-    const userEmailMap = new Map<string, string>();
-    for (const u of users) userEmailMap.set(u.id, u.email);
-
-    // [MODIFICACIÓN]: Construir el conjunto de evaluadores SENIOR (categoría SENIOR + todos los profesores)
-    // para garantizar que cada equipo universitario tenga al menos uno
-    const seniorEvaluatorIds = new Set<string>();
-    const evaluatorUserDetails = await this.prisma.user.findMany({
-      where: { id: { in: Array.from(allEvaluators.keys()) } },
-      select: { id: true, jurorCategory: true, roleId: true },
-    });
-    for (const u of evaluatorUserDetails) {
-      if (
-        u.roleId === this.professorRoleId ||
-        u.jurorCategory === JurorCategory.SENIOR
-      ) {
-        seniorEvaluatorIds.add(u.id);
-      }
-    }
-
-    // Modificacion: Cargar NRCs de profesores y de miembros de equipos para evitar que un profesor
-    // Evalue equipos de sus propios cursos
-    const professorWithNrcs = await this.prisma.user.findMany({
-      where: {
-        id: {
-          in: Array.from(allProfessorsMap.keys()),
-        },
-        isActive: true,
-      },
-      select: {
-        id: true,
-        managedNrcs: {
-          select: { id: true, code: true },
-        },
-      },
-    });
-
-    const professorNrcMap = new Map<string, Set<number>>();
-    for (const prof of professorWithNrcs) {
-      const nrcIds = new Set<number>();
-      for (const nrc of prof.managedNrcs) {
-        nrcIds.add(nrc.id);
-      }
-      professorNrcMap.set(prof.id, nrcIds);
-    }
-
-    const teamIdsForNrcs = teams.map((t) => t.id);
-    const teamsWithNrcs = await this.prisma.team.findMany({
-      where: { id: { in: teamIdsForNrcs } },
-      select: {
-        id: true,
-        members: {
-          select: {
-            nrcs: {
-              select: { id: true },
-            },
-          },
-        },
-      },
-    });
-
-    const teamNrcMap = new Map<number, Set<number>>();
-    for (const team of teamsWithNrcs) {
-      const nrcIds = new Set<number>();
-      for (const member of team.members) {
-        for (const nrc of member.nrcs) {
-          nrcIds.add(nrc.id);
-        }
-      }
-      teamNrcMap.set(team.id, nrcIds);
-    }
-
-    const teamsByLevel = new Map<number, typeof teams>();
-    for (const team of teams) {
-      const level = team.teamCode
-        ? this.extractLevelFromTeamCode(team.teamCode)
-        : null;
-      if (level === null) continue;
-      if (!teamsByLevel.has(level)) teamsByLevel.set(level, []);
-      teamsByLevel.get(level)!.push(team);
-    }
-
-    const assignments = new Map<number, string[]>();
-    const evaluatorLoad = new Map<string, number>(); // Carga actual de evaluaciones por jurado
-    const totalSlots = teams.length * MAX_PER_TEAM; // Total de evaluaciones a realizar
-    const targetLoad = Math.ceil(totalSlots / allEvaluators.size); // Promedio de evaluaciones por jurado
-
-    const evaluatorLevels = new Map<string, Set<number>>(); // Niveles de equipos que puede evaluar cada jurado
-
-    // Inicializamos la carga y los niveles para cada jurado
-    for (const [id] of allEvaluators) {
-      evaluatorLoad.set(id, 0);
-      evaluatorLevels.set(id, new Set<number>());
-    }
-
-    for (const team of teams) {
-      const level = team.teamCode
-        ? this.extractLevelFromTeamCode(team.teamCode)
-        : null;
-      if (level === null) continue;
-
-      const existing = team.assignedJurors
-        .filter(
-          (j) =>
-            j.roleId === this.professorRoleId || j.roleId === this.jurorRoleId,
-        )
-        .map((j) => j.id)
-        .filter((id, i, arr) => arr.indexOf(id) === i);
-
-      assignments.set(team.id, [...existing]);
-
-      for (const jid of existing) {
-        if (evaluatorLoad.has(jid)) {
-          evaluatorLoad.set(jid, (evaluatorLoad.get(jid) ?? 0) + 1);
-          evaluatorLevels.get(jid)?.add(level); // Agregamos el nivel del equipo al conjunto de niveles que puede evaluar el jurado
-        }
-      }
-    }
-
-    const assignFromPool = (
-      teamId: number,
-      needed: number,
-      allowedEmails: string[] | null,
-      level: number,
-      // [MODIFICACIÓN]: Cuando es true, solo considera evaluadores SENIOR o Profesores
-      seniorOnly: boolean = false,
-    ): void => {
-      const current = assignments.get(teamId)!;
-      if (needed <= 0 || current.length >= MAX_PER_TEAM) return;
-
-      const candidates = Array.from(evaluatorLoad.entries())
-        .filter(([id, load]) => load < MAX_PER_JUROR && !current.includes(id))
-        // Modificacion: Excluir profesores cuyos NRCs coincidan con los del equipo
-        // para evitar que un profesor evalúe a sus propios estudiantes
-        .filter(([id]) => {
-          // Si es nivel colegio, no aplica esta restricción
-          if (level === 0) return true;
-          // Si el evaluador no es profesor, no hay conflicto
-          if (!allProfessorsMap.has(id)) return true;
-          // Obtener los NRCs del profesor
-          const profNrcs = professorNrcMap.get(id);
-          if (!profNrcs || profNrcs.size === 0) return true;
-          // Obtener los NRCs de los miembros del equipo
-          const teamNrcs = teamNrcMap.get(teamId);
-          if (!teamNrcs || teamNrcs.size === 0) return true;
-          // Verificar si hay intersección: algún NRC del profesor coincide con el equipo
-          for (const nrcId of profNrcs) {
-            if (teamNrcs.has(nrcId)) return false; // Conflicto de interés
-          }
-          return true; // Sin conflicto
-        })
-        .filter(([id]) => {
-          const email = userEmailMap.get(id);
-          if (allowedEmails === null) return true;
-          return email && allowedEmails.includes(email);
-        })
-        // [MODIFICACIÓN]: Filtrar solo evaluadores SENIOR/Profesor cuando se requiere la garantía mínima
-        .filter(([id]) => {
-          if (!seniorOnly) return true;
-          return seniorEvaluatorIds.has(id);
-        })
-        .sort((a, b) => {
-          const idA = a[0],
-            loadA = a[1];
-          const idB = b[0],
-            loadB = b[1];
-
-          const aUnderTarget = loadA < targetLoad;
-          const bUnderTarget = loadB < targetLoad;
-
-          if (aUnderTarget !== bUnderTarget) return aUnderTarget ? -1 : 1;
-
-          const aHasCurrent = evaluatorLevels.get(idA)?.has(level);
-          const bHasCurrent = evaluatorLevels.get(idB)?.has(level);
-
-          if (aHasCurrent !== bHasCurrent) return aHasCurrent ? -1 : 1;
-
-          // [MODIFICADO]: Calcular distancia mínima ABSOLUTA al nivel objetivo
-          // [APRENDIZAJE]: Math.abs() devuelve el valor absoluto (distancia sin signo)
-          // [ANTES]: Solo miraba niveles inferiores (l < level)
-          const levelsA = Array.from(evaluatorLevels.get(idA) ?? []);
-          const levelsB = Array.from(evaluatorLevels.get(idB) ?? []);
-          const minDistA =
-            levelsA.length > 0
-              ? Math.min(...levelsA.map((l) => Math.abs(l - level)))
-              : Infinity;
-          const minDistB =
-            levelsB.length > 0
-              ? Math.min(...levelsB.map((l) => Math.abs(l - level)))
-              : Infinity;
-
-          if (minDistA !== minDistB) return minDistA - minDistB;
-
-          return loadA - loadB;
-        });
-
-      for (const [id, load] of candidates) {
-        if (current.length >= MAX_PER_TEAM || needed <= 0) break;
-        current.push(id);
-        evaluatorLoad.set(id, load + 1);
-        evaluatorLevels.get(id)?.add(level);
-        needed--;
-      }
-    };
-
-    const sortedLevels = Array.from(teamsByLevel.keys()).sort((a, b) => a - b);
-
-    for (const level of sortedLevels) {
-      const levelTeams = teamsByLevel.get(level)!;
-
-      if (level === 0) {
-        for (const team of levelTeams) {
-          const needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
-          assignFromPool(team.id, needed, this.COLEGIO_JUROR_EMAILS, level);
-        }
-      } else {
-        // [MODIFICACIÓN]: Garantizar mínimo 1 SENIOR o Profesor por equipo universitario
-        // Primer paso: intentar asignar 1 SENIOR/Profesor
-        // Segundo paso: completar cupos restantes con cualquier evaluador disponible
-        for (const team of levelTeams) {
-          const currentAssigned = assignments.get(team.id)!;
-          const alreadyHasSenior = currentAssigned.some((id) =>
-            seniorEvaluatorIds.has(id),
-          );
-          let needed = MAX_PER_TEAM - currentAssigned.length;
-
-          if (!alreadyHasSenior && needed > 0) {
-            assignFromPool(team.id, 1, null, level, true);
-            needed = MAX_PER_TEAM - assignments.get(team.id)!.length;
-          }
-
-          if (needed > 0) {
-            assignFromPool(team.id, needed, null, level);
-          }
-        }
-      }
-
-      const counts = levelTeams.map((t) => assignments.get(t.id)!.length);
-      if (counts.length === 0) continue;
-      const min = Math.min(...counts),
-        max = Math.max(...counts);
-      const label = level === 0 ? 'Colegios (N0)' : `Universitarios N${level}`;
-      const withFull = counts.filter((c) => c === MAX_PER_TEAM).length;
-      results.push(
-        `${label}: ${levelTeams.length} equipos | ${withFull} con ${MAX_PER_TEAM} evaluadores | rango: ${min}-${max}`,
-      );
-    }
-
-    // [MODIFICACIÓN]: Detectar y reportar equipos universitarios que no pudieron recibir un SENIOR
-    let teamsWithoutSenior = 0;
-    for (const level of sortedLevels) {
-      if (level === 0) continue;
-      for (const team of teamsByLevel.get(level)!) {
-        const assigned = assignments.get(team.id)!;
-        if (
-          assigned.length > 0 &&
-          !assigned.some((id) => seniorEvaluatorIds.has(id))
-        ) {
-          teamsWithoutSenior++;
-        }
-      }
-    }
-    if (teamsWithoutSenior > 0) {
-      results.push(
-        `⚠️ ${teamsWithoutSenior} equipo(s) universitario(s) sin SENIOR disponible (se asignaron JUNIORs como alternativa).`,
-      );
-    }
-
-    this.logger.log('Guardando asignaciones en la base de datos...');
-    await this.prisma.$transaction(
-      Array.from(assignments.entries()).map(([teamId, jurorIds]) =>
-        this.prisma.team.update({
-          where: { id: teamId },
-          data: { assignedJurors: { set: jurorIds.map((id) => ({ id })) } },
-        }),
-      ),
-    );
-
-    const totalTeams = teams.length;
-    const fullTeams = Array.from(assignments.values()).filter(
-      (ids) => ids.length === MAX_PER_TEAM,
-    ).length;
-    const allOk = fullTeams === totalTeams;
-
-    results.unshift(
-      `✅ ${fullTeams}/${totalTeams} equipos con exactamente ${MAX_PER_TEAM} jurados.`,
-    );
-
-    return {
-      message: allOk
-        ? 'Evaluaciones asignadas correctamente'
-        : `Faltaron jurados para completar ${totalTeams - fullTeams} equipo(s).`,
-      details: results,
-    };
-  }
-  // Modificado: Se ha agregado un edition_id para filtrar los equipos por edición
-  async getTeams(editionId: number) {
-    try {
-      // Obtener TODOS los equipos activos con videojuegos confirmados
-      // Esto incluye todos los niveles (0, 1, 2, 3, 4, etc.)
-      const allTeams = await this.prisma.team.findMany({
-        where: {
-          editionId: editionId, // Se ha agregado un edition_id para filtrar los equipos por edición
-          isActive: true,
-          videogame: {
-            videogameStatusId: this.confirmedStatusId,
-          },
-        },
-        select: {
-          id: true,
-          teamCode: true,
-          assignedJurors: {
-            where: {
-              isActive: true,
-              OR: [
-                { roleId: this.jurorRoleId },
-                { roleId: this.professorRoleId },
-              ],
-            },
-            select: {
-              id: true,
-              roleId: true,
-            },
-          },
-          videogame: {
-            select: {
-              id: true,
-              name: true,
-              videogameStatusId: true,
-            },
-          },
-        },
-      });
-
-      // Filtrar solo los equipos con videojuegos confirmados
-      const teams = allTeams.filter(
-        (team) => team.videogame?.videogameStatusId === this.confirmedStatusId,
-      );
-
-      // Contar equipos con evaluadores asignados
-      const teamsWithEvaluators = teams.filter(
-        (t) => t.assignedJurors.length > 0,
-      ).length;
-      const teamsWithoutEvaluators = teams.length - teamsWithEvaluators;
-
-      // Agrupar por nivel para logging
-      const teamsByLevel = new Map<number, number>();
-      for (const team of teams) {
-        if (team.teamCode) {
-          const level = this.extractLevelFromTeamCode(team.teamCode);
-          if (level !== null) {
-            teamsByLevel.set(level, (teamsByLevel.get(level) || 0) + 1);
-          }
-        }
-      }
-
-      const levelSummary = Array.from(teamsByLevel.entries())
-        .sort((a, b) => a[0] - b[0])
-        .map(([level, count]) => `Nivel ${level}: ${count}`)
-        .join(', ');
-
-      this.logger.log(
-        `Obtenidos ${teams.length} equipos confirmados y activos para asignación ` +
-        `(${teamsWithEvaluators} con evaluadores asignados, ${teamsWithoutEvaluators} sin evaluadores). ` +
-        `Distribución por nivel: ${levelSummary || 'N/A'}`,
-      );
-
-      return teams;
-    } catch (error) {
-      this.logger.error('Error al obtener los equipos:', error);
-      throw new InternalServerErrorException('Error al obtener los equipos');
-    }
-  }
-
-  async getJurors(
-    useProfessors: boolean = false,
-  ): Promise<Map<string, number>> {
-    try {
-      const roleId = useProfessors ? this.professorRoleId : this.jurorRoleId;
-      const roleName = useProfessors
-        ? this.PROFESSOR_ROLE_NAME
-        : this.JUROR_ROLE_NAME;
-
-      const evaluators = await this.prisma.user.findMany({
-        where: {
-          isActive: true,
-          roleId: roleId,
-          email: {
-            not: 'profesorcolegios@uninorte.edu.co', // Excluir este profesor específico
-          },
-        },
-        select: {
-          id: true,
-          email: true,
-        },
-      });
-
-      // Obtener equipos asignados a estos evaluadores para calcular la carga inicial
-      const teamsWithEvaluators = await this.prisma.team.findMany({
-        where: {
-          isActive: true,
-          assignedJurors: {
-            some: {
-              id: { in: evaluators.map((e) => e.id) },
-              isActive: true,
-              roleId: roleId,
-            },
-          },
-        },
-        select: {
-          assignedJurors: {
-            where: {
-              isActive: true,
-              roleId: roleId,
-            },
-            select: {
-              id: true,
-            },
-          },
-        },
-      });
-
-      // Creamos el Map<evaluadorId, cantidadEvaluaciones>
-      const evaluatorLoadMap = new Map<string, number>();
-      for (const evaluator of evaluators) {
-        evaluatorLoadMap.set(evaluator.id, 0);
-      }
-
-      // Contar asignaciones existentes
-      for (const team of teamsWithEvaluators) {
-        for (const juror of team.assignedJurors) {
-          const currentLoad = evaluatorLoadMap.get(juror.id) || 0;
-          evaluatorLoadMap.set(juror.id, currentLoad + 1);
-        }
-      }
-
-      this.logger.log(
-        `Obtenidos ${evaluators.length} ${roleName}${useProfessors ? 'es' : 's'} para asignación`,
-      );
-      return evaluatorLoadMap;
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Error al obtener los ${useProfessors ? 'profesores' : 'jurados'}`,
-      );
-    }
   }
 
   /**
@@ -955,24 +529,25 @@ export class JurorService {
     return filtered;
   }
 
-  async getEvaluatorsWithTeams(): Promise<any[]> {
+  /**
+   * ARK-132 (BG-19): jurados con sus equipos de la edición pedida o, por defecto, la activa.
+   * ARK-140 (BG-25): los evaluadores son los de esa edición (`jurorsOfEdition`, la misma lista
+   * que la asignación): jurados Confirmados y profesores con NRC activo.
+   */
+  async getEvaluatorsWithTeams(editionId?: number): Promise<any[]> {
+    const listEditionId = await this.listEditionId(editionId);
+    if (listEditionId === null) return [];
+    const evaluatorsOfEdition = jurorsOfEdition(listEditionId);
     try {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
-          assignedJurors: {
-            some: {
-              isActive: true,
-              roleId: this.jurorRoleId,
-            },
-          },
+          editionId: listEditionId,
+          assignedJurors: { some: evaluatorsOfEdition },
         },
         include: {
           assignedJurors: {
-            where: {
-              isActive: true,
-              roleId: this.jurorRoleId,
-            },
+            where: evaluatorsOfEdition,
             select: {
               id: true,
               firstName: true,
@@ -1051,11 +626,15 @@ export class JurorService {
     }
   }
 
-  async getTeamsWithLessThanThreeJurors(): Promise<any[]> {
+  /** ARK-132 (BG-19): solo equipos de la edición pedida o, por defecto, la activa. */
+  async getTeamsWithLessThanThreeJurors(editionId?: number): Promise<any[]> {
+    const listEditionId = await this.listEditionId(editionId);
+    if (listEditionId === null) return [];
     try {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: listEditionId,
           videogame: {
             videogameStatusId: this.confirmedStatusId,
           },
@@ -1124,7 +703,11 @@ export class JurorService {
     }
   }
 
-  async getTeamsAssignedToJuror(jurorId: string): Promise<any[]> {
+  /** ARK-132 (BG-19): equipos del jurado en la edición pedida o, por defecto, la activa. */
+  async getTeamsAssignedToJuror(
+    jurorId: string,
+    editionId?: number,
+  ): Promise<any[]> {
     try {
       // Verificar que el jurado existe
       const juror = await this.prisma.user.findUnique({
@@ -1140,9 +723,13 @@ export class JurorService {
         throw new BadRequestException('El usuario no es un jurado');
       }
 
+      const listEditionId = await this.listEditionId(editionId);
+      if (listEditionId === null) return [];
+
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: listEditionId,
           assignedJurors: {
             some: {
               id: jurorId,
@@ -1209,196 +796,6 @@ export class JurorService {
       this.logger.error('Error al obtener equipos asignados al jurado:', error);
       throw new InternalServerErrorException(
         'Error al obtener equipos asignados al jurado',
-      );
-    }
-  }
-
-  async removeAllJurorAssignments(actorUserId: string): Promise<any> {
-    try {
-      // Obtener todos los equipos activos que tienen asignaciones de jurados/profesores
-      const teamsWithAssignments = await this.prisma.team.findMany({
-        where: {
-          isActive: true,
-          assignedJurors: {
-            some: {
-              isActive: true,
-              OR: [
-                { roleId: this.jurorRoleId },
-                { roleId: this.professorRoleId },
-              ],
-            },
-          },
-        },
-        include: {
-          assignedJurors: {
-            where: {
-              isActive: true,
-              OR: [
-                { roleId: this.jurorRoleId },
-                { roleId: this.professorRoleId },
-              ],
-            },
-            select: {
-              id: true,
-            },
-          },
-        },
-      });
-
-      // Contar el total de asignaciones antes de eliminarlas
-      const assignmentCount = teamsWithAssignments.reduce(
-        (total, team) => total + team.assignedJurors.length,
-        0,
-      );
-
-      if (assignmentCount === 0) {
-        throw new BadRequestException(
-          'No hay asignaciones de evaluadores (jurados o profesores) para eliminar',
-        );
-      }
-
-      await this.prisma.$transaction(async (tx) => {
-        for (const team of teamsWithAssignments) {
-          await tx.team.update({
-            where: { id: team.id },
-            data: {
-              assignedJurors: {
-                set: [],
-              },
-            },
-          });
-        }
-
-        await this.jurorAssignmentAuditService.create(
-          {
-            action: ManualJurorAssignmentAction.UNASSIGN_ALL,
-            actorUserId,
-            notes: `Se eliminaron manualmente ${assignmentCount} asignaciones de evaluadores`,
-          },
-          tx,
-        );
-      });
-
-      this.logger.log(
-        `Se eliminaron ${assignmentCount} asignaciones de evaluadores (jurados o profesores)`,
-      );
-
-      return {
-        message:
-          'Todas las asignaciones de evaluadores (jurados o profesores) han sido eliminadas correctamente',
-        asignacionesEliminadas: assignmentCount,
-      };
-    } catch (error) {
-      this.logger.error(
-        'Error al eliminar todas las asignaciones de evaluadores:',
-        error,
-      );
-      throw new InternalServerErrorException(
-        'Error al eliminar todas las asignaciones de evaluadores',
-      );
-    }
-  }
-
-  async removeAllAssignmentsFromJuror(
-    jurorId: string,
-    actorUserId: string,
-  ): Promise<any> {
-    try {
-      // Verificar que el usuario (jurado o profesor) existe y está activo
-      const evaluator = await this.prisma.user.findUnique({
-        where: { id: jurorId },
-        include: {
-          role: true,
-          teamsToEvaluate: {
-            where: { isActive: true },
-            select: { id: true },
-          },
-        },
-      });
-
-      if (!evaluator || !evaluator.isActive) {
-        throw new NotFoundException(
-          'Evaluador (jurado o profesor) no encontrado o inactivo',
-        );
-      }
-
-      // Validar que sea jurado o profesor
-      if (
-        evaluator.roleId !== this.jurorRoleId &&
-        evaluator.roleId !== this.professorRoleId
-      ) {
-        throw new BadRequestException(
-          'El usuario no es un jurado ni un profesor',
-        );
-      }
-
-      const assignedTeams = evaluator.teamsToEvaluate;
-      const assignmentCount = assignedTeams.length;
-
-      if (assignmentCount === 0) {
-        return {
-          message:
-            'El evaluador (jurado o profesor) no tiene asignaciones para eliminar',
-          asignacionesEliminadas: 0,
-          evaluador: {
-            id: evaluator.id,
-            nombre: `${evaluator.firstName} ${evaluator.lastName}`,
-            email: evaluator.email,
-          },
-        };
-      }
-
-      await this.prisma.$transaction(async (tx) => {
-        for (const team of assignedTeams) {
-          await tx.team.update({
-            where: { id: team.id },
-            data: {
-              assignedJurors: {
-                disconnect: { id: jurorId },
-              },
-            },
-          });
-        }
-
-        await this.jurorAssignmentAuditService.create(
-          {
-            action: ManualJurorAssignmentAction.UNASSIGN_ALL_FROM_EVALUATOR,
-            actorUserId,
-            jurorId,
-            previousJurorId: jurorId,
-            notes: `Se eliminaron todas las asignaciones del evaluador ${jurorId}`,
-          },
-          tx,
-        );
-      });
-
-      this.logger.log(
-        `Se eliminaron ${assignmentCount} asignaciones del evaluador ${jurorId}`,
-      );
-
-      return {
-        message:
-          'Todas las asignaciones del evaluador (jurado o profesor) han sido eliminadas correctamente',
-        asignacionesEliminadas: assignmentCount,
-        evaluador: {
-          id: evaluator.id,
-          nombre: `${evaluator.firstName} ${evaluator.lastName}`,
-          email: evaluator.email,
-        },
-      };
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      this.logger.error(
-        'Error al eliminar todas las asignaciones del evaluador:',
-        error,
-      );
-      throw new InternalServerErrorException(
-        'Error al eliminar todas las asignaciones del evaluador',
       );
     }
   }

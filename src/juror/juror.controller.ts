@@ -23,7 +23,6 @@ import {
   ApiNotFoundResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
-  ApiInternalServerErrorResponse,
   ApiQuery,
 } from '@nestjs/swagger';
 
@@ -44,6 +43,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 import { AuthService } from '../auth/auth.service';
 
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { editionIdQuery } from '../editions/list-edition';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 
 import { JurorListItem } from './types/juror-list-item.type';
@@ -60,41 +60,6 @@ export class JurorController {
     private readonly jurorAssignmentService: JurorAssignmentService,
     private readonly authService: AuthService,
   ) {}
-
-  // ─── Automatic assignment ────────────────────────────────────────────────────
-
-  @Get('evaluations-assignment')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('AssignJurors')
-  @ApiOperation({
-    summary: 'Asignar evaluaciones automáticamente',
-    description: `
-      Asigna automáticamente jurados a cada equipo confirmado, agrupando por nivel.
-      Los jurados se distribuyen equitativamente entre los equipos del mismo nivel.
-
-      **Reglas de asignación:**
-      - Los jurados solo pueden evaluar equipos del mismo nivel.
-      - El nivel se extrae del código del equipo, formato N<número>-...
-      - Ejemplos: N0-COLEGIOS-01, N1-AYP-06, N2-AYP2-05, N3-DATOS-08, N4-DATOS2-20.
-
-      **Niveles:**
-      - N0: Colegios.
-      - N1: AYP1.
-      - N2: AYP2.
-      - N3: DATOS 1, POO.
-      - N4: DATOS 2.
-    `,
-  })
-  @ApiOkResponse({ description: 'Evaluaciones asignadas correctamente' })
-  @ApiBadRequestResponse({
-    description: 'No se encontraron equipos con formato de nivel válido',
-  })
-  @ApiUnauthorizedResponse({ description: 'No autenticado' })
-  @ApiForbiddenResponse({ description: 'No tiene permisos para asignar jurados' })
-  @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
-  AsignEvaluations() {
-    return this.jurorService.asingEvaluations();
-  }
 
   // ─── CRUD Juror ──────────────────────────────────────────────────────────────
 
@@ -121,19 +86,50 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')
   @ApiOperation({ summary: 'Lista de evaluadores con sus equipos asignados' })
-  getEvaluatorsWithTeams() {
-    return this.jurorService.getEvaluatorsWithTeams();
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: equipos de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía). 404 si la edición no existe.',
+  })
+  getEvaluatorsWithTeams(@Query('editionId') editionIdParam?: string) {
+    return this.jurorService.getEvaluatorsWithTeams(
+      editionIdQuery(editionIdParam),
+    );
   }
 
   @Get()
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')
   @ApiOperation({ summary: 'Listar todos los jurados paginados' })
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: edición de los conteos de evaluados y pendientes. Por defecto, la edición activa (sin edición activa, en cero). 404 si la edición no existe.',
+  })
+  @ApiQuery({
+    name: 'participating',
+    required: false,
+    type: Boolean,
+    description:
+      'ARK-140: con `true`, solo los evaluadores de la edición (HU-25: jurados Confirmados y profesores con NRC activo; sin Pendientes ni Declinados), con el tipo Oficial/Suplente de la edición. Es la lista de la asignación de jurados. Por defecto `false`: todas las cuentas de jurado y profesor.',
+  })
   findAll(
     @Query() query: PaginationQueryDto,
+    @Query('editionId') editionIdParam?: string,
+    @Query('participating') participatingParam?: string,
   ): Promise<PaginatedResult<JurorListItem>> {
     const { includeInactive, limit, page } = query;
-    return this.jurorService.findAll(includeInactive, limit, page);
+    return this.jurorService.findAll(
+      includeInactive,
+      limit,
+      page,
+      editionIdQuery(editionIdParam),
+      participatingQuery(participatingParam),
+    );
   }
 
   // ─── Manual assignment ───────────────────────────────────────────────────────
@@ -201,7 +197,11 @@ export class JurorController {
   @Delete('assignments/all')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  @ApiOperation({ summary: 'Eliminar todas las asignaciones de evaluadores' })
+  @ApiOperation({
+    summary: 'Eliminar todas las asignaciones de evaluadores de la edición activa',
+    description:
+      'Solo vacía los equipos de la edición activa; las asignaciones de ediciones anteriores se conservan como historial. Responde `asignacionesEliminadas`, `equiposAfectados` y `edicion`. 400 si no hay asignaciones; 404 NO_ACTIVE_EDITION sin edición activa.',
+  })
   removeAllJurorAssignments(@GetUser('id') actorUserId: string) {
     return this.jurorAssignmentService.unassignAll(actorUserId);
   }
@@ -230,7 +230,11 @@ export class JurorController {
   @Delete(':id/assignments')
   @UseGuards(RolePermissionGuard)
   @RequiredService('AssignJurors')
-  @ApiOperation({ summary: 'Eliminar todas las asignaciones de un jurado' })
+  @ApiOperation({
+    summary: 'Eliminar todas las asignaciones de un jurado en la edición activa',
+    description:
+      'Solo quita al evaluador de los equipos de la edición activa; sus asignaciones de ediciones anteriores se conservan. Responde `asignacionesEliminadas`, `evaluador` y `edicion`. 404 NO_ACTIVE_EDITION sin edición activa.',
+  })
   removeAllAssignmentsFromJuror(
     @Param('id') id: string,
     @GetUser('id') actorUserId: string,
@@ -305,10 +309,17 @@ export class JurorController {
   })
   @ApiQuery({ name: 'teamId', required: false, type: Number })
   @ApiQuery({ name: 'jurorId', required: false, type: String })
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description: 'Edición a consultar (por defecto la activa). Las demás son historial de solo lectura.',
+  })
   @ApiOkResponse({ description: 'Lista de equipos con seguimiento de evaluación' })
   getEvaluationTracking(
     @Query('teamId') teamId?: string,
     @Query('jurorId') jurorId?: string,
+    @Query('editionId') editionIdParam?: string,
   ) {
     const teamIdNumber = teamId ? parseInt(teamId, 10) : undefined;
 
@@ -319,6 +330,7 @@ export class JurorController {
     return this.jurorAssignmentService.getEvaluationTracking(
       teamIdNumber,
       jurorId,
+      editionIdQuery(editionIdParam),
     );
   }
 
@@ -421,8 +433,21 @@ export class JurorController {
   @UseGuards(RolePermissionGuard)
   @RequiredService('ListJurors')
   @ApiOperation({ summary: 'Equipos asignados a un jurado específico' })
-  getTeamsAssignedToJuror(@Param('id') id: string) {
-    return this.jurorService.getTeamsAssignedToJuror(id);
+  @ApiQuery({
+    name: 'editionId',
+    required: false,
+    type: Number,
+    description:
+      'ARK-132: equipos de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía). 404 si la edición no existe.',
+  })
+  getTeamsAssignedToJuror(
+    @Param('id') id: string,
+    @Query('editionId') editionIdParam?: string,
+  ) {
+    return this.jurorService.getTeamsAssignedToJuror(
+      id,
+      editionIdQuery(editionIdParam),
+    );
   }
 
   @Get(':id')
@@ -436,7 +461,11 @@ export class JurorController {
   @Patch(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateJuror')
-  @ApiOperation({ summary: 'Actualizar datos de un jurado' })
+  @ApiOperation({
+    summary: 'Actualizar datos de un jurado',
+    description:
+      'También edita a los profesores de la tabla de jurados. Un profesor siempre es Senior: enviar `jurorCategory: JUNIOR` para un profesor responde 400.',
+  })
   update(@Param('id') id: string, @Body() dto: UpdateJurorDto) {
     return this.jurorService.update(id, dto);
   }
@@ -449,4 +478,11 @@ export class JurorController {
   async softdelete(@Param('id') id: string): Promise<void> {
     await this.jurorService.remove(id);
   }
+}
+
+/** ARK-140: `participating` de `GET /juror` (`true`/`false`; vacío = `false`). */
+function participatingQuery(raw?: string): boolean {
+  if (raw === undefined || raw === '' || raw === 'false') return false;
+  if (raw === 'true') return true;
+  throw new BadRequestException('participating debe ser true o false');
 }

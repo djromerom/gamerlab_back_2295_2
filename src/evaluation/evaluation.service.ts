@@ -17,7 +17,7 @@ import { CreateEvaluationDto } from './dto/createEvaluation.dto';
 import { CreateDetailEvaluationDto } from './dto/createEvaluationDetails.dto';
 import { createHash } from 'crypto';
 import { countProgress } from './evaluation-progress';
-import { ACTIVE_EDITION_CONFIG_WHERE } from '../settings/active-edition-config';
+import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { findActiveEdition } from '../editions/active-edition';
 
 /** Quien califica: el usuario de la sesión. */
@@ -55,16 +55,9 @@ export class EvaluationService {
     private readonly teamVerification: TeamVerificationService,
   ) {}
 
-  private async checkEvaluationsOpen() {
-    const config = await this.prisma.eventConfiguration.findFirst({
-      where: ACTIVE_EDITION_CONFIG_WHERE,
-    });
-
-    if (!config?.evaluationsOpen) {
-      throw new ForbiddenException(
-        'Las evaluaciones no están habilitadas en este momento.',
-      );
-    }
+  /** ARK-134: interruptor de la edición activa (nunca la fila de otra edición). */
+  private checkEvaluationsOpen() {
+    return assertEvaluationsOpen(this.prisma);
   }
 
   /**

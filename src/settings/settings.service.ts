@@ -1,12 +1,13 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { EventConfiguration, EditionStatus } from '@prisma/client';
+import { EventConfiguration } from '@prisma/client';
 import { CreateWeightDto } from './dto/create-weight.dto';
+import { assertEditionWritable, requireActiveEdition } from '../editions/active-edition';
 import {
-  ACTIVE_EDITION_WHERE,
-  assertEditionWritable,
-  requireActiveEdition,
-} from '../editions/active-edition';
+  ACTIVE_EDITION_CONFIG_WHERE,
+  EVENT_CONFIGURATION_NOT_FOUND,
+  findActiveEditionConfig,
+} from './active-edition-config';
 
 /** Código del 404 cuando la edición aún no tiene ponderados. */
 export const WEIGHTS_NOT_CONFIGURED = 'WEIGHTS_NOT_CONFIGURED';
@@ -111,7 +112,7 @@ export class SettingsService {
    */
   async isRankingVisible(): Promise<boolean> {
     const cfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: ACTIVE_EDITION_WHERE },
+      where: ACTIVE_EDITION_CONFIG_WHERE,
       select: { showRanking: true },
     });
     return cfg?.showRanking === true;
@@ -154,7 +155,7 @@ export class SettingsService {
   // Sin configuración de la edición activa se considera cerrada: la lee el front público y no debe fallar con 404
   async getRegistrationsOpen(): Promise<{ registrationsOpen: boolean }> {
     const activeCnfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: ACTIVE_EDITION_WHERE },
+      where: ACTIVE_EDITION_CONFIG_WHERE,
       select: { registrationsOpen: true },
     });
     return { registrationsOpen: activeCnfg?.registrationsOpen ?? false };
@@ -172,14 +173,20 @@ export class SettingsService {
     });
   }
 
+  /**
+   * ARK-134: la configuración de la edición activa para el panel del administrador. Sin ella
+   * (no hay edición activa o la edición es anterior a ARK-123) responde 404 explícito, nunca la
+   * fila de otra edición. Activar la edición desde el panel la crea.
+   */
   private async getActiveConfig(): Promise<EventConfiguration> {
-    const activeCnfg = await this.prisma.eventConfiguration.findFirst({
-      where: { edition: ACTIVE_EDITION_WHERE },
-    });
+    const activeCnfg = await findActiveEditionConfig(this.prisma);
     if (!activeCnfg)
-      throw new NotFoundException(
-        'A configuration for the active edition was not found',
-      );
+      throw new NotFoundException({
+        statusCode: 404,
+        code: EVENT_CONFIGURATION_NOT_FOUND,
+        message:
+          'La edición activa no tiene configuración del evento. Activa la edición de nuevo desde Ediciones para crearla.',
+      });
 
     return activeCnfg;
   }

@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { EditionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveEdition } from '../juror-edition/edition-resolver';
@@ -50,4 +51,16 @@ export function parseEditionIdParam(raw?: string): number | undefined | 'invalid
   if (!/^\d+$/.test(raw)) return 'invalid';
   const id = Number(raw);
   return Number.isSafeInteger(id) && id > 0 ? id : 'invalid';
+}
+
+/**
+ * ARK-132 (BG-19): `?editionId=` de un listado ya validado. `undefined` = la edición activa;
+ * 400 si no es un entero positivo (mismo mensaje que `GET /teams`).
+ */
+export function editionIdQuery(raw?: string): number | undefined {
+  const editionId = parseEditionIdParam(raw);
+  if (editionId === 'invalid') {
+    throw new BadRequestException('editionId debe ser un número entero positivo');
+  }
+  return editionId;
 }

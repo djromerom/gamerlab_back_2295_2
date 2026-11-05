@@ -25,7 +25,9 @@ import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 import { EmailClient } from '@azure/communication-email';
 import { RestError } from '@azure/core-rest-pipeline';
 import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
-import { findActiveEdition } from '../editions/active-edition';
+import { ActiveEdition, findActiveEdition } from '../editions/active-edition';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { JUROR_ROLE_NAME } from '../juror-badges/juror-label';
 
 @Injectable()
 export class EmailService {
@@ -97,15 +99,21 @@ export class EmailService {
   }
 
   /** Fecha del evento con el año de la edición activa, p. ej. "27 de noviembre de 2026". */
-  private async getEventDateWithYear(): Promise<string> {
+  private async getEventDateWithYear(edition?: ActiveEdition): Promise<string> {
     const { eventDate } = this.getEventInfo();
+    const { year } = edition ?? (await this.requireCertificateEdition());
+    return `${eventDate} de ${year}`;
+  }
+
+  /** La edición que se certifica: siempre la activa (sin ella no se sabe el año del evento). */
+  private async requireCertificateEdition(): Promise<ActiveEdition> {
     const edition = await findActiveEdition(this.prisma);
     if (!edition) {
       throw new InternalServerErrorException(
         'Configuración faltante: no hay una edición activa para determinar el año del evento.',
       );
     }
-    return `${eventDate} de ${edition.year}`;
+    return edition;
   }
 
   /**
@@ -422,21 +430,28 @@ export class EmailService {
   async sendAllJurorCertificates(): Promise<{ message: string; sent: number; failed: number; errors: string[] }> {
     this.logger.log('Starting bulk juror certificate sending...');
 
-    // Obtener todos los jurados activos directamente desde Prisma
+    // ARK-135 (BG-22): el certificado es de la edición activa. Solo lo reciben los jurados
+    // (rol Jurado) que participan en ella según HU-25 (`jurorsOfEdition`: confirmados en
+    // Jurados de la edición); antes se enviaba a todo jurado activo, aunque fuera de otra feria.
+    const edition = await this.requireCertificateEdition();
     const jurors = await this.prisma.user.findMany({
       where: {
-        isActive: true,
-        role: { name: 'Jurado' },
+        AND: [jurorsOfEdition(edition.id), { role: { name: JUROR_ROLE_NAME } }],
       },
       select: { id: true, firstName: true, lastName: true, email: true },
     });
 
     if (jurors.length === 0) {
-      return { message: 'No hay jurados activos para enviar certificados.', sent: 0, failed: 0, errors: [] };
+      return {
+        message: `No hay jurados confirmados en «${edition.title}» para enviar certificados.`,
+        sent: 0,
+        failed: 0,
+        errors: [],
+      };
     }
 
     // Falla antes de generar PDFs si falta la configuración del evento.
-    const eventDateWithYear = await this.getEventDateWithYear();
+    const eventDateWithYear = await this.getEventDateWithYear(edition);
 
     this.logger.log(`Found ${jurors.length} active jurors. Sending certificates...`);
 
@@ -505,7 +520,20 @@ export class EmailService {
       }
 
       const jurorName = `${user.firstName} ${user.lastName}`;
-      const eventDateWithYear = await this.getEventDateWithYear();
+      const edition = await this.requireCertificateEdition();
+      const eventDateWithYear = await this.getEventDateWithYear(edition);
+
+      // ARK-135 (BG-22): solo se certifica a quien participa en la edición activa (HU-25:
+      // jurado confirmado en Jurados de la edición o profesor con un NRC activo en ella).
+      const participates = await this.prisma.user.findFirst({
+        where: jurorsOfEdition(edition.id, [userId]),
+        select: { id: true },
+      });
+      if (!participates) {
+        throw new BadRequestException(
+          `${jurorName} no participa en «${edition.title}»: solo se certifica a los jurados de la edición activa.`,
+        );
+      }
 
       // 2. Generar el PDF
       const pdfBuffer = await this.certificatesService.generateJurorCertificateHtml(userId);

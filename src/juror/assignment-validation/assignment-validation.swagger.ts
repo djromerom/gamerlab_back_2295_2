@@ -6,6 +6,14 @@ export const ASSIGNMENT_RULES_DOC = `
       ilegible en el código del equipo, jurado sin categoría, jurado no senior
       en colegios (N0) y asignación duplicada (409).
 
+      **Edición activa (ARK-131, 400):**
+      - Equipo de otra edición (asignar, reasignar y quitar): \`code: EDITION_READ_ONLY\`,
+        \`blocker: TEAM_NOT_IN_ACTIVE_EDITION\`.
+      - Evaluador que no participa en la edición activa (asignar y el nuevo de reasignar):
+        \`code: EVALUATOR_NOT_IN_EDITION\`. Participa el jurado confirmado en Jurados de la
+        edición y el profesor con un NRC activo en ella (HU-25). Quitar no lo exige.
+      - Sin edición activa: 404 \`NO_ACTIVE_EDITION\`.
+
       **Advertencias (409 ASSIGNMENT_WARNINGS, se guardan con confirmWarnings: true):**
       - JUROR_OVER_LIMIT: el jurado queda con más de 3 grupos en la edición.
       - JUROR_MIXED_LEVELS: el jurado queda con grupos de distintos niveles.

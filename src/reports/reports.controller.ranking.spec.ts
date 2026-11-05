@@ -61,6 +61,6 @@ describe('ReportsController.videojuegoData — caché y ranking (ARK-SP1 #1)', (
     await controller.getWithMateriaYNRC(admin);
     expect(cache.get).not.toHaveBeenCalled();
     expect(cache.set).not.toHaveBeenCalled();
-    expect(reports.getVideogamesData).toHaveBeenCalledWith(admin);
+    expect(reports.getVideogamesData).toHaveBeenCalledWith(admin, undefined);
   });
 });

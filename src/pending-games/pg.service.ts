@@ -3,9 +3,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VideogameResponseDto } from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
-import { ForbiddenException } from '@nestjs/common';
 import { BlobReferenceService } from '../upload/blob-reference.service';
-import { ACTIVE_EDITION_CONFIG_WHERE } from '../settings/active-edition-config';
+import { assertEvaluationsOpen } from '../settings/active-edition-config';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+
+/**
+ * ARK-132 (BG-19): el jurado solo ve juegos de equipos de la edición activa que le asignaron.
+ * Calificar fuera de la edición activa ya está bloqueado; sin este filtro vería juegos de ferias
+ * pasadas que no puede calificar.
+ */
+const ASSIGNED_IN_ACTIVE_EDITION = (jurorId: string): Prisma.VideogameWhereInput => ({
+  team: {
+    edition: ACTIVE_EDITION_WHERE,
+    assignedJurors: { some: { id: jurorId } },
+  },
+});
 
 
 @Injectable()
@@ -14,13 +26,9 @@ export class VideogamesService {
     private readonly prisma: PrismaService,
     private readonly blobRefs: BlobReferenceService,
   ) {}
-  private async checkEvaluationsOpen() {
-    const config = await this.prisma.eventConfiguration.findFirst({
-      where: ACTIVE_EDITION_CONFIG_WHERE,
-    });
-    if (!config?.evaluationsOpen) {
-      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
-    }
+  /** ARK-134: interruptor de la edición activa (nunca la fila de otra edición). */
+  private checkEvaluationsOpen() {
+    return assertEvaluationsOpen(this.prisma);
   }
 
   async searchPendingGames(jurorId: string, search: string) {
@@ -73,14 +81,8 @@ export class VideogamesService {
               }
             }
           },
-          // Solo juegos de equipos asignados al jurado
-          {
-            team: {
-              assignedJurors: {
-                some: { id: jurorId }
-              }
-            }
-          },
+          // Solo juegos de equipos asignados al jurado, de la edición activa
+          ASSIGNED_IN_ACTIVE_EDITION(jurorId),
           // Aplicar filtros de búsqueda
           normalizedSearch ? { OR: searchConditions } : {}
         ]
@@ -174,14 +176,8 @@ export class VideogamesService {
             }
           }
         },
-        // Solo juegos de equipos asignados
-        {
-          team: {
-            assignedJurors: {
-              some: { id: jurorId }
-            }
-          }
-        }
+        // Solo juegos de equipos asignados, de la edición activa
+        ASSIGNED_IN_ACTIVE_EDITION(jurorId)
       ]
     };
 
@@ -288,13 +284,7 @@ export class VideogamesService {
               }
             }
           },
-          {
-            team: {
-              assignedJurors: {
-                some: { id: jurorId }
-              }
-            }
-          }
+          ASSIGNED_IN_ACTIVE_EDITION(jurorId)
         ]
       }
     });
@@ -333,13 +323,7 @@ export class VideogamesService {
               }
             }
           },
-          {
-            team: {
-              assignedJurors: {
-                some: { id: jurorId }
-              }
-            }
-          },
+          ASSIGNED_IN_ACTIVE_EDITION(jurorId),
           { OR: searchConditions }
         ]
       },

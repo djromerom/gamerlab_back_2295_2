@@ -31,6 +31,7 @@ import { HighlightedGamesModule } from './highlighted-games/highlighted-games.mo
 import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
+import { JurorAttendanceModule } from './juror-attendance/juror-attendance.module';
 import { StaffModule } from './staff/staff.module';
 import { JurorEditionModule } from './juror-edition/juror-edition.module';
 import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
@@ -71,6 +72,7 @@ import { RankingModule } from './ranking/ranking.module';
     HistoricalsModule,
     JurorBadgesModule,
     JurorCheckinModule,
+    JurorAttendanceModule,
     StaffModule,
     JurorEditionModule,
     EvaluationTrackingModule,

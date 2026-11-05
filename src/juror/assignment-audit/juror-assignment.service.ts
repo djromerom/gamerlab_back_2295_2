@@ -7,7 +7,11 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
-import { assertEditionWritable } from '../../editions/active-edition';
+import {
+  ActiveEdition,
+  requireActiveEdition,
+} from '../../editions/active-edition';
+import { jurorsOfEdition } from '../../juror-edition/jurors-of-edition';
 import {
   JurorCategory,
   ManualJurorAssignmentAction,
@@ -18,13 +22,17 @@ import {
 import { PaginatedResult } from '../../common/types/paginated-result.type';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JurorAssignmentAuditService } from './juror-assignment-audit.service';
-import { extractTeamLevel } from '../assignment-validation/assignment-rules';
+import {
+  extractTeamLevel,
+  findTeamEditionBlocker,
+} from '../assignment-validation/assignment-rules';
 import {
   AssignmentChange,
   RuleEvaluator,
   RuleTeam,
 } from '../assignment-validation/assignment-rules.types';
 import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
+import { resolveListEdition } from '../../editions/list-edition';
 
 type EvaluatorForValidation = {
   id: string;
@@ -32,14 +40,35 @@ type EvaluatorForValidation = {
   jurorCategory?: JurorCategory | null;
   firstName?: string | null;
   lastName?: string | null;
+  /** ARK-131: si participa en la edición activa (solo se calcula para quien se agrega). */
+  participatesInActiveEdition?: boolean;
 };
 
 type TeamForValidation = {
   id: number;
   teamCode: string;
   editionId: number;
+  edition?: { title: string | null } | null;
   assignedJurors: Array<{ id: string }>;
 };
+
+/**
+ * ARK-133: la bitácora no tiene columna de edición, así que la edición va al inicio de `notes`
+ * con un formato fijo («Edición «Feria 5» (id 5)») para poder filtrarla después.
+ */
+function editionNote(edition: Pick<ActiveEdition, 'id' | 'title'>): string {
+  return `Edición «${edition.title}» (id ${edition.id})`;
+}
+
+/** «1 asignación» / «3 asignaciones»: los mensajes de quitar no dicen «1 equipos». */
+function count(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** «Se eliminó» / «Se eliminaron» según la cantidad. */
+function removedVerb(n: number, singular: string, plural: string): string {
+  return n === 1 ? singular : plural;
+}
 
 type AuditLogFilters = {
   jurorId?: string;
@@ -117,6 +146,7 @@ export class JurorAssignmentService implements OnModuleInit {
       name: `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
       kind,
       jurorCategory: evaluator.jurorCategory ?? null,
+      participatesInActiveEdition: evaluator.participatesInActiveEdition,
     };
   }
 
@@ -125,6 +155,7 @@ export class JurorAssignmentService implements OnModuleInit {
       id: team.id,
       teamCode: team.teamCode,
       editionId: team.editionId,
+      editionTitle: team.edition?.title ?? null,
       jurorIds: team.assignedJurors.map((juror) => juror.id),
     };
   }
@@ -135,12 +166,14 @@ export class JurorAssignmentService implements OnModuleInit {
    * advertencias aceptadas.
    */
   private async validateChanges(
+    activeEdition: ActiveEdition,
     team: TeamForValidation,
     evaluators: EvaluatorForValidation[],
     changes: AssignmentChange[],
     confirmWarnings: boolean,
   ) {
     const result = await this.assignmentValidation.validate({
+      activeEdition: { id: activeEdition.id, title: activeEdition.title },
       teams: [this.toRuleTeam(team)],
       evaluators: evaluators.map((evaluator) =>
         this.toRuleEvaluator(evaluator),
@@ -187,7 +220,37 @@ export class JurorAssignmentService implements OnModuleInit {
     return evaluator;
   }
 
-  private async findActiveTeam(teamId: number) {
+  /**
+   * ARK-131 (BG-18): participa en la edición activa según HU-25 (`jurorsOfEdition`, la única
+   * definición): jurado externo confirmado en la edición o profesor con un NRC activo en ella.
+   */
+  private async participatesInEdition(
+    evaluatorId: string,
+    editionId: number,
+  ): Promise<boolean> {
+    const found = await this.prisma.user.findFirst({
+      where: jurorsOfEdition(editionId, [evaluatorId]),
+      select: { id: true },
+    });
+    return !!found;
+  }
+
+  /** Evaluador activo que se agrega, con su participación en la edición activa. */
+  private async findEvaluatorToAdd(
+    evaluatorId: string,
+    activeEdition: ActiveEdition,
+  ) {
+    const evaluator = await this.findActiveEvaluator(evaluatorId);
+    return {
+      ...evaluator,
+      participatesInActiveEdition: await this.participatesInEdition(
+        evaluator.id,
+        activeEdition.id,
+      ),
+    };
+  }
+
+  private async findActiveTeam(teamId: number, activeEdition: ActiveEdition) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
       include: {
@@ -217,8 +280,19 @@ export class JurorAssignmentService implements OnModuleInit {
       throw new NotFoundException('Equipo no encontrado o inactivo.');
     }
 
-    // ARK-130 (HU-27): asignar, reasignar y quitar solo en equipos de la edición activa
-    assertEditionWritable(team.edition, 'los jurados del equipo');
+    // ARK-130/131: asignar, reasignar y quitar solo en equipos de la edición activa. Es la
+    // misma regla de HU-08 (bloqueo TEAM_NOT_IN_ACTIVE_EDITION); se revisa aquí primero para
+    // que el 400 llegue antes que los 404 de «no está asignado».
+    const editionBlocker = findTeamEditionBlocker(
+      { ...team, editionTitle: team.edition?.title ?? null },
+      activeEdition,
+    );
+    if (editionBlocker) {
+      this.assignmentValidation.enforce({
+        blockers: [editionBlocker],
+        warnings: [],
+      });
+    }
 
     return team;
   }
@@ -230,10 +304,12 @@ export class JurorAssignmentService implements OnModuleInit {
     confirmWarnings = false,
   ) {
     try {
-      const evaluator = await this.findActiveEvaluator(jurorId);
-      const team = await this.findActiveTeam(teamId);
+      const activeEdition = await requireActiveEdition(this.prisma);
+      const evaluator = await this.findEvaluatorToAdd(jurorId, activeEdition);
+      const team = await this.findActiveTeam(teamId, activeEdition);
 
       const acceptedWarnings = await this.validateChanges(
+        activeEdition,
         team,
         [evaluator],
         [{ type: 'ADD', jurorId, teamId }],
@@ -340,8 +416,12 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
-      const newEvaluator = await this.findActiveEvaluator(newJurorId);
-      const team = await this.findActiveTeam(teamId);
+      const activeEdition = await requireActiveEdition(this.prisma);
+      const newEvaluator = await this.findEvaluatorToAdd(
+        newJurorId,
+        activeEdition,
+      );
+      const team = await this.findActiveTeam(teamId, activeEdition);
 
       const isCurrentAssigned = team.assignedJurors.some(
         (juror) => juror.id === currentJurorId,
@@ -355,6 +435,7 @@ export class JurorAssignmentService implements OnModuleInit {
 
       // Reasignar = quitar al actual y agregar al nuevo (bloqueos y advertencias de HU-08).
       const acceptedWarnings = await this.validateChanges(
+        activeEdition,
         team,
         [newEvaluator],
         [
@@ -469,8 +550,11 @@ export class JurorAssignmentService implements OnModuleInit {
     confirmWarnings = false,
   ) {
     try {
+      // Quitar no exige que el evaluador participe en la edición (ARK-131): un jurado que
+      // dejó de participar (declinó, perdió su NRC) se debe poder retirar de sus grupos.
+      const activeEdition = await requireActiveEdition(this.prisma);
       await this.findActiveEvaluator(jurorId);
-      const team = await this.findActiveTeam(teamId);
+      const team = await this.findActiveTeam(teamId, activeEdition);
 
       const isAssigned = team.assignedJurors.some(
         (juror) => juror.id === jurorId,
@@ -484,6 +568,7 @@ export class JurorAssignmentService implements OnModuleInit {
 
       // HU-08: advierte si el grupo queda con menos jurados que el mínimo.
       const acceptedWarnings = await this.validateChanges(
+        activeEdition,
         team,
         [],
         [{ type: 'REMOVE', jurorId, teamId }],
@@ -576,11 +661,19 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
+  /**
+   * ARK-133 (BG-20): «quitar todas» solo toca equipos de la edición activa. Las asignaciones de
+   * ediciones anteriores son historial (reportes, seguimiento, certificados) y no se borran.
+   */
   async unassignAll(actorUserId: string) {
+    // Fuera del try: sin edición activa es un 404 claro, no un 500
+    const edition = await requireActiveEdition(this.prisma);
+
     try {
       const teamsWithAssignments = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: edition.id,
           assignedJurors: {
             some: {
               OR: [
@@ -612,9 +705,11 @@ export class JurorAssignmentService implements OnModuleInit {
 
       if (assignmentCount === 0) {
         throw new BadRequestException(
-          'No hay asignaciones de evaluadores activas para eliminar.',
+          `No hay asignaciones de evaluadores en «${edition.title}» para eliminar.`,
         );
       }
+
+      const teamCount = teamsWithAssignments.length;
 
       await this.prisma.$transaction(async (tx) => {
         for (const team of teamsWithAssignments) {
@@ -632,18 +727,23 @@ export class JurorAssignmentService implements OnModuleInit {
           {
             action: ManualJurorAssignmentAction.UNASSIGN_ALL,
             actorUserId,
-            notes: `Se eliminaron manualmente ${assignmentCount} asignaciones de evaluadores.`,
+            notes: `${editionNote(edition)}: ${removedVerb(assignmentCount, 'se eliminó', 'se eliminaron')} manualmente ${count(assignmentCount, 'asignación', 'asignaciones')} de evaluadores en ${count(teamCount, 'equipo', 'equipos')}.`,
           },
           tx,
         );
       });
 
       return {
-        message:
-          'Todas las asignaciones de evaluadores han sido eliminadas correctamente.',
+        message: `${removedVerb(assignmentCount, 'Se eliminó', 'Se eliminaron')} ${count(assignmentCount, 'asignación', 'asignaciones')} de evaluadores en ${count(teamCount, 'equipo', 'equipos')} de «${edition.title}».`,
         asignacionesEliminadas: assignmentCount,
+        equiposAfectados: teamCount,
+        edicion: { id: edition.id, title: edition.title },
       };
     } catch (error) {
+      // El 400 de «no hay asignaciones» llegaba al front como 500
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.error(
         'Error al eliminar todas las asignaciones de evaluadores:',
         error,
@@ -654,13 +754,16 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
+  /** ARK-133 (BG-20): solo quita al evaluador de los equipos de la edición activa. */
   async unassignAllFromEvaluator(jurorId: string, actorUserId: string) {
     try {
       const evaluator = await this.findActiveEvaluator(jurorId);
+      const edition = await requireActiveEdition(this.prisma);
 
       const assignedTeams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: edition.id,
           assignedJurors: {
             some: {
               id: jurorId,
@@ -672,16 +775,20 @@ export class JurorAssignmentService implements OnModuleInit {
         },
       });
 
+      const evaluatorInfo = {
+        id: evaluator.id,
+        nombre:
+          `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
+        email: evaluator.email,
+      };
+      const editionInfo = { id: edition.id, title: edition.title };
+
       if (assignedTeams.length === 0) {
         return {
-          message: 'El evaluador no tiene asignaciones para eliminar.',
+          message: `El evaluador no tiene asignaciones en «${edition.title}» para eliminar.`,
           asignacionesEliminadas: 0,
-          evaluador: {
-            id: evaluator.id,
-            nombre:
-              `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
-            email: evaluator.email,
-          },
+          evaluador: evaluatorInfo,
+          edicion: editionInfo,
         };
       }
 
@@ -705,28 +812,20 @@ export class JurorAssignmentService implements OnModuleInit {
             actorUserId,
             jurorId,
             previousJurorId: jurorId,
-            notes: `Se eliminaron todas las asignaciones del evaluador ${jurorId}.`,
+            notes: `${editionNote(edition)}: ${removedVerb(assignedTeams.length, 'se eliminó', 'se eliminaron')} ${count(assignedTeams.length, 'asignación', 'asignaciones')} del evaluador ${jurorId}.`,
           },
           tx,
         );
       });
 
       return {
-        message:
-          'Todas las asignaciones del evaluador han sido eliminadas correctamente.',
+        message: `${removedVerb(assignedTeams.length, 'Se quitó', 'Se quitaron')} ${count(assignedTeams.length, 'equipo', 'equipos')} de «${edition.title}» al evaluador.`,
         asignacionesEliminadas: assignedTeams.length,
-        evaluador: {
-          id: evaluator.id,
-          nombre:
-            `${evaluator.firstName ?? ''} ${evaluator.lastName ?? ''}`.trim(),
-          email: evaluator.email,
-        },
+        evaluador: evaluatorInfo,
+        edicion: editionInfo,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
+      if (error instanceof HttpException) {
         throw error;
       }
 
@@ -812,11 +911,23 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
-  async getEvaluationTracking(teamId?: number, jurorId?: string) {
+  /**
+   * ARK-132 (BG-19): alimenta la pantalla Asignación de jurados. Solo equipos de la edición
+   * pedida o, por defecto, la activa (sin edición activa, lista vacía). La edición se resuelve
+   * fuera del try para que el 404 de una edición inexistente no se vuelva 500.
+   */
+  async getEvaluationTracking(teamId?: number, jurorId?: string, editionId?: number) {
+    const edition = await resolveListEdition(this.prisma, editionId);
+    if (!edition) {
+      if (teamId) throw new NotFoundException('Equipo no encontrado o sin videojuego.');
+      return [];
+    }
+
     try {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
+          editionId: edition.id,
           ...(teamId ? { id: teamId } : {}),
           ...(jurorId
             ? {
@@ -837,6 +948,10 @@ export class JurorAssignmentService implements OnModuleInit {
               id: true,
               name: true,
             },
+          },
+          // ARK-140 (BG-25): el líder del equipo es `team.userId` (ARK-128).
+          user: {
+            select: { id: true, firstName: true, lastName: true, email: true },
           },
           assignedJurors: {
             where: {
@@ -930,6 +1045,14 @@ export class JurorAssignmentService implements OnModuleInit {
           teamCode: team.teamCode,
           videojuego: team.videogame?.name ?? null,
           nivel: extractTeamLevel(team.teamCode),
+          lider: team.user
+            ? {
+                id: team.user.id,
+                nombre:
+                  `${team.user.firstName ?? ''} ${team.user.lastName ?? ''}`.trim(),
+                email: team.user.email,
+              }
+            : null,
           totalJuradosAsignados: jurados.length,
           juradosQueEvaluaron,
           // [MODIFICADO]: Se ajustó el cálculo a 3 - juradosQueEvaluaron para reflejar que siempre se requieren 3 evaluaciones en total, independientemente de cuántos jurados estén asignados.

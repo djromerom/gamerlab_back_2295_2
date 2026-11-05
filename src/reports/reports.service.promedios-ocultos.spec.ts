@@ -12,6 +12,8 @@ describe('ReportsService — promedios por NRC y por materia con el ranking ocul
     nRC: { findMany: jest.fn() },
     videogame: { findMany: jest.fn() },
     subject: { findMany: jest.fn() },
+    // ARK-135: los reportes se calculan sobre la edición activa
+    edition: { findFirst: jest.fn().mockResolvedValue({ id: 3, title: 'Feria 3', status: 'ACTIVE' }) },
   };
   const settings = { isRankingVisible: jest.fn() };
   const service = new ReportsService(prisma as any, settings as any, blobRefsPassthrough());

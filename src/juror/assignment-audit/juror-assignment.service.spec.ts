@@ -18,6 +18,11 @@ describe('JurorAssignmentService - manual assignment module', () => {
     const prismaMock = {
         user: {
             findUnique: jest.fn(),
+            // ARK-131: participación en la edición activa (jurorsOfEdition)
+            findFirst: jest.fn(),
+        },
+        edition: {
+            findFirst: jest.fn(),
         },
         role: {
             findFirst: jest.fn(),
@@ -101,11 +106,25 @@ describe('JurorAssignmentService - manual assignment module', () => {
         assignedJurors: [],
     };
 
+    const activeEdition = {
+        id: 1,
+        title: 'Edición 1',
+        status: 'ACTIVE',
+        year: 2026,
+        semester: 2,
+        endsAt: null,
+    };
+
     beforeEach(() => {
         jest.clearAllMocks();
 
         validationPrismaMock.team.findMany.mockResolvedValue([]);
         validationPrismaMock.user.findMany.mockResolvedValue([]);
+        // Por defecto: la edición 1 es la activa y el evaluador participa en ella.
+        prismaMock.edition.findFirst.mockResolvedValue(activeEdition);
+        prismaMock.user.findFirst.mockImplementation(({ where }) =>
+            Promise.resolve({ id: where.id.in[0] }),
+        );
 
         service = new JurorAssignmentService(
             prismaMock as any,
@@ -788,6 +807,13 @@ describe('JurorAssignmentService - manual assignment module', () => {
     });
 
     it('debe devolver seguimiento de evaluaciones por equipo', async () => {
+        // ARK-132: el seguimiento se limita a la edición activa
+        (prismaMock as any).edition ??= { findFirst: jest.fn() };
+        (prismaMock as any).edition.findFirst.mockResolvedValueOnce({
+            id: 1,
+            title: 'Edición 1',
+            status: 'ACTIVE',
+        });
         prismaMock.team.findMany.mockResolvedValueOnce([
             {
                 id: n1Team.id,
@@ -835,6 +861,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
     describe('ARK-130 (HU-27): solo equipos de la edición activa', () => {
         const pastTeam = {
             ...n1Team,
+            editionId: 4,
             edition: { status: 'INACTIVE', title: 'Feria 4' },
             assignedJurors: [
                 {
@@ -867,6 +894,157 @@ describe('JurorAssignmentService - manual assignment module', () => {
                 service.unassign(juniorJuror.id, n1Team.id, actorUserId),
             ).rejects.toThrow(BadRequestException);
             expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+    });
+    describe('ARK-131 (BG-18): equipo y evaluador de la edición activa', () => {
+        const edition5 = { ...activeEdition, id: 5, title: 'Feria 5' };
+        const team4 = {
+            ...n1Team,
+            editionId: 4,
+            edition: { status: 'INACTIVE', title: 'Feria 4' },
+            assignedJurors: [
+                {
+                    id: juniorJuror.id,
+                    roleId: 4,
+                    jurorCategory: JurorCategory.JUNIOR,
+                    firstName: juniorJuror.firstName,
+                    lastName: juniorJuror.lastName,
+                    email: juniorJuror.email,
+                },
+            ],
+        };
+        const team5 = {
+            ...n1Team,
+            editionId: 5,
+            edition: { status: 'ACTIVE', title: 'Feria 5' },
+        };
+
+        const txReturning = (team: any) => ({
+            team: {
+                update: jest.fn().mockResolvedValue({}),
+                findUnique: jest.fn().mockResolvedValue({
+                    id: team.id,
+                    teamName: team.teamName,
+                    videogame: team.videogame,
+                    assignedJurors: [],
+                }),
+            },
+        });
+
+        beforeEach(() => {
+            prismaMock.edition.findFirst.mockResolvedValue(edition5);
+        });
+
+        const expectEditionReadOnly = async (promise: Promise<unknown>) => {
+            const error: any = await promise.catch((e) => e);
+            expect(error).toBeInstanceOf(BadRequestException);
+            expect(error.getResponse()).toMatchObject({
+                statusCode: 400,
+                code: 'EDITION_READ_ONLY',
+                blocker: 'TEAM_NOT_IN_ACTIVE_EDITION',
+                teamId: team4.id,
+            });
+            expect(error.message).toMatch(/N1-AYP-01.*«Feria 4».*solo lectura/);
+        };
+
+        it('asignar a un equipo de la edición 4 con la 5 activa responde 400 y no guarda', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce(team4);
+            await expectEditionReadOnly(
+                service.assign(seniorJuror.id, team4.id, actorUserId),
+            );
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+
+        it('reasignar y quitar en un equipo de la edición 4 también responden 400', async () => {
+            prismaMock.user.findUnique.mockResolvedValue(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValue(team4);
+            await expectEditionReadOnly(
+                service.reassign(juniorJuror.id, seniorJuror.id, team4.id, actorUserId),
+            );
+            await expectEditionReadOnly(
+                service.unassign(juniorJuror.id, team4.id, actorUserId),
+            );
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+
+        it('asignar a un equipo de la edición 5 (activa) guarda', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce(team5);
+            const tx = txReturning(team5);
+            prismaMock.$transaction.mockImplementation(async (cb) => cb(tx));
+
+            const result = await service.assign(seniorJuror.id, team5.id, actorUserId);
+
+            expect(result.message).toBe('Jurado asignado correctamente al equipo.');
+            expect(tx.team.update).toHaveBeenCalled();
+            // La participación se consulta con la definición única de HU-25 sobre la edición activa
+            const [{ where }] = prismaMock.user.findFirst.mock.calls[0];
+            expect(where.id).toEqual({ in: [seniorJuror.id] });
+            expect(JSON.stringify(where)).toContain('"editionId":5');
+        });
+
+        it('un evaluador que no participa en la edición activa no se puede asignar', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce(team5);
+            prismaMock.user.findFirst.mockResolvedValueOnce(null);
+
+            const error = await service
+                .assign(seniorJuror.id, team5.id, actorUserId)
+                .catch((e) => e);
+
+            expect(error).toBeInstanceOf(BadRequestException);
+            expect(error.getResponse()).toMatchObject({
+                code: 'EVALUATOR_NOT_IN_EDITION',
+                blocker: 'EVALUATOR_NOT_IN_EDITION',
+                jurorId: seniorJuror.id,
+            });
+            expect(error.message).toMatch(/no participa en «Feria 5»/);
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+
+        it('reasignar a un evaluador que no participa responde 400', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(seniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce({
+                ...team5,
+                assignedJurors: team4.assignedJurors,
+            });
+            prismaMock.user.findFirst.mockResolvedValueOnce(null);
+
+            await expect(
+                service.reassign(juniorJuror.id, seniorJuror.id, team5.id, actorUserId),
+            ).rejects.toThrow(/no participa/);
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        });
+
+        it('quitar a un evaluador que ya no participa sí se permite', async () => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(juniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce({
+                ...team5,
+                assignedJurors: team4.assignedJurors,
+            });
+            prismaMock.user.findFirst.mockResolvedValue(null);
+            const tx = txReturning(team5);
+            prismaMock.$transaction.mockImplementation(async (cb) => cb(tx));
+
+            const result = await service.unassign(
+                juniorJuror.id,
+                team5.id,
+                actorUserId,
+                true,
+            );
+
+            expect(result.message).toBe('Evaluador desasignado correctamente del equipo.');
+            expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
+        });
+
+        it('sin edición activa responde 404 NO_ACTIVE_EDITION', async () => {
+            prismaMock.edition.findFirst.mockResolvedValue(null);
+            const error = await service
+                .assign(seniorJuror.id, team5.id, actorUserId)
+                .catch((e) => e);
+            expect(error).toBeInstanceOf(NotFoundException);
+            expect(error.getResponse()).toMatchObject({ code: 'NO_ACTIVE_EDITION' });
         });
     });
 });

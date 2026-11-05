@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -8,7 +7,6 @@ import { JurorEditionStatus, JurorType, Prisma } from '@prisma/client';
 import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import {
   JUROR_ROLE_NAME,
-  PROFESSOR_ROLE_NAME,
   jurorCategoryLabel,
   jurorSelect,
 } from '../juror-badges/juror-label';
@@ -24,6 +22,7 @@ import {
   resolveEdition,
   toEditionSummary,
 } from './edition-resolver';
+import { assertEnrollable } from './juror-edition-enroll';
 import { buildPage } from './juror-edition-list';
 import {
   AUTOMATIC_STATUS,
@@ -33,7 +32,10 @@ import {
   StatusRowResult,
   UpdateStatusResult,
 } from './juror-edition.types';
-import { professorsOfEdition } from './jurors-of-edition';
+import {
+  enrollableAccountWhere,
+  professorsOfEdition,
+} from './jurors-of-edition';
 
 const STATUS_LABEL: Record<JurorEditionStatus, string> = {
   PENDING: 'Pendiente',
@@ -88,7 +90,11 @@ function toProfessorItem(professor: ListedJuror): EditionJurorItem {
   };
 }
 
-/** Jurados externos (rol Jurado) con cuenta activa. */
+/**
+ * Jurados externos (rol Jurado) con cuenta activa: solo para el *fallback* de `importPrevious`
+ * (edición anterior sin lista). Las filas de `jurado_edicion` se leen con
+ * `enrollableAccountWhere`, que desde HU-28 incluye a los profesores inscritos.
+ */
 const activeJurorWhere: Prisma.UserWhereInput = {
   isActive: true,
   role: { name: JUROR_ROLE_NAME },
@@ -106,7 +112,7 @@ export class JurorEditionService {
 
     const [rows, professors] = await Promise.all([
       this.prisma.jurorEdition.findMany({
-        where: { editionId: edition.id, juror: activeJurorWhere },
+        where: { editionId: edition.id, juror: enrollableAccountWhere() },
         select: enrolledRowSelect,
       }),
       this.prisma.user.findMany({
@@ -117,7 +123,8 @@ export class JurorEditionService {
 
     const items = new Map<string, EditionJurorItem>();
     for (const row of rows) items.set(row.juror.id, toEnrolledItem(row));
-    // Un profesor con NRC activo es automático aunque tenga una fila (no debería tenerla).
+    // Un profesor con NRC activo es automático aunque tenga una fila: pasa si lo inscribieron
+    // (HU-28) y después recibió un NRC. La fila queda sin efecto en la lista.
     for (const professor of professors) {
       items.set(professor.id, toProfessorItem(professor));
     }
@@ -129,8 +136,9 @@ export class JurorEditionService {
   }
 
   /**
-   * Trae como Pendientes a los confirmados de la edición anterior, sin duplicar. Si la anterior
-   * no tiene lista (ediciones previas a HU-25), trae a todos los jurados activos.
+   * Trae como Pendientes a los confirmados de la edición anterior (jurados y profesores inscritos,
+   * HU-28), sin duplicar. Si la anterior no tiene lista (ediciones previas a HU-25), trae a todos
+   * los jurados activos (solo rol Jurado).
    */
   async importPrevious(
     dto: EditionIdDto,
@@ -160,7 +168,7 @@ export class JurorEditionService {
           where: {
             editionId: previous.id,
             status: JurorEditionStatus.CONFIRMED,
-            juror: activeJurorWhere,
+            juror: enrollableAccountWhere(),
           },
           select: { jurorId: true, type: true },
         });
@@ -204,13 +212,15 @@ export class JurorEditionService {
       ).map((row) => row.jurorId),
     );
     const missing = ids.filter((id) => !enrolled.has(id));
+    // IS_PROFESSOR: profesor automático (NRC activo en la edición), que no se edita. Un profesor
+    // sin NRC y sin fila es NOT_ENROLLED: se inscribe por correo (HU-28).
     const professors = new Set(
       missing.length
         ? (
             await this.prisma.user.findMany({
               where: {
+                ...professorsOfEdition(edition.id),
                 id: { in: missing },
-                role: { name: PROFESSOR_ROLE_NAME },
               },
               select: { id: true },
             })
@@ -273,7 +283,10 @@ export class JurorEditionService {
     return { results, declined };
   }
 
-  /** Inscribe ya confirmado a un jurado con cuenta que no estuvo en la edición anterior. */
+  /**
+   * Inscribe ya confirmado a un jurado con cuenta que no estuvo en la edición anterior, o a un
+   * profesor senior sin NRC activo en la edición (HU-28; reglas en `assertEnrollable`).
+   */
   async enroll(
     dto: EnrollJurorDto,
     actorId: string,
@@ -289,13 +302,7 @@ export class JurorEditionService {
         'No existe una cuenta activa con ese correo. Créela en Personal → Jurados y luego inscríbala aquí.',
       );
     }
-    if (user.role.name !== JUROR_ROLE_NAME) {
-      throw new BadRequestException(
-        user.role.name === PROFESSOR_ROLE_NAME
-          ? 'Los profesores no se inscriben: son jurados de la edición si tienen un NRC activo en ella'
-          : 'La cuenta no tiene el rol Jurado',
-      );
-    }
+    await assertEnrollable(this.prisma, user, edition.id);
 
     const existing = await this.prisma.jurorEdition.findUnique({
       where: { jurorId_editionId: { jurorId: user.id, editionId: edition.id } },

@@ -613,6 +613,14 @@
         "createdAt": "2026-11-03T06:00:00.000Z",
         "updatedAt": "2026-11-03T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 63,
+        "name": "VIEW_JUROR_ATTENDANCE",
+        "description": "Permite ver qué jurados de la edición activa llegaron y cuáles faltan (solo lectura)",
+        "createdAt": "2026-11-05T06:00:00.000Z",
+        "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1248,6 +1256,16 @@
         "createdAt": "2026-11-03T06:00:00.000Z",
         "updatedAt": "2026-11-03T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 64,
+        "name": "ViewJurorAttendance",
+        "description": "Ver la asistencia de los jurados de la edición activa (presentes y faltantes)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-05T06:00:00.000Z",
+        "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1701,6 +1719,13 @@
         "createdAt": "2026-11-03T06:00:00.000Z",
         "updatedAt": "2026-11-03T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 64,
+        "permissionId": 63,
+        "createdAt": "2026-11-05T06:00:00.000Z",
+        "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1929,6 +1954,13 @@
         "permissionId": 59,
         "createdAt": "2026-11-01T12:00:00.000Z",
         "updatedAt": "2026-11-01T12:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 5,
+        "permissionId": 63,
+        "createdAt": "2026-11-05T06:00:00.000Z",
+        "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
       }
     ]

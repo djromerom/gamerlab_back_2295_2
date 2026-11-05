@@ -3,9 +3,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VideogameResponseDto } from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
-import { ForbiddenException } from '@nestjs/common';
 import { BlobReferenceService } from '../upload/blob-reference.service';
-import { ACTIVE_EDITION_CONFIG_WHERE } from '../settings/active-edition-config';
+import { assertEvaluationsOpen } from '../settings/active-edition-config';
+import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { jurorEvaluationsOf } from '../evaluation/juror-evaluation';
+
+/**
+ * ARK-132 (BG-19): el jurado solo ve lo que calificó en la edición activa (por el equipo del
+ * juego), no sus calificaciones de ferias pasadas.
+ * ARK-147 (BG-31): solo sus evaluaciones de jurado; la nota del profesor a sus NRC no cuenta.
+ */
+function gradedInActiveEdition(jurorId: string): Prisma.EvaluationWhereInput {
+  return {
+    ...jurorEvaluationsOf(jurorId),
+    videogame: { team: { edition: ACTIVE_EDITION_WHERE } },
+  };
+}
 
 
 @Injectable()
@@ -14,13 +27,9 @@ export class GradedGamesService {
     private readonly prisma: PrismaService,
     private readonly blobRefs: BlobReferenceService,
   ) {}
-  private async checkEvaluationsOpen() {
-    const config = await this.prisma.eventConfiguration.findFirst({
-      where: ACTIVE_EDITION_CONFIG_WHERE,
-    });
-    if (!config?.evaluationsOpen) {
-      throw new ForbiddenException('Las evaluaciones no están habilitadas en este momento.');
-    }
+  /** ARK-134: interruptor de la edición activa (nunca la fila de otra edición). */
+  private checkEvaluationsOpen() {
+    return assertEvaluationsOpen(this.prisma);
   }
 
   // Búsqueda flexible de juegos calificados
@@ -32,7 +41,7 @@ export class GradedGamesService {
 
     // Obtener evaluaciones del jurado
     const evaluations = await this.prisma.evaluation.findMany({
-      where: { jurorId },
+      where: gradedInActiveEdition(jurorId),
       select: {
         videogameId: true,
         totalScore: true,
@@ -139,7 +148,7 @@ export class GradedGamesService {
   ): Promise<PaginatedResult<VideogameResponseDto>> {
     await this.checkEvaluationsOpen();
     const evaluations = await this.prisma.evaluation.findMany({
-      where: { jurorId },
+      where: gradedInActiveEdition(jurorId),
       select: {
         videogameId: true,
         totalScore: true,
@@ -229,7 +238,7 @@ export class GradedGamesService {
   async getGradedVideogamesCount(jurorId: string): Promise<number> {
     await this.checkEvaluationsOpen();
     const evaluations = await this.prisma.evaluation.findMany({
-      where: { jurorId },
+      where: gradedInActiveEdition(jurorId),
       select: { videogameId: true },
     });
     return evaluations.length;
@@ -244,7 +253,7 @@ export class GradedGamesService {
     }
 
     const evaluations = await this.prisma.evaluation.findMany({
-      where: { jurorId },
+      where: gradedInActiveEdition(jurorId),
       select: { videogameId: true },
     });
     const evaluatedIds = evaluations.map((e) => e.videogameId);
