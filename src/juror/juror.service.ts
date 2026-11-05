@@ -14,6 +14,7 @@ import {
   NO_ACTIVE_EDITION_MESSAGE,
 } from '../editions/active-edition';
 import { resolveListEdition } from '../editions/list-edition';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import {
@@ -248,22 +249,30 @@ export class JurorService {
   /**
    * ARK-132 (BG-19): las cuentas de jurado son globales; los conteos de evaluados y pendientes son
    * de la edición pedida o, por defecto, de la activa (sin edición activa, en cero).
+   *
+   * ARK-140 (BG-25): con `participating`, solo los evaluadores de esa edición según HU-25
+   * (`jurorsOfEdition`: jurados Confirmados y profesores con NRC activo; sin Pendientes ni
+   * Declinados), y `jurorType` es el de la edición (`jurado_edicion.tipo`). Es la lista de la
+   * pantalla de asignación; Personal → Jurados sigue viendo a todos.
    */
   async findAll(
     includeInactive: boolean,
     limit: number,
     page: number,
     editionId?: number,
+    participating = false,
   ): Promise<PaginatedResult<JurorListItem>> {
     const offset = (page - 1) * limit;
     // -1: sin edición activa no hay evaluaciones ni equipos que contar
     const statsEditionId = (await this.listEditionId(editionId)) ?? -1;
 
     // Se ha modificado esta variable para incluir tanto a jurados como a profesores en el listado
-    const whereClause: Prisma.UserWhereInput = {
-      isActive: true,
-      OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
-    };
+    const whereClause: Prisma.UserWhereInput = participating
+      ? jurorsOfEdition(statsEditionId)
+      : {
+          isActive: true,
+          OR: [{ roleId: this.jurorRoleId }, { roleId: this.professorRoleId }],
+        };
 
     const [users, total, allGames] = await this.prisma.$transaction([
       this.prisma.user.findMany({
@@ -276,13 +285,19 @@ export class JurorService {
             where: { editionId: statsEditionId },
             select: { videogame: { select: { id: true, name: true } } },
           },
+          jurorEditions: {
+            where: { editionId: statsEditionId },
+            select: { type: true },
+          },
         },
       }),
       this.prisma.user.count({ where: whereClause }),
+      // ARK-140: la carga cuenta todos los equipos asignados de la edición, también los de
+      // profesores (antes solo los equipos que tenían algún jurado externo).
       this.prisma.team.findMany({
         where: {
+          isActive: true,
           editionId: statsEditionId,
-          assignedJurors: { some: { roleId: this.jurorRoleId } },
           videogame: { isNot: null },
         },
         select: {
@@ -304,7 +319,12 @@ export class JurorService {
       const evaluated = user.evaluationsSubmitted.map((e) => e.videogame.name);
       const assigned = gameMap.get(user.id) || [];
       const unevaluated = assigned.filter((name) => !evaluated.includes(name));
-      return this.mapToJurorListItem(user, evaluated, unevaluated);
+      const item = this.mapToJurorListItem(user, evaluated, unevaluated);
+      // El tipo de la edición manda (HU-25); los profesores no tienen fila y conservan el suyo.
+      if (participating && user.jurorEditions[0]) {
+        item.jurorType = user.jurorEditions[0].type;
+      }
+      return item;
     });
 
     return {
@@ -484,28 +504,25 @@ export class JurorService {
     return filtered;
   }
 
-  /** ARK-132 (BG-19): jurados con sus equipos de la edición pedida o, por defecto, la activa. */
+  /**
+   * ARK-132 (BG-19): jurados con sus equipos de la edición pedida o, por defecto, la activa.
+   * ARK-140 (BG-25): los evaluadores son los de esa edición (`jurorsOfEdition`, la misma lista
+   * que la asignación): jurados Confirmados y profesores con NRC activo.
+   */
   async getEvaluatorsWithTeams(editionId?: number): Promise<any[]> {
     const listEditionId = await this.listEditionId(editionId);
     if (listEditionId === null) return [];
+    const evaluatorsOfEdition = jurorsOfEdition(listEditionId);
     try {
       const teams = await this.prisma.team.findMany({
         where: {
           isActive: true,
           editionId: listEditionId,
-          assignedJurors: {
-            some: {
-              isActive: true,
-              roleId: this.jurorRoleId,
-            },
-          },
+          assignedJurors: { some: evaluatorsOfEdition },
         },
         include: {
           assignedJurors: {
-            where: {
-              isActive: true,
-              roleId: this.jurorRoleId,
-            },
+            where: evaluatorsOfEdition,
             select: {
               id: true,
               firstName: true,

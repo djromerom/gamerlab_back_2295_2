@@ -949,6 +949,10 @@ export class JurorAssignmentService implements OnModuleInit {
               name: true,
             },
           },
+          // ARK-140 (BG-25): el líder del equipo es `team.userId` (ARK-128).
+          user: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
           assignedJurors: {
             where: {
               isActive: true,
@@ -1041,6 +1045,14 @@ export class JurorAssignmentService implements OnModuleInit {
           teamCode: team.teamCode,
           videojuego: team.videogame?.name ?? null,
           nivel: extractTeamLevel(team.teamCode),
+          lider: team.user
+            ? {
+                id: team.user.id,
+                nombre:
+                  `${team.user.firstName ?? ''} ${team.user.lastName ?? ''}`.trim(),
+                email: team.user.email,
+              }
+            : null,
           totalJuradosAsignados: jurados.length,
           juradosQueEvaluaron,
           // [MODIFICADO]: Se ajustó el cálculo a 3 - juradosQueEvaluaron para reflejar que siempre se requieren 3 evaluaciones en total, independientemente de cuántos jurados estén asignados.

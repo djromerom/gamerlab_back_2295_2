@@ -66,4 +66,34 @@ describe('JurorAssignmentService.getEvaluationTracking por edición (ARK-132)', 
 
     await expect(service.getEvaluationTracking(12)).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  // ARK-140 (BG-25): la pantalla mostraba «Sin líder» porque esta respuesta no lo traía
+  it('cada equipo trae su líder (team.userId)', async () => {
+    prisma.edition.findFirst.mockResolvedValue({ id: 5, title: 'Feria 5', status: 'ACTIVE' });
+    prisma.team.findMany.mockResolvedValue([
+      {
+        id: 7,
+        teamName: 'Equipo 7',
+        teamCode: 'N1-07',
+        videogame: { id: 70, name: 'Juego 7' },
+        user: { id: 'lider-7', firstName: 'Ana', lastName: 'Gómez', email: 'ana@uninorte.edu.co' },
+        assignedJurors: [],
+      },
+    ]);
+
+    const [team] = await service.getEvaluationTracking();
+
+    expect(prisma.team.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        }),
+      }),
+    );
+    expect(team.lider).toEqual({
+      id: 'lider-7',
+      nombre: 'Ana Gómez',
+      email: 'ana@uninorte.edu.co',
+    });
+  });
 });

@@ -110,9 +110,17 @@ export class JurorController {
     description:
       'ARK-132: edición de los conteos de evaluados y pendientes. Por defecto, la edición activa (sin edición activa, en cero). 404 si la edición no existe.',
   })
+  @ApiQuery({
+    name: 'participating',
+    required: false,
+    type: Boolean,
+    description:
+      'ARK-140: con `true`, solo los evaluadores de la edición (HU-25: jurados Confirmados y profesores con NRC activo; sin Pendientes ni Declinados), con el tipo Oficial/Suplente de la edición. Es la lista de la asignación de jurados. Por defecto `false`: todas las cuentas de jurado y profesor.',
+  })
   findAll(
     @Query() query: PaginationQueryDto,
     @Query('editionId') editionIdParam?: string,
+    @Query('participating') participatingParam?: string,
   ): Promise<PaginatedResult<JurorListItem>> {
     const { includeInactive, limit, page } = query;
     return this.jurorService.findAll(
@@ -120,6 +128,7 @@ export class JurorController {
       limit,
       page,
       editionIdQuery(editionIdParam),
+      participatingQuery(participatingParam),
     );
   }
 
@@ -465,4 +474,11 @@ export class JurorController {
   async softdelete(@Param('id') id: string): Promise<void> {
     await this.jurorService.remove(id);
   }
+}
+
+/** ARK-140: `participating` de `GET /juror` (`true`/`false`; vacío = `false`). */
+function participatingQuery(raw?: string): boolean {
+  if (raw === undefined || raw === '' || raw === 'false') return false;
+  if (raw === 'true') return true;
+  throw new BadRequestException('participating debe ser true o false');
 }

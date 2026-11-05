@@ -671,16 +671,112 @@ describe('JurorService', () => {
       await service.findAll(false, 10, 1);
       expect(prismaMock.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          include: {
+          include: expect.objectContaining({
             evaluationsSubmitted: expect.objectContaining({
               where: { editionId: activeEdition.id },
             }),
-          },
+          }),
         }),
       );
       expect(prismaMock.team.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ editionId: activeEdition.id }),
+        }),
+      );
+    });
+  });
+
+  // ARK-140 (BG-25): la asignación usa la lista de la edición (HU-25)
+  describe('lista de jurados de la edición (ARK-140)', () => {
+    const editionWhere = expect.objectContaining({
+      isActive: true,
+      OR: [
+        expect.objectContaining({
+          role: { name: 'Jurado' },
+          jurorEditions: {
+            some: { editionId: activeEdition.id, status: 'CONFIRMED' },
+          },
+        }),
+        expect.objectContaining({
+          role: { name: 'Profesor' },
+          managedNrcs: { some: { editionId: activeEdition.id, isActive: true } },
+        }),
+      ],
+    });
+
+    it('findAll con participating filtra por jurorsOfEdition y usa el tipo de la edición', async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        {
+          ...baseJuror,
+          jurorType: JurorType.OFFICIAL,
+          evaluationsSubmitted: [],
+          jurorEditions: [{ type: JurorType.BACKUP }],
+        },
+        {
+          ...baseJuror,
+          id: 'prof-1',
+          roleId: professorRoleId,
+          jurorType: null,
+          evaluationsSubmitted: [],
+          jurorEditions: [],
+        },
+      ]);
+      prismaMock.user.count.mockResolvedValueOnce(2);
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.findAll(false, 10, 1, undefined, true);
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: editionWhere }),
+      );
+      expect(prismaMock.user.count).toHaveBeenCalledWith({ where: editionWhere });
+      expect(result.data.map((j) => j.jurorType)).toEqual([JurorType.BACKUP, null]);
+    });
+
+    it('findAll sin participating conserva todas las cuentas de jurado y profesor', async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { ...baseJuror, jurorType: JurorType.OFFICIAL, evaluationsSubmitted: [], jurorEditions: [{ type: JurorType.BACKUP }] },
+      ]);
+      prismaMock.user.count.mockResolvedValueOnce(1);
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.findAll(false, 10, 1);
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            isActive: true,
+            OR: [{ roleId: jurorRoleId }, { roleId: professorRoleId }],
+          },
+        }),
+      );
+      expect(result.data[0].jurorType).toBe(JurorType.OFFICIAL);
+    });
+
+    it('la carga de findAll cuenta equipos con solo profesores asignados', async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([]);
+      prismaMock.user.count.mockResolvedValueOnce(0);
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+      await service.findAll(false, 10, 1);
+      const where = prismaMock.team.findMany.mock.calls[0][0].where;
+      expect(where).toEqual({
+        isActive: true,
+        editionId: activeEdition.id,
+        videogame: { isNot: null },
+      });
+    });
+
+    it('getEvaluatorsWithTeams toma a los evaluadores de jurorsOfEdition', async () => {
+      prismaMock.team.findMany.mockResolvedValueOnce([]);
+      await service.getEvaluatorsWithTeams();
+      expect(prismaMock.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            assignedJurors: { some: editionWhere },
+          }),
+          include: expect.objectContaining({
+            assignedJurors: expect.objectContaining({ where: editionWhere }),
+          }),
         }),
       );
     });
