@@ -17,6 +17,7 @@ import { resolveListEdition } from '../editions/list-edition';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import {
+  JurorCategory,
   ManualJurorAssignmentAction,
   Prisma,
   Role,
@@ -29,6 +30,7 @@ import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment
 import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { JurorListItem } from './types/juror-list-item.type';
+import { PROFESSOR_MUST_BE_SENIOR_MESSAGE } from '../professors/professor-juror-profile';
 
 @Injectable()
 export class JurorService {
@@ -128,6 +130,7 @@ export class JurorService {
       lastSignInAt: user.lastSignInAt,
       jurorCategory: user.jurorCategory,
       jurorType: user.jurorType,
+      isProfessor: user.roleId === this.professorRoleId,
       evaluatedCount: evaluatedNames.length,
       evaluatedGameNames: evaluatedNames,
       unevaluatedCount: unevaluatedNames.length,
@@ -329,8 +332,30 @@ export class JurorService {
     return user;
   }
 
+  /**
+   * La tabla de jurados lista jurados y profesores, así que ambos se editan desde ahí (ARK-139).
+   * findOne sigue siendo solo para jurados (GET y DELETE /juror/:id no cambian).
+   */
+  private async findEditableEvaluator(id: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    const isEvaluator =
+      user?.roleId === this.jurorRoleId ||
+      user?.roleId === this.professorRoleId;
+    if (!user || !isEvaluator || !user.isActive) {
+      throw new NotFoundException('Juror not found or inactive.');
+    }
+    return user;
+  }
+
   async update(id: string, dto: UpdateJurorDto): Promise<JurorListItem> {
-    const juror = await this.findOne(id);
+    const juror = await this.findEditableEvaluator(id);
+    if (
+      juror.roleId === this.professorRoleId &&
+      dto.jurorCategory !== undefined &&
+      dto.jurorCategory !== JurorCategory.SENIOR
+    ) {
+      throw new BadRequestException(PROFESSOR_MUST_BE_SENIOR_MESSAGE);
+    }
 
     const email = dto.email?.trim().toLowerCase();
     if (email) {
