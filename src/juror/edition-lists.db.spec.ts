@@ -106,6 +106,14 @@ maybe('Listas por edición: equipos, jurados y panel del jurado (BD real)', () =
     ids.current = (await edition(30)).id;
     ids.juror = await user('jurado', 'Jurado');
     ids.professor = await user('profesor', 'Profesor');
+    // ARK-140: los listados con equipos usan `jurorsOfEdition`; el jurado está confirmado en las dos
+    await prisma.jurorEdition.createMany({
+      data: [ids.previous, ids.current].map((editionId) => ({
+        jurorId: ids.juror,
+        editionId,
+        status: 'CONFIRMED',
+      })),
+    });
 
     // Edición anterior: un equipo calificado por el jurado y por el profesor
     await team('P', ids.previous, [ids.juror]);
@@ -154,6 +162,7 @@ maybe('Listas por edición: equipos, jurados y panel del jurado (BD real)', () =
       await prisma.evaluation.deleteMany({
         where: { videogameId: { in: Object.values(ids.games) } },
       });
+      await prisma.jurorEdition.deleteMany({ where: { jurorId: { in: ids.users } } });
       await prisma.team.deleteMany({ where: { id: { in: ids.teams } } });
       await prisma.user.deleteMany({ where: { id: { in: ids.users } } });
       await prisma.edition.deleteMany({
