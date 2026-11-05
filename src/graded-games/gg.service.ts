@@ -6,14 +6,16 @@ import { Prisma } from '@prisma/client';
 import { BlobReferenceService } from '../upload/blob-reference.service';
 import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { jurorEvaluationsOf } from '../evaluation/juror-evaluation';
 
 /**
  * ARK-132 (BG-19): el jurado solo ve lo que calificó en la edición activa (por el equipo del
  * juego), no sus calificaciones de ferias pasadas.
+ * ARK-147 (BG-31): solo sus evaluaciones de jurado; la nota del profesor a sus NRC no cuenta.
  */
 function gradedInActiveEdition(jurorId: string): Prisma.EvaluationWhereInput {
   return {
-    jurorId,
+    ...jurorEvaluationsOf(jurorId),
     videogame: { team: { edition: ACTIVE_EDITION_WHERE } },
   };
 }
