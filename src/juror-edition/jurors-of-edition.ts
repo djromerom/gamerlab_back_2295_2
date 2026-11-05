@@ -5,10 +5,26 @@ import {
 } from '../juror-badges/juror-label';
 
 /**
+ * Roles que pueden tener fila en `jurado_edicion` (HU-25 + HU-28): el jurado externo y el
+ * profesor senior que no tiene NRC en la edición (P-07: todo profesor es senior).
+ */
+export const ENROLLABLE_ROLE_NAMES: readonly string[] = [
+  JUROR_ROLE_NAME,
+  PROFESSOR_ROLE_NAME,
+];
+
+/** Cuentas activas que se pueden inscribir en una edición (Jurado o Profesor). */
+export function enrollableAccountWhere(): Prisma.UserWhereInput {
+  return { isActive: true, role: { name: { in: [...ENROLLABLE_ROLE_NAMES] } } };
+}
+
+/**
  * HU-25: la ÚNICA definición de "jurado de una edición". Devuelve un filtro de Prisma sobre
  * `User` que se combina con cualquier `where` (escarapelas, check-in, asignación, reportes):
  *
- * - jurados externos (rol Jurado) **confirmados** en la edición (`jurado_edicion`), y
+ * - cuentas inscritas y **confirmadas** en la edición (`jurado_edicion`): jurados externos
+ *   (rol Jurado) y, desde HU-28, profesores senior sin NRC en la edición inscritos por correo
+ *   (rol Profesor), y
  * - profesores con al menos un NRC **activo** en la edición (automáticos, sin confirmación).
  *
  * Siempre exige la cuenta activa. Quien solo tiene NRC de otra edición, o está Pendiente o
@@ -30,7 +46,7 @@ export function jurorsOfEdition(
     ...(ids ? { id: { in: ids } } : {}),
     OR: [
       {
-        role: { name: JUROR_ROLE_NAME },
+        role: { name: { in: [...ENROLLABLE_ROLE_NAMES] } },
         jurorEditions: {
           some: { editionId, status: JurorEditionStatus.CONFIRMED },
         },

@@ -54,7 +54,7 @@ describe('JurorEditionService (HU-25)', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
     },
-    user: { findMany: jest.fn() },
+    user: { findMany: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(),
   };
 
@@ -129,7 +129,10 @@ describe('JurorEditionService (HU-25)', () => {
         callArg<{ where: unknown }>(prisma.jurorEdition.findMany).where,
       ).toEqual({
         editionId: 5,
-        juror: { isActive: true, role: { name: 'Jurado' } },
+        juror: {
+          isActive: true,
+          role: { name: { in: ['Jurado', 'Profesor'] } },
+        },
       });
     });
 
@@ -185,7 +188,10 @@ describe('JurorEditionService (HU-25)', () => {
       ).toEqual({
         editionId: 4,
         status: 'CONFIRMED',
-        juror: { isActive: true, role: { name: 'Jurado' } },
+        juror: {
+          isActive: true,
+          role: { name: { in: ['Jurado', 'Profesor'] } },
+        },
       });
       const createArg = callArg<{ data: unknown[]; skipDuplicates: boolean }>(
         prisma.jurorEdition.createMany,
@@ -305,10 +311,12 @@ describe('JurorEditionService (HU-25)', () => {
         callArg<{ data: object }>(prisma.jurorEdition.update, 1).data,
       ).toEqual({ status: 'DECLINED', updatedById: ACTOR });
       expect(prisma.jurorEdition.updateMany).not.toHaveBeenCalled();
-      // Solo se consulta el rol de los que no están inscritos.
+      // Solo se busca entre los no inscritos a los profesores automáticos de la edición.
       expect(callArg<{ where: unknown }>(prisma.user.findMany).where).toEqual({
-        id: { in: ['prof', 'nadie'] },
+        isActive: true,
         role: { name: 'Profesor' },
+        managedNrcs: { some: { editionId: 5, isActive: true } },
+        id: { in: ['prof', 'nadie'] },
       });
     });
 
@@ -418,14 +426,7 @@ describe('JurorEditionService (HU-25)', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('400 si la cuenta es de un profesor o de otro rol', async () => {
-      prisma.user.findMany.mockResolvedValue([
-        { ...user, role: { name: 'Profesor' } },
-      ]);
-      await expect(
-        service.enroll({ email: 'ana@empresa.com' }, ACTOR),
-      ).rejects.toThrow(/profesores no se inscriben/);
-
+    it('400 si la cuenta no es de rol Jurado ni Profesor', async () => {
       prisma.user.findMany.mockResolvedValue([
         { ...user, role: { name: 'Estudiante' } },
       ]);
