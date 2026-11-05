@@ -43,6 +43,8 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
     'Solo el Administrador (AdminRoleGuard): decisiones de desempate registradas (HU-04).',
   'POST /ranking/finalize':
     'Solo el Administrador (AdminRoleGuard): define el ranking final (HU-04).',
+  'GET /students':
+    'Solo el Administrador (AdminRoleGuard): evaluaciones individuales del equipo. El estudiante recibe 403 y ve solo la nota final (HU-30, ARK-154).',
 };
 
 /**

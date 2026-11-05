@@ -1,4 +1,5 @@
 // src/teams/services/teams.service.ts
+import { withoutScoreBreakdown } from '../final-score-breakdown';
 import {
   Injectable,
   Logger,
@@ -157,7 +158,12 @@ export class TeamsService {
       );
 
       if (!missingTeamName && !missingLogo) {
-        return this.signRankingLogos(await this.ranking.orderRows(rows, activeEdition.id));
+        return withoutScoreBreakdown(
+          await this.signRankingLogos(
+            await this.ranking.orderRows(rows, activeEdition.id),
+          ),
+          user,
+        );
       }
 
       const teamIds = Array.from(
@@ -231,7 +237,12 @@ export class TeamsService {
         return rr;
       });
 
-      return this.signRankingLogos(await this.ranking.orderRows(enrichedRows, activeEdition.id));
+      return withoutScoreBreakdown(
+        await this.signRankingLogos(
+          await this.ranking.orderRows(enrichedRows, activeEdition.id),
+        ),
+        user,
+      );
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);
       throw new InternalServerErrorException('Failed to fetch final scores by prefix');
@@ -646,6 +657,9 @@ export class TeamsService {
   }
 
   /**
+   * ARK-154 (HU-30): las tres rutas `final-score/*` quitan `avgJunior` y `avgSenior` a quien no
+   * es Administrador, Profesor ni Jurado (`withoutScoreBreakdown`).
+   *
    * Con `showRanking=false` solo el Administrador puede ver las notas finales.
    * `by-n/:n` también pasa por aquí, pero convierte el Forbidden en `[]` (su contrato).
    */
@@ -664,11 +678,10 @@ export class TeamsService {
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return this.signRankingLogos(await client.findMany({
-      where: {
-        videogameId,
-      },
-    }));
+    return withoutScoreBreakdown(
+      await this.signRankingLogos(await client.findMany({ where: { videogameId } })),
+      user,
+    );
   }
 
   async getFinalScoreByTeam(teamId: number, user?: AppUser): Promise<any[] | null> {
@@ -679,11 +692,10 @@ export class TeamsService {
 
     const client: any = (this.prisma as any).teamFinalScore;
 
-    return this.signRankingLogos(await client.findMany({
-      where: {
-        teamId,
-      },
-    }));
+    return withoutScoreBreakdown(
+      await this.signRankingLogos(await client.findMany({ where: { teamId } })),
+      user,
+    );
   }
 
   /** Igual que `findAll`, paginado; incluye `edition` (con `readOnly`) para el selector del admin. */
