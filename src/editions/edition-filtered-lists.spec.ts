@@ -117,6 +117,9 @@ describe('Panel del jurado: solo la edición activa', () => {
     for (const [arg] of prisma.evaluation.findMany.mock.calls) {
       expect(arg.where).toEqual({
         jurorId: 'j1',
+        isActive: true,
+        // ARK-147: solo evaluaciones de jurado (con detalles), no la nota del NRC
+        details: { some: {} },
         videogame: { team: { edition: { status: 'ACTIVE' } } },
       });
     }
@@ -148,7 +151,12 @@ describe('GET /professors/juror-evaluations', () => {
     const result = await service.getJurorEvaluations('p1', 20, 1);
     expect(prisma.evaluation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { jurorId: 'p1', videogame: { team: { editionId: 5 } } },
+        where: {
+          jurorId: 'p1',
+          isActive: true,
+          details: { some: {} },
+          videogame: { team: { editionId: 5 } },
+        },
       }),
     );
     expect(result.edition).toEqual({ ...ACTIVE, readOnly: false });
@@ -160,7 +168,12 @@ describe('GET /professors/juror-evaluations', () => {
     const result = await service.getJurorEvaluations('p1', 20, 1, 4);
     expect(prisma.evaluation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { jurorId: 'p1', videogame: { team: { editionId: 4 } } },
+        where: {
+          jurorId: 'p1',
+          isActive: true,
+          details: { some: {} },
+          videogame: { team: { editionId: 4 } },
+        },
       }),
     );
     expect(result.edition).toMatchObject({ id: 4, readOnly: true });
@@ -172,7 +185,12 @@ describe('GET /professors/juror-evaluations', () => {
     const result = await service.getJurorEvaluations('p1', 20, 1);
     expect(prisma.evaluation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { jurorId: 'p1', videogame: { team: { editionId: -1 } } },
+        where: {
+          jurorId: 'p1',
+          isActive: true,
+          details: { some: {} },
+          videogame: { team: { editionId: -1 } },
+        },
       }),
     );
     expect(result).toMatchObject({ edition: null, data: [], metadata: { totalItems: 0 } });

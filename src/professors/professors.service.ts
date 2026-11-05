@@ -1,4 +1,5 @@
 import { findUsersByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
+import { jurorEvaluationsOf } from '../evaluation/juror-evaluation';
 import {
   Injectable,
   NotFoundException,
@@ -474,9 +475,10 @@ export class ProfessorsService {
 
     // Obtener evaluaciones donde el profesor es el jurado, de equipos universitarios
     // (-1: sin edición activa no hay equipos)
+    // ARK-147: solo evaluaciones de jurado (con detalles), no la nota del profesor a sus NRC
     const evaluations = await this.prisma.evaluation.findMany({
       where: {
-        jurorId: professorId,
+        ...jurorEvaluationsOf(professorId),
         videogame: { team: { editionId: edition?.id ?? -1 } },
       },
       select: {

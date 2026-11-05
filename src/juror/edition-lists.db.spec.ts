@@ -95,10 +95,21 @@ maybe('Listas por edición: equipos, jurados y panel del jurado (BD real)', () =
     ids.games[key] = created.videogame!.id;
   };
 
-  const evaluate = (jurorId: string, key: string, editionId: number) =>
-    prisma.evaluation.create({
-      data: { jurorId, videogameId: ids.games[key], editionId, totalScore: 4 },
+  // ARK-147: una evaluación de jurado siempre trae sus detalles por criterio
+  const evaluate = async (jurorId: string, key: string, editionId: number) => {
+    const criterion = await prisma.criterion.findFirstOrThrow({
+      where: { isActive: true },
     });
+    return prisma.evaluation.create({
+      data: {
+        jurorId,
+        videogameId: ids.games[key],
+        editionId,
+        totalScore: 4,
+        details: { create: [{ criterionId: criterion.id, score: 4 }] },
+      },
+    });
+  };
 
   beforeAll(async () => {
     await prisma.$connect();
