@@ -294,8 +294,9 @@ export class StudentsService {
         const videogameId = team.videogame?.id ?? null;
         const jurorIds = team.assignedJurors.map((j) => j.id);
 
-        // 2. Obtener las evaluaciones de esos jurados para el videojuego del equipo
-        let evaluationsMap = new Map<string, number | null>();
+        // 2. Qué jurados ya evaluaron el videojuego del equipo.
+        // ARK-154 (HU-30): solo si evaluó, nunca la nota que puso (el estudiante ve solo la nota final).
+        const evaluatedJurorIds = new Set<string>();
 
         if (videogameId && jurorIds.length > 0) {
             const evaluations = await this.prisma.evaluation.findMany({
@@ -304,36 +305,25 @@ export class StudentsService {
                     videogameId,
                     jurorId: { in: jurorIds },
                 },
-                select: {
-                    jurorId: true,
-                    totalScore: true,
-                },
+                select: { jurorId: true },
             });
 
             for (const ev of evaluations) {
-                evaluationsMap.set(ev.jurorId, ev.totalScore);
+                evaluatedJurorIds.add(ev.jurorId);
             }
         }
 
         // 3. Armar la respuesta
         return team.assignedJurors.map((juror) => {
             const roleName = juror.role?.name ?? '';
-            let categoria: string;
-            if (roleName === 'Profesor') {
-                categoria = 'PROFESOR';
-            } else {
-                categoria = juror.jurorCategory ?? 'SIN_CATEGORIA';
-            }
-
-            const hasEvaluation = evaluationsMap.has(juror.id);
-            const totalScore = hasEvaluation ? evaluationsMap.get(juror.id) : null;
+            const categoria =
+                roleName === 'Profesor' ? 'PROFESOR' : (juror.jurorCategory ?? 'SIN_CATEGORIA');
 
             return {
                 id: juror.id,
                 nombre: `${juror.firstName ?? ''} ${juror.lastName ?? ''}`.trim(),
                 categoria,
-                totalScore: hasEvaluation ? totalScore : null,
-                haEvaluado: hasEvaluation,
+                haEvaluado: evaluatedJurorIds.has(juror.id),
             };
         });
     }

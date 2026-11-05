@@ -16,6 +16,7 @@ import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { AppUser } from 'src/auth/jwt.strategy';
 import { EditNrcDto } from './dto/editNrc.dto';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { AdminRoleGuard } from 'src/auth/guards/admin-role.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { EditionStudentsService } from './edition-students.service';
@@ -69,9 +70,16 @@ export class StudentsController {
     return this.editionStudentsService.list(query);
   }
 
+  // ARK-154 (HU-30): el estudiante ve solo la nota final de su grupo, no cada evaluación
+  // (puntaje, comentario y criterios). Antes era `MyEvaluations` (solo Estudiante): ahora el
+  // estudiante recibe 403 y queda solo para el Administrador.
   @Get()
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('MyEvaluations')
+  @UseGuards(AdminRoleGuard)
+  @ApiOperation({
+    summary: 'Evaluaciones individuales del equipo (solo Administrador)',
+    description:
+      'ARK-154 (HU-30): el estudiante recibe 403. Su nota es solo la final: GET /teams/final-score/team/:teamId.',
+  })
   findAll(
     @GetUser('id') id: string,
     @Query('page') page: number = 1,
@@ -83,6 +91,11 @@ export class StudentsController {
   @Get('/my-judges')
   @UseGuards(RolePermissionGuard)
   @RequiredService('MyEvaluations')
+  @ApiOperation({
+    summary: 'Jurados asignados al equipo del estudiante',
+    description:
+      'ARK-154 (HU-30): nombre, categoría y si ya evaluó (`haEvaluado`); sin la nota de cada jurado.',
+  })
   getMyJudges(@GetUser('id') id: string) {
     return this.studentsService.getMyJudges(id);
   }
