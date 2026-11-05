@@ -236,6 +236,7 @@ describe('JurorService', () => {
         lastName: baseJuror.lastName,
         jurorCategory: baseJuror.jurorCategory,
         jurorType: baseJuror.jurorType,
+        isProfessor: false,
         email: baseJuror.email,
         confirmationStatusId: baseJuror.confirmationStatusId,
         lastSignInAt: baseJuror.lastSignInAt,

@@ -452,7 +452,11 @@ export class JurorController {
   @Patch(':id')
   @UseGuards(RolePermissionGuard)
   @RequiredService('UpdateJuror')
-  @ApiOperation({ summary: 'Actualizar datos de un jurado' })
+  @ApiOperation({
+    summary: 'Actualizar datos de un jurado',
+    description:
+      'También edita a los profesores de la tabla de jurados. Un profesor siempre es Senior: enviar `jurorCategory: JUNIOR` para un profesor responde 400.',
+  })
   update(@Param('id') id: string, @Body() dto: UpdateJurorDto) {
     return this.jurorService.update(id, dto);
   }

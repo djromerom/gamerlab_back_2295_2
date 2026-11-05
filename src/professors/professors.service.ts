@@ -19,6 +19,7 @@ import { ExcelExportService, NrcSheetData } from './excel-export.service';
 import { seesAllProfessors } from './professor-panel-query.service';
 import { findActiveEdition, ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { ListEdition, resolveListEdition } from '../editions/list-edition';
+import { PROFESSOR_JUROR_PROFILE } from './professor-juror-profile';
 
 @Injectable()
 export class ProfessorsService {
@@ -137,6 +138,8 @@ export class ProfessorsService {
           firstName: createProfessorDto.firstName,
           lastName: createProfessorDto.lastName,
           roleId: this.professorRoleId,
+          // ARK-139: el profesor entra a la tabla de jurados como Senior y Oficial.
+          ...PROFESSOR_JUROR_PROFILE,
           isActive: true,
           lastSignInAt: null,
         },

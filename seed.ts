@@ -379,6 +379,17 @@ async function main() {
       console.log('✅ Professor password updated successfully');
     }
 
+    // ARK-139: todo profesor es jurado Senior y, si no tiene tipo, Oficial
+    // (los de seed-data.json llegan sin categoría). Solo llena valores vacíos.
+    await prisma.user.updateMany({
+      where: { roleId: 3, jurorCategory: null },
+      data: { jurorCategory: 'SENIOR' },
+    });
+    await prisma.user.updateMany({
+      where: { roleId: 3, jurorType: null },
+      data: { jurorType: 'OFFICIAL' },
+    });
+
     // Crear o buscar NRC 9999 (asociado al profesor y la materia)
     const nrcExistente = await prisma.nRC.findFirst({
       where: {
