@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { JurorType, JurorCategory } from '@prisma/client';
 import { JurorService } from './juror.service';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 
 describe('JurorService', () => {
   let service: JurorService;
@@ -688,21 +689,8 @@ describe('JurorService', () => {
 
   // ARK-140 (BG-25): la asignación usa la lista de la edición (HU-25)
   describe('lista de jurados de la edición (ARK-140)', () => {
-    const editionWhere = expect.objectContaining({
-      isActive: true,
-      OR: [
-        expect.objectContaining({
-          role: { name: 'Jurado' },
-          jurorEditions: {
-            some: { editionId: activeEdition.id, status: 'CONFIRMED' },
-          },
-        }),
-        expect.objectContaining({
-          role: { name: 'Profesor' },
-          managedNrcs: { some: { editionId: activeEdition.id, isActive: true } },
-        }),
-      ],
-    });
+    // La única definición de HU-25 (y HU-28): la prueba no copia el filtro a mano
+    const editionWhere = jurorsOfEdition(activeEdition.id);
 
     it('findAll con participating filtra por jurorsOfEdition y usa el tipo de la edición', async () => {
       prismaMock.user.findMany.mockResolvedValueOnce([
