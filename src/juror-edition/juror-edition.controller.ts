@@ -43,7 +43,7 @@ export class JurorEditionController {
   @ApiOperation({
     summary: 'Lista los jurados de una edición con su estado',
     description:
-      'Jurados inscritos (Pendiente, Confirmado, Declinó) y profesores con NRC activo (AUTOMATIC). Por defecto la edición activa.',
+      'Jurados y profesores sin NRC inscritos (Pendiente, Confirmado, Declinó; source ENROLLED) y profesores con NRC activo (AUTOMATIC; source PROFESSOR_NRC). Por defecto la edición activa.',
   })
   @ApiResponse({
     status: 200,
@@ -105,7 +105,7 @@ export class JurorEditionController {
     summary:
       'Confirma, declina o cambia el tipo de varios jurados (resultado por fila)',
     description:
-      'Con declineRemaining: true, los Pendientes que no vienen en items pasan a Declinó.',
+      'Con declineRemaining: true, los Pendientes que no vienen en items pasan a Declinó. Por fila: NOT_ENROLLED si no está en la edición; IS_PROFESSOR si es un profesor con NRC activo (automático, no editable).',
   })
   @ApiResponse({
     status: 200,
@@ -138,7 +138,10 @@ export class JurorEditionController {
   @Post('enroll')
   @RequiredService('ManageEditionJurors')
   @ApiOperation({
-    summary: 'Inscribe por correo, ya confirmado, a un jurado con cuenta',
+    summary:
+      'Inscribe por correo, ya confirmado, a un jurado o a un profesor senior sin NRC',
+    description:
+      'HU-28: acepta cuentas de rol Jurado y de rol Profesor que no tengan un NRC activo en la edición (el profesor sale con category Senior). Tipo OFFICIAL por defecto.',
   })
   @ApiResponse({
     status: 201,
@@ -149,13 +152,17 @@ export class JurorEditionController {
   @ApiResponse({
     status: 400,
     description:
-      'La cuenta no es de rol Jurado o la edición es de solo lectura (archivada o ya terminó)',
+      'La cuenta no es de rol Jurado ni Profesor, o la edición es de solo lectura (archivada o ya terminó)',
   })
   @ApiResponse({
     status: 404,
     description: 'No hay una cuenta activa con ese correo',
   })
-  @ApiResponse({ status: 409, description: 'Ya está en la edición' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Ya está en la edición, o es un profesor con NRC activo en ella (ya es jurado automático)',
+  })
   enroll(@Body() dto: EnrollJurorDto, @GetUser('id') actorId: string) {
     return this.service.enroll(dto, actorId);
   }

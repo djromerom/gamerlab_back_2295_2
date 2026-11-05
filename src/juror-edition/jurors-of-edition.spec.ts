@@ -1,12 +1,16 @@
-import { jurorsOfEdition, professorsOfEdition } from './jurors-of-edition';
+import {
+  enrollableAccountWhere,
+  jurorsOfEdition,
+  professorsOfEdition,
+} from './jurors-of-edition';
 
 describe('jurorsOfEdition (HU-25)', () => {
-  it('exige la cuenta activa y combina jurados confirmados con profesores con NRC activo en la edición', () => {
+  it('exige la cuenta activa y combina inscritos confirmados (Jurado o Profesor, HU-28) con profesores con NRC activo en la edición', () => {
     expect(jurorsOfEdition(5)).toEqual({
       isActive: true,
       OR: [
         {
-          role: { name: 'Jurado' },
+          role: { name: { in: ['Jurado', 'Profesor'] } },
           jurorEditions: { some: { editionId: 5, status: 'CONFIRMED' } },
         },
         {
@@ -28,6 +32,13 @@ describe('jurorsOfEdition (HU-25)', () => {
       isActive: true,
       role: { name: 'Profesor' },
       managedNrcs: { some: { editionId: 7, isActive: true } },
+    });
+  });
+
+  it('enrollableAccountWhere: cuentas activas de rol Jurado o Profesor (HU-28)', () => {
+    expect(enrollableAccountWhere()).toEqual({
+      isActive: true,
+      role: { name: { in: ['Jurado', 'Profesor'] } },
     });
   });
 });

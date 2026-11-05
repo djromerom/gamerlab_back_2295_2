@@ -11,6 +11,7 @@ export const JUROR_EDITION_LIST_STATUSES = [
   AUTOMATIC_STATUS,
 ] as JurorEditionListStatus[];
 
+/** ENROLLED: tiene fila en la edición (jurado externo o, desde HU-28, profesor sin NRC). */
 export type JurorEditionSource = 'ENROLLED' | 'PROFESSOR_NRC';
 
 export interface EditionJurorItem {
@@ -49,6 +50,10 @@ export interface ImportPreviousResult {
   fallback: boolean;
 }
 
+/**
+ * NOT_ENROLLED: no tiene fila en la edición (un profesor sin NRC se inscribe por correo, HU-28).
+ * IS_PROFESSOR: profesor automático (NRC activo en la edición); no se confirma ni declina.
+ */
 export type StatusRowError = 'NOT_ENROLLED' | 'IS_PROFESSOR';
 
 export interface StatusRowResult {
