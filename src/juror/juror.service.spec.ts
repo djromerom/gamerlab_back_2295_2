@@ -771,6 +771,23 @@ describe('JurorService', () => {
     });
   });
 
+  // ARK-156 (BG-33): la pantalla de asignación recorre páginas de 100
+  it('findAll ordena por apellido e id para que las páginas sean estables', async () => {
+    prismaMock.user.findMany.mockResolvedValueOnce([]);
+    prismaMock.user.count.mockResolvedValueOnce(0);
+    prismaMock.team.findMany.mockResolvedValueOnce([]);
+
+    await service.findAll(false, 100, 2, undefined, true);
+
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 100,
+        take: 100,
+        orderBy: [{ lastName: 'asc' }, { id: 'asc' }],
+      }),
+    );
+  });
+
   describe('getTeamsAssignedToJuror', () => {
     it('debe devolver los equipos asignados a un jurado', async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce({
