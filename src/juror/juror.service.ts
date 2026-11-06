@@ -282,7 +282,9 @@ export class JurorService {
         where: whereClause,
         skip: offset,
         take: limit,
-        orderBy: { lastName: 'asc' },
+        // ARK-156: `id` desempata apellidos repetidos; sin él, entre dos páginas un jurado
+        // puede salir dos veces o no salir.
+        orderBy: [{ lastName: 'asc' }, { id: 'asc' }],
         include: {
           evaluationsSubmitted: {
             where: { editionId: statsEditionId },
