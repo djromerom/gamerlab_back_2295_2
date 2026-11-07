@@ -3,6 +3,7 @@ import {
   Logger,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
   Inject,
   BadRequestException,
@@ -22,7 +23,7 @@ import { TokenVerification } from './types/token-verification.type';
 import { AuthEmailType } from '../email/types/email-type.type';
 import { LoginType } from './types/login-type.type';
 import * as bcrypt from 'bcrypt';
-import { JwtService } from '@nestjs/jwt';
+import { JsonWebTokenError, JwtService } from '@nestjs/jwt';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { EmailService } from '../email/email.service';
@@ -42,8 +43,14 @@ const REFRESH_TOKEN_COOKIE_PATH = '/auth';
 const LEGACY_REFRESH_TOKEN_COOKIE_PATH = '/auth/refresh';
 
 // A refresh token rotated less than this ago is accepted again (front retries after a lost
-// response, concurrent tabs/callers). Older replays count as theft.
-export const REFRESH_REUSE_GRACE_MS = 10_000;
+// response, concurrent tabs/callers). Older replays count as theft and revoke every session.
+// ARK-190: must outlast the front's retries (REFRESH_RETRY_DELAY_MS = 30 s): with 10 s, a lost
+// response on a bad network turned the first retry into a false theft and expelled the juror.
+export const REFRESH_REUSE_GRACE_MS = 2 * 60 * 1000;
+
+/** ARK-190: fallo del servidor al validar la sesión. Es 503: no dice nada del token. */
+export const SESSION_CHECK_UNAVAILABLE_MESSAGE =
+  'No pudimos validar tu sesión por un problema del servidor. Inténtalo de nuevo.';
 
 const hashRefreshToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
@@ -1027,11 +1034,19 @@ export class AuthService {
         throw error;
       }
 
+      // Only the token itself being expired or malformed ends the session.
+      if (error instanceof JsonWebTokenError) {
+        this.logger.warn(`Rejected refresh token: ${error.message}`);
+        this.clearAuthCookies(res);
+        throw new UnauthorizedException('Invalid or expired refresh token.');
+      }
+
+      // ARK-190: a server failure (database, pool) says nothing about the token. The cookies stay
+      // and the 5xx lets the front retry; a 401 here expelled the user over a passing failure.
       this.logger.error(
         `Error during session refresh: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
-      this.clearAuthCookies(res);
-      throw new UnauthorizedException('Invalid or expired refresh token.');
+      throw new ServiceUnavailableException(SESSION_CHECK_UNAVAILABLE_MESSAGE);
     }
   }
 
