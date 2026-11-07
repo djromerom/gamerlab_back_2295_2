@@ -50,11 +50,8 @@ model Edition {
   jurorBadges        JurorBadge[]
   jurorAttendances   JurorAttendance[]
   jurorEditions      JurorEdition[]
-<<<<<<< HEAD
-  fairSchedule       FairSchedule?
-=======
   absentJurorResponses AbsentJurorResponse[]
->>>>>>> origin/dev
+  fairSchedule       FairSchedule?
 
   @@unique([year, semester])
   @@map("ediciones")
