@@ -9,6 +9,7 @@ import {
 import { JurorType, ManualJurorAssignmentAction, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
 import {
   EDITION_READ_ONLY,
   requireActiveEdition,
@@ -85,7 +86,11 @@ export interface AutoAssignmentConfirmResult {
 export class AutomaticAssignmentService {
   private readonly logger = new Logger(AutomaticAssignmentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // HU-37: se llama después de confirmar la transacción; no espera ni puede fallar.
+    private readonly pushNotifier: AssignmentPushNotifier,
+  ) {}
 
   async preview(dto: AutoAssignmentPreviewDto): Promise<AutoAssignmentPreview> {
     const edition = dto.editionId
@@ -114,7 +119,7 @@ export class AutomaticAssignmentService {
     const limits = this.limitsFrom(dto);
 
     try {
-      return await this.prisma.$transaction(
+      const result = await this.prisma.$transaction(
         async (tx) => {
           const { input } = await this.loadSnapshot(tx, edition, limits);
           this.assertCanPlan(input, edition);
@@ -145,6 +150,11 @@ export class AutomaticAssignmentService {
         },
         { maxWait: 10_000, timeout: 60_000 },
       );
+      // `sameAssignments` ya comprobó que la lista recibida es el plan que se guardó.
+      this.pushNotifier.notifyAssignmentChanged(
+        dto.assignments.map((assignment) => assignment.jurorId),
+      );
+      return result;
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error('Error al guardar la asignación automática:', error);

@@ -22,6 +22,7 @@ maybe('Quitar asignaciones solo en la edición activa (BD real)', () => {
     prisma,
     new JurorAssignmentAuditService(prisma),
     {} as any,
+    { notifyAssignmentChanged: jest.fn() } as any,
   );
 
   const tag = randomUUID().slice(0, 6);

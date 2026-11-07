@@ -335,6 +335,7 @@ describe('Jurado y equipo reasignado por HTTP (ARK-190)', () => {
       db.prisma,
       new JurorAssignmentAuditService(db.prisma),
       { validate: async () => ({}), enforce: () => [] } as any,
+      { notifyAssignmentChanged: () => undefined } as any,
     );
     await assignments.onModuleInit();
     db.verified.add('juror-a');

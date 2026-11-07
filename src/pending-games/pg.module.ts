@@ -10,6 +10,7 @@ import { UploadModule } from '../upload/upload.module';
 @Module({
   imports: [PrismaModule, AuthModule, UploadModule], // Importa Prisma y Auth para manejar la base de datos y autenticación
   controllers: [VideogamesController], // Controlador para manejar las rutas de pending-games
+  exports: [VideogamesService], // HU-37: el aviso de pendientes reutiliza el conteo
   providers: [VideogamesService, PendingGamesGuard], // Servicio y guard para manejar la lógica de negocio y permisos
 })
 export class PendingGamesModule {}

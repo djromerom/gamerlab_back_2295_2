@@ -229,6 +229,7 @@ model User {
   tieBreakDecisions    TieBreakDecision[]
   absentResponses      AbsentJurorResponse[] @relation("AbsentResponseJuror")
   recordedAbsentResponses AbsentJurorResponse[] @relation("AbsentResponseRecorder")
+  pushSubscriptions    PushSubscription[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -528,6 +529,23 @@ model JurorAttendance {
 
   @@index([editionId])
   @@map("asistencia_jurado")
+}
+
+// HU-37: suscripción a notificaciones push de un dispositivo (la dirección `endpoint` es única
+// por navegador). Desuscribirse la desactiva; las vencidas (404/410) se borran físicamente.
+model PushSubscription {
+  id        Int      @id @default(autoincrement()) @map("id_suscripcion")
+  userId    String   @map("id_usuario")
+  endpoint  String   @unique @db.VarChar(2048)
+  p256dh    String   @map("clave_p256dh") @db.VarChar(128)
+  auth      String   @map("clave_auth") @db.VarChar(64)
+  isActive  Boolean  @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("suscripcion_push")
 }
 
 model Subject {
