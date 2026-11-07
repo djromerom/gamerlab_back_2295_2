@@ -233,9 +233,9 @@ maybe('Nota de la feria tras guardar la del profesor (BD real)', () => {
       expect(results.every((r) => r.success)).toBe(true);
     });
 
-    it('equipo normal sin jurados: la feria es la nota del profesor', async () => {
+    it('equipo normal sin jurados: la feria sigue en proceso (HU-34)', async () => {
       expect(await rowOf('regular')).toMatchObject({
-        calificacionFeria: 3.5,
+        calificacionFeria: null,
         calificacionDocente: 3.5,
         isExternal: false,
       });
@@ -270,18 +270,18 @@ maybe('Nota de la feria tras guardar la del profesor (BD real)', () => {
       });
     });
 
-    it('colegio (N0) externo: queda pendiente hasta HU-34, que lo califica con profesores y seniors', async () => {
+    it('colegio (N0) externo: su nota es la de profesores y seniors (HU-34)', async () => {
       expect(await rowOf('colegioexterno')).toMatchObject({
-        calificacionFeria: null,
+        calificacionFeria: 3.5,
         calificacionDocente: 3.5,
         isExternal: true,
         fairGradeRule: 'SCHOOL',
       });
     });
 
-    it('evaluación propia inactiva: guardar la reactiva y cuenta para la feria', async () => {
+    it('evaluación propia inactiva: guardar la reactiva y vuelve a contar como nota del profesor', async () => {
       expect(await rowOf('inactiva')).toMatchObject({
-        calificacionFeria: 3.5,
+        calificacionFeria: null,
         calificacionDocente: 3.5,
       });
     });
@@ -305,7 +305,7 @@ maybe('Nota de la feria tras guardar la del profesor (BD real)', () => {
       true,
     );
     expect(await rowOf('regular')).toMatchObject({
-      calificacionFeria: 2.75,
+      calificacionFeria: null,
       calificacionDocente: 2.75,
     });
   });

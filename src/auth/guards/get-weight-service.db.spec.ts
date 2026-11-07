@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import {
   ExecutionContext,
   ForbiddenException,
-  NotFoundException,
 } from '@nestjs/common';
 import { RolePermissionGuard } from './role-permission.guard';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -56,13 +55,16 @@ maybe('Servicio RBAC GetWeight (BD real)', () => {
     expect(svc!.servicePermissions.length).toBeGreaterThan(0);
   });
 
-  it('Profesor ya no recibe 404 por configuración faltante', async () => {
-    const result: unknown = await guard
-      .canActivate(ctx(await roleId('Profesor')))
-      .catch((e: unknown) => e);
-    expect(result).not.toBeInstanceOf(NotFoundException);
-    // El seed no concede READ_WEIGHT a ningún rol: se espera 403 (o true si se concede después).
-    expect(result === true || result instanceof ForbiddenException).toBe(true);
+  it('Profesor lee la ponderación vigente (HU-34)', async () => {
+    await expect(
+      guard.canActivate(ctx(await roleId('Profesor'))),
+    ).resolves.toBe(true);
+  });
+
+  it('Estudiante recibe 403, no 404 por configuración faltante', async () => {
+    await expect(
+      guard.canActivate(ctx(await roleId('Estudiante'))),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('Administrador pasa el guard', async () => {

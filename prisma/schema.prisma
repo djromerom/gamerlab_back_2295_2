@@ -32,6 +32,8 @@ model Edition {
   endsAt   DateTime @map("termina_en")
 
   status    EditionStatus @default(INACTIVE) @map("estado")
+  // HU-34: edición anterior a la ponderación 60/40; su nota final conserva la regla de entonces.
+  legacyFinalScoreRule Boolean @default(false) @map("regla_nota_heredada")
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
@@ -700,12 +702,14 @@ view TeamFinalScore {
   editionId        Int     @map("edition_id")
   avgJunior        Float?  @map("avg_junior")
   avgSenior        Float?  @map("avg_senior")
+  // HU-34: null si falta una de las dos partes («Nota en proceso»), salvo externos, N0 y ediciones congeladas.
   finalScore       Float?  @map("final_score")
   // HU-04: evaluaciones activas con nota. Junior = jurados (solo cuentan las 3 primeras); senior = profesor.
   juniorEvaluations   Int     @map("junior_evaluations")
   juniorCounted       Int     @map("junior_counted")
   seniorEvaluations   Int     @map("senior_evaluations")
   weightingConfigured Boolean @map("weighting_configured")
+  legacyFinalScoreRule Boolean @map("legacy_final_score_rule")
 
   @@unique([teamId, videogameId, editionId])
   @@map("vw_team_final_scores")

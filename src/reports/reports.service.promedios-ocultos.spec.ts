@@ -11,6 +11,7 @@ describe('ReportsService — promedios por NRC y por materia con el ranking ocul
   const prisma = {
     nRC: { findMany: jest.fn() },
     videogame: { findMany: jest.fn() },
+    teamFinalScore: { findMany: jest.fn() },
     subject: { findMany: jest.fn() },
     // ARK-135: los reportes se calculan sobre la edición activa
     edition: { findFirst: jest.fn().mockResolvedValue({ id: 3, title: 'Feria 3', status: 'ACTIVE' }) },
@@ -22,6 +23,7 @@ describe('ReportsService — promedios por NRC y por materia con el ranking ocul
 
   beforeEach(() => {
     jest.resetAllMocks();
+    prisma.teamFinalScore.findMany.mockResolvedValue([]);
     prisma.nRC.findMany.mockResolvedValue([
       { id: 1, code: 111, subject: { name: 'Algoritmos' } },
       { id: 2, code: 222, subject: { name: 'Diseño' } },
@@ -85,6 +87,28 @@ describe('ReportsService — promedios por NRC y por materia con el ranking ocul
         ]);
       },
     );
+
+    it('HU-34: en una edición vigente promedia la nota final, no las evaluaciones', async () => {
+      settings.isRankingVisible.mockResolvedValue(true);
+      prisma.videogame.findMany.mockResolvedValue([
+        {
+          id: 7,
+          team: { members: [{ nrcs: [{ id: 1 }] }] },
+          evaluations: [{ totalScore: 1 }],
+        },
+        {
+          id: 8, // «Nota en proceso»: no entra al promedio
+          team: { members: [{ nrcs: [{ id: 1 }] }] },
+          evaluations: [{ totalScore: 5 }],
+        },
+      ]);
+      prisma.teamFinalScore.findMany.mockResolvedValue([
+        { videogameId: 7, finalScore: 4.2, legacyFinalScoreRule: false },
+        { videogameId: 8, finalScore: null, legacyFinalScoreRule: false },
+      ]);
+      const res = await service.getNrcWithSubjectNameAndAverage(undefined);
+      expect(res[0].promedioxNRC).toBe(4.2);
+    });
 
     it('ranking oculto + administrador: promedios reales', async () => {
       settings.isRankingVisible.mockResolvedValue(false);
