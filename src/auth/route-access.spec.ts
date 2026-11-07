@@ -55,6 +55,9 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   ViewJurorAttendance: ['Staff'],
   // HU-21: los profesores lo ven en solo lectura (P-26)
   ViewEvaluationTracking: ['Profesor'],
+  // HU-12: alerta y panel en solo lectura para profesores (P-16, P-26); el cronograma, solo Administrador
+  ViewAbsenceAlert: ['Profesor'],
+  ManageFairSchedule: [],
   // HU-25: jurados por edición, solo Administrador
   ListEditionJurors: [],
   ManageEditionJurors: [],

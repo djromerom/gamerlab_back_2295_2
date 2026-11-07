@@ -23,18 +23,27 @@ export class JurorAttendanceService {
 
   async list(query: ListAttendanceQueryDto) {
     const edition = await requireActiveEdition(this.prisma);
+    const rows = await this.rowsOfEdition(edition.id);
 
+    return {
+      edition: { id: edition.id, title: edition.title },
+      ...buildAttendancePage(rows, query),
+    };
+  }
+
+  /** Una fila por cada jurado de la edición con su asistencia en ella (también la usa HU-12). */
+  async rowsOfEdition(editionId: number): Promise<AttendanceRow[]> {
     const jurors = await this.prisma.user.findMany({
-      where: jurorsOfEdition(edition.id),
+      where: jurorsOfEdition(editionId),
       select: {
         ...jurorSelect,
         jurorBadges: {
-          where: { editionId: edition.id, isActive: true },
+          where: { editionId, isActive: true },
           select: { id: true },
           take: 1,
         },
         attendances: {
-          where: { editionId: edition.id, isActive: true },
+          where: { editionId, isActive: true },
           select: {
             checkedInAt: true,
             method: true,
@@ -47,7 +56,7 @@ export class JurorAttendanceService {
       },
     });
 
-    const rows: AttendanceRow[] = jurors.map((juror) => {
+    return jurors.map((juror) => {
       const attendance = juror.attendances[0];
       return {
         firstName: juror.firstName ?? '',
@@ -70,10 +79,5 @@ export class JurorAttendanceService {
         },
       };
     });
-
-    return {
-      edition: { id: edition.id, title: edition.title },
-      ...buildAttendancePage(rows, query),
-    };
   }
 }

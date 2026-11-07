@@ -621,6 +621,22 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 64,
+        "name": "VIEW_ABSENCE_ALERT",
+        "description": "Permite ver la alerta de inasistencia y el panel de asistencia de los jurados (solo lectura)",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 65,
+        "name": "MANAGE_FAIR_SCHEDULE",
+        "description": "Permite configurar el cronograma de la feria de una edición",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1266,6 +1282,26 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 65,
+        "name": "ViewAbsenceAlert",
+        "description": "Ver la alerta de inasistencia y el panel de asistencia de los jurados de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 66,
+        "name": "ManageFairSchedule",
+        "description": "Consultar y configurar el cronograma de la feria de una edición",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1726,6 +1762,20 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 65,
+        "permissionId": 64,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 66,
+        "permissionId": 65,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1961,6 +2011,13 @@
         "permissionId": 63,
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 64,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
       }
     ]
