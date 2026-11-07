@@ -4,13 +4,14 @@ import {
   Logger,
   NotFoundException,
   InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { JwtPayload } from './types/jwt-payload.type';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
-import { AuthService } from './auth.service';
+import { AuthService, SESSION_CHECK_UNAVAILABLE_MESSAGE } from './auth.service';
 import { Request } from 'express';
 import { StrategyOptionsWithRequest } from 'passport-jwt';
 
@@ -88,9 +89,12 @@ export class JwtStrategy extends PassportStrategy(
         );
         throw error;
       }
-      throw new UnauthorizedException(
-        'Failed to process user profile during validation.',
+      // ARK-190: a server failure (database, pool) is not an invalid session. A 401 here made the
+      // front try to refresh and, if that failed too, expelled the user over a passing failure.
+      this.logger.error(
+        `VALIDATE - Could not load user ${payload.sub}: ${error instanceof Error ? error.message : String(error)}`,
       );
+      throw new ServiceUnavailableException(SESSION_CHECK_UNAVAILABLE_MESSAGE);
     }
 
     if (!user) {

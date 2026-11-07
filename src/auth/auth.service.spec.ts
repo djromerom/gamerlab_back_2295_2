@@ -12,7 +12,7 @@ import express from 'express';
 import { createHash } from 'node:crypto';
 import request from 'supertest';
 import { matchesPrismaEmailFilter } from '../../test/helpers/postgres-ilike';
-import { AuthService } from './auth.service';
+import { AuthService, REFRESH_REUSE_GRACE_MS } from './auth.service';
 
 type UserRow = {
   id: string;
@@ -34,6 +34,7 @@ type RefreshRow = {
 };
 
 const PASSWORD = 'Pass1234';
+const OUTSIDE_GRACE_MS = REFRESH_REUSE_GRACE_MS + 1_000;
 const sha256 = (value: string) =>
   createHash('sha256').update(value).digest('hex');
 
@@ -245,7 +246,7 @@ describe('AuthService: sesión revocable', () => {
     const second = await refresh(first.refreshToken);
 
     expect(second.refreshToken).not.toBe(first.refreshToken);
-    advance(11_000);
+    advance(OUTSIDE_GRACE_MS);
     await expect(
       service.refresh(requestWith(first.refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -291,7 +292,7 @@ describe('AuthService: sesión revocable', () => {
     const phone = await login();
     const rotated = await refresh(laptop.refreshToken);
 
-    advance(11_000); // fuera de la ventana de gracia
+    advance(OUTSIDE_GRACE_MS); // fuera de la ventana de gracia
     await expect(
       service.refresh(requestWith(laptop.refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -328,11 +329,11 @@ describe('AuthService: sesión revocable', () => {
     }
   });
 
-  it('reusar un refresh rotado hace 11 s da 401 y revoca todos', async () => {
+  it('reusar un refresh rotado fuera de la ventana de gracia da 401 y revoca todos', async () => {
     const laptop = await login();
     await refresh(laptop.refreshToken);
 
-    advance(11_000);
+    advance(OUTSIDE_GRACE_MS);
     await expect(
       service.refresh(requestWith(laptop.refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -378,7 +379,7 @@ describe('AuthService: sesión revocable', () => {
   it('repetir un refresh revocado por REUSE da 401 sin revocar las sesiones nuevas', async () => {
     const t0 = await login();
     const t1 = await refresh(t0.refreshToken);
-    advance(11_000);
+    advance(OUTSIDE_GRACE_MS);
     // Robo detectado: t1 queda revocado con REUSE
     await expect(
       service.refresh(requestWith(t0.refreshToken), createResponse()),
@@ -396,13 +397,13 @@ describe('AuthService: sesión revocable', () => {
     await expect(refresh(fresh.refreshToken)).resolves.toBeDefined();
   });
 
-  it('tras detectar un robo, un token rotado hace menos de 10 s ya no da sesión', async () => {
+  it('tras detectar un robo, un token rotado dentro de la ventana ya no da sesión', async () => {
     const t0 = await login();
     const t1 = await refresh(t0.refreshToken); // t0 rotado en 0 s
-    advance(11_000);
-    await refresh(t1.refreshToken); // t1 rotado en 11 s
+    advance(OUTSIDE_GRACE_MS);
+    await refresh(t1.refreshToken); // t1 rotado fuera de la ventana de t0
     advance(1_000);
-    // t0 (rotado hace 12 s) reaparece: robo, se revoca todo con REUSE
+    // t0 (fuera de la ventana) reaparece: robo, se revoca todo con REUSE
     await expect(
       service.refresh(requestWith(t0.refreshToken), createResponse()),
     ).rejects.toBeInstanceOf(UnauthorizedException);
