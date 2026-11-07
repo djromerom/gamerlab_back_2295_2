@@ -192,6 +192,7 @@ describe('BG-02: rutas públicas sin datos personales', () => {
       .overrideProvider(AzureStorageService)
       .useValue({
         getReadSasUrlById: async () => ({ url: 'https://blob.example/x', expiresAt: '2026-01-01' }),
+        signReadUrlById: async () => ({ url: 'https://blob.example/x', expiresAt: '2026-01-01' }),
       })
       .overrideProvider(EmailService)
       .useValue({})

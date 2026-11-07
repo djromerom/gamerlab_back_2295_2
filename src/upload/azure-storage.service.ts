@@ -180,7 +180,8 @@ export class AzureStorageService implements OnModuleInit {
 
   /**
    * Firma una URL de lectura para un upload SIN comprobar acceso: la usa BlobReferenceService para
-   * entregar en respuestas públicas los archivos que el equipo referenció (Task 28).
+   * entregar en respuestas públicas los archivos que el equipo referenció (Task 28), y EditionsService
+   * para las fotos de edición (BG-24).
    * Devuelve null si el registro ya no existe.
    */
   async signReadUrlById(id: string, ttlSec: number): Promise<{ url: string; expiresAt: string } | null> {

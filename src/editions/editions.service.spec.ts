@@ -55,7 +55,7 @@ describe('EditionsService', () => {
   };
 
   const mockAzureStorageService = {
-    getReadSasUrlById: jest.fn().mockResolvedValue({ url: 'http://sas.url', expiresAt: '2025-01-01' }),
+    signReadUrlById: jest.fn().mockResolvedValue({ url: 'http://sas.url', expiresAt: '2025-01-01' }),
     uploadFile: jest.fn().mockResolvedValue({ id: 'uuid-1' }),
     deleteById: jest.fn().mockResolvedValue({ id: 'uuid-1', deleted: true }),
   };

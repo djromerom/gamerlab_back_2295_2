@@ -2,7 +2,7 @@ import { Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from '../src/auth/auth.service';
+import { AuthService, REFRESH_REUSE_GRACE_MS } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -95,10 +95,12 @@ describeIfDb('Sesión revocable (PostgreSQL)', () => {
     await refresh(first);
     expect(await liveTokens()).toBe(2);
 
-    // Fuera de la ventana (se envejece la rotación 11 s): reuso, se revoca todo
+    // Fuera de la ventana (se envejece la rotación): reuso, se revoca todo
     await prisma.refreshToken.updateMany({
       where: { userId, revokedReason: 'ROTATED' },
-      data: { revokedAt: new Date(Date.now() - 11_000) },
+      data: {
+        revokedAt: new Date(Date.now() - REFRESH_REUSE_GRACE_MS - 1_000),
+      },
     });
     await expect(refresh(first)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(await liveTokens()).toBe(0);

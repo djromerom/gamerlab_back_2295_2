@@ -621,6 +621,14 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 67,
+        "name": "MANAGE_ABSENT_JUROR_RESPONSES",
+        "description": "Permite registrar y consultar las respuestas sobre los jurados que no llegaron",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1266,6 +1274,16 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 67,
+        "name": "ManageAbsentJurorResponses",
+        "description": "Registrar y consultar las respuestas sobre los jurados ausentes de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1725,6 +1743,13 @@
         "permissionId": 63,
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 67,
+        "permissionId": 67,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
       }
     ]

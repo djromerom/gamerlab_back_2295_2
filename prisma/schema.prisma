@@ -52,6 +52,7 @@ model Edition {
   jurorBadges        JurorBadge[]
   jurorAttendances   JurorAttendance[]
   jurorEditions      JurorEdition[]
+  absentJurorResponses AbsentJurorResponse[]
 
   @@unique([year, semester])
   @@map("ediciones")
@@ -227,6 +228,8 @@ model User {
   jurorEditions        JurorEdition[]
   refreshTokens        RefreshToken[]
   tieBreakDecisions    TieBreakDecision[]
+  absentResponses      AbsentJurorResponse[] @relation("AbsentResponseJuror")
+  recordedAbsentResponses AbsentJurorResponse[] @relation("AbsentResponseRecorder")
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -742,6 +745,32 @@ enum JurorEditionStatus {
   PENDING
   CONFIRMED
   DECLINED
+}
+
+/// HU-13: lo que los profesores averiguaron de un jurado que no llegó.
+enum AbsentJurorResponseResult {
+  ON_THE_WAY // viene en camino
+  CANNOT_ATTEND // no podrá asistir
+  NO_RESPONSE // sin respuesta
+}
+
+// HU-13: historial de respuestas sobre un jurado sin llegada registrada. Cada registro es una fila
+// nueva y no se edita ni se borra (por eso no lleva isActive): la última fila es la vigente y una
+// equivocación se corrige con otro registro. Es informativo: no cambia las reglas de cobertura.
+model AbsentJurorResponse {
+  id                 Int                       @id @default(autoincrement()) @map("id_respuesta")
+  jurorId            String                    @map("id_usuario")
+  editionId          Int                       @map("id_edicion")
+  result             AbsentJurorResponseResult @map("resultado")
+  estimatedArrivalAt DateTime?                 @map("hora_estimada")
+  recordedAt         DateTime                  @default(now()) @map("registrado_en")
+  recordedById       String                    @map("registrado_por")
+  juror              User                      @relation("AbsentResponseJuror", fields: [jurorId], references: [id])
+  recordedBy         User                      @relation("AbsentResponseRecorder", fields: [recordedById], references: [id])
+  edition            Edition                   @relation(fields: [editionId], references: [id])
+
+  @@index([editionId, jurorId, recordedAt])
+  @@map("respuesta_jurado_ausente")
 }
 
 /// HU-04: cómo se resolvió un empate del ranking por nivel.

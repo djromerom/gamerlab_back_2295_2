@@ -22,8 +22,9 @@
 - **Por hacer:** BG-33 (carga de jurados con límite de 100 por página), BG-27, BG-32, BG-24, HU-09, HU-12, HU-13, HU-14, HU-17, HU-18, HU-20, HU-22, HU-23, HU-24, SP-03, TA-06, TA-08, TA-09, TA-11, TA-13..15, **TA-16 (despliegue y ensayo antes de la feria)** y esta documentación (ARK-48).
 
 > Nota: donde este documento o el resto de la carpeta diga «en curso» para HU-07/08, mandan los estados de Jira.
-- **P-02** (ponderación) y preguntas para la reunión del 6-nov.
-- BG-24 (fotos de ediciones pasadas no públicas).
+- **P-02 cerrada el 6-nov** (60 % profesores, 40 % jurados junior; HU-34 en el Sprint 3). Sprint 3 armado en Jira el 6-nov (`Sprint 3 Asistencia y ajustes`, 142 pts): cambios de la reunión con profesores (HU-31 a HU-37) y errores del Sprint 2 (BG-35 a BG-42).
+- BG-24 (fotos de ediciones pasadas no públicas; se resuelven firmándolas).
+- Podio propio para los equipos externos (HU-38, ARK-204, backlog) y rangos de las etiquetas de nota (BG-32, decididos el 7-nov).
 
 ## Pendientes de producción
 Prueba de humo con admin; cargar NRC y ponderados de la edición 5; script de BG-16 para escarapelas (después de HU-25 en producción); `chmod 600` del `.env`; igualar `main → dev/dev-deploy`; confirmar históricos (197/723/197).
