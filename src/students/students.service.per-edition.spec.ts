@@ -11,6 +11,7 @@ describe('StudentsService — equipo de la edición activa (ARK-128)', () => {
     team: { findFirst: jest.fn() },
     member: { findMany: jest.fn() },
     evaluation: { findMany: jest.fn().mockResolvedValue([]) },
+    teamFinalScore: { findFirst: jest.fn() },
   };
   const service = new StudentsService(prisma as any);
 
@@ -30,6 +31,23 @@ describe('StudentsService — equipo de la edición activa (ARK-128)', () => {
         orderBy: { editionId: 'desc' },
       }),
     );
+  });
+
+  it('HU-34: getStudentsGrades devuelve la nota final de la vista', async () => {
+    prisma.team.findFirst.mockResolvedValue({ videogame: { id: 9 } });
+    prisma.teamFinalScore.findFirst.mockResolvedValue({ finalScore: 4 });
+
+    await expect(service.getStudentsGrades('u-4')).resolves.toEqual({ grade: 4 });
+    expect(prisma.evaluation.findMany).not.toHaveBeenCalled();
+  });
+
+  it('HU-34: getStudentsGrades con la nota en proceso devuelve null', async () => {
+    prisma.team.findFirst.mockResolvedValue({ videogame: { id: 9 } });
+    prisma.teamFinalScore.findFirst.mockResolvedValue({ finalScore: null });
+
+    await expect(service.getStudentsGrades('u-4')).resolves.toEqual({
+      grade: null,
+    });
   });
 
   it('getMembers solo trae los integrantes del equipo de la edición activa', async () => {

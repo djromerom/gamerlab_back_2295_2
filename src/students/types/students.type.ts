@@ -14,5 +14,6 @@ export class StudentsEvaluations {
 }
 
 export class StudentsGrade {
-  grade: number;
+  // HU-34: nota final (cálculo único); null = «Nota en proceso»
+  grade: number | null;
 }

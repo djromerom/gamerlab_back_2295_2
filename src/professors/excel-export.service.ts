@@ -206,14 +206,14 @@ export class ExcelExportService {
             sheet.professorId ?? professorId,
           );
           if (ds !== null) {
-            docenteScore = ds.toFixed(1);
+            docenteScore = ds.toFixed(2);
             g.grade = ds;
           }
           if (final) {
             const fs = await getFeriaScore(vgId);
-            if (fs !== null) feriaScore = fs.toFixed(1);
+            if (fs !== null) feriaScore = fs.toFixed(2);
             const js = await getJuniorScore(vgId);
-            if (js !== null) juniorScore = js.toFixed(1);
+            if (js !== null) juniorScore = js.toFixed(2);
           }
         }
       } catch (err) {
@@ -235,7 +235,7 @@ export class ExcelExportService {
         rowObj.juniorScore  = juniorScore;
         rowObj.docenteScore = docenteScore;
       } else {
-        rowObj.score = g.grade !== null ? g.grade.toFixed(1) : '';
+        rowObj.score = g.grade !== null ? g.grade.toFixed(2) : '';
       }
 
       const dataRow = worksheet.addRow(rowObj);

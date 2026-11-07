@@ -144,6 +144,16 @@ maybe('Reportes y certificados de jurados por edición (BD real)', () => {
     await team('C', ids.current, base + 1);
     await team('D', ids.current, base + 2);
     await evaluate('C', ids.current, 5);
+    // HU-34: con la nota del profesor (sin detalles), C ya tiene nota final
+    await prisma.evaluation.create({
+      data: {
+        jurorId: ids.professor,
+        videogameId: ids.games.C,
+        editionId: ids.current,
+        totalScore: 5,
+        isSenior: true,
+      },
+    });
 
     // Jurados de cada edición (HU-25): el jurado está confirmado en la actual; el viejo, solo en la anterior
     await prisma.jurorEdition.createMany({
@@ -211,6 +221,8 @@ maybe('Reportes y certificados de jurados por edición (BD real)', () => {
 
   it('juegos de Estadísticas y Excel: solo la edición pedida', async () => {
     const games = await reports.getVideogamesData(admin);
+    // HU-34: D no tiene notas: en la edición vigente, null (no 0)
+    expect(games.find((g) => g.nombre === `Juego D ${tag}`)?.promedio).toBeNull();
     expect(ours(games.map((g) => g.nombre))).toEqual([`Juego C ${tag}`, `Juego D ${tag}`]);
     const previous = await reports.getVideogamesData(admin, ids.previous);
     expect(ours(previous.map((g) => g.nombre))).toEqual([`Juego P ${tag}`]);

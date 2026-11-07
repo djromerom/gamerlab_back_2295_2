@@ -38,15 +38,14 @@ SELECT
     ROUND((
         CASE
             WHEN t.externo = true THEN jr.avg_score
+            WHEN ed.regla_nota_heredada = false
+                AND t.codigo_equipo NOT LIKE 'N0-%'
+                AND (jr.avg_score IS NULL OR sr.avg_score IS NULL) THEN NULL
             WHEN jr.avg_score IS NULL THEN sr.avg_score
             WHEN sr.avg_score IS NULL THEN jr.avg_score
             ELSE (
-                jr.avg_score * COALESCE(w.junior_pct, 50::double precision)
-                + sr.avg_score * COALESCE(w.senior_pct, 50::double precision)
-            ) / NULLIF(
-                COALESCE(w.junior_pct, 50::double precision) + COALESCE(w.senior_pct, 50::double precision),
-                0::double precision
-            )
+                jr.avg_score * pct.junior_pct + sr.avg_score * pct.senior_pct
+            ) / NULLIF(pct.junior_pct + pct.senior_pct, 0::double precision)
         END
     )::numeric, 2)::double precision AS final_score,
     t.nombre_equipo AS team_name,
@@ -54,9 +53,16 @@ SELECT
     COALESCE(jr.total, 0)::integer AS junior_evaluations,
     LEAST(COALESCE(jr.total, 0), 3)::integer AS junior_counted,
     COALESCE(sr.total, 0)::integer AS senior_evaluations,
-    (w.id IS NOT NULL) AS weighting_configured
+    (w.id IS NOT NULL) AS weighting_configured,
+    ed.regla_nota_heredada AS legacy_final_score_rule
 FROM equipos t
 JOIN videojuegos v ON v.id_equipo = t.id_equipo
+JOIN ediciones ed ON ed.id_edicion = t.id_edicion
 LEFT JOIN jr ON jr.id_videojuego = v.id_videojuego
 LEFT JOIN sr ON sr.id_videojuego = v.id_videojuego
-LEFT JOIN ponderado w ON w.id_edicion = t.id_edicion;
+LEFT JOIN ponderado w ON w.id_edicion = t.id_edicion
+CROSS JOIN LATERAL (
+    SELECT
+        COALESCE(w.junior_pct, CASE WHEN ed.regla_nota_heredada THEN 50 ELSE 40 END::double precision) AS junior_pct,
+        COALESCE(w.senior_pct, CASE WHEN ed.regla_nota_heredada THEN 50 ELSE 60 END::double precision) AS senior_pct
+) pct;

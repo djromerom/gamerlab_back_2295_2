@@ -149,26 +149,13 @@ export class StudentsService {
         if (!videogame?.videogame) {
             throw new NotFoundException("team not found");
         }
-        const studentsGrades = await this.prisma.evaluation.findMany({
+        // HU-34: la misma nota del ranking (vista), no el promedio de todas las evaluaciones
+        const finalScore = await this.prisma.teamFinalScore.findFirst({
             where: { videogameId: videogame.videogame.id },
-            select: {
-                totalScore: true,
-            }
+            select: { finalScore: true },
         });
-
-        if (!studentsGrades) {
-            throw new NotFoundException("No evaluations found");
-        }
-
-        var sum: number = 0;
-        for (const student of studentsGrades) {
-            if (student.totalScore !== null) {
-                sum += student.totalScore;
-            }
-        }
-        const average: number = sum / studentsGrades.length;
         return {
-            grade: average
+            grade: finalScore?.finalScore ?? null,
         };
     }
 

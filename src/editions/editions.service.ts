@@ -9,6 +9,7 @@ import { AzureStorageService } from '../upload/azure-storage.service';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
 import { DUMP_TX_OPTIONS, HistoricalsService } from '../historicals/historicals.service';
 import { BlobReferenceService } from '../upload/blob-reference.service';
+import { DEFAULT_WEIGHTS } from '../evaluation/final-score';
 
 const DUPLICATE_EDITION_MESSAGE = 'La edición ya existe';
 
@@ -33,7 +34,11 @@ export class EditionsService {
       // cerrada por defecto, en la misma operación. Sin ella los interruptores del panel
       // devolvían 404 (ARK-123).
       const result = await this.prisma.edition.create({
-        data: { ...createEditionDto, eventConfiguration: { create: {} } },
+        data: {
+          ...createEditionDto,
+          eventConfiguration: { create: {} },
+          weighting: { create: { ...DEFAULT_WEIGHTS } }, // HU-34: 60/40 por defecto
+        },
       });
       this.logger.log(`Edition #${result.id} created successfully`);
       return result;

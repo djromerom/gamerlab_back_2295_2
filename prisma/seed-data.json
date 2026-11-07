@@ -1733,6 +1733,13 @@
     "table": "rol_permiso",
     "data": [
       {
+        "roleId": 3,
+        "permissionId": 51,
+        "createdAt": "2026-11-06T00:00:00.000Z",
+        "updatedAt": "2026-11-06T00:00:00.000Z",
+        "isActive": true
+      },
+      {
         "roleId": 2,
         "permissionId": 3,
         "createdAt": "2025-05-03T17:01:04.282Z",
@@ -1979,6 +1986,7 @@
         "startsAt": "2024-03-01T00:00:00.000Z",
         "endsAt": "2024-03-31T23:59:59.000Z",
         "status": "ARCHIVED",
+        "legacyFinalScoreRule": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
@@ -1993,6 +2001,7 @@
         "startsAt": "2024-04-01T00:00:00.000Z",
         "endsAt": "2024-04-30T23:59:59.000Z",
         "status": "INACTIVE",
+        "legacyFinalScoreRule": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
@@ -2018,8 +2027,8 @@
       {
         "id": 1,
         "editionId": 3,
-        "seniorPct": 40,
-        "juniorPct": 60,
+        "seniorPct": 60,
+        "juniorPct": 40,
         "createdAt": "2025-11-15T00:00:00.000Z",
         "updatedAt": "2025-11-15T00:00:00.000Z"
       }
