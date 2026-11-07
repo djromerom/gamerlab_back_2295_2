@@ -116,14 +116,25 @@ export interface TieGroup {
   explanation: string;
 }
 
+/** Parte de la nota que le falta a un equipo: la de profesores y seniors, o la de jurados junior. */
+export type MissingScorePart = 'PROFESSOR' | 'JUROR';
+
 export interface LevelRanking {
   level: number;
   label: string;
   teams: RankedTeam[];
   podium: RankedTeam[];
   ties: TieGroup[];
-  /** Equipos del nivel sin ninguna nota todavía (no entran al ranking). */
-  withoutScore: { teamId: number; teamCode: string; teamName: string | null }[];
+  /**
+   * Equipos del nivel en «Nota en proceso» (no entran al ranking). `missing` dice qué parte falta,
+   * según lo que cuenta en su nota; es la lista de incompletos del panel y de HU-20.
+   */
+  withoutScore: {
+    teamId: number;
+    teamCode: string;
+    teamName: string | null;
+    missing: MissingScorePart[];
+  }[];
 }
 
 /** `N2-ABC-201` → 2. Null si el código no sigue el formato. */
@@ -319,6 +330,27 @@ function toTieTeam(row: ScoreRow, info: TeamInfo): TieTeam {
   };
 }
 
+/**
+ * HU-34: un colegio (N0) solo cuenta a profesores y seniors, con o sin marca de externo; un externo
+ * solo cuenta a los jurados junior; los demás cuentan ambas partes.
+ */
+function countedScoreParts(row: ScoreRow, level: number) {
+  const isCollege = level === 0;
+  return {
+    professors: isCollege || !row.isExternal,
+    jurors: !isCollege,
+  };
+}
+
+function missingScoreParts(row: ScoreRow, level: number): MissingScorePart[] {
+  const counted = countedScoreParts(row, level);
+  const missing: MissingScorePart[] = [];
+  if (counted.professors && row.seniorEvaluations === 0)
+    missing.push('PROFESSOR');
+  if (counted.jurors && row.juniorEvaluations === 0) missing.push('JUROR');
+  return missing;
+}
+
 function buildOneLevel(
   input: BuildRankingInput,
   level: number,
@@ -375,6 +407,7 @@ function buildOneLevel(
 
     for (const row of ordered) {
       const info = input.teams.get(row.teamId)!;
+      const counted = countedScoreParts(row, level);
       teams.push({
         position,
         teamId: row.teamId,
@@ -394,8 +427,10 @@ function buildOneLevel(
           row.juniorEvaluations - row.juniorCounted,
         ),
         seniorEvaluations: row.seniorEvaluations,
-        lessThanMinEvaluations: row.juniorEvaluations < MIN_EVALUATIONS,
-        missingProfessorScore: !row.isExternal && row.seniorEvaluations === 0,
+        lessThanMinEvaluations:
+          counted.jurors && row.juniorEvaluations < MIN_EVALUATIONS,
+        missingProfessorScore:
+          counted.professors && row.seniorEvaluations === 0,
         registrationDate: info.registrationDate.toISOString(),
         podium: position <= podiumSize,
         tieKey: tie?.tieKey ?? null,
@@ -415,6 +450,7 @@ function buildOneLevel(
       teamId: r.teamId,
       teamCode: r.teamCode ?? '',
       teamName: r.teamName,
+      missing: missingScoreParts(r, level),
     })),
   };
 }

@@ -9,9 +9,11 @@
 -- 2) Las demás (ACTIVE e INACTIVE aún sin terminar) quedan en 60/40: se crea su fila en ponderado
 --    y se SOBRESCRIBE la que tuvieran. Decisión de P-02; el administrador puede cambiarla después
 --    en la edición activa (PUT /settings/weights).
--- 3) Vista: si falta una de las dos partes, la nota final es NULL («Nota en proceso», propuesta de
---    HU-34 y regla de HU-20). Excepciones (regla vigente): externos (solo junior) y colegios N0,
---    que solo califican profesores (P-08).
+-- 3) Vista, en este orden de prioridad para las ediciones vigentes:
+--    - Colegios N0 (código N0-..., con o sin marca de externo): 100 % el promedio de los profesores y
+--      seniors que los calificaron; nunca esperan nota de jurados junior (Allison, 7-nov; P-08).
+--    - Externos: solo la nota junior (regla vigente, HU-38).
+--    - Los demás: si falta una de las dos partes, NULL («Nota en proceso», regla de HU-20).
 -- 4) El Profesor puede leer la ponderación vigente (READ_WEIGHT), para el texto de sus pantallas.
 --
 -- No toca evaluacion ni resultado_ranking. Cambian las notas de las ediciones del punto 2.
@@ -77,9 +79,9 @@ SELECT
     ROUND(sr.avg_score::numeric, 2)::double precision AS avg_senior,
     ROUND((
         CASE
+            WHEN ed.regla_nota_heredada = false AND t.codigo_equipo LIKE 'N0-%' THEN sr.avg_score
             WHEN t.externo = true THEN jr.avg_score
             WHEN ed.regla_nota_heredada = false
-                AND t.codigo_equipo NOT LIKE 'N0-%'
                 AND (jr.avg_score IS NULL OR sr.avg_score IS NULL) THEN NULL
             WHEN jr.avg_score IS NULL THEN sr.avg_score
             WHEN sr.avg_score IS NULL THEN jr.avg_score

@@ -211,11 +211,40 @@ maybe('Nota final 60/40 en la vista (BD real)', () => {
       });
     });
 
-    it('colegio N0 (solo lo califican profesores, P-08): su nota es la de los profesores', async () => {
-      const e = await edition();
-      expect(
-        await scoreOf(e, { code: `N0-${tag}`, professors: [4.5] }),
-      ).toMatchObject({ finalScore: 4.5 });
+    describe('colegio N0: 100 % profesores y seniors (Allison, 7-nov)', () => {
+      const code = () => `N0-${tag}-${teamSeq + 1}`;
+
+      it('su nota es el promedio de quienes lo calificaron', async () => {
+        const e = await edition();
+        expect(
+          await scoreOf(e, { code: code(), professors: [4, 5] }),
+        ).toMatchObject({ finalScore: 4.5 });
+      });
+
+      it('con marca de externo sigue la misma regla, no la de externos', async () => {
+        const e = await edition();
+        expect(
+          await scoreOf(e, {
+            code: code(),
+            isExternal: true,
+            professors: [4.5],
+          }),
+        ).toMatchObject({ finalScore: 4.5, isExternal: true });
+      });
+
+      it('una nota junior guardada no entra en el cálculo', async () => {
+        const e = await edition();
+        expect(
+          await scoreOf(e, { code: code(), juniors: [1], professors: [5] }),
+        ).toMatchObject({ finalScore: 5 });
+      });
+
+      it('sin profesores ni seniors: «Nota en proceso»', async () => {
+        const e = await edition();
+        expect(await scoreOf(e, { code: code(), juniors: [4] })).toMatchObject({
+          finalScore: null,
+        });
+      });
     });
 
     it('equipo externo: regla vigente, solo la nota junior', async () => {
@@ -270,6 +299,17 @@ maybe('Nota final 60/40 en la vista (BD real)', () => {
       expect(await scoreOf(e, { professors: [2] })).toMatchObject({
         finalScore: 2,
       });
+    });
+
+    it('los colegios conservan la regla anterior: no cambia ninguna nota pasada', async () => {
+      const e = await edition({ legacyFinalScoreRule: true });
+      const code = () => `N0-${tag}-${teamSeq + 1}`;
+      expect(
+        await scoreOf(e, { code: code(), juniors: [3], professors: [5] }),
+      ).toMatchObject({ finalScore: 4 });
+      expect(
+        await scoreOf(e, { code: code(), isExternal: true, professors: [5] }),
+      ).toMatchObject({ finalScore: null });
     });
   });
 });
