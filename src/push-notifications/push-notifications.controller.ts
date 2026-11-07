@@ -11,7 +11,6 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
-import { SendPushNoticeDto } from './dto/send-push-notice.dto';
 import { SubscribePushDto } from './dto/subscribe-push.dto';
 import { UnsubscribePushDto } from './dto/unsubscribe-push.dto';
 import { PushNoticesService } from './push-notices.service';
@@ -19,7 +18,7 @@ import { PushSubscriptionsService } from './push-subscriptions.service';
 
 const OWN_SUBSCRIPTION_SERVICE = 'ManageOwnPushSubscription';
 
-/** Lo que comparten las tres rutas de avisos del administrador. */
+/** Lo que comparten las dos rutas de avisos del administrador. */
 const ApiNoticeResponses = () =>
   applyDecorators(
     ApiResponse({
@@ -136,39 +135,19 @@ export class PushNotificationsController {
     return this.subscriptions.unsubscribe(userId, dto.endpoint);
   }
 
-  @Post('notices')
-  @HttpCode(200)
-  @RequiredService('SendPushNotice')
-  @ApiOperation({
-    summary: 'Aviso del administrador a los jurados de la edición activa',
-    description:
-      'Responde por jurado. Un jurado con `devices: 0` no ha activado las notificaciones. El aviso no admite correos, códigos, documentos ni teléfonos.',
-  })
-  @ApiNoticeResponses()
-  @ApiResponse({
-    status: 400,
-    description:
-      'Datos no válidos (`code: PUSH_NOTICE_INVALID`) o con datos sensibles (`code: PUSH_NOTICE_SENSITIVE_DATA`)',
-  })
-  sendNotice(@Body() dto: SendPushNoticeDto, @GetUser('id') adminId: string) {
-    return this.notices.sendToEditionJurors(dto, adminId);
-  }
-
-  // Pendiente de confirmar con Allison: para retirarla, borrar esta ruta y su método del servicio.
   @Post('notices/arrival-reminder')
   @HttpCode(200)
   @RequiredService('SendPushNotice')
   @ApiOperation({
     summary: 'Recordatorio de llegada a los jurados que aún no han llegado',
     description:
-      'Solo a los jurados de la edición activa sin llegada activa en la asistencia. El texto es fijo. Responde por jurado.',
+      'Solo a los jurados de la edición activa sin llegada activa en la asistencia. El texto es fijo. Responde por jurado: `devices: 0` significa que no ha activado las notificaciones.',
   })
   @ApiNoticeResponses()
   sendArrivalReminder(@GetUser('id') adminId: string) {
     return this.notices.sendArrivalReminder(adminId);
   }
 
-  // Pendiente de confirmar con Allison: para retirarla, borrar esta ruta y su método del servicio.
   @Post('notices/pending-evaluations')
   @HttpCode(200)
   @RequiredService('SendPushNotice')

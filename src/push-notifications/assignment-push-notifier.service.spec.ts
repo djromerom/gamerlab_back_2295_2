@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { AssignmentPushNotifier } from './assignment-push-notifier.service';
 import {
   ARRIVAL_REMINDER_NOTICE,
@@ -10,6 +11,10 @@ import { buildPushNotice } from './push-notice';
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 describe('AssignmentPushNotifier (HU-37)', () => {
+  let prisma: {
+    edition: { findFirst: jest.Mock };
+    user: { findMany: jest.Mock };
+  };
   let sender: { isEnabled: jest.Mock; sendToUsers: jest.Mock };
   let notifier: AssignmentPushNotifier;
   let error: jest.SpyInstance;
@@ -19,7 +24,16 @@ describe('AssignmentPushNotifier (HU-37)', () => {
       isEnabled: jest.fn().mockReturnValue(true),
       sendToUsers: jest.fn().mockResolvedValue({}),
     };
-    notifier = new AssignmentPushNotifier(sender as any);
+    prisma = {
+      edition: { findFirst: jest.fn().mockResolvedValue({ id: 5 }) },
+      // Por defecto, todos los pedidos son jurados de la edición.
+      user: {
+        findMany: jest.fn(({ where }: { where: { id: { in: string[] } } }) =>
+          Promise.resolve(where.id.in.map((id) => ({ id }))),
+        ),
+      },
+    };
+    notifier = new AssignmentPushNotifier(prisma as any, sender as any);
     error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
   });
 
@@ -34,6 +48,51 @@ describe('AssignmentPushNotifier (HU-37)', () => {
       ['a', 'b'],
       ASSIGNMENT_CHANGED_NOTICE,
     );
+  });
+
+  it('solo avisa a los jurados de la edición activa', async () => {
+    prisma.user.findMany.mockResolvedValue([{ id: 'b' }]);
+
+    notifier.notifyAssignmentChanged(['a', 'b']);
+    await flush();
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: jurorsOfEdition(5, ['a', 'b']),
+      select: { id: true },
+    });
+    expect(sender.sendToUsers).toHaveBeenCalledWith(
+      ['b'],
+      ASSIGNMENT_CHANGED_NOTICE,
+    );
+  });
+
+  it('si ninguno es jurado de la edición, no envía', async () => {
+    prisma.user.findMany.mockResolvedValue([]);
+
+    notifier.notifyAssignmentChanged(['a']);
+    await flush();
+
+    expect(sender.sendToUsers).not.toHaveBeenCalled();
+  });
+
+  it('sin edición activa no envía ni registra un error', async () => {
+    prisma.edition.findFirst.mockResolvedValue(null);
+
+    notifier.notifyAssignmentChanged(['a']);
+    await flush();
+
+    expect(sender.sendToUsers).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it('si falla la consulta de jurados, no lanza y no envía', async () => {
+    prisma.user.findMany.mockRejectedValue(new Error('BD caída'));
+
+    expect(() => notifier.notifyAssignmentChanged(['a'])).not.toThrow();
+    await flush();
+
+    expect(sender.sendToUsers).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(1);
   });
 
   it('no devuelve nada que esperar, aunque el envío nunca termine', () => {

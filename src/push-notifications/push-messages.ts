@@ -1,9 +1,9 @@
 import { PushNoticeInput } from './push-notice';
 
 /**
- * HU-37: textos de los avisos que no escribe una persona. Son fijos a propósito: se ven en la
- * pantalla bloqueada, así que no llevan nombres de equipos, de jurados ni cantidades.
- * Pendiente de confirmar con Allison (ver docs/HU-37-ARK-200.md).
+ * HU-37: los únicos tres avisos de esta versión (confirmados por Allison el 7-nov). Son fijos a
+ * propósito: se ven en la pantalla bloqueada, así que no llevan nombres de equipos, de jurados ni
+ * cantidades.
  */
 export const ASSIGNMENT_CHANGED_NOTICE: PushNoticeInput = {
   title: 'Cambios en tus equipos',

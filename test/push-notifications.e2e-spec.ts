@@ -68,7 +68,6 @@ describeIfDb('Rutas de notificaciones push por rol (HTTP + PostgreSQL)', () => {
     expirationTime: null,
     keys: { p256dh: 'p'.repeat(87), auth: 'a'.repeat(22) },
   });
-  const notice = { title: 'Prueba', body: 'Aviso de prueba' };
 
   const createUser = async (id: string, roleName: string) => {
     const role = await prisma.role.findUniqueOrThrow({
@@ -225,7 +224,6 @@ describeIfDb('Rutas de notificaciones push por rol (HTTP + PostgreSQL)', () => {
       ['GET /push/status', 'get', '/push/status'],
       ['POST /push/subscribe', 'post', '/push/subscribe'],
       ['POST /push/unsubscribe', 'post', '/push/unsubscribe'],
-      ['POST /push/notices', 'post', '/push/notices'],
       ['POST arrival-reminder', 'post', '/push/notices/arrival-reminder'],
       ['POST pending-evaluations', 'post', '/push/notices/pending-evaluations'],
     ])('%s', async (_name, method, path) => {
@@ -235,19 +233,18 @@ describeIfDb('Rutas de notificaciones push por rol (HTTP + PostgreSQL)', () => {
 
   describe('avisos del administrador', () => {
     const noticeRoutes = [
-      '/push/notices',
       '/push/notices/arrival-reminder',
       '/push/notices/pending-evaluations',
     ];
 
     it.each(noticeRoutes)('%s: Jurado y Profesor reciben 403', async (path) => {
-      await server().post(path).set(as(juror)).send(notice).expect(403);
-      await server().post(path).set(as(professor)).send(notice).expect(403);
+      await server().post(path).set(as(juror)).expect(403);
+      await server().post(path).set(as(professor)).expect(403);
       expect(send).not.toHaveBeenCalled();
     });
 
     it.each(noticeRoutes)('%s: sin sesión responde 401', async (path) => {
-      await server().post(path).send(notice).expect(401);
+      await server().post(path).expect(401);
     });
 
     it('prepara un dispositivo por jurado', async () => {
@@ -269,30 +266,12 @@ describeIfDb('Rutas de notificaciones push por rol (HTTP + PostgreSQL)', () => {
         res.body as { results: { jurorId: string; sent: number }[] }
       ).results.find((row) => row.jurorId === jurorId);
 
-    it('POST /push/notices: responde 200 por jurado', async () => {
-      const res = await server()
+    it('no existe un aviso de texto libre: POST /push/notices responde 404', async () => {
+      await server()
         .post('/push/notices')
         .set(as(admin))
-        .send(notice)
-        .expect(200);
-
-      expect(rowOf(res, juror)).toMatchObject({ devices: 1, sent: 1 });
-      expect(rowOf(res, professor)).toMatchObject({ devices: 1, sent: 1 });
-      expect(endpointsSent()).toEqual(
-        expect.arrayContaining([body('jurado').endpoint]),
-      );
-    });
-
-    it('POST /push/notices: 400 si lleva datos sensibles', async () => {
-      const res = await server()
-        .post('/push/notices')
-        .set(as(admin))
-        .send({ title: 'Aviso', body: 'Escribe a alguien@uninorte.edu.co' })
-        .expect(400);
-
-      expect((res.body as { code: string }).code).toBe(
-        'PUSH_NOTICE_SENSITIVE_DATA',
-      );
+        .send({ title: 'Aviso', body: 'Mensaje' })
+        .expect(404);
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -302,7 +281,9 @@ describeIfDb('Rutas de notificaciones push por rol (HTTP + PostgreSQL)', () => {
         .set(as(admin))
         .expect(200);
 
-      expect(rowOf(res, juror)).toMatchObject({ sent: 1 });
+      expect(rowOf(res, juror)).toMatchObject({ devices: 1, sent: 1 });
+      // Un profesor que es jurado de la edición también lo recibe.
+      expect(rowOf(res, professor)).toMatchObject({ devices: 1, sent: 1 });
       expect(rowOf(res, arrived)).toBeUndefined();
       expect(endpointsSent()).not.toContain(body('llego').endpoint);
     });

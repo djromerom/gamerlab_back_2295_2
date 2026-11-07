@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Logger,
   NotFoundException,
@@ -13,7 +12,6 @@ import {
 import { PushNoticesService } from './push-notices.service';
 
 const edition = { id: 5, title: 'ARKAD 2026-30' };
-const notice = { title: 'Aviso', body: 'Mensaje' };
 
 describe('PushNoticesService (HU-37)', () => {
   let prisma: {
@@ -54,18 +52,10 @@ describe('PushNoticesService (HU-37)', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  describe('sendToEditionJurors', () => {
-    it('avisa a los jurados de la edición activa y responde por jurado', async () => {
-      const result = await service.sendToEditionJurors(notice, 'admin');
+  describe('sendArrivalReminder', () => {
+    it('solo busca jurados de la edición sin llegada activa en esa edición', async () => {
+      const result = await service.sendArrivalReminder('admin');
 
-      expect(prisma.user.findMany).toHaveBeenCalledWith({
-        where: jurorsOfEdition(edition.id),
-        select: { id: true },
-      });
-      expect(sender.sendToUsers).toHaveBeenCalledWith(
-        ['u1', 'u2'],
-        expect.objectContaining(notice),
-      );
       expect(result).toEqual({
         edition,
         totals: { jurors: 2, devices: 1, sent: 1, expired: 0, failed: 0 },
@@ -74,34 +64,6 @@ describe('PushNoticesService (HU-37)', () => {
           { jurorId: 'u2', devices: 0, sent: 0, expired: 0, failed: 0 },
         ],
       });
-    });
-
-    it('con datos sensibles responde 400 antes de buscar a los jurados', async () => {
-      await expect(
-        service.sendToEditionJurors(
-          { title: 'Aviso', body: 'Escribe a a@b.co' },
-          'admin',
-        ),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prisma.user.findMany).not.toHaveBeenCalled();
-    });
-
-    it('el registro no guarda el texto del aviso', async () => {
-      await service.sendToEditionJurors(
-        { title: 'Titulo-unico', body: 'Mensaje-unico' },
-        'admin',
-      );
-
-      const logged = JSON.stringify(log.mock.calls);
-      expect(logged).not.toContain('Titulo-unico');
-      expect(logged).not.toContain('Mensaje-unico');
-    });
-  });
-
-  describe('sendArrivalReminder', () => {
-    it('solo busca jurados de la edición sin llegada activa en esa edición', async () => {
-      await service.sendArrivalReminder('admin');
-
       expect(prisma.user.findMany).toHaveBeenCalledWith({
         where: {
           ...jurorsOfEdition(edition.id),
@@ -113,6 +75,14 @@ describe('PushNoticesService (HU-37)', () => {
         ['u1', 'u2'],
         ARRIVAL_REMINDER_NOTICE,
       );
+    });
+
+    it('el registro no guarda el texto del aviso', async () => {
+      await service.sendArrivalReminder('admin');
+
+      const logged = JSON.stringify(log.mock.calls);
+      expect(logged).not.toContain(ARRIVAL_REMINDER_NOTICE.title);
+      expect(logged).not.toContain(ARRIVAL_REMINDER_NOTICE.body);
     });
   });
 
@@ -156,7 +126,6 @@ describe('PushNoticesService (HU-37)', () => {
   });
 
   describe.each([
-    ['sendToEditionJurors', () => service.sendToEditionJurors(notice, 'admin')],
     ['sendArrivalReminder', () => service.sendArrivalReminder('admin')],
     ['sendPendingEvaluations', () => service.sendPendingEvaluations('admin')],
   ])('%s, condiciones comunes', (_name, run) => {

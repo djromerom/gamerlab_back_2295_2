@@ -11,12 +11,11 @@ import {
 import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { VideogamesService } from '../pending-games/pg.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SendPushNoticeDto } from './dto/send-push-notice.dto';
 import {
   ARRIVAL_REMINDER_NOTICE,
   PENDING_EVALUATIONS_NOTICE,
 } from './push-messages';
-import { buildPushNotice, PushNoticeInput } from './push-notice';
+import { PushNoticeInput } from './push-notice';
 import { PushSenderService } from './push-sender.service';
 
 export const PUSH_DISABLED = 'PUSH_DISABLED';
@@ -25,8 +24,9 @@ export const PUSH_DISABLED = 'PUSH_DISABLED';
 const PENDING_COUNT_BATCH = 25;
 
 /**
- * HU-37: avisos que dispara el administrador a mano, siempre a jurados de la edición activa.
- * El recordatorio de llegada y el de pendientes están pendientes de confirmar con Allison.
+ * HU-37: avisos que dispara el administrador a mano, siempre a jurados de la edición activa y con
+ * texto fijo (Allison, 7-nov): no hay aviso de texto libre, porque no se puede garantizar que no
+ * lleve nombres de equipos.
  */
 @Injectable()
 export class PushNoticesService {
@@ -37,14 +37,6 @@ export class PushNoticesService {
     private readonly sender: PushSenderService,
     private readonly pendingGames: VideogamesService,
   ) {}
-
-  async sendToEditionJurors(dto: SendPushNoticeDto, adminId: string) {
-    const notice = buildPushNotice(dto);
-    this.assertEnabled();
-    const edition = await requireActiveEdition(this.prisma);
-    const jurorIds = await this.findJurorIds(jurorsOfEdition(edition.id));
-    return this.sendAndReport(edition, jurorIds, notice, adminId);
-  }
 
   /** Solo a quienes no tienen llegada activa en `asistencia_jurado` en esta edición. */
   async sendArrivalReminder(adminId: string) {

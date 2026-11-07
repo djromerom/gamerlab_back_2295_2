@@ -14,7 +14,6 @@ describe('PushNotificationsController (HU-37)', () => {
     ['getStatus', 'ManageOwnPushSubscription'],
     ['subscribe', 'ManageOwnPushSubscription'],
     ['unsubscribe', 'ManageOwnPushSubscription'],
-    ['sendNotice', 'SendPushNotice'],
     ['sendArrivalReminder', 'SendPushNotice'],
     ['sendPendingEvaluations', 'SendPushNotice'],
   ])('%s exige el servicio %s', (handler, service) => {
@@ -22,6 +21,13 @@ describe('PushNotificationsController (HU-37)', () => {
       PushNotificationsController.prototype as unknown as Record<string, object>
     )[handler];
     expect(Reflect.getMetadata(REQUIRED_SERVICE_KEY, method)).toBe(service);
+  });
+
+  it('no hay aviso de texto libre: solo los dos botones con texto fijo', () => {
+    const handlers = Object.getOwnPropertyNames(
+      PushNotificationsController.prototype,
+    );
+    expect(handlers).not.toContain('sendNotice');
   });
 
   it('las rutas propias usan el id de la sesión, no uno que venga en la petición', async () => {

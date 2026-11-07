@@ -33,7 +33,7 @@ describe('JurorAssignmentService: aviso push (HU-37)', () => {
 
   let prisma: {
     edition: { findFirst: jest.Mock };
-    user: { findUnique: jest.Mock; findFirst: jest.Mock };
+    user: { findUnique: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
     team: { findUnique: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -59,6 +59,10 @@ describe('JurorAssignmentService: aviso push (HU-37)', () => {
           Promise.resolve(evaluator(where.id)),
         ),
         findFirst: jest.fn().mockResolvedValue({ id: 'x' }),
+        // El notificador filtra por jurados de la edición: aquí todos lo son.
+        findMany: jest.fn(({ where }: { where: { id: { in: string[] } } }) =>
+          Promise.resolve(where.id.in.map((id) => ({ id }))),
+        ),
       },
       team: {
         findUnique: jest.fn().mockResolvedValue(team(['a'])),
@@ -78,7 +82,7 @@ describe('JurorAssignmentService: aviso push (HU-37)', () => {
       prisma as any,
       { create: jest.fn().mockResolvedValue({ id: 1 }) } as any,
       validation as any,
-      new AssignmentPushNotifier(sender as any),
+      new AssignmentPushNotifier(prisma as any, sender as any),
     );
     Object.assign(service, { professorRoleId: 3, jurorRoleId: 4 });
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
