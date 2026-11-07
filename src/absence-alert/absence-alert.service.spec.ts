@@ -176,16 +176,29 @@ describe('AbsenceAlertService (HU-12)', () => {
       expect(alert.totals.missing).toBe(1);
     });
 
-    it('si todos llegaron la alerta no está activa (CU-12, 6.2)', async () => {
+    it('si todos llegaron pero hay grupos con faltantes, la alerta sigue activa', async () => {
       attendance.rowsOfEdition.mockResolvedValue([
         row('present-1', 'Zapata', ARRIVAL),
       ]);
 
       const alert = await service.getAlert(at('10:30'));
 
-      expect(alert.alertActive).toBe(false);
+      expect(alert.alertActive).toBe(true);
       expect(alert.missingJurors).toEqual([]);
       expect(alert.totals.missing).toBe(0);
+      expect(alert.groups.length).toBeGreaterThan(0);
+    });
+
+    it('si todos llegaron y ningún grupo tiene faltantes, la alerta no está activa', async () => {
+      attendance.rowsOfEdition.mockResolvedValue([
+        row('present-1', 'Zapata', ARRIVAL),
+      ]);
+      tracking.getTracking.mockResolvedValue({ groups: [] });
+
+      const alert = await service.getAlert(at('10:30'));
+
+      expect(alert.alertActive).toBe(false);
+      expect(alert.groups).toEqual([]);
     });
 
     it('ordena los grupos de más a menos faltantes y omite los completos', async () => {

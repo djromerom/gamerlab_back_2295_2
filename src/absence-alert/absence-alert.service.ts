@@ -78,7 +78,7 @@ export class AbsenceAlertService {
       edition: toEditionSummary(edition),
       schedule,
       phase,
-      alertActive: reached && totals.missing > 0,
+      alertActive: reached && (totals.missing > 0 || groups.length > 0),
       generatedAt: now,
       totals,
       missingJurors: reached

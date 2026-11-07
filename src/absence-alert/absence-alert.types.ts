@@ -49,7 +49,10 @@ export interface AbsenceAlert {
   edition: EditionSummary;
   schedule: FairScheduleValues;
   phase: FairPhase;
-  /** `false` si todos llegaron o aún no es la hora de alerta (CU-12, 6.2). */
+  /**
+   * `true` desde la hora de alerta si falta algún jurado o algún grupo aún no tiene sus evaluaciones.
+   * `false` antes de esa hora, o si todos llegaron y todos los grupos están completos.
+   */
   alertActive: boolean;
   generatedAt: Date;
   /** El contador de jurados que faltan: se entrega en cualquier fase. */
