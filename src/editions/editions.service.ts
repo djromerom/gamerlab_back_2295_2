@@ -8,7 +8,7 @@ import { Edition, EditionStatus } from '@prisma/client';
 import { AzureStorageService } from '../upload/azure-storage.service';
 import { DeletePhotosDto } from './dto/delete-photos.dto';
 import { DUMP_TX_OPTIONS, HistoricalsService } from '../historicals/historicals.service';
-import { BlobReferenceService } from '../upload/blob-reference.service';
+import { BlobReferenceService, READ_URL_TTL_SEC } from '../upload/blob-reference.service';
 
 const DUPLICATE_EDITION_MESSAGE = 'La edición ya existe';
 
@@ -394,31 +394,34 @@ export class EditionsService {
     }
   }
 
-  private async mapEditionPhotosWithSas(edition: any) {
-    const fixUrl = (url: string) => url ? url.replace('http://azurite:10000', 'http://localhost:10000') : url;
-
-    if (edition.mainPhoto) {
-      try {
-        const sas = await this.azureStorageService.getReadSasUrlById(edition.mainPhoto, 3600);
-        edition.mainPhotoUrl = fixUrl(sas.url);
-      } catch (e) {
-        this.logger.warn(`Could not generate SAS URL for mainPhoto ${edition.mainPhoto} of edition #${edition.id}`);
-        edition.mainPhotoUrl = null;
-      }
-    } else {
-      edition.mainPhotoUrl = null;
+  /**
+   * BG-24 (ARK-138): `signReadUrlById` no mira `Upload.isPublic`. Estas fotos solo las referencia la
+   * edición desde uploadMainPhoto/uploadPhotos (ManageEditions; los DTO no aceptan `photos` ni
+   * `mainPhoto`), así que la referencia ya autoriza mostrarlas y ningún archivo queda público.
+   */
+  private async signEditionPhoto(uploadId: string, label: string, editionId: number): Promise<string | null> {
+    const failure = `Could not generate SAS URL for ${label} ${uploadId} of edition #${editionId}`;
+    try {
+      const signed = await this.azureStorageService.signReadUrlById(uploadId, READ_URL_TTL_SEC);
+      if (signed) return signed.url.replace('http://azurite:10000', 'http://localhost:10000');
+      this.logger.error(`${failure}: upload record not found`);
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      this.logger.error(`${failure}: ${error.message}`, error.stack);
     }
+    return null;
+  }
+
+  private async mapEditionPhotosWithSas(edition: any) {
+    edition.mainPhotoUrl = edition.mainPhoto
+      ? await this.signEditionPhoto(edition.mainPhoto, 'mainPhoto', edition.id)
+      : null;
 
     if (edition.photos && edition.photos.length > 0) {
       const photosUrls = await Promise.all(
         edition.photos.map(async (photoId: string) => {
-          try {
-            const sas = await this.azureStorageService.getReadSasUrlById(photoId, 3600);
-            return { id: photoId, url: fixUrl(sas.url) };
-          } catch (e) {
-            this.logger.warn(`Could not generate SAS URL for photo ${photoId} of edition #${edition.id}`);
-            return null;
-          }
+          const url = await this.signEditionPhoto(photoId, 'photo', edition.id);
+          return url ? { id: photoId, url } : null;
         })
       );
       edition.photosUrls = photosUrls.filter(Boolean);
