@@ -1,9 +1,22 @@
 # Arkad API Documentation
 
+> **Documentación completa del proyecto** (negocio, backend, frontend, DevOps, proceso Scrum): [`docs/arkad/`](docs/arkad/README.md). La misma carpeta se publica en el repositorio del frontend.
+
+| Soy… | Empiezo por |
+|---|---|
+| Backend | [02-backend](docs/arkad/02-backend/README.md): módulos, endpoints, modelo de datos, evaluación y ranking |
+| Frontend | [03-frontend](docs/arkad/03-frontend/README.md) y [consumo de la API](docs/arkad/03-frontend/consumo-de-api.md) |
+| DevOps | [04-devops](docs/arkad/04-devops/README.md): pipeline, variables, runbooks de promoción e incidentes |
+| Scrum Master | [05-scrum-y-proceso](docs/arkad/05-scrum-y-proceso/jira-y-flujo-de-trabajo.md) y [checklist de traspaso](docs/arkad/05-scrum-y-proceso/checklist-traspaso-v5.md) |
+| Recién llegado | [Qué es ARKAD](docs/arkad/00-inicio-rapido/que-es-arkad.md), [arquitectura](docs/arkad/00-inicio-rapido/arquitectura-general.md) y [reglas de negocio](docs/arkad/01-negocio/reglas-de-negocio.md) |
+
+Si un cambio altera un endpoint, una regla de negocio o el modelo de datos, actualiza el archivo correspondiente de `docs/arkad/` y su [changelog](docs/arkad/06-referencia/changelog-documentacion.md) en el mismo PR. El estado de cada archivo (`completo`, `parcial`, `pendiente`) está en ese changelog.
+
 Welcome to the Arkad API documentation. Here you'll find information about how to setup the development environment and the set of endpoints that the API provides.
 
 ## Table of Contents
 
+- [`Project documentation`](docs/arkad/README.md)
 - [`Setup`](#setup)
   - [`Prerequisites`](#prerequisites)
   - [`Development Setup`](#development-setup)

@@ -1,0 +1,49 @@
+# Endpoints
+
+> **Audiencia:** Backend, Frontend · **Actualizado:** 2026-11-05 · **Estado:** completo (mapa por controlador + inventario de acceso de `origin/main`) · **Fuente:** `src/**/*.controller.ts`, `npm run routes:inventory`
+
+El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada** ruta está en [inventario-de-rutas](inventario-de-rutas.md). Swagger (`/api`, no en producción) muestra los DTO. Aquí el mapa por controlador.
+
+| Prefijo | Rutas |
+|---|---|
+| `/` | `GET /` (health) |
+| `/auth` | `POST login`, `GET outlook-login`, `GET callback`, `POST refresh`, `POST logout`, `POST resend-confirmation`, `POST reset-password`, `POST set-password`, `GET verify-token`, `POST reset-token-expiration`, `GET me` |
+| `/editions` | `POST /`, `GET /`, `GET :id`, `PATCH :id`, `DELETE :id`, `PATCH :id/activate`, `POST :id/archive`, `POST :id/main-photo`, `POST|DELETE :id/photos`, `GET :id/videogames` |
+| `/editions/:editionId/educational-focuses` · `/testimonials` · `/highlighted-games` | CRUD (`highlighted-games`: `POST`, `GET`, `DELETE :videogameId`) |
+| `/teams` | `POST /`, `POST admin`, `GET /`, `GET incomplete-jurors`, `GET name/:teamName`, `GET videogame/:videogameName`, `GET final-score/videogame/:videogameId`, `GET final-score/team/:teamId`, `GET final-score/by-n/:n`, `POST validate-emails`, `POST validate-student-codes`, `GET leader/:email/status`, `GET :id`, `GET :id/full`, `PATCH :id`, `DELETE :id`, `POST :id/member`, `DELETE :id/members/:memberId`, `PATCH :teamId/members/:memberId` |
+| `/teams/:teamId/members` | CRUD |
+| `/team-verification` | `POST verify`, `GET my-code`, `GET status`, `GET :teamId`, `POST :teamId/regenerate` |
+| `/videogames` | `POST`, `GET`, `GET :id`, `PATCH :id`, `DELETE :id`, `GET :id/likes`, `GET :id/my-like`, `POST :id/toggle-like` |
+| `/upload` | `POST /`, `POST zip`, `GET :id`, `GET :id/url`, `POST :id/public`, `DELETE :id` |
+| `/students` | `GET /`, `GET participation`, `GET my-judges`, `GET grades`, `GET members`, `PATCH members/:memberId/nrcs` |
+| `/professors` | CRUD; `GET my-subjects`, `select-options`, `download-grading-report-grouped`, `nrc-report/by-id/:nrcId`, `nrc-report/:nrcCode`, `juror-evaluations`, `signature-report/:subjectName`, `POST team-evaluation`, `POST team-evaluation/batch`, `GET grading-games`, `grading-games/filter-options` |
+| `/subjects` · `/nrcs` · `/criteria` | CRUD + `select-options`; `/criteria` además `PATCH :id/restore` |
+| `/evaluation` | `GET progress`, `POST with-details`, `POST batch` |
+| `/pending-games` · `/graded-games` | `GET /`, `search`, `count`, `search/quick` |
+| `/ranking` | `GET /`, `GET winners`, `GET ties`, `GET decisions`, `GET my-ties`, `POST ties/decision`, `POST finalize` |
+| `/juror` | `POST /`, `GET /`, `GET :id`, `PATCH :id`, `DELETE :id`, `GET evaluators`, `GET evaluations-assignment`, `POST resend-confirmation`, `POST assignments`, `PATCH assignments/reassign`, `DELETE assignments`, `DELETE assignments/all`, `DELETE :id/assignments`, `GET assignments/audit`, `GET evaluation-tracking`, `GET :id/teams`, `GET teams/:teamId/evaluation-stats`, `GET teams/:teamId/jurors-status` |
+| `/juror-edition` | `GET /`, `POST import-previous`, `PATCH status`, `POST enroll` |
+| `/juror-badges` | `POST generate`, `GET /`, `GET pdf`, `POST :jurorId/regenerate` |
+| `/juror-checkin` | `POST scan`, `GET search`, `POST manual` |
+| `/staff` | `POST /` (alta de cuentas Staff) |
+| `/evaluation-tracking` | `GET /` (seguimiento por hora) |
+| `/settings` | `GET|POST|PUT weights`, `GET weights/:editionId`, `GET|PATCH evaluations-status`, `show-ranking`, `show-evaluations`, `registrations` |
+| `/reports` | `GET videojuegoData`, `materiaData`, `NRCData`, `DatosGraficoMateria`, `JuradosData`, `exportExcel`, `exportJurados` |
+| `/historicals` | `GET historical-teams`, `historical-teams/:editionId`, `historical-members/:TeamId`, `historical-videogames/:editionId`, `historical-teams-with-scores/:editionId`; `POST create-historical-edition-dump/:editionId`; `PATCH update-historical-{team,member,videogame}/:id`; `DELETE remove-historical-{team,member,videogame}/:id` |
+| `/certificates` | `POST juror`, `POST juror/all` |
+| `/email` | `POST resend-auth-email`, `resend-team-email`, `resend-certificate-email` |
+
+## Convenciones que conviene saber
+- Casi todo listado acepta `?editionId=`; sin él usa la edición **activa**. Escribir sobre una edición que no es la activa devuelve **400** `EDITION_READ_ONLY`; sin edición activa, **404** `NO_ACTIVE_EDITION` (o `WEIGHTS_NOT_CONFIGURED`). Ver `docs/editions.md`.
+- Descargas Excel/PDF exponen `Content-Disposition`.
+- Lote de evaluaciones: `POST /evaluation/batch` (1 a 50 filas, validación en memoria, todo o nada; idempotente por clave). Calificar exige código de verificación (salvo N0) y que el juego sea de la edición activa.
+- `GET /teams` sin parámetro devuelve solo la edición activa.
+
+## Rutas nuevas en producción (no están en la rama local de lectura)
+| Prefijo | Rutas | Permiso |
+|---|---|---|
+| `/juror/automatic-assignment` | `POST preview` (calcula el plan sin guardar), `POST confirm` (guarda el plan) | `AssignJurors` |
+| `/juror-attendance` | `GET /` (tabla de asistencia de la edición: presentes y faltantes, con paginación y búsqueda) | `ViewJurorAttendance` |
+
+## Acceso por ruta
+Inventario completo y verificado: [inventario-de-rutas](inventario-de-rutas.md), generado con `npm run routes:inventory` sobre `origin/main` (`bcfe237`): **203 rutas** = 145 con permiso por servicio, 48 públicas, 10 solo con sesión, 0 sin decidir. Hay una prueba (`route-access.spec.ts`) que falla si una ruta queda sin decidir.
