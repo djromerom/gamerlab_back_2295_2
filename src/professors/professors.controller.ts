@@ -435,7 +435,7 @@ export class ProfessorsController {
     summary:
       'List the professor grading panel (same teams as the filtered export)',
     description:
-      'Active fair only, active teams, members and NRC; same filters, search and order as download-grading-report-grouped. One row per team. `team` and `student` are deprecated aliases of `search`. includeHistorical=true appends the global read-only historical teams.',
+      'Active fair only, active teams, members and NRC; same filters, search and order as download-grading-report-grouped. One row per team. `isExternal` explains a null `calificacionFeria` next to a saved `calificacionDocente`: external teams only count juror scores. `team` and `student` are deprecated aliases of `search`. includeHistorical=true appends the global read-only historical teams.',
   })
   @ApiResponse({ status: 200, description: 'Paginated games with canEdit authorization flag' })
   @ApiResponse({
