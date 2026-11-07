@@ -258,6 +258,7 @@ maybe('Nota de la feria tras guardar la del profesor (BD real)', () => {
         calificacionFeria: null,
         calificacionDocente: 3.5,
         isExternal: true,
+        fairGradeRule: 'EXTERNAL',
       });
     });
 
@@ -269,11 +270,12 @@ maybe('Nota de la feria tras guardar la del profesor (BD real)', () => {
       });
     });
 
-    it('colegio (N0) externo: hoy queda pendiente (pregunta abierta de BG-37)', async () => {
+    it('colegio (N0) externo: queda pendiente hasta HU-34, que lo califica con profesores y seniors', async () => {
       expect(await rowOf('colegioexterno')).toMatchObject({
         calificacionFeria: null,
         calificacionDocente: 3.5,
         isExternal: true,
+        fairGradeRule: 'SCHOOL',
       });
     });
 

@@ -7,7 +7,11 @@ import { ROLE_IDS } from 'src/auth/constants/roles';
 import { GradingGamesQueryDto } from './dto/grading-games-query.dto';
 import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
 import { ExcelExportOptions, ExcelExportService } from './excel-export.service';
-import { GradingGameRow, GradingGamesService } from './grading-games.service';
+import {
+  fairGradeRuleOf,
+  GradingGameRow,
+  GradingGamesService,
+} from './grading-games.service';
 import { GradingReportExportService } from './grading-report-export.service';
 import { ProfessorPanelQueryService } from './professor-panel-query.service';
 
@@ -530,6 +534,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionFeria: 4.25,
       calificacionDocente: 4.8,
       isExternal: false,
+      fairGradeRule: 'STANDARD',
       canEdit: true,
     });
     // Varios NRC del profesor: se listan juntos y nrcId queda en null
@@ -564,9 +569,25 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionFeria: null,
       calificacionDocente: 4.8,
       isExternal: true,
+      fairGradeRule: 'EXTERNAL',
     });
-    expect(byCode.get('T-2')?.isExternal).toBe(false);
-    expect(byCode.get('T-8')?.isExternal).toBe(false); // sin videojuego
+    expect(byCode.get('T-2')).toMatchObject({
+      isExternal: false,
+      fairGradeRule: 'STANDARD',
+    });
+    expect(byCode.get('T-8')).toMatchObject({
+      isExternal: false, // sin videojuego
+      fairGradeRule: 'STANDARD',
+    });
+  });
+
+  it.each([
+    ['N0-COL-1', false, 'SCHOOL'],
+    ['N0-COL-1', true, 'SCHOOL'],
+    ['N1-ISI-1', true, 'EXTERNAL'],
+    ['N1-ISI-1', false, 'STANDARD'],
+  ])('BG-37: %s con externo=%s usa la regla %s', (code, isExternal, rule) => {
+    expect(fairGradeRuleOf(code, isExternal)).toBe(rule);
   });
 
   it('canEdit es falso con las evaluaciones cerradas', async () => {
@@ -730,6 +751,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionFeria: 4.1,
       calificacionDocente: null,
       isExternal: true,
+      fairGradeRule: 'EXTERNAL',
       canEdit: false,
     });
     expect(withHistory.metadata.totalItems).toBe(4);
