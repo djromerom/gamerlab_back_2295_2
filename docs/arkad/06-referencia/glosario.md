@@ -1,6 +1,6 @@
 # Glosario
 
-> **Actualizado:** 2026-11-05 · **Estado:** completo · **Fuente:** backlog §2.2 y §2.1
+> **Actualizado:** 2026-11-07 · **Estado:** completo · **Fuente:** backlog §2.2 y §2.1
 
 | Término | Significado |
 |---|---|
@@ -9,8 +9,9 @@
 | **Edición de trabajo** | La edición `ACTIVE`; la decide el servidor |
 | **Semestre de la edición** | 10 primer semestre, 20 intersemestral, 30 segundo |
 | **Nivel (N0–N4)** | Primer número del código del equipo (`N1-AYP-06`). N1–N4 asignaturas de menor a mayor; **N0 = colegios invitados** |
-| **Colegio invitado** | Equipo de un colegio (N0). Solo lo califican jurados senior (profesores) y no tiene código de verificación |
-| **Equipo externo** | Marca del equipo independiente del nivel: en la nota solo cuenta la nota junior. No es lo mismo que colegio |
+| **Colegio invitado** | Equipo de un colegio (N0). Es externo a Uninorte y **sí se califica**, pero solo lo califican jurados senior (profesores) y no tiene código de verificación |
+| **Equipo externo** | Marca del equipo (`isExternal`), independiente del nivel: en la nota solo cuenta la nota de jurados junior. Un colegio (N0) es un equipo externo que sí se califica, pero solo por seniors (ver [reglas de negocio](../01-negocio/reglas-de-negocio.md), sección 2) |
+| **Presentador externo** | Rol nuevo (HU-33, 6-nov). Persona que va a la feria sin equipo y **nunca se califica**; solo se registra para obtener el certificado. Lo registra solo el administrador. No es un equipo ni un colegio |
 | **NRC** | Código de un curso o sección; tiene grupos participantes y un profesor, por edición |
 | **Profesor** | Rol Profesor; sube notas por NRC y califica (su nota cuenta como senior) |
 | **Jurado** | Rol Jurado; califica en la feria. Puede ser un profesor sin NRC |
@@ -23,8 +24,9 @@
 | **Código de verificación** | Código del equipo (panel del estudiante) que el jurado digita para calificar ese grupo; N0 no lo tiene |
 | **Hora de alerta / de control** | 10:00 aviso informativo de jurados ausentes; 11:00 control definitivo y suplentes |
 | **Desempate** | Regla para ordenar el ranking con la misma nota (mismo profesor decide; si no, gana la inscripción más antigua) |
-| **Podio** | Los 3 primeros de cada nivel (configurable) |
-| **Ponderación** | Porcentajes junior/senior por edición (`Weighting`); la definitiva está abierta (P-02) |
+| **Podio** | Los 3 primeros de cada nivel (configurable). Los equipos externos, según Allison (7-nov, por confirmar), tendrían un podio propio (HU-38) |
+| **Etiqueta de la nota** | Texto junto a la nota final: Excelente (4.50–5.00), Muy bueno (4.00–4.49), Bueno (3.50–3.99), Aceptable (3.00–3.49), Insuficiente (0.00–2.99); BG-32 |
+| **Ponderación** | Porcentajes por edición (`Weighting`). Definida el 6-nov (P-02): **60 %** promedio de los profesores que calificaron al grupo y **40 %** promedio de los jurados junior (HU-34) |
 | **Histórico** | Datos de ediciones archivadas en tablas `*_historico` |
 | **`dev` / `dev-deploy`** | Ramas de integración (test) del back / del front; `main` = producción |
 | **`Arkad-test`** | Ambiente de pruebas |
