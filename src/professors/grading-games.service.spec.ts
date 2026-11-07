@@ -7,7 +7,11 @@ import { ROLE_IDS } from 'src/auth/constants/roles';
 import { GradingGamesQueryDto } from './dto/grading-games-query.dto';
 import { GradingReportQueryDto } from './dto/professor-panel-query.dto';
 import { ExcelExportOptions, ExcelExportService } from './excel-export.service';
-import { GradingGameRow, GradingGamesService } from './grading-games.service';
+import {
+  fairGradeRuleOf,
+  GradingGameRow,
+  GradingGamesService,
+} from './grading-games.service';
 import { GradingReportExportService } from './grading-report-export.service';
 import { ProfessorPanelQueryService } from './professor-panel-query.service';
 
@@ -59,6 +63,7 @@ interface FakeHistoricalTeam {
   teamCode: string;
   teamName: string;
   editionId: number;
+  isExternal: boolean;
   videogame: { id: number; name: string; finalScore: number | null } | null;
   members: {
     firstName: string;
@@ -76,6 +81,7 @@ interface FakePanelData {
     videogameId: number;
     finalScore: number | null;
     avgJunior: number | null;
+    isExternal?: boolean;
   }[];
   evaluations: {
     id: number;
@@ -411,6 +417,7 @@ const buildData = (evaluationsOpen = true): FakePanelData => ({
       teamCode: 'HT-1',
       teamName: 'Histórico',
       editionId: 2,
+      isExternal: true,
       videogame: { id: 900, name: 'Juego viejo', finalScore: 4.1 },
       members: [
         {
@@ -526,6 +533,8 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       nrcId: 10,
       calificacionFeria: 4.25,
       calificacionDocente: 4.8,
+      isExternal: false,
+      fairGradeRule: 'STANDARD',
       canEdit: true,
     });
     // Varios NRC del profesor: se listan juntos y nrcId queda en null
@@ -544,6 +553,41 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionDocente: null,
       canEdit: false,
     });
+  });
+
+  it('BG-37: un equipo externo sin nota de feria se distingue de uno normal', async () => {
+    const data = buildData();
+    data.finalScores = [
+      { videogameId: 100, finalScore: null, avgJunior: null, isExternal: true },
+      { videogameId: 200, finalScore: 3.5, avgJunior: null, isExternal: false },
+    ];
+    await setup(data);
+    const { data: rows } = await service.list('prof-1', listQuery());
+    const byCode = new Map(rows.map((r) => [r.teamCode, r]));
+
+    expect(byCode.get('T-1')).toMatchObject({
+      calificacionFeria: null,
+      calificacionDocente: 4.8,
+      isExternal: true,
+      fairGradeRule: 'EXTERNAL',
+    });
+    expect(byCode.get('T-2')).toMatchObject({
+      isExternal: false,
+      fairGradeRule: 'STANDARD',
+    });
+    expect(byCode.get('T-8')).toMatchObject({
+      isExternal: false, // sin videojuego
+      fairGradeRule: 'STANDARD',
+    });
+  });
+
+  it.each([
+    ['N0-COL-1', false, 'SCHOOL'],
+    ['N0-COL-1', true, 'SCHOOL'],
+    ['N1-ISI-1', true, 'EXTERNAL'],
+    ['N1-ISI-1', false, 'STANDARD'],
+  ])('BG-37: %s con externo=%s usa la regla %s', (code, isExternal, rule) => {
+    expect(fairGradeRuleOf(code, isExternal)).toBe(rule);
   });
 
   it('canEdit es falso con las evaluaciones cerradas', async () => {
@@ -706,6 +750,8 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       nrcId: 30,
       calificacionFeria: 4.1,
       calificacionDocente: null,
+      isExternal: true,
+      fairGradeRule: 'EXTERNAL',
       canEdit: false,
     });
     expect(withHistory.metadata.totalItems).toBe(4);

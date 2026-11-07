@@ -623,9 +623,33 @@
         "isActive": true
       },
       {
+        "id": 67,
+        "name": "MANAGE_ABSENT_JUROR_RESPONSES",
+        "description": "Permite registrar y consultar las respuestas sobre los jurados que no llegaron",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
         "id": 72,
         "name": "MANAGE_OWN_PUSH_SUBSCRIPTION",
         "description": "Permite activar y desactivar las notificaciones push en los dispositivos propios",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 64,
+        "name": "VIEW_ABSENCE_ALERT",
+        "description": "Permite ver la alerta de inasistencia y el panel de asistencia de los jurados (solo lectura)",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 65,
+        "name": "MANAGE_FAIR_SCHEDULE",
+        "description": "Permite configurar el cronograma de la feria de una edición",
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
@@ -1284,9 +1308,39 @@
         "isActive": true
       },
       {
+        "id": 67,
+        "name": "ManageAbsentJurorResponses",
+        "description": "Registrar y consultar las respuestas sobre los jurados ausentes de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
         "id": 72,
         "name": "ManageOwnPushSubscription",
         "description": "Suscribir y desuscribir los dispositivos propios a las notificaciones push",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 65,
+        "name": "ViewAbsenceAlert",
+        "description": "Ver la alerta de inasistencia y el panel de asistencia de los jurados de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 66,
+        "name": "ManageFairSchedule",
+        "description": "Consultar y configurar el cronograma de la feria de una edición",
         "url": null,
         "method": null,
         "createdAt": "2026-11-06T06:00:00.000Z",
@@ -1764,8 +1818,29 @@
         "isActive": true
       },
       {
+        "serviceId": 67,
+        "permissionId": 67,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
         "serviceId": 72,
         "permissionId": 72,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 65,
+        "permissionId": 64,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 66,
+        "permissionId": 65,
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
@@ -2011,6 +2086,13 @@
         "permissionId": 63,
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 64,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
       },
       {

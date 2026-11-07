@@ -28,6 +28,8 @@
 | Check-in por QR o nombre | Sí | No | No | No | Sí |
 | Tabla de asistencia de jurados (HU-29) | Sí | No | No | No | Sí (solo lectura) |
 
+> **Rol nuevo, pendiente (HU-33, Sprint 3): Presentador externo.** Persona sin equipo que va a la feria y no se califica; solo se registra para obtener el certificado. La registra **solo el administrador** (no hay auto-registro). No califica, no entra al ranking ni a la asignación, y solo ve su perfil y su certificado. No aparece en la matriz de arriba hasta que se implemente.
+
 El Staff, al escanear un QR, ve únicamente nombre y grupos del jurado.
 
 ## Estado del control de permisos

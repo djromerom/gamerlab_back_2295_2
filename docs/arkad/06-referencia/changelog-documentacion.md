@@ -2,6 +2,13 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-07: decisiones de la reunión con profesores (6-nov) y aclaración de externos
+- **P-02 cerrada:** 60 % el promedio de los profesores que calificaron al grupo, 40 % el promedio de los jurados junior (HU-34); la nota incompleta queda en «Nota en proceso». Actualizados `glosario`, `reglas-de-negocio`, `decisiones-abiertas`, `que-es-arkad`, `evaluacion-y-ranking`, `estado-actual` y `calendario-feria`.
+- **Tres tipos de participante** aclarados en `glosario`, `reglas-de-negocio` y `roles-y-permisos`: equipo normal, colegio (N0, externo, sí se califica solo con seniors) y **presentador externo** (rol nuevo HU-33: lo registra solo el administrador y nunca se califica). La nota de los colegios (promedio de seniors al 100 %) es una propuesta del 7-nov a confirmar con los profesores.
+- Decididos por Allison el 7-nov: **rangos de las etiquetas de nota** (BG-32: Excelente 4.50–5.00, Muy bueno 4.00–4.49, Bueno 3.50–3.99, Aceptable 3.00–3.49, Insuficiente 0.00–2.99) y **podio propio para los equipos externos** (HU-38, ARK-204, por confirmar con el profesor). Actualizados `reglas-de-negocio`, `decisiones-abiertas`, `glosario` y `estado-actual`.
+- Sprint 3 armado en Jira (142 pts, id 8): `sprints-historial`, `backlog-y-epicas` y `estado-actual`.
+- Publicada la actualización en `docs/arkad/` de los repos de backend (a `dev`) y frontend (a `dev-deploy`) por PR, sin `07-`, `08-` ni `entrega-documentacion-ARK-48`. **Pendiente:** `sprints-historial` sigue sin velocidad ni retrospectiva del Sprint 2, y sus estados de Jira por ticket son del 5-nov.
+
 ## 2026-11-06: publicación en los repos (Sprint 3) y cierre de BG-14
 - La carpeta se publica en `docs/arkad/` de los repos de backend y frontend (mismo contenido en ambos). **No se publican** las carpetas de accesos y credenciales ni las fuentes originales, ni la entrega original de DevOps (`entrega-documentacion-ARK-48`, que trae correos reales de pruebas); los enlaces a esos documentos se quitaron y las referencias dicen «fuera del repo».
 - README del frontend reescrito (era la plantilla de Vite) y sección de documentación en el README del backend.

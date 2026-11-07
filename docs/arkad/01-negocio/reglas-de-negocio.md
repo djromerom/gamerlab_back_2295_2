@@ -1,6 +1,6 @@
 # Reglas de negocio
 
-> **Audiencia:** todos · **Actualizado:** 2026-11-05 · **Estado:** completo (con P-02 abierta) · **Fuente:** `ARKAD_v4_plan_y_backlog.md` §1.1, §2.2, §4.2, §10.3. Las reglas "vigentes" son las decididas; donde el código aún no las cumple se indica el ticket.
+> **Audiencia:** todos · **Actualizado:** 2026-11-07 · **Estado:** completo (P-02 cerrada el 6-nov; HU-34 y HU-33 en implementación) · **Fuente:** `ARKAD_v4_plan_y_backlog.md` §1.1, §2.2, §4.2, §10.3. Las reglas "vigentes" son las decididas; donde el código aún no las cumple se indica el ticket.
 
 ## 1. Calendario de la feria
 - **Feria:** 26-nov-2026, 8:00 a ~12:00.
@@ -11,7 +11,11 @@
 
 ## 2. Niveles y equipos
 - El **nivel** es el primer número del código del equipo (`N1-AYP-06`): N1 a N4 son las asignaturas participantes (menor a mayor). **N0 = colegios invitados.** El nivel pertenece al **grupo**, no al jurado.
-- **Equipo externo:** marca independiente del nivel; en la nota final **solo cuenta la nota de jurados junior**. No es lo mismo que ser colegio.
+- **Tres tipos de participante, que no se mezclan:**
+  - **Equipo normal:** se califica con profesores y jurados junior (60 % y 40 %).
+  - **Colegio (N0):** es externo a Uninorte y **sí se califica**, pero solo lo califican seniors (P-08); no tiene jurados junior. Regla de nota (propuesta del 7-nov pasada al equipo; confirmar con los profesores si hay casos): su nota final es el promedio de los seniors que lo calificaron al 100 %, y no queda en «Nota en proceso» por falta de junior.
+  - **Presentador externo (HU-33):** persona sin equipo que **nunca se califica**; no entra al ranking, a la asignación ni a las exportaciones de notas. Lo registra solo el administrador y recibe el certificado final.
+- **Marca «equipo externo» (`isExternal`):** independiente del nivel; en la nota final solo cuenta la nota de jurados junior. Qué equipos la llevan no está definido; Santiago cuenta los casos en `Arkad-test` (BG-37, HU-34). Hasta entonces no se cambia código y los casos los resuelve el administrador a mano.
 - Los equipos de **colegios (N0) no tienen código de verificación** (P-25).
 - Detalle: [equipos-y-verificacion](equipos-y-verificacion.md).
 
@@ -20,10 +24,12 @@
 |---|---|---|
 | Escala | 0 a 5, **2 decimales**; la nota final se redondea a 2 decimales antes de comparar empates | P-04 |
 | Evaluaciones mínimas por grupo | **3**. Puede recibir más (suplentes, jurados tardíos) pero **solo cuentan las 3 primeras** (por hora de envío); las demás se guardan. Un grupo con menos de 3 sigue siendo válido y se marca | P-10 |
-| Ponderación profesor/jurados | **ABIERTA (P-02)**: se define en la reunión con profesores (~6-nov). Hoy es un parámetro por edición (porcentajes junior y senior). El profesor cuenta como senior | P-02 |
-| Cálculo | Hoy hay dos cálculos distintos (la vista del ranking: 50/50 por defecto y promedio ausente = 0; el servicio: 60/40 y, si falta un grupo, usa solo el otro). Decisión: **unificarlos** (SP-02, HU-04) | §4.2 #6 |
+| Ponderación profesor/jurados | **Decidida el 6-nov (P-02):** **60 %** el promedio de las notas de los profesores que hayan calificado al grupo y **40 %** el promedio de las notas de los jurados junior. Parámetro por edición con esos valores por defecto (HU-34, Sprint 3, en implementación) | P-02, HU-34 |
+| Nota incompleta | Si a un grupo le falta la nota de los profesores o la de los jurados junior, queda en **«Nota en proceso»** y sin posición en el ranking. Las ediciones pasadas no cambian. El administrador ve los grupos incompletos antes de liberar la nota (HU-20). Excepción propuesta: colegios (N0), ver sección 2 | HU-34 |
+| Cálculo | Se **unifican** los dos cálculos antiguos (vista del ranking: 50/50 por defecto y promedio ausente = 0; servicio: 60/40 y, si falta un grupo, usa solo el otro) en uno solo con la regla de arriba (SP-02, HU-04, HU-34) | §4.2 #6 |
 | Nota del profesor | Debe validarse 0–5 con 2 decimales en pantalla y backend (hoy solo `>= 0`) | HU-01 |
 | Nota visible al estudiante | Solo la **nota final** (sin desglose), liberada por el administrador **desde las 12:00** | HU-20, HU-30 |
+| Etiqueta de la nota | Decidida el 7-nov (BG-32): **Excelente** 4.50 a 5.00 · **Muy bueno** 4.00 a 4.49 · **Bueno** 3.50 a 3.99 · **Aceptable** 3.00 a 3.49 · **Insuficiente** 0.00 a 2.99. Límite inferior incluido; la nota se redondea a 2 decimales antes de elegir la etiqueta; acompaña solo a la nota final | BG-32 |
 
 ## 4. Ranking y desempate
 - **Ranking oficial por nivel (N0–N4).** El ranking general se conserva como vista informativa (P-03).
@@ -35,7 +41,7 @@
   3. Si el profesor no quiere decidir, se aplica la inscripción.
   4. Un empate que mezcla grupos del mismo profesor con otros se resuelve por inscripción.
 - La decisión del profesor queda registrada (`TieBreakDecision`).
-- > A CONFIRMAR: ¿los equipos externos compiten por el podio? (duda abierta con el PO).
+- **Equipos externos (decisión de Allison del 7-nov, por confirmar con el profesor):** sí compiten por el podio, pero con uno **propio** de 3 (configurable), separado de los niveles, porque no pueden competir con los de nivel 1 (HU-38, en el backlog; hoy no está implementado). Los colegios (N0) siguen en su propio nivel.
 
 ## 5. Asignación de jurados
 | Regla | Valor | Ref. |

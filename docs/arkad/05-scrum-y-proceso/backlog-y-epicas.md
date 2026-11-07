@@ -55,7 +55,7 @@ Fuente: Jira, proyecto ARK (tipos estándar, sin subtareas). Las 9 épicas (ARK-
 | Ticket | Clave | Responsable |
 |---|---|---|
 | BG-14 (hora de fin 05:30 de «Feria Gamer 2025 - S2») | ARK-119 | rdmp300 (cerrado el 6-nov como investigación; ver [ediciones](../01-negocio/ediciones.md#horas-de-las-ediciones-y-zona-horaria)) |
-| BG-34 (el front debe fijar America/Bogota en las horas de ediciones) | ARK-157 | sin asignar, sin estimar (creado el 6-nov, para el Sprint 3) |
+| BG-34 (el front debe fijar America/Bogota en las horas de ediciones) | ARK-157 | rdmp300, 2 pts, Sprint 3 (asignado el 6-nov) |
 
 ### Por hacer (queda abierto para V5 si no se cierra antes)
 | Ticket | Clave | Responsable asignado |

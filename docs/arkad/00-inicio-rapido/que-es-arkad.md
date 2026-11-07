@@ -13,7 +13,7 @@
 - El público ve la **landing**, el **ranking**, la galería de juegos y las **ediciones pasadas**.
 
 ## Cómo se evalúa
-Cada grupo recibe la nota de su profesor y la de **mínimo 3 jurados** (solo cuentan las 3 primeras), combinadas con ponderaciones (la definitiva sigue abierta: P-02). Escala 0–5 con 2 decimales. **Ranking oficial por nivel (N0–N4)** con podio de 3 y desempate definido. Reglas completas: [01-negocio/reglas-de-negocio](../01-negocio/reglas-de-negocio.md).
+Cada grupo recibe la nota de su profesor y la de **mínimo 3 jurados** (solo cuentan las 3 primeras), combinadas con la ponderación definida el 6-nov (P-02): 60 % el promedio de los profesores que calificaron al grupo y 40 % el promedio de los jurados junior. Escala 0–5 con 2 decimales. **Ranking oficial por nivel (N0–N4)** con podio de 3 y desempate definido. Reglas completas: [01-negocio/reglas-de-negocio](../01-negocio/reglas-de-negocio.md).
 
 ## Roles de usuario
 Administrador · Estudiante · Profesor · Jurado · Staff (nuevo). Cada usuario tiene **un solo rol**. [Detalle](../01-negocio/roles-y-permisos.md).

@@ -22,6 +22,16 @@ const mockPrismaService = {
   historicalMemberNrc: {
     findMany: jest.fn(),
   },
+  videogame: {
+    findUnique: jest.fn(),
+  },
+  team: {
+    findFirst: jest.fn(),
+  },
+  evaluation: {
+    findUnique: jest.fn(),
+    upsert: jest.fn(),
+  },
 };
 
 const mockExcelExportService = {
@@ -82,6 +92,31 @@ describe('ProfessorsService', () => {
       }),
     );
     expect(mockPrismaService.nRC.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('BG-37: guardar sobre una evaluación inactiva la reactiva para que cuente', async () => {
+    mockPrismaService.videogame.findUnique.mockResolvedValueOnce({
+      id: 24,
+      teamId: 7,
+    });
+    mockPrismaService.edition.findFirst.mockResolvedValueOnce({
+      id: 3,
+      eventConfiguration: { evaluationsOpen: true },
+    });
+    mockPrismaService.team.findFirst.mockResolvedValueOnce({ id: 7 });
+    mockPrismaService.evaluation.findUnique.mockResolvedValueOnce({
+      id: 1,
+      isActive: false,
+    });
+    mockPrismaService.evaluation.upsert.mockResolvedValueOnce({ id: 1 });
+
+    await service.updateTeamEvaluation(24, 'prof-1', 3.5, true);
+
+    expect(mockPrismaService.evaluation.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ totalScore: 3.5, isActive: true }),
+      }),
+    );
   });
 
   describe("getGradingFilterOptions", () => {
