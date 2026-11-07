@@ -32,6 +32,7 @@ import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
 import { JurorAttendanceModule } from './juror-attendance/juror-attendance.module';
+import { AbsentJurorResponsesModule } from './absent-juror-responses/absent-juror-responses.module';
 import { AbsenceAlertModule } from './absence-alert/absence-alert.module';
 import { StaffModule } from './staff/staff.module';
 import { JurorEditionModule } from './juror-edition/juror-edition.module';
@@ -74,6 +75,7 @@ import { RankingModule } from './ranking/ranking.module';
     JurorBadgesModule,
     JurorCheckinModule,
     JurorAttendanceModule,
+    AbsentJurorResponsesModule,
     AbsenceAlertModule,
     StaffModule,
     JurorEditionModule,

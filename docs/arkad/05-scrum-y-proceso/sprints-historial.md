@@ -6,13 +6,13 @@
 |---|---|---|---|---|
 | 1 | 23-oct → 30-oct | 84 | Sprint 1 Arranque y seguridad | Seguridad, proceso, «Guardar todo» con filtros, escarapelas con QR, sesión estable |
 | 2 | 30-oct → 6-nov | 124 | Sprint 2 Ranking y jurados (id 7) | Ranking por nivel con desempate, asignación automática con validaciones, check-in QR, seguimiento por hora |
-| 3 | 6-nov → 13-nov | 51 | Sprint 3 Asistencia y seguimiento | Alerta de inasistencia, presencia del jurado, borradores de evaluación, nota final para estudiantes |
+| 3 | 7-nov → 13-nov | 142 | Sprint 3 Asistencia y ajustes (id 8) | Alerta de inasistencia, borradores, nota final, errores del Sprint 2 y cambios de la reunión con profesores (NRC, externos, 60/40, jurados sin niveles, PWA con push) |
 | 4 | 13-nov → 20-nov | 35 | Sprint 4 Contingencia y cierre | Suplentes, jurado de último momento, cierre estable |
 | Feria | 20-nov → 26-nov | 5 | — | Despliegue, ensayo, feria (jueves 26) |
 
 Total planeado: **294 pts** (más TA-16), sin contar los 10 tickets de datos por edición (BG-17 a BG-23, HU-26, HU-27, TA-17) ni BG-24, que seguían sin estimar. Puntos propuestos de los de datos por edición (3-nov, **no aplicados en Jira**): BG-17 8, HU-26 5, HU-27 8, BG-18 3, BG-19 5, BG-20 2, BG-21 2, BG-22 3, BG-23 3, TA-17 3 = 42.
 
-El **Sprint 3 aún no existe en Jira** (al 4-nov): crearlo y mover ARK-138 y los tickets nuevos queda pendiente.
+El **Sprint 3 se creó en Jira el 6-nov** (id 8, 7 al 13 de nov; el nombre no puede pasar de 30 caracteres): 33 tickets, 38 subtareas y más subtareas que se sumaron después, con responsable por persona. Pasó de 51 a 142 pts con los errores del Sprint 2, la reunión con los profesores del 6-nov y el ticket de Santiago (TA-18). Detalle y claves ARK-158 a ARK-202 en el backlog (sección 10.5).
 
 ## Cómo evolucionó el Sprint 2 (para entender por qué creció)
 Plan del 29-oct: 75-76 pts → +BG-09 a BG-14 de Rafael (2-nov) → +BG-15, HU-25, BG-16 → +10 tickets de datos por edición asignados a Juan (3-nov, sin estimar) → +7 de las pruebas del Sprint 1 en test (4-nov, +21 pts) = **124**. Lección: con el sprint iniciado se siguieron sumando tickets; Rafael llegó a 33 pts y Juan a HU-07/HU-08 más diez tickets sin puntos.
@@ -22,7 +22,7 @@ Una historia empieza y termina en el mismo sprint · máx. un BE y un FE por his
 
 ## Orden de recorte (si se atrasa)
 - **Sprint 2:** TA-12 → HU-21 → HU-16 → BG-13 → BG-12 → BG-11 → BG-05 → HU-08 y HU-07 (juntas) → HU-11. No se tocan: HU-04, TA-07, TA-10, BG-06, BG-07, BG-08, BG-09, BG-14, BG-16, HU-25 (ni BG-25, HU-28, BG-26). De lo nuevo del 4-nov: BG-29 → BG-28 → HU-29 → BG-30.
-- **Sprint 3:** HU-17 → HU-23 → HU-13 (HU-18 y TA-06 salen juntas).
+- **Sprint 3:** HU-37 → HU-17 → TA-21 → TA-20 → HU-23 → HU-13 → TA-22 (HU-18 y TA-06 salen juntas). Primero se hacen BG-41, BG-27, BG-35, BG-37, BG-39, HU-34 y SP-05.
 - **Sprint 4:** HU-24 → HU-09 → HU-22 (HU-14 no se toca).
 
 ## Seguimiento real

@@ -1203,6 +1203,8 @@ export class ProfessorsService {
         where: whereUnique,
         update: {
           totalScore: score,
+          // BG-37: si la fila estaba inactiva, la nota se escribía pero no contaba ni se mostraba
+          isActive: true,
           ...(typeof isSenior === 'boolean' ? { isSenior } : {}),
         },
         create: {

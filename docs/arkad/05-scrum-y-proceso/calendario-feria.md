@@ -5,7 +5,7 @@
 | Fecha | Qué pasa |
 |---|---|
 | 2-nov → 22-nov | Inscripción de grupos (calendario informativo; el sistema no bloquea) |
-| 6-nov | Reunión con profesores y demo del Sprint 2; se espera cerrar **P-02** |
+| 6-nov | Reunión con profesores y demo del Sprint 2; **P-02 cerrada** (60 % profesores, 40 % jurados junior) |
 | 20-nov | Fin del Sprint 4. Sin funcionalidades nuevas desde aquí |
 | 22-nov | Cierran inscripciones |
 | **23-nov (lunes)** | **Congelación del código.** Asignación definitiva de jurados (23 o 24) |
