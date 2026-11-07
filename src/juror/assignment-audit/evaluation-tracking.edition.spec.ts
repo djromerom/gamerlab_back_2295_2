@@ -17,7 +17,12 @@ describe('JurorAssignmentService.getEvaluationTracking por edición (ARK-132)', 
     jest.clearAllMocks();
     prisma.team.findMany.mockResolvedValue([]);
     prisma.evaluation.findMany.mockResolvedValue([]);
-    service = new JurorAssignmentService(prisma as any, {} as any, {} as any);
+    service = new JurorAssignmentService(
+      prisma as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
     (service as any).professorRoleId = 3;
     (service as any).jurorRoleId = 4;
   });

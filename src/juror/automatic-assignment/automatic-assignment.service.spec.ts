@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
 import {
   EDITION_READ_ONLY,
   NO_ACTIVE_EDITION,
@@ -95,6 +96,7 @@ describe('AutomaticAssignmentService (HU-07)', () => {
   let prisma: PrismaMock;
   let tx: TxMock;
   let service: AutomaticAssignmentService;
+  let pushNotifier: { notifyAssignmentChanged: jest.Mock };
 
   const teams = [dbTeam(1, 'N1-A-01'), dbTeam(2, 'N1-A-02')];
   const users = [
@@ -129,8 +131,10 @@ describe('AutomaticAssignmentService (HU-07)', () => {
       },
       $transaction: jest.fn((fn: (client: TxMock) => unknown) => fn(tx)),
     };
+    pushNotifier = { notifyAssignmentChanged: jest.fn() };
     service = new AutomaticAssignmentService(
       prisma as unknown as PrismaService,
+      pushNotifier as unknown as AssignmentPushNotifier,
     );
   });
 
@@ -243,6 +247,37 @@ describe('AutomaticAssignmentService (HU-07)', () => {
       ).toHaveLength(6);
       expect(result.saved).toBe(6);
       expect(result.teamsUpdated).toBe(2);
+    });
+
+    it('HU-37: avisa una sola vez a la lista de jurados, después de guardar', async () => {
+      const { assignments } = await service.preview({});
+
+      await service.confirm({ assignments }, 'admin-1');
+
+      expect(pushNotifier.notifyAssignmentChanged).toHaveBeenCalledTimes(1);
+      expect(pushNotifier.notifyAssignmentChanged).toHaveBeenCalledWith(
+        assignments.map((assignment) => assignment.jurorId),
+      );
+      expect(
+        pushNotifier.notifyAssignmentChanged.mock.invocationCallOrder[0],
+      ).toBeGreaterThan(prisma.$transaction.mock.invocationCallOrder[0]);
+    });
+
+    it('HU-37: no avisa si el plan cambió ni si la transacción se revierte', async () => {
+      const { assignments } = await service.preview({});
+
+      await expect(
+        service.confirm({ assignments: assignments.slice(1) }, 'admin-1'),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      tx.jurorAssignmentAuditLog.createMany.mockRejectedValue(
+        new Error('db caída'),
+      );
+      await expect(
+        service.confirm({ assignments }, 'admin-1'),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+
+      expect(pushNotifier.notifyAssignmentChanged).not.toHaveBeenCalled();
     });
 
     it('acepta las asignaciones en otro orden', async () => {

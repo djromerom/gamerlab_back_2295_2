@@ -130,6 +130,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
             prismaMock as any,
             auditMock as any,
             new AssignmentValidationService(validationPrismaMock as any),
+            { notifyAssignmentChanged: jest.fn() } as any,
         );
 
         /**

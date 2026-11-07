@@ -33,6 +33,7 @@ import {
 } from '../assignment-validation/assignment-rules.types';
 import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
 import { resolveListEdition } from '../../editions/list-edition';
+import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
 
 type EvaluatorForValidation = {
   id: string;
@@ -95,6 +96,8 @@ export class JurorAssignmentService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly jurorAssignmentAuditService: JurorAssignmentAuditService,
     private readonly assignmentValidation: AssignmentValidationService,
+    // HU-37: se llama después de confirmar cada transacción; no espera ni puede fallar.
+    private readonly pushNotifier: AssignmentPushNotifier,
   ) {}
 
   async onModuleInit() {
@@ -377,6 +380,8 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
+      this.pushNotifier.notifyAssignmentChanged([jurorId]);
+
       return {
         message: 'Jurado asignado correctamente al equipo.',
         equipo: {
@@ -518,6 +523,8 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
+      this.pushNotifier.notifyAssignmentChanged([currentJurorId, newJurorId]);
+
       return {
         message: 'Evaluador reasignado correctamente.',
         equipo: {
@@ -636,6 +643,8 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
+      this.pushNotifier.notifyAssignmentChanged([jurorId]);
+
       return {
         message: 'Evaluador desasignado correctamente del equipo.',
         equipo: {
@@ -733,6 +742,12 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       });
 
+      this.pushNotifier.notifyAssignmentChanged(
+        teamsWithAssignments.flatMap((team) =>
+          team.assignedJurors.map((juror) => juror.id),
+        ),
+      );
+
       return {
         message: `${removedVerb(assignmentCount, 'Se eliminó', 'Se eliminaron')} ${count(assignmentCount, 'asignación', 'asignaciones')} de evaluadores en ${count(teamCount, 'equipo', 'equipos')} de «${edition.title}».`,
         asignacionesEliminadas: assignmentCount,
@@ -817,6 +832,8 @@ export class JurorAssignmentService implements OnModuleInit {
           tx,
         );
       });
+
+      this.pushNotifier.notifyAssignmentChanged([jurorId]);
 
       return {
         message: `${removedVerb(assignedTeams.length, 'Se quitó', 'Se quitaron')} ${count(assignedTeams.length, 'equipo', 'equipos')} de «${edition.title}» al evaluador.`,

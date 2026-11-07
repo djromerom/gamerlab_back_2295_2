@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JurorService } from './juror.service';
 import { JurorController } from './juror.controller';
 import { AuthModule } from '../auth/auth.module';
+import { PushNotificationsModule } from '../push-notifications/push-notifications.module';
 import { JurorAssignmentService } from './assignment-audit/juror-assignment.service';
 import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment-audit.service';
 import { AssignmentValidationService } from './assignment-validation/assignment-validation.service';
@@ -9,7 +10,7 @@ import { AutomaticAssignmentController } from './automatic-assignment/automatic-
 import { AutomaticAssignmentService } from './automatic-assignment/automatic-assignment.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PushNotificationsModule],
   controllers: [JurorController, AutomaticAssignmentController],
   providers: [
     JurorService,
