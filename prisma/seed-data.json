@@ -621,6 +621,22 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 72,
+        "name": "MANAGE_OWN_PUSH_SUBSCRIPTION",
+        "description": "Permite activar y desactivar las notificaciones push en los dispositivos propios",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 73,
+        "name": "SEND_PUSH_NOTICE",
+        "description": "Permite enviar avisos push a los jurados de la edición activa",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1266,6 +1282,26 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 72,
+        "name": "ManageOwnPushSubscription",
+        "description": "Suscribir y desuscribir los dispositivos propios a las notificaciones push",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 73,
+        "name": "SendPushNotice",
+        "description": "Enviar un aviso push a los jurados de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1726,6 +1762,20 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 72,
+        "permissionId": 72,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 73,
+        "permissionId": 73,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1961,6 +2011,20 @@
         "permissionId": 63,
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 72,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 72,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
       }
     ]
