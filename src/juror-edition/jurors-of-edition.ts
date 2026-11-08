@@ -33,9 +33,9 @@ export function enrollableAccountWhere(): Prisma.UserWhereInput {
  * Oficial o Suplente (decidido el 2026-11-02, PR #218): en una edición manda
  * `jurado_edicion.tipo` (`JurorEdition.type`). `User.jurorType` es solo un dato de la cuenta:
  * aquí únicamente sirve de valor inicial al traer jurados cuando la edición anterior no tiene
- * lista. El formulario de Personal → Jurados (BG-05), el listado de jurados y el Excel de
- * asignación (HU-16) todavía leen `User.jurorType`; pasan a la edición y la columna se retira
- * en un ticket aparte después de la feria del 26 de noviembre.
+ * lista. El Excel de asignación (HU-16) ya lee el tipo de la edición (BG-40). El formulario de
+ * Personal → Jurados (BG-05) y el listado de jurados todavía leen `User.jurorType`; pasan a la
+ * edición y la columna se retira en un ticket aparte después de la feria del 26 de noviembre.
  */
 export function jurorsOfEdition(
   editionId: number,

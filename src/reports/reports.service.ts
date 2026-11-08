@@ -11,12 +11,15 @@ import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evalu
 import { EditionStatus } from '@prisma/client';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
 import {
+  JUROR_EDITION_STATUS_LABEL,
   JurorAssignmentRow,
+  PROFESSOR_WITH_NRC_STATUS_LABEL,
   sortJurorAssignmentRows,
   toJurorAssignmentRow,
 } from './juror-assignment-export';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { resolveListEdition } from '../editions/list-edition';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 
 /**
  * ARK-135 (BG-22): id de edición que nunca existe. Sin edición activa los reportes salen
@@ -444,7 +447,9 @@ async getNrcWithSubjectNameAndAverage(
 
 /**
  * HU-16 (ARK-108): asignación de jurados de una edición (por defecto la activa) para el Excel.
- * Incluye a todo jurado activo y a cualquier otro usuario con grupos asignados en la edición.
+ * BG-40 (ARK-163): solo los jurados de esa edición según `jurorsOfEdition` (HU-25): confirmados
+ * en «Jurados de la edición» y profesores con NRC activo en ella. Pendientes, declinados y
+ * jurados de otras ediciones no salen. Estado y Tipo son los de la edición, no los de la cuenta.
  * Solo cuenta grupos y evaluaciones de esa edición. 404 si no hay edición o no hay asignaciones.
  */
 async getJurorAssignmentReport(editionId?: number): Promise<{
@@ -463,20 +468,19 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
   }
 
   const users = await this.prisma.user.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { roleId: ROL_JURADO_ID },
-        { teamsToEvaluate: { some: { editionId: edition.id, isActive: true } } },
-      ],
-    },
+    where: jurorsOfEdition(edition.id),
     select: {
       firstName: true,
       lastName: true,
       email: true,
       jurorCategory: true,
       jurorType: true,
-      confirmationStatus: { select: { status: true } },
+      // Fila de «Jurados de la edición»: solo existe para los inscritos (los profesores con NRC
+      // entran sin ella). jurorsOfEdition ya garantiza que, si existe, está Confirmada.
+      jurorEditions: {
+        where: { editionId: edition.id },
+        select: { type: true },
+      },
       teamsToEvaluate: {
         where: { editionId: edition.id, isActive: true },
         select: { teamCode: true, videogame: { select: { id: true, name: true } } },
@@ -488,22 +492,26 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
     },
   });
 
-  const rows = users.map((u) =>
-    toJurorAssignmentRow({
+  const rows = users.map((u) => {
+    const enrollment = u.jurorEditions[0];
+    return toJurorAssignmentRow({
       firstName: u.firstName,
       lastName: u.lastName,
       email: u.email,
-      status: u.confirmationStatus?.status ?? null,
+      status: enrollment
+        ? JUROR_EDITION_STATUS_LABEL.CONFIRMED
+        : PROFESSOR_WITH_NRC_STATUS_LABEL,
       jurorCategory: u.jurorCategory,
-      jurorType: u.jurorType,
+      // En una edición manda jurado_edicion.tipo (PR #218); sin fila, el dato de la cuenta
+      jurorType: enrollment?.type ?? u.jurorType,
       assigned: u.teamsToEvaluate.map((t) => ({
         teamCode: t.teamCode,
         videogameId: t.videogame?.id ?? null,
         videogameName: t.videogame?.name ?? null,
       })),
       evaluatedVideogameIds: u.evaluationsSubmitted.map((e) => e.videogameId),
-    }),
-  );
+    });
+  });
 
   if (rows.every((r) => r.totalAsignados === 0)) {
     throw new NotFoundException('No hay asignaciones para exportar.');

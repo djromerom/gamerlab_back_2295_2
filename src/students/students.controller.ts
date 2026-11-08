@@ -11,7 +11,7 @@ import {
 import { StudentsService } from './students.service';
 import { Member } from '@prisma/client';
 import { PaginatedResult } from '../common/types/paginated-result.type';
-import { StudentsEvaluations, StudentsGrade } from './types/students.type';
+import { StudentsEvaluations } from './types/students.type';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { AppUser } from 'src/auth/jwt.strategy';
 import { EditNrcDto } from './dto/editNrc.dto';
@@ -22,12 +22,14 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { EditionStudentsService } from './edition-students.service';
 import { ListEditionStudentsQueryDto } from './dto/list-edition-students-query.dto';
 import { EditionStudentsList } from './types/edition-students.type';
+import { FinalGradeService } from '../final-grade/final-grade.service';
 
 @Controller('students')
 export class StudentsController {
   constructor(
     private readonly studentsService: StudentsService,
     private readonly editionStudentsService: EditionStudentsService,
+    private readonly finalGradeService: FinalGradeService,
   ) { }
 
   // ARK-129 (HU-26): estudiantes de una edición con su equipo y su estado. Solo Administrador.
@@ -100,11 +102,24 @@ export class StudentsController {
     return this.studentsService.getMyJudges(id);
   }
 
+  // HU-20 (ARK-80): la nota final (HU-34) solo cuando el administrador la libera; antes se veía
+  // en cualquier momento.
   @Get('/grades')
   @UseGuards(RolePermissionGuard)
   @RequiredService('MyGeneralGrade')
-  findGrades(@GetUser('id') id: string): Promise<StudentsGrade> {
-    return this.studentsService.getStudentsGrades(id);
+  @ApiOperation({
+    summary:
+      'Nota final del equipo del estudiante, o null si no está liberada o está en proceso',
+    description:
+      'HU-20 (ARK-80): se conserva por compatibilidad. Usar GET /final-grade/me, que dice el motivo.',
+    deprecated: true,
+  })
+  async findGrades(
+    @GetUser('id') id: string,
+  ): Promise<{ grade: number | null }> {
+    const { finalGrade } =
+      await this.finalGradeService.getStudentFinalGrade(id);
+    return { grade: finalGrade };
   }
 
   @Get('/members')

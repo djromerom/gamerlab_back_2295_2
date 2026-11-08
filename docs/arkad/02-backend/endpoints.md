@@ -1,6 +1,6 @@
 # Endpoints
 
-> **Audiencia:** Backend, Frontend · **Actualizado:** 2026-11-05 · **Estado:** completo (mapa por controlador + inventario de acceso de `origin/main`) · **Fuente:** `src/**/*.controller.ts`, `npm run routes:inventory`
+> **Audiencia:** Backend, Frontend · **Actualizado:** 2026-11-07 · **Estado:** completo (mapa por controlador + inventario de acceso de `origin/main`) · **Fuente:** `src/**/*.controller.ts`, `npm run routes:inventory`
 
 El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada** ruta está en [inventario-de-rutas](inventario-de-rutas.md). Swagger (`/api`, no en producción) muestra los DTO. Aquí el mapa por controlador.
 
@@ -20,6 +20,7 @@ El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada
 | `/subjects` · `/nrcs` · `/criteria` | CRUD + `select-options`; `/criteria` además `PATCH :id/restore` |
 | `/evaluation` | `GET progress`, `POST with-details`, `POST batch` |
 | `/pending-games` · `/graded-games` | `GET /`, `search`, `count`, `search/quick` |
+| `/final-grade` | `GET release`, `PATCH release` (Administrador), `GET me` (Estudiante): nota final liberada a los estudiantes (HU-20) |
 | `/ranking` | `GET /`, `GET winners`, `GET ties`, `GET decisions`, `GET my-ties`, `POST ties/decision`, `POST finalize` |
 | `/juror` | `POST /`, `GET /`, `GET :id`, `PATCH :id`, `DELETE :id`, `GET evaluators`, `GET evaluations-assignment`, `POST resend-confirmation`, `POST assignments`, `PATCH assignments/reassign`, `DELETE assignments`, `DELETE assignments/all`, `DELETE :id/assignments`, `GET assignments/audit`, `GET evaluation-tracking`, `GET :id/teams`, `GET teams/:teamId/evaluation-stats`, `GET teams/:teamId/jurors-status` |
 | `/juror-edition` | `GET /`, `POST import-previous`, `PATCH status`, `POST enroll` |

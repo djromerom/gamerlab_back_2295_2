@@ -34,6 +34,14 @@ export interface JurorAssignmentRow {
   pendientes: string[];
 }
 
+/**
+ * BG-40 (ARK-163): columna Estado = participación en la edición, no la confirmación de la
+ * cuenta. Al Excel solo llegan los Confirmados de «Jurados de la edición» y los profesores que
+ * son jurados automáticos por tener un NRC activo en ella.
+ */
+export const JUROR_EDITION_STATUS_LABEL = { CONFIRMED: 'Confirmado' } as const;
+export const PROFESSOR_WITH_NRC_STATUS_LABEL = 'Profesor con NRC';
+
 const CATEGORY_LABEL: Record<JurorCategory, string> = {
   JUNIOR: 'Junior',
   SENIOR: 'Senior',

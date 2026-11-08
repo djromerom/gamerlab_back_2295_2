@@ -1,6 +1,6 @@
 # Modelo de datos
 
-> **Audiencia:** Backend, DevOps · **Actualizado:** 2026-11-05 · **Estado:** completo para `schema.prisma` de la rama leída (ver nota en el [README](README.md)) · **Fuente:** `back/prisma/schema.prisma`
+> **Audiencia:** Backend, DevOps · **Actualizado:** 2026-11-07 · **Estado:** completo para `schema.prisma` de la rama leída (ver nota en el [README](README.md)) · **Fuente:** `back/prisma/schema.prisma`
 
 Convención: modelo en inglés, tabla/columnas en español vía `@map`. Borrado lógico con `isActive`. `schema.prisma` es la fuente de verdad: no editar migraciones ya mergeadas.
 
@@ -37,7 +37,7 @@ erDiagram
 
 | Grupo | Modelos (tabla) | Notas |
 |---|---|---|
-| **Edición y configuración** | `Edition` (`ediciones`), `EventConfiguration` (`configuracion_evento`), `Weighting` (`ponderado`) | `Edition`: `@@unique([year, semester])`, estado `EditionStatus` (ACTIVE/INACTIVE/ARCHIVED), semestre 10/20/30. `EventConfiguration`: `evaluationsOpen`, `showEvaluations`, `showRanking`, `registrationsOpen`, una por edición. `Weighting`: `seniorPct`/`juniorPct` por edición |
+| **Edición y configuración** | `Edition` (`ediciones`), `EventConfiguration` (`configuracion_evento`), `Weighting` (`ponderado`) | `Edition`: `@@unique([year, semester])`, estado `EditionStatus` (ACTIVE/INACTIVE/ARCHIVED), semestre 10/20/30. `EventConfiguration`: `evaluationsOpen`, `showEvaluations`, `showRanking`, `registrationsOpen`, `showFinalGrade` y `finalGradeReleasedAt` (HU-20), una por edición. `Weighting`: `seniorPct`/`juniorPct` por edición |
 | **Acceso** | `User` (`usuarios`), `Role` (`roles`), `Service` (`servicio`), `Permission` (`permisos`), `RolePermission`, `ServicePermission`, `ConfirmationStatus`, `TokenType`, `VerificationToken`, `RefreshToken` | `User`: `jurorCategory` (JUNIOR/SENIOR), `jurorType` (OFFICIAL/BACKUP), `authMethod`, `microsoftOid`. La cuenta es **global** |
 | **Equipos** | `Team` (`equipos`), `Member` (`integrante`), `TeamVerification`, `TeamVerificationLog` | `Team` únicos por edición: `(teamCode, editionId)`, `(verificationCode, editionId)`, `(userId, editionId)`, `(teamName, editionId)`. `Member` únicos por edición: `(email, editionId)`, `(studentCode, editionId)`; `editionId` se copia del equipo. `verificationCode` es null en N0 |
 | **Videojuegos** | `Videogame`, `VideogameStatus`, `VideogameLike`, `HighlightedGame`, `Upload` | Un videojuego por equipo (`teamId` único). Estado por defecto id 2. `Upload.isPublic` por defecto `false` (BG-24) |

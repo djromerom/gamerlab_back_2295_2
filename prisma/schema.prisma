@@ -68,6 +68,9 @@ model EventConfiguration {
   showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   showRanking     Boolean  @default(false) @map("mostrar_ranking")
   registrationsOpen Boolean @default(false) @map("inscripciones_abiertas")
+  // HU-20: el estudiante ve su nota final solo cuando el administrador la libera (desde las 12:00).
+  showFinalGrade       Boolean   @default(false) @map("mostrar_nota_final")
+  finalGradeReleasedAt DateTime? @map("nota_final_liberada_en")
   // HU-23: parámetros de la presencia del jurado durante la feria, en minutos.
   presencePromptMinutes   Int @default(60) @map("presencia_pregunta_min")
   presenceResponseMinutes Int @default(15) @map("presencia_respuesta_min")
