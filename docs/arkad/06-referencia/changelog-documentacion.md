@@ -2,6 +2,9 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-08: NRC por materia (HU-31, ARK-167)
+- [equipos-y-verificacion](../01-negocio/equipos-y-verificacion.md#inscripción-registro-de-equipo): regla de un NRC por materia, de la edición del equipo, con varias materias por integrante, y los datos nuevos de `GET /nrcs/select-options`.
+
 ## 2026-11-07: decisiones de la reunión con profesores (6-nov) y aclaración de externos
 - **P-02 cerrada:** 60 % el promedio de los profesores que calificaron al grupo, 40 % el promedio de los jurados junior (HU-34); la nota incompleta queda en «Nota en proceso». Actualizados `glosario`, `reglas-de-negocio`, `decisiones-abiertas`, `que-es-arkad`, `evaluacion-y-ranking`, `estado-actual` y `calendario-feria`.
 - **Tres tipos de participante** aclarados en `glosario`, `reglas-de-negocio` y `roles-y-permisos`: equipo normal, colegio (N0, externo, sí se califica solo con seniors) y **presentador externo** (rol nuevo HU-33: lo registra solo el administrador y nunca se califica). La nota de los colegios (promedio de seniors al 100 %) es una propuesta del 7-nov a confirmar con los profesores.

@@ -91,15 +91,22 @@ export class NrcsController {
     name: 'includeSubjects',
     required: false,
     type: Boolean,
-    description: 'Also include subject.id and subject.name',
+    description:
+      'Also include subject (id, name, abrevName) and professorName (HU-31 selector)',
   })
   @ApiResponse({
     status: 200,
     description: 'Active NRCs; this endpoint is public.',
     schema: {
       example: [
-        { id: 3, code: 2501, subjectId: 1, editionId: 1 },
-        { id: 5, code: 2501, subjectId: 1, editionId: 3 },
+        {
+          id: 3,
+          code: 2501,
+          subjectId: 1,
+          editionId: 3,
+          subject: { id: 1, name: 'Programación Orientada a Objetos', abrevName: 'POO' },
+          professorName: 'Ana Pérez',
+        },
       ],
     },
   })

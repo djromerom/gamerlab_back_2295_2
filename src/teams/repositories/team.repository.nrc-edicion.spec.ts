@@ -21,7 +21,7 @@ describe('TeamRepository — NRC por edición', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    tx.nRC.findMany.mockResolvedValue([{ id: 41, code: 9999 }]);
+    tx.nRC.findMany.mockResolvedValue([{ id: 41, code: 9999, subjectId: 1, subject: { name: 'POO' } }]);
     tx.member.findUnique.mockResolvedValue(null);
     tx.member.findFirst.mockResolvedValue(null);
     tx.member.create.mockResolvedValue({ id: 1 });
