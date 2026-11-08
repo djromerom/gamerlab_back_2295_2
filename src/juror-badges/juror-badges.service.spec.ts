@@ -61,7 +61,13 @@ describe('JurorBadgesService', () => {
 
   describe('generate', () => {
     it('crea un token único por jurado sin escarapela y no incluye datos personales', async () => {
-      prisma.user.findMany.mockResolvedValue([juror('u1'), juror('u2')]);
+      // Ids con forma real (UUID, 36 caracteres): no caben en un token de 22, así que la
+      // comprobación de abajo no puede fallar por azar. Con 'u2' fallaba ~1 de cada 200 corridas
+      // en CI cuando el token aleatorio traía «u2» por casualidad (PR de ARK-194).
+      prisma.user.findMany.mockResolvedValue([
+        juror('7f9c2b1e-4d3a-4b5c-9e8f-1a2b3c4d5e6f'),
+        juror('0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d'),
+      ]);
       prisma.jurorBadge.findMany.mockResolvedValue([]);
       prisma.jurorBadge.createMany.mockResolvedValue({ count: 2 });
 
