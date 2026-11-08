@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { BlobReferenceService } from '../upload/blob-reference.service';
+import { assertStudentEditWindowOpen } from '../teams/student-edit-policy';
 
 @Injectable()
 export class VideogamesService {
@@ -277,6 +278,9 @@ export class VideogamesService {
     // ARK-130 (HU-27): el videojuego de una edición anterior es de solo lectura
     assertEditionWritable(vg.team.edition, 'el videojuego');
 
+    // ARK-161 (BG-38): con las inscripciones cerradas el estudiante ya no edita su juego
+    if (!isAdmin) await assertStudentEditWindowOpen(this.prisma);
+
     // El estado de aprobación (CONFIRMADO / PENDIENTE / RECHAZADO) lo decide
     // un administrador: un estudiante no puede aprobar ni ocultar su propio juego.
     if (!isAdmin && videogameData.videogameStatusId !== undefined) {
@@ -285,17 +289,19 @@ export class VideogamesService {
       );
     }
 
-    // `name` (la columna) solo la cambia un administrador. Un no administrador
-    // que lo envíe igual al actual (o sin enviarlo) no cambia nada y se ignora.
-    const { name: requestedName, ...dataWithoutName } = videogameData;
-    if (
-      !isAdmin &&
-      requestedName !== undefined &&
-      requestedName.trim() !== vg.name.trim()
-    ) {
-      throw new ForbiddenException(
-        'Solo un administrador puede cambiar el nombre del videojuego',
-      );
+    // El nombre del juego solo lo cambia un administrador, llegue como `name` (la columna)
+    // o como `vgName` (el campo del DTO que se guarda en `name`). Un no administrador que
+    // lo envíe igual al actual (el front lo manda siempre) o sin enviarlo no cambia nada.
+    const { name: requestedName, ...rest } = videogameData;
+    const dataWithoutName = { ...rest, vgName: undefined };
+    if (!isAdmin) {
+      for (const requested of [requestedName, videogameData.vgName]) {
+        if (requested !== undefined && requested.trim() !== vg.name.trim()) {
+          throw new ForbiddenException(
+            'Solo un administrador puede cambiar el nombre del videojuego',
+          );
+        }
+      }
     }
 
     // Task 28: se guarda la referencia del archivo, no la URL firmada

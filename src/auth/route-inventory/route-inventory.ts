@@ -45,6 +45,10 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
     'Solo el Administrador (AdminRoleGuard): define el ranking final (HU-04).',
   'GET /students':
     'Solo el Administrador (AdminRoleGuard): evaluaciones individuales del equipo. El estudiante recibe 403 y ve solo la nota final (HU-30, ARK-154).',
+  'GET /final-grade/release':
+    'Solo el Administrador (AdminRoleGuard): estado de la liberación de la nota final y equipos con datos incompletos (HU-20, ARK-80).',
+  'PATCH /final-grade/release':
+    'Solo el Administrador (AdminRoleGuard): libera (desde las 12:00 del día de la feria) u oculta la nota final a los estudiantes (HU-20, ARK-80).',
 };
 
 /**
@@ -54,14 +58,16 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
  */
 export const ROUTE_NOTES: Record<string, string> = {
   'PATCH /teams/:id':
-    'Estudiante: solo si es líder del equipo (TeamsService.update).',
+    'Estudiante: solo el líder, solo el nombre del equipo y el contenido del juego, y solo con las inscripciones abiertas; integrantes, externo, nombre del juego y estado de aprobación responden 403 (ARK-161, BG-38).',
   'PATCH /teams/:teamId/members/:memberId':
-    'Estudiante: solo si es líder del equipo (TeamsService.updateMemberEmail).',
-  'POST /teams/:id/member': 'Estudiante: solo su propio equipo (BG-01).',
+    'Solo el Administrador cambia el correo de un integrante (ARK-161, BG-38).',
+  'POST /teams/:id/member': 'Solo el Administrador agrega integrantes (ARK-161, BG-38).',
   'DELETE /teams/:id/members/:memberId':
-    'Estudiante: solo su propio equipo, y el integrante debe pertenecer a ese equipo (BG-01).',
+    'Solo el Administrador quita integrantes, y el integrante debe pertenecer a ese equipo (ARK-161, BG-38).',
   'PATCH /videogames/:id':
-    'Estudiante: solo el videojuego de su equipo; el estado de aprobación solo lo cambia el Administrador (BG-01).',
+    'Estudiante: solo el videojuego de su equipo y con las inscripciones abiertas; el nombre y el estado de aprobación solo los cambia el Administrador (BG-01, ARK-161).',
+  'PATCH /students/members/:memberId/nrcs':
+    'Solo el Administrador cambia los NRC de un integrante, aunque el Estudiante tenga el permiso EditMemberNrc (ARK-161, BG-38).',
   'GET /juror/teams/:teamId/evaluation-stats':
     'Estudiante: solo las estadísticas de su propio equipo (BG-01). Solo devuelve conteos, sin datos de los jurados (ARK-110).',
   'GET /juror/teams/:teamId/jurors-status':
@@ -70,6 +76,10 @@ export const ROUTE_NOTES: Record<string, string> = {
     'Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
   'GET /teams/:id/full':
     'Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112).',
+  'GET /final-grade/me':
+    'Estudiante: solo la nota final de su propio equipo en la edición activa, sin desglose, y solo cuando el administrador la liberó (HU-20, ARK-80).',
+  'GET /students/grades':
+    'Estudiante: la nota final de su equipo o null si no está liberada o está en proceso (HU-20, ARK-80). Reemplazada por GET /final-grade/me.',
   'POST /upload':
     'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':

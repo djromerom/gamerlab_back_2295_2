@@ -13,6 +13,7 @@ Flujo en pasos del frontend: datos del equipo, integrantes (paso 2), juego (paso
 - Borrador del registro en `sessionStorage`, límite de tamaño, reCAPTCHA en español, NRC con materia (BG-11).
 - Sin NRC cargados en la edición, nadie completa la inscripción (BG-23).
 - Los estudiantes de una edición anterior se inscriben de nuevo (BG-17, HU-26).
+- **NRC por materia (HU-31, ARK-167):** cada integrante elige una o varias materias y **un solo NRC por materia** (en tercer semestre se participa por dos: Estructura de Datos I y POO). Todos deben ser NRC activos de la edición del equipo. El back responde 400 con `field: "nrc"` si falta alguno («Estos NRC no existen en la edición activa: …») o si hay dos de la misma materia («Elige un solo NRC por materia: …»). La misma regla aplica cuando el administrador cambia los NRC. `GET /nrcs/select-options?includeSubjects=true` trae la abreviatura de la materia y el nombre del profesor para el selector de botones (opción A).
 
 ## Código de verificación (HU-19)
 Código propio de cada equipo, visible en el **panel del estudiante**; el estudiante se lo da al jurado, que debe **digitarlo** para calificar ese grupo. **N0 (colegios) no tiene código** (P-25). Hay único `(codigo_verificacion, id_edicion)` y se generó para equipos existentes (migración `...add_team_verification_code`).
@@ -23,6 +24,21 @@ Código propio de cada equipo, visible en el **panel del estudiante**; el estudi
 - Bugs conocidos de la revisión del 30-oct (NRC sin filtrar por edición, filtros duplicados, listado vs exportación, falta único) → revisión de filtros.
 - Borrado de profesor/jurado: **borrado lógico** (`isActive=false`); el correo queda reservado. Nunca `onDelete: Cascade`.
 - Vínculos integrante-NRC cruzados (todos al NRC 38, código 9999, edición 3): limpieza decidida el 30-oct (rama 2), ejecutada por el usuario con respaldo.
+
+## Qué puede editar el estudiante (BG-38)
+
+Tabla de SP-05 (ARK-166), aprobada por Allison el 7-nov y aplicada en el back por ARK-161. El back responde **403** aunque el cambio llegue directo por la API, con la frase «Para cambiar este dato, escríbele al administrador».
+
+| Campo | Quién lo edita | Hasta cuándo |
+|---|---|---|
+| Descripción, logo, video, repositorio, fotos, archivo y `entry` del juego | Líder y administrador | Líder: mientras las inscripciones estén abiertas (interruptor del administrador) |
+| Nombre del equipo | Líder y administrador | Igual |
+| Nombre del juego, estado de aprobación, externo | Administrador | Siempre |
+| Integrantes (agregar o quitar), sus NRC, nombres, códigos y correos | Administrador | Siempre |
+
+- Editar el contenido **no** devuelve el juego a PENDIENTE; cambiar el **logo** o el **nombre del equipo** sí, para que el administrador lo revise.
+- Los NRC se eligen al inscribirse (selector de HU-31); después solo los cambia el administrador.
+- Código: `src/teams/student-edit-policy.ts`.
 
 ## Videojuegos y multimedia
 Aprobación de juego: conserva video e imágenes (error de V3 corregido). Likes con tope según multimedia. Juegos de Pygame, Unity y Godot en navegador: SP-03 (spike); navegadores soportados sin definir (P-23). Archivos en Azure Blob (Azurite en local); URLs firmadas de lectura con vigencia por defecto y máxima de 3 años (se guardan en BD; ver [integraciones](../02-backend/integraciones.md)); zip máx. 100 MB, 3 por 10 min (I5, I6). Las fotos de ediciones pasadas no se veían por archivos no públicos (BG-24).
