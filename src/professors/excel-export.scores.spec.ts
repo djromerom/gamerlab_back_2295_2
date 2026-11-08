@@ -62,10 +62,11 @@ describe('ExcelExportService: notas', () => {
   };
 
   it('con 2 decimales', async () => {
+    // BG-36: números (no texto) con formato 0.00; 4.5 se ve 4.50 en Excel
     await expect(run(4.25)).resolves.toEqual({
-      feria: '4.25',
-      junior: '3.25',
-      docente: '4.50',
+      feria: 4.25,
+      junior: 3.25,
+      docente: 4.5,
     });
   });
 

@@ -71,6 +71,7 @@ Detalle: [jurados](jurados.md).
 - **Fechas del evento en certificados:** variables `EVENT_DATE_TEXT`, `EVENT_TIME_TEXT`, `EVENT_PLACE_TEXT`.
 - Reglas del borrador de evaluación: guardado automático en el servidor (P-22, HU-18).
 - Exportaciones: se quedan en Excel como están (P-06); el panel del profesor exporta **lo filtrado**.
+- Excel de notas del panel del profesor (BG-36): las notas (Docente, Feria y Jurado Junior) salen como **números** redondeados a 2 decimales con formato `0.00` (4 → 4.00, 3.5 → 3.50, 3.456 → 3.46), igual que en pantalla (BG-30); se pueden ordenar y sumar. Sin nota, la celda queda vacía.
 
 ## 8. Decisiones del flujo por edición (resumen)
 (1) crear y activar edición con su configuración; (2) cargar NRC; (3) abrir inscripciones; (4) armar jurados externos; (5) cerrar inscripciones el 22; (6) asignación automática con validaciones; (7) escarapelas el 25; (8) feria el 26 con check-in QR y alta de último momento; (9) la siguiente edición repite el flujo.

@@ -21,6 +21,7 @@ Independientes del rol. Un suplente también es junior o senior (al reemplazar c
 - Los jurados externos se traen de la edición anterior como **Pendientes** y el administrador confirma a los que vienen. Los NRC se cargan siempre primero.
 - Excepción (HU-28): profesores senior **sin NRC** se agregan a «Jurados de la edición» por correo.
 - La lista de asignación es siempre la de la edición (`jurorsOfEdition`, BG-25). Escarapelas y check-in solo para los elegibles de la edición (BG-16).
+- El Excel de asignación (HU-16, `GET /reports/exportJurados`) trae solo a los jurados de la edición exportada (`jurorsOfEdition`, BG-40): Pendientes, los que Declinaron y los de otras ediciones no salen, aunque tengan grupos. La columna **Estado** es la de la edición («Confirmado» o «Profesor con NRC») y **Tipo** es el de la edición (`jurado_edicion.tipo`; el profesor con NRC, sin fila, usa el de su cuenta).
 - Tabla `jurado_edicion` (modelo `JurorEdition`); estado de confirmación por edición.
 
 ## Flujo del día de la feria

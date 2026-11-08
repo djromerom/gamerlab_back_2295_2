@@ -28,11 +28,13 @@ import { EditionsModule } from './editions/editions.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
 import { EducationalFocusesModule } from './educational-focuses/educational-focuses.module';
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
+import { FinalGradeModule } from './final-grade/final-grade.module';
 import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
 import { JurorAttendanceModule } from './juror-attendance/juror-attendance.module';
 import { AbsentJurorResponsesModule } from './absent-juror-responses/absent-juror-responses.module';
+import { JurorPresenceModule } from './juror-presence/juror-presence.module';
 import { AbsenceAlertModule } from './absence-alert/absence-alert.module';
 import { PushNotificationsModule } from './push-notifications/push-notifications.module';
 import { StaffModule } from './staff/staff.module';
@@ -71,12 +73,14 @@ import { RankingModule } from './ranking/ranking.module';
     EducationalFocusesModule,
     TeamVerificationModule,
     RankingModule,
+    FinalGradeModule,
     HighlightedGamesModule,
     HistoricalsModule,
     JurorBadgesModule,
     JurorCheckinModule,
     JurorAttendanceModule,
     AbsentJurorResponsesModule,
+    JurorPresenceModule,
     AbsenceAlertModule,
     PushNotificationsModule,
     StaffModule,
