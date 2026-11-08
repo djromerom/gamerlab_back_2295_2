@@ -75,7 +75,7 @@ describe('Escrituras sobre una edición anterior (HU-27)', () => {
             4,
             1,
             { email: 'a@b.co' } as any,
-            'leader-4',
+            admin,
           ),
       ],
     ])(

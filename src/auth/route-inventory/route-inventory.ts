@@ -58,14 +58,16 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
  */
 export const ROUTE_NOTES: Record<string, string> = {
   'PATCH /teams/:id':
-    'Estudiante: solo si es líder del equipo (TeamsService.update).',
+    'Estudiante: solo el líder, solo el nombre del equipo y el contenido del juego, y solo con las inscripciones abiertas; integrantes, externo, nombre del juego y estado de aprobación responden 403 (ARK-161, BG-38).',
   'PATCH /teams/:teamId/members/:memberId':
-    'Estudiante: solo si es líder del equipo (TeamsService.updateMemberEmail).',
-  'POST /teams/:id/member': 'Estudiante: solo su propio equipo (BG-01).',
+    'Solo el Administrador cambia el correo de un integrante (ARK-161, BG-38).',
+  'POST /teams/:id/member': 'Solo el Administrador agrega integrantes (ARK-161, BG-38).',
   'DELETE /teams/:id/members/:memberId':
-    'Estudiante: solo su propio equipo, y el integrante debe pertenecer a ese equipo (BG-01).',
+    'Solo el Administrador quita integrantes, y el integrante debe pertenecer a ese equipo (ARK-161, BG-38).',
   'PATCH /videogames/:id':
-    'Estudiante: solo el videojuego de su equipo; el estado de aprobación solo lo cambia el Administrador (BG-01).',
+    'Estudiante: solo el videojuego de su equipo y con las inscripciones abiertas; el nombre y el estado de aprobación solo los cambia el Administrador (BG-01, ARK-161).',
+  'PATCH /students/members/:memberId/nrcs':
+    'Solo el Administrador cambia los NRC de un integrante, aunque el Estudiante tenga el permiso EditMemberNrc (ARK-161, BG-38).',
   'GET /juror/teams/:teamId/evaluation-stats':
     'Estudiante: solo las estadísticas de su propio equipo (BG-01). Solo devuelve conteos, sin datos de los jurados (ARK-110).',
   'GET /juror/teams/:teamId/jurors-status':

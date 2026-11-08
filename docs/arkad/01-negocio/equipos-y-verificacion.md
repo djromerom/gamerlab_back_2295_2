@@ -25,6 +25,21 @@ Código propio de cada equipo, visible en el **panel del estudiante**; el estudi
 - Borrado de profesor/jurado: **borrado lógico** (`isActive=false`); el correo queda reservado. Nunca `onDelete: Cascade`.
 - Vínculos integrante-NRC cruzados (todos al NRC 38, código 9999, edición 3): limpieza decidida el 30-oct (rama 2), ejecutada por el usuario con respaldo.
 
+## Qué puede editar el estudiante (BG-38)
+
+Tabla de SP-05 (ARK-166), aprobada por Allison el 7-nov y aplicada en el back por ARK-161. El back responde **403** aunque el cambio llegue directo por la API, con la frase «Para cambiar este dato, escríbele al administrador».
+
+| Campo | Quién lo edita | Hasta cuándo |
+|---|---|---|
+| Descripción, logo, video, repositorio, fotos, archivo y `entry` del juego | Líder y administrador | Líder: mientras las inscripciones estén abiertas (interruptor del administrador) |
+| Nombre del equipo | Líder y administrador | Igual |
+| Nombre del juego, estado de aprobación, externo | Administrador | Siempre |
+| Integrantes (agregar o quitar), sus NRC, nombres, códigos y correos | Administrador | Siempre |
+
+- Editar el contenido **no** devuelve el juego a PENDIENTE; cambiar el **logo** o el **nombre del equipo** sí, para que el administrador lo revise.
+- Los NRC se eligen al inscribirse (selector de HU-31); después solo los cambia el administrador.
+- Código: `src/teams/student-edit-policy.ts`.
+
 ## Videojuegos y multimedia
 Aprobación de juego: conserva video e imágenes (error de V3 corregido). Likes con tope según multimedia. Juegos de Pygame, Unity y Godot en navegador: SP-03 (spike); navegadores soportados sin definir (P-23). Archivos en Azure Blob (Azurite en local); URLs firmadas de lectura con vigencia por defecto y máxima de 3 años (se guardan en BD; ver [integraciones](../02-backend/integraciones.md)); zip máx. 100 MB, 3 por 10 min (I5, I6). Las fotos de ediciones pasadas no se veían por archivos no públicos (BG-24).
 

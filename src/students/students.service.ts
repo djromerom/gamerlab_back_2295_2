@@ -8,6 +8,7 @@ import { AppUser } from "../auth/jwt.strategy";
 import { ROLE_IDS } from "../auth/constants/roles";
 import { activeEditionTeamOf } from "../teams/active-edition-team";
 import { assertEditionWritable } from "../editions/active-edition";
+import { assertAdminOnly } from '../teams/student-edit-policy';
 
 @Injectable()
 export class StudentsService {
@@ -18,6 +19,8 @@ export class StudentsService {
         memberId: number,
         nrcCodes: number[],
     ): Promise<Member> {
+        // ARK-161 (BG-38): los NRC de un integrante los cambia solo el administrador
+        assertAdminOnly(user, 'los NRC de un integrante');
 
         const selectClause: Prisma.MemberSelect = {
             id: true,

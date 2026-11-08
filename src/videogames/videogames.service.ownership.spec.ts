@@ -10,6 +10,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 describe('VideogamesService.update — propiedad (BG-01)', () => {
   const prisma = {
     videogame: { findUnique: jest.fn(), update: jest.fn() },
+  eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) }, // ARK-161: inscripciones abiertas
   };
   const service = new VideogamesService(prisma as any, {} as any, blobRefsPassthrough());
 
@@ -26,9 +27,39 @@ describe('VideogamesService.update — propiedad (BG-01)', () => {
   it('permite al líder del equipo modificar su propio videojuego', async () => {
     await service.update(
       7,
-      { vgName: 'Nuevo nombre' } as any,
+      { description: 'Nueva descripción' } as any,
       student('leader-1'),
     );
+
+    expect(prisma.videogame.update).toHaveBeenCalledWith({
+      where: { id: 7 },
+      data: { description: 'Nueva descripción' },
+    });
+  });
+
+  it('ARK-161: rechaza al líder que renombra su juego con un `vgName` distinto', async () => {
+    await expect(
+      service.update(7, { vgName: 'Nuevo nombre' } as any, student('leader-1')),
+    ).rejects.toThrow('Solo un administrador puede cambiar el nombre del videojuego');
+
+    expect(prisma.videogame.update).not.toHaveBeenCalled();
+  });
+
+  it('ARK-161: ignora `vgName` igual al actual (con trim) y no escribe el nombre', async () => {
+    await service.update(
+      7,
+      { vgName: ' Juego actual ', description: 'nueva' } as any,
+      student('leader-1'),
+    );
+
+    expect(prisma.videogame.update).toHaveBeenCalledWith({
+      where: { id: 7 },
+      data: { description: 'nueva' },
+    });
+  });
+
+  it('el administrador sí cambia el nombre con `vgName`', async () => {
+    await service.update(7, { vgName: 'Nuevo nombre' } as any, admin);
 
     expect(prisma.videogame.update).toHaveBeenCalledWith({
       where: { id: 7 },
