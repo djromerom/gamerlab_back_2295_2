@@ -7,6 +7,7 @@ import { SettingsService } from '../settings/settings.service';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { countProgress } from '../evaluation/evaluation-progress';
+import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evaluation/final-score';
 import { EditionStatus } from '@prisma/client';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
 import {
@@ -61,7 +62,7 @@ export class ReportsService {
       logoUrl?: string | null;
       materia?: string | null;
       nrc?: number | string | null;
-      promedio?: number;
+      promedio?: number | null;
       criterios?: { [nombreCriterio: string]: number };
       evaluacionesCompletadas?: number;
       totalJuradosAsignados?: number;
@@ -178,7 +179,7 @@ export class ReportsService {
       const fsVal = finalRow ? (finalRow.finalScore ?? finalRow.final_score ?? null) : null;
       const avgJuniorVal = finalRow ? (finalRow.avgJunior ?? finalRow.avg_junior ?? finalRow.avgjunior ?? null) : null;
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
-      const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
+      const finalPromedio = reportedFairScore(finalRow, promedioCalc);
 
       const progress = countProgress(
         (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
@@ -388,6 +389,9 @@ async getNrcWithSubjectNameAndAverage(
     },
   });
 
+  // HU-34: la nota de cada juego es la de la vista (cálculo único), no el promedio de sus evaluaciones
+  const finalByVideogame = await loadFinalScores(this.prisma, { editionId: reportEditionId });
+
   const promediosAgregadosPorNrc = new Map<number, { sum: number; count: number }>();
 
   videojuegosConInfo.forEach((vj) => {
@@ -399,9 +403,12 @@ async getNrcWithSubjectNameAndAverage(
         numEvaluacionesVideojuego++;
       }
     });
-    const promedioEsteVideojuego = numEvaluacionesVideojuego > 0
-      ? sumaScoresVideojuego / numEvaluacionesVideojuego
-      : null;
+    const promedioEsteVideojuego = scoreForNrcAverage(
+      finalByVideogame.get(vj.id),
+      numEvaluacionesVideojuego > 0
+        ? sumaScoresVideojuego / numEvaluacionesVideojuego
+        : null,
+    );
 
     if (promedioEsteVideojuego === null) return;
 
@@ -676,7 +683,7 @@ async getJuradosData(editionId?: number): Promise<
     semestre?: string;
     materia?: string | null;
     nrc?: number | string | null;
-    promedio: number;
+    promedio: number | null;
     criterios: { [nombreCriterio: string]: number };
     evaluacionesCompletadas?: number;
     totalJuradosAsignados?: number;
@@ -804,7 +811,7 @@ async getJuradosData(editionId?: number): Promise<
       const fsVal = finalRow ? (finalRow.finalScore ?? finalRow.final_score ?? null) : null;
       const avgJuniorVal = finalRow ? (finalRow.avgJunior ?? finalRow.avg_junior ?? finalRow.avgjunior ?? null) : null;
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
-      const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
+      const finalPromedio = reportedFairScore(finalRow, promedioCalc);
 
       const progress = countProgress(
         (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
