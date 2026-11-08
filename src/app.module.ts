@@ -35,6 +35,7 @@ import { JurorAttendanceModule } from './juror-attendance/juror-attendance.modul
 import { AbsentJurorResponsesModule } from './absent-juror-responses/absent-juror-responses.module';
 import { AbsenceAlertModule } from './absence-alert/absence-alert.module';
 import { PushNotificationsModule } from './push-notifications/push-notifications.module';
+import { JurorSurveyModule } from './juror-survey/juror-survey.module';
 import { StaffModule } from './staff/staff.module';
 import { JurorEditionModule } from './juror-edition/juror-edition.module';
 import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
@@ -79,6 +80,7 @@ import { RankingModule } from './ranking/ranking.module';
     AbsentJurorResponsesModule,
     AbsenceAlertModule,
     PushNotificationsModule,
+    JurorSurveyModule,
     StaffModule,
     JurorEditionModule,
     EvaluationTrackingModule,
