@@ -33,6 +33,7 @@ import { JurorBadgesModule } from './juror-badges/juror-badges.module';
 import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
 import { JurorAttendanceModule } from './juror-attendance/juror-attendance.module';
 import { AbsentJurorResponsesModule } from './absent-juror-responses/absent-juror-responses.module';
+import { JurorPresenceModule } from './juror-presence/juror-presence.module';
 import { AbsenceAlertModule } from './absence-alert/absence-alert.module';
 import { PushNotificationsModule } from './push-notifications/push-notifications.module';
 import { StaffModule } from './staff/staff.module';
@@ -77,6 +78,7 @@ import { RankingModule } from './ranking/ranking.module';
     JurorCheckinModule,
     JurorAttendanceModule,
     AbsentJurorResponsesModule,
+    JurorPresenceModule,
     AbsenceAlertModule,
     PushNotificationsModule,
     StaffModule,
