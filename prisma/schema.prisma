@@ -71,6 +71,10 @@ model EventConfiguration {
   // HU-20: el estudiante ve su nota final solo cuando el administrador la libera (desde las 12:00).
   showFinalGrade       Boolean   @default(false) @map("mostrar_nota_final")
   finalGradeReleasedAt DateTime? @map("nota_final_liberada_en")
+  // HU-23: parámetros de la presencia del jurado durante la feria, en minutos.
+  presencePromptMinutes   Int @default(60) @map("presencia_pregunta_min")
+  presenceResponseMinutes Int @default(15) @map("presencia_respuesta_min")
+  inactivityMinutes       Int @default(45) @map("presencia_inactividad_min")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -527,6 +531,8 @@ model JurorAttendance {
   method        CheckInMethod @map("metodo")
   badgeId       Int?          @map("id_escarapela")
   isActive      Boolean       @default(true) @map("activo")
+  // HU-23: último "Sigo aquí" del jurado. Null = no ha respondido desde su llegada.
+  lastPresenceConfirmedAt DateTime? @map("ultima_confirmacion_presencia")
   juror         User          @relation("JurorAttendance", fields: [jurorId], references: [id])
   checkedInBy   User          @relation("AttendanceRecorder", fields: [checkedInById], references: [id])
   edition       Edition       @relation(fields: [editionId], references: [id])
