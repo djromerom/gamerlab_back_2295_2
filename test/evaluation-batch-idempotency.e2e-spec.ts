@@ -189,7 +189,7 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
         editionId: edition.id,
         teamCode: `N0-${runId.slice(-5)}${suffix}`.slice(0, 12),
         videogame: {
-          create: { name: `it-sp1-${runId}-${suffix}`.slice(0, 30) },
+          create: { name: `it-sp1-${runId}-${suffix}`.slice(0, 30), videogameStatusId: 1 },
         },
         members: {
           create: {
@@ -266,7 +266,7 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
           userId: owner.id,
           editionId: archived.id,
           teamCode: `N1-IT-${runId.slice(-5)}`,
-          videogame: { create: { name: `it-sp1-${runId}`.slice(0, 30) } },
+          videogame: { create: { name: `it-sp1-${runId}`.slice(0, 30), videogameStatusId: 1 } },
         },
         include: { videogame: true },
       });

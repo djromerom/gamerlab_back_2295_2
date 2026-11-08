@@ -10,6 +10,10 @@ import { ROLE_IDS } from '../auth/constants/roles';
 describe('VideogamesService.update — propiedad (BG-01)', () => {
   const prisma = {
     videogame: { findUnique: jest.fn(), update: jest.fn() },
+    videogameStatus: { findUnique: jest.fn() },
+    team: { findUnique: jest.fn(), update: jest.fn() },
+    jurorAssignmentAuditLog: { createMany: jest.fn() },
+    $transaction: jest.fn(),
   eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) }, // ARK-161: inscripciones abiertas
   };
   const service = new VideogamesService(prisma as any, {} as any, blobRefsPassthrough());
@@ -22,6 +26,8 @@ describe('VideogamesService.update — propiedad (BG-01)', () => {
     jest.resetAllMocks();
     prisma.videogame.findUnique.mockResolvedValue(game);
     prisma.videogame.update.mockResolvedValue({ id: 7 });
+    prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma));
+    prisma.videogameStatus.findUnique.mockResolvedValue({ status: 'CONFIRMADO' });
   });
 
   it('permite al líder del equipo modificar su propio videojuego', async () => {
@@ -94,6 +100,30 @@ describe('VideogamesService.update — propiedad (BG-01)', () => {
       where: { id: 7 },
       data: { videogameStatusId: 3 },
     });
+  });
+
+  it('BG-35: al rechazar retira a los jurados, avisa y responde quiénes eran', async () => {
+    const notifier = { notifyAssignmentChanged: jest.fn() };
+    const withPush = new VideogamesService(
+      prisma as any,
+      {} as any,
+      blobRefsPassthrough(),
+      notifier as any,
+    );
+    prisma.videogame.findUnique.mockResolvedValue({ ...game, teamId: 10 });
+    prisma.videogameStatus.findUnique.mockResolvedValue({ status: 'RECHAZADO' });
+    prisma.team.findUnique.mockResolvedValue({
+      assignedJurors: [{ id: 'j1', firstName: 'Ana', lastName: 'Gómez' }],
+    });
+
+    const result: any = await withPush.update(7, { videogameStatusId: 3 } as any, admin);
+
+    expect(prisma.team.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { assignedJurors: { set: [] } },
+    });
+    expect(notifier.notifyAssignmentChanged).toHaveBeenCalledWith(['j1']);
+    expect(result.juradosRetirados).toEqual([{ id: 'j1', nombre: 'Ana Gómez' }]);
   });
 
   it('rechaza a un estudiante que envía un `name` distinto del actual', async () => {

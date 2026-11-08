@@ -167,6 +167,7 @@ describe('ReportsService.getJurorAssignmentReport (HU-16)', () => {
     expect(query.select.teamsToEvaluate.where).toEqual({
       editionId: 3,
       isActive: true,
+      videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
     });
     expect(query.select.evaluationsSubmitted.where).toEqual({
       editionId: 3,

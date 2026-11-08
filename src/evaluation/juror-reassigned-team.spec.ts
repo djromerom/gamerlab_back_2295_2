@@ -72,6 +72,7 @@ function createDb() {
     id: GAME_ID,
     name: 'Juego',
     isActive: true,
+    videogameStatus: { status: 'CONFIRMADO' },
     logoUrl: null,
     description: 'd',
   };

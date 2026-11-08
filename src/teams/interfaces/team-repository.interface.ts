@@ -30,7 +30,7 @@ export interface ITeamRepository {
   }>;
   update(id: number, data: any, markPending: boolean): Promise<Team>;
   
-  updateTeamInfo(teamId: number, updateTeamDto: UpdateTeamDto, markPending: boolean): Promise<any>;
+  updateTeamInfo(teamId: number, updateTeamDto: UpdateTeamDto, markPending: boolean, actorUserId?: string): Promise<any>;
   updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member>;
   
   remove(id: number): Promise<Team>;

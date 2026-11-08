@@ -132,7 +132,7 @@ describeIfDb('Rutas de notificaciones push por rol (HTTP + PostgreSQL)', () => {
         userId: student,
         editionId,
         teamCode: `N1-P-${runId.slice(-5)}`,
-        videogame: { create: { name: `it-hu37-${runId}`.slice(0, 30) } },
+        videogame: { create: { name: `it-hu37-${runId}`.slice(0, 30), videogameStatusId: 1 } },
         assignedJurors: { connect: { id: juror } },
       },
     });

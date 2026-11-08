@@ -1,3 +1,4 @@
+import { CONFIRMED_VIDEOGAME_STATUS } from '../../teams/team-status';
 import {
   BadRequestException,
   ConflictException,
@@ -42,7 +43,6 @@ import {
 
 export const AUTO_ASSIGNMENT_OUTDATED_CODE = 'AUTO_ASSIGNMENT_OUTDATED';
 export const AUTO_ASSIGNMENT_AUDIT_NOTE = 'Asignación automática (HU-07).';
-const CONFIRMED_VIDEOGAME_STATUS = 'CONFIRMADO';
 
 type Db = Prisma.TransactionClient;
 

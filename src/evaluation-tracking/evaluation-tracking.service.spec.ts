@@ -96,6 +96,9 @@ describe('EvaluationTrackingService (HU-21)', () => {
       }),
     );
     expect(whereOf(prisma.team.findMany)).toMatchObject({
+      videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
+    });
+    expect(whereOf(prisma.team.findMany)).toMatchObject({
       editionId: 12,
       isActive: true,
     });

@@ -34,6 +34,8 @@ import {
 import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
 import { resolveListEdition } from '../../editions/list-edition';
 import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
+import { CONFIRMED_TEAM } from '../../teams/team-status';
+import { findTeamNotConfirmedBlocker } from '../assignment-validation/assignment-rules';
 
 type EvaluatorForValidation = {
   id: string;
@@ -253,11 +255,21 @@ export class JurorAssignmentService implements OnModuleInit {
     };
   }
 
+  /** BG-35 (ARK-158): asignar y reasignar exigen equipo confirmado; quitar no. */
+  private assertTeamConfirmed(
+    team: Parameters<typeof findTeamNotConfirmedBlocker>[0],
+  ) {
+    const blocker = findTeamNotConfirmedBlocker(team);
+    if (blocker) {
+      this.assignmentValidation.enforce({ blockers: [blocker], warnings: [] });
+    }
+  }
+
   private async findActiveTeam(teamId: number, activeEdition: ActiveEdition) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
       include: {
-        videogame: true,
+        videogame: { include: { videogameStatus: { select: { status: true } } } },
         edition: { select: { status: true, title: true } },
         assignedJurors: {
           where: {
@@ -310,6 +322,7 @@ export class JurorAssignmentService implements OnModuleInit {
       const activeEdition = await requireActiveEdition(this.prisma);
       const evaluator = await this.findEvaluatorToAdd(jurorId, activeEdition);
       const team = await this.findActiveTeam(teamId, activeEdition);
+      this.assertTeamConfirmed(team);
 
       const acceptedWarnings = await this.validateChanges(
         activeEdition,
@@ -427,6 +440,7 @@ export class JurorAssignmentService implements OnModuleInit {
         activeEdition,
       );
       const team = await this.findActiveTeam(teamId, activeEdition);
+      this.assertTeamConfirmed(team);
 
       const isCurrentAssigned = team.assignedJurors.some(
         (juror) => juror.id === currentJurorId,
@@ -955,9 +969,8 @@ export class JurorAssignmentService implements OnModuleInit {
                 },
               }
             : {}),
-          videogame: {
-            isNot: null,
-          },
+          // BG-35 (ARK-158): solo equipos confirmados en la pantalla de asignación.
+          ...CONFIRMED_TEAM,
         },
         include: {
           videogame: {

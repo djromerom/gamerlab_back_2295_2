@@ -2,6 +2,7 @@
 import { withoutScoreBreakdown } from '../final-score-breakdown';
 import {
   Injectable,
+  Optional,
   Logger,
   ConflictException,
   InternalServerErrorException,
@@ -34,6 +35,8 @@ import {
   resolveTeamAudience,
 } from '../team-visibility';
 import { RankingService } from '../../ranking/ranking.service';
+import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
+import { ReleasedJuror, rejectionNotice } from '../team-status';
 import { resolveListEdition } from '../../editions/list-edition';
 import { assertTeamWritable, findActiveEdition } from '../../editions/active-edition';
 import {
@@ -56,6 +59,7 @@ export class TeamsService {
     private readonly settingsService: SettingsService,
     private readonly blobRefs: BlobReferenceService,
     private readonly ranking: RankingService,
+    @Optional() private readonly pushNotifier?: AssignmentPushNotifier,
   ) { }
 
   /** Task 28: la BD guarda `upload:<id>`; lo que llega como URL firmada se convierte antes de guardar. */
@@ -539,11 +543,19 @@ export class TeamsService {
       updateTeamDto,
       isAdmin,
     );
-    const result = await this.teamRepository.update(id, data, markPending);
+    const result = await this.teamRepository.update(
+      id,
+      data,
+      markPending,
+      isAdmin ? currentUser.id : undefined,
+    );
     if (result && 'updatedVideogame' in result) {
-      result.updatedVideogame = await this.blobRefs.resolveVideogame(
-        result.updatedVideogame,
+      const { juradosRetirados = [], ...updated } = result;
+      this.notifyReleasedJurors(juradosRetirados);
+      updated.updatedVideogame = await this.blobRefs.resolveVideogame(
+        updated.updatedVideogame,
       );
+      return { ...updated, ...rejectionNotice(juradosRetirados) };
     }
     return result;
   }
@@ -575,8 +587,24 @@ export class TeamsService {
       updateTeamDto,
       isAdmin,
     );
-    const updated = await this.teamRepository.updateTeamInfo(id, data, markPending);
-    return updated ? (await this.withSignedBlobs([updated]))[0] : updated;
+    const updated = await this.teamRepository.updateTeamInfo(
+      id,
+      data,
+      markPending,
+      isAdmin ? currentUser.id : undefined,
+    );
+    if (!updated) return updated;
+    const { juradosRetirados = [], ...updatedTeam } = updated;
+    this.notifyReleasedJurors(juradosRetirados);
+    const [signed] = await this.withSignedBlobs([updatedTeam]);
+    return { ...signed, ...rejectionNotice(juradosRetirados) };
+  }
+
+  /** BG-35 (ARK-158): avisa por push después de confirmar la transacción, sin esperar el envío. */
+  private notifyReleasedJurors(released: ReleasedJuror[] = []) {
+    if (released.length > 0) {
+      this.pushNotifier?.notifyAssignmentChanged(released.map((j) => j.id));
+    }
   }
 
   /**

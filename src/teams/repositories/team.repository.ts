@@ -34,6 +34,7 @@ import {
   activeEditionTeamOf,
 } from '../active-edition-team';
 import { findActiveEdition } from '../../editions/active-edition';
+import { ReleasedJuror, releaseJurorsIfRejected } from '../team-status';
 import {
   TeamLevelInfo,
   byLevelThenName,
@@ -434,13 +435,15 @@ export class TeamRepository implements ITeamRepository {
     id: number,
     data: UpdateTeamDto,
     markPending: boolean,
+    actorUserId?: string,
   ): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
+    juradosRetirados?: ReleasedJuror[];
   }>;
-  async update(id: number, data: any, markPending: boolean): Promise<Team>;
-  async update(id: number, data: any, markPending: boolean): Promise<any> {
+  async update(id: number, data: any, markPending: boolean, actorUserId?: string): Promise<Team>;
+  async update(id: number, data: any, markPending: boolean, actorUserId?: string): Promise<any> {
     if (
       data.teamName !== undefined ||
       data.isExternal !== undefined ||
@@ -466,6 +469,7 @@ export class TeamRepository implements ITeamRepository {
           const updatedVideogame = data.videogame
             ? await this.updateVideogame(tx, id, data.videogame)
             : null;
+          const juradosRetirados = await this.releaseJurors(tx, id, data, actorUserId);
           if (markPending) {
             await tx.videogame.update({
               where: { teamId: id },
@@ -476,6 +480,7 @@ export class TeamRepository implements ITeamRepository {
             updatedTeam,
             updatedMembers,
             updatedVideogame,
+            juradosRetirados,
           };
         });
       } catch (err) {
@@ -501,8 +506,10 @@ export class TeamRepository implements ITeamRepository {
     teamId: number,
     updateTeamDto: UpdateTeamDto,
     markPending: boolean,
+    actorUserId?: string,
   ): Promise<any> {
     const { teamName, videogame } = updateTeamDto;
+    let juradosRetirados: ReleasedJuror[] = [];
 
     await this.prisma.$transaction(async (tx) => {
       // Actualizar nombre del equipo si se proporciona
@@ -589,9 +596,22 @@ export class TeamRepository implements ITeamRepository {
           data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
         });
       }
+
+      juradosRetirados = await this.releaseJurors(tx, teamId, updateTeamDto, actorUserId);
     });
 
-    return this.findOneWithDetails(teamId);
+    return { ...(await this.findOneWithDetails(teamId)), juradosRetirados };
+  }
+
+  /** BG-35 (ARK-158): solo un administrador puede rechazar, y siempre llega `actorUserId`. */
+  private releaseJurors(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    dto: UpdateTeamDto,
+    actorUserId?: string,
+  ): Promise<ReleasedJuror[]> {
+    if (!actorUserId) return Promise.resolve([]);
+    return releaseJurorsIfRejected(tx, teamId, actorUserId, dto.videogame?.videogameStatusId);
   }
 
   async updateMemberEmail(

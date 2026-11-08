@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   NotImplementedException,
+  Optional,
 } from '@nestjs/common';
 import { assertEditionWritable, assertVideogameWritable } from '../editions/active-edition';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
@@ -17,6 +18,8 @@ import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { BlobReferenceService } from '../upload/blob-reference.service';
 import { assertStudentEditWindowOpen } from '../teams/student-edit-policy';
+import { AssignmentPushNotifier } from '../push-notifications/assignment-push-notifier.service';
+import { ReleasedJuror, rejectionNotice, releaseJurorsIfRejected } from '../teams/team-status';
 
 @Injectable()
 export class VideogamesService {
@@ -25,6 +28,7 @@ export class VideogamesService {
     private prisma: PrismaService,
     private gateway: VideogamesGateway,
     private readonly blobRefs: BlobReferenceService,
+    @Optional() private readonly pushNotifier?: AssignmentPushNotifier,
   ) { }
 
   private readonly MAX_LIKES_LOGO_ONLY = 20;
@@ -315,12 +319,32 @@ export class VideogamesService {
       updateData.name = vgName;
     }
 
-    return this.blobRefs.resolveVideogame(
-      await this.prisma.videogame.update({
-        where: { id: videogameId },
-        data: updateData,
-      }),
-    );
+    // BG-35 (ARK-158): rechazar retira los jurados del equipo en la misma transacción
+    let released: ReleasedJuror[] = [];
+    const updated =
+      isAdmin && updateData.videogameStatusId !== undefined
+        ? await this.prisma.$transaction(async (tx) => {
+            const saved = await tx.videogame.update({
+              where: { id: videogameId },
+              data: updateData,
+            });
+            released = await releaseJurorsIfRejected(
+              tx,
+              vg.teamId,
+              user.id,
+              updateData.videogameStatusId,
+            );
+            return saved;
+          })
+        : await this.prisma.videogame.update({
+            where: { id: videogameId },
+            data: updateData,
+          });
+
+    const resolved = await this.blobRefs.resolveVideogame(updated);
+    if (released.length === 0) return resolved;
+    this.pushNotifier?.notifyAssignmentChanged(released.map((j) => j.id));
+    return { ...resolved, ...rejectionNotice(released) };
   }
 
   //TODO: remove static game files, if there are any. possible interface with upload module?
