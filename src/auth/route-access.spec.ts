@@ -72,6 +72,9 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   // HU-37: cada jurado (externo o profesor) administra sus dispositivos; los avisos manuales son solo del Administrador
   ManageOwnPushSubscription: ['Jurado', 'Profesor'],
   SendPushNotice: [],
+  // HU-17: el jurado (externo o profesor) responde su encuesta; los resultados, solo el Administrador
+  AnswerJurorSurvey: ['Jurado', 'Profesor'],
+  ViewJurorSurveyResults: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],

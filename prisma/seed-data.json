@@ -669,6 +669,22 @@
         "createdAt": "2026-11-07T06:00:00.000Z",
         "updatedAt": "2026-11-07T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 76,
+        "name": "ANSWER_JUROR_SURVEY",
+        "description": "Permite al jurado responder la encuesta de experiencia de la edición",
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 77,
+        "name": "VIEW_JUROR_SURVEY_RESULTS",
+        "description": "Permite ver y exportar los resultados de la encuesta de experiencia de los jurados",
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1384,6 +1400,26 @@
         "createdAt": "2026-11-07T06:00:00.000Z",
         "updatedAt": "2026-11-07T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 76,
+        "name": "AnswerJurorSurvey",
+        "description": "Consultar y responder la encuesta de experiencia del jurado (HU-17)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 77,
+        "name": "ViewJurorSurveyResults",
+        "description": "Resumen y exportación de la encuesta de experiencia de los jurados (HU-17)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1893,6 +1929,20 @@
         "createdAt": "2026-11-07T06:00:00.000Z",
         "updatedAt": "2026-11-07T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 76,
+        "permissionId": 76,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 77,
+        "permissionId": 77,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -2156,6 +2206,20 @@
         "permissionId": 72,
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 76,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 76,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
         "isActive": true
       }
     ]
