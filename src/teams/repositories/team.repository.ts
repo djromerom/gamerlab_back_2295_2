@@ -34,6 +34,11 @@ import {
   activeEditionTeamOf,
 } from '../active-edition-team';
 import { findActiveEdition } from '../../editions/active-edition';
+import {
+  TeamLevelInfo,
+  byLevelThenName,
+  teamLevelInfo,
+} from '../../juror/assignment-validation/team-level';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -683,9 +688,13 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  /** ARK-132: solo los equipos de `editionId` (la resuelve el servicio). */
+  /**
+   * ARK-132: solo los equipos de `editionId` (la resuelve el servicio) con el juego CONFIRMADO.
+   * BG-39 (ARK-188): cada equipo trae `teamCode`, `nivel` y `nivelEtiqueta`, ordenados por nivel y
+   * nombre, para el diálogo de asignación manual.
+   */
   async getTeamsWithLessThanThreeJurors(editionId: number): Promise<
-    Array<{
+    Array<TeamLevelInfo & {
       id: number;
       nombre: string;
       videojuego: string | null;
@@ -761,6 +770,7 @@ export class TeamRepository implements ITeamRepository {
         .map((team) => ({
           id: team.id,
           nombre: team.teamName,
+          ...teamLevelInfo(team.teamCode),
           videojuego: team.videogame?.name || null,
           lider: {
             id: team.user.id,
@@ -773,7 +783,8 @@ export class TeamRepository implements ITeamRepository {
             email: juror.email,
           })),
           cantidadJurados: team.assignedJurors.length,
-        }));
+        }))
+        .sort(byLevelThenName);
     } catch (error) {
       this.logger.error(
         'Error al obtener equipos con menos de 3 jurados:',

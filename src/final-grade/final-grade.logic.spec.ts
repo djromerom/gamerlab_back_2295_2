@@ -1,0 +1,166 @@
+import {
+  checkTeamGrade,
+  FinalScoreRow,
+  formatFairDay,
+  resolveReleaseMoment,
+  studentGrade,
+} from './final-grade.logic';
+
+const row = (over: Partial<FinalScoreRow> = {}): FinalScoreRow => ({
+  teamId: 1,
+  teamCode: 'N2-ISI-014',
+  teamName: 'Pixel',
+  isExternal: false,
+  videogameName: 'Stella',
+  finalScore: 4.126,
+  juniorEvaluations: 3,
+  seniorEvaluations: 1,
+  ...over,
+});
+
+describe('HU-20 · reglas de la nota final del estudiante', () => {
+  describe('resolveReleaseMoment: hora de cierre del día de la feria (hora de Colombia)', () => {
+    const START = new Date('2026-11-26T13:00:00Z'); // 8:00 del 26-nov en Colombia
+
+    it('sin cronograma: 12:00 del día en que inicia la edición', () => {
+      const moment = resolveReleaseMoment(START, null);
+      expect(moment).toEqual({
+        at: new Date('2026-11-26T17:00:00.000Z'),
+        fairDate: '2026-11-26',
+        releaseTime: '12:00',
+        fromSchedule: false,
+      });
+    });
+
+    it('sin cronograma usa el día en Colombia aunque en UTC ya sea el siguiente', () => {
+      expect(
+        resolveReleaseMoment(
+          new Date('2026-11-27T03:00:00Z'),
+          null,
+        ).at.toISOString(),
+      ).toBe('2026-11-26T17:00:00.000Z');
+    });
+
+    it('con cronograma (HU-12): su fecha y su hora de cierre', () => {
+      const moment = resolveReleaseMoment(START, {
+        fairDate: new Date('2026-11-27T00:00:00Z'),
+        closeTime: '12:30',
+      });
+      expect(moment).toEqual({
+        at: new Date('2026-11-27T17:30:00.000Z'),
+        fairDate: '2026-11-27',
+        releaseTime: '12:30',
+        fromSchedule: true,
+      });
+    });
+
+    it('formatea el día para el mensaje', () => {
+      expect(formatFairDay('2026-11-26')).toBe('26/11/2026');
+    });
+  });
+
+  describe('checkTeamGrade', () => {
+    it('grupo completo: sin motivos', () => {
+      expect(checkTeamGrade(row())).toEqual({ inProcess: false, reasons: [] });
+    });
+
+    it('sin nota de los profesores: en proceso', () => {
+      expect(checkTeamGrade(row({ seniorEvaluations: 0 }))).toEqual({
+        inProcess: true,
+        reasons: ['MISSING_PROFESSOR_SCORE'],
+      });
+    });
+
+    it('sin jurados junior: en proceso (y menos de 3)', () => {
+      expect(checkTeamGrade(row({ juniorEvaluations: 0 }))).toEqual({
+        inProcess: true,
+        reasons: ['MISSING_JUNIOR_SCORE', 'LESS_THAN_MIN_EVALUATIONS'],
+      });
+    });
+
+    it('menos de 3 evaluaciones de jurados: solo aviso, no queda en proceso', () => {
+      expect(checkTeamGrade(row({ juniorEvaluations: 2 }))).toEqual({
+        inProcess: false,
+        reasons: ['LESS_THAN_MIN_EVALUATIONS'],
+      });
+    });
+
+    it('colegio (N0): no tiene jurados junior (P-08) y no queda en proceso por eso', () => {
+      expect(
+        checkTeamGrade(row({ teamCode: 'N0-COL-001', juniorEvaluations: 0 })),
+      ).toEqual({ inProcess: false, reasons: [] });
+    });
+
+    it('colegio sin nota de los profesores: en proceso', () => {
+      expect(
+        checkTeamGrade(
+          row({
+            teamCode: 'N0-COL-001',
+            juniorEvaluations: 0,
+            seniorEvaluations: 0,
+          }),
+        ),
+      ).toEqual({ inProcess: true, reasons: ['MISSING_PROFESSOR_SCORE'] });
+    });
+
+    it('colegio con marca de externo: igual cuenta a los profesores', () => {
+      expect(
+        checkTeamGrade(
+          row({
+            teamCode: 'N0-COL-001',
+            isExternal: true,
+            juniorEvaluations: 0,
+            seniorEvaluations: 0,
+          }),
+        ).reasons,
+      ).toEqual(['MISSING_PROFESSOR_SCORE']);
+    });
+
+    it('equipo externo: cuenta solo la nota de los jurados, no le falta la del profesor', () => {
+      expect(
+        checkTeamGrade(row({ isExternal: true, seniorEvaluations: 0 })),
+      ).toEqual({
+        inProcess: false,
+        reasons: [],
+      });
+    });
+
+    it('sin nota final en la vista: en proceso', () => {
+      expect(checkTeamGrade(row({ finalScore: null })).inProcess).toBe(true);
+    });
+
+    it('sin fila (equipo sin videojuego): en proceso', () => {
+      expect(checkTeamGrade(null).inProcess).toBe(true);
+    });
+  });
+
+  describe('studentGrade', () => {
+    it('no liberada: no se muestra ninguna nota', () => {
+      expect(studentGrade(false, row())).toEqual({
+        status: 'NOT_RELEASED',
+        finalGrade: null,
+      });
+    });
+
+    it('liberada y completa: la nota con 2 decimales', () => {
+      expect(studentGrade(true, row())).toEqual({
+        status: 'AVAILABLE',
+        finalGrade: 4.13,
+      });
+    });
+
+    it('liberada pero sin nota del profesor: «Nota en proceso», sin nota parcial', () => {
+      expect(studentGrade(true, row({ seniorEvaluations: 0 }))).toEqual({
+        status: 'IN_PROCESS',
+        finalGrade: null,
+      });
+    });
+
+    it('liberada y sin fila: en proceso', () => {
+      expect(studentGrade(true, null)).toEqual({
+        status: 'IN_PROCESS',
+        finalGrade: null,
+      });
+    });
+  });
+});
