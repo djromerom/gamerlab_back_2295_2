@@ -32,6 +32,7 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { JurorListItem } from './types/juror-list-item.type';
 import { PROFESSOR_MUST_BE_SENIOR_MESSAGE } from '../professors/professor-juror-profile';
+import { byLevelThenName, teamLevelInfo } from './assignment-validation/team-level';
 
 @Injectable()
 export class JurorService {
@@ -766,9 +767,11 @@ export class JurorService {
         },
       });
 
-      return teams.map((team) => ({
+      // BG-39 (ARK-188): con su nivel, para indicar qué niveles ya tiene el jurado (HU-08).
+      const assignedTeams = teams.map((team) => ({
         id: team.id,
         nombre: team.teamName,
+        ...teamLevelInfo(team.teamCode),
         videojuego: team.videogame
           ? {
             id: team.videogame.id,
@@ -788,6 +791,7 @@ export class JurorService {
         })),
         cantidadJurados: team.assignedJurors.length,
       }));
+      return assignedTeams.sort(byLevelThenName);
     } catch (error) {
       if (
         error instanceof NotFoundException ||
