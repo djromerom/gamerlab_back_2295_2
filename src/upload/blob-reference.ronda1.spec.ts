@@ -108,6 +108,7 @@ describe('Task 28 ronda 1', () => {
       teamFinalScore: { findMany: jest.fn() },
       videogame: { findUnique: jest.fn().mockResolvedValue(null) },
       team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) },
+      eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) }, // ARK-161: inscripciones abiertas
       // ARK-129: GET /teams resuelve la edición activa
       edition: { findFirst: jest.fn() },
     };
@@ -155,7 +156,7 @@ describe('Task 28 ronda 1', () => {
 
   describe('VideogamesService', () => {
     it('findAll firma additionalImages y update las guarda como referencia', async () => {
-      const prisma = { videogame: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() } };
+      const prisma = { videogame: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() }, eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) } };
       const service = new VideogamesService(prisma as any, {} as any, blobRefs);
       prisma.videogame.findMany.mockResolvedValue([
         {

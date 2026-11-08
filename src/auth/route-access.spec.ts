@@ -55,6 +55,10 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   ViewJurorAttendance: ['Staff'],
   // HU-13: el administrador registra y consulta; el profesor informa fuera del sistema
   ManageAbsentJurorResponses: [],
+  // HU-23: el administrador ve los indicadores y cambia los parámetros
+  ManageJurorPresence: [],
+  // HU-23: responde "Sigo aquí" quien puede calificar (mismo permiso ADD_EVALUATION)
+  ConfirmJurorPresence: ['Profesor', 'Jurado'],
   // HU-21: los profesores lo ven en solo lectura (P-26)
   ViewEvaluationTracking: ['Profesor'],
   // HU-12: alerta y panel en solo lectura para profesores (P-16, P-26); el cronograma, solo Administrador

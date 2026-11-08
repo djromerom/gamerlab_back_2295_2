@@ -664,6 +664,14 @@
       },
       {
         "id": 74,
+        "name": "MANAGE_JUROR_PRESENCE",
+        "description": "Permite ver la presencia de los jurados durante la feria y cambiar sus parámetros",
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 76,
         "name": "ANSWER_JUROR_SURVEY",
         "description": "Permite al jurado responder la encuesta de experiencia de la edición",
         "createdAt": "2026-11-08T06:00:00.000Z",
@@ -671,7 +679,7 @@
         "isActive": true
       },
       {
-        "id": 75,
+        "id": 77,
         "name": "VIEW_JUROR_SURVEY_RESULTS",
         "description": "Permite ver y exportar los resultados de la encuesta de experiencia de los jurados",
         "createdAt": "2026-11-08T06:00:00.000Z",
@@ -1375,6 +1383,26 @@
       },
       {
         "id": 74,
+        "name": "ManageJurorPresence",
+        "description": "Ver los indicadores de presencia de los jurados de la edición activa y sus parámetros",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 75,
+        "name": "ConfirmJurorPresence",
+        "description": "El jurado consulta cuándo debe confirmar su presencia y responde \"Sigo aquí\"",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 76,
         "name": "AnswerJurorSurvey",
         "description": "Consultar y responder la encuesta de experiencia del jurado (HU-17)",
         "url": null,
@@ -1384,7 +1412,7 @@
         "isActive": true
       },
       {
-        "id": 75,
+        "id": 77,
         "name": "ViewJurorSurveyResults",
         "description": "Resumen y exportación de la encuesta de experiencia de los jurados (HU-17)",
         "url": null,
@@ -1891,13 +1919,27 @@
       {
         "serviceId": 74,
         "permissionId": 74,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 75,
+        "permissionId": 14,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 76,
+        "permissionId": 76,
         "createdAt": "2026-11-08T06:00:00.000Z",
         "updatedAt": "2026-11-08T06:00:00.000Z",
         "isActive": true
       },
       {
-        "serviceId": 75,
-        "permissionId": 75,
+        "serviceId": 77,
+        "permissionId": 77,
         "createdAt": "2026-11-08T06:00:00.000Z",
         "updatedAt": "2026-11-08T06:00:00.000Z",
         "isActive": true
@@ -2168,14 +2210,14 @@
       },
       {
         "roleId": 4,
-        "permissionId": 74,
+        "permissionId": 76,
         "createdAt": "2026-11-08T06:00:00.000Z",
         "updatedAt": "2026-11-08T06:00:00.000Z",
         "isActive": true
       },
       {
         "roleId": 3,
-        "permissionId": 74,
+        "permissionId": 76,
         "createdAt": "2026-11-08T06:00:00.000Z",
         "updatedAt": "2026-11-08T06:00:00.000Z",
         "isActive": true

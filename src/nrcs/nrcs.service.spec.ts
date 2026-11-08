@@ -12,6 +12,7 @@ describe('NrcsService', () => {
     nRC: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -87,6 +88,57 @@ describe('NrcsService', () => {
       mockPrismaService.nRC.findUnique.mockResolvedValue(pastNrc);
       await expect(service.remove(7)).rejects.toThrow(/solo lectura/);
       expect(mockPrismaService.nRC.update).not.toHaveBeenCalled();
+    });
+  });
+  describe('findForSelect con materias (HU-31, selector por materia)', () => {
+    const poo = {
+      id: 1,
+      name: 'Programación Orientada a Objetos',
+      abrevName: 'POO',
+    };
+
+    it('devuelve abreviatura de la materia y nombre del profesor, sin otros datos del profesor', async () => {
+      mockPrismaService.edition.findFirst.mockResolvedValue({ id: 4 });
+      mockPrismaService.nRC.findMany.mockResolvedValue([
+        {
+          id: 7,
+          code: 2501,
+          subjectId: 1,
+          editionId: 4,
+          subject: poo,
+          professor: { firstName: 'Ana', lastName: 'Pérez' },
+        },
+      ]);
+
+      await expect(service.findForSelect(true)).resolves.toEqual([
+        {
+          id: 7,
+          code: 2501,
+          subjectId: 1,
+          editionId: 4,
+          subject: poo,
+          professorName: 'Ana Pérez',
+        },
+      ]);
+      const args = mockPrismaService.nRC.findMany.mock.calls[0][0];
+      expect(args.where).toEqual({ isActive: true, editionId: 4 });
+      expect(args.select.professor).toEqual({
+        select: { firstName: true, lastName: true },
+      });
+    });
+
+    it('sin includeSubjects no trae materia ni profesor', async () => {
+      mockPrismaService.edition.findFirst.mockResolvedValue({ id: 4 });
+      mockPrismaService.nRC.findMany.mockResolvedValue([
+        { id: 7, code: 2501, subjectId: 1, editionId: 4 },
+      ]);
+
+      await expect(service.findForSelect()).resolves.toEqual([
+        { id: 7, code: 2501, subjectId: 1, editionId: 4 },
+      ]);
+      const args = mockPrismaService.nRC.findMany.mock.calls[0][0];
+      expect(args.select.subject).toBeUndefined();
+      expect(args.select.professor).toBeUndefined();
     });
   });
 });

@@ -801,6 +801,7 @@ describe('JurorService', () => {
         {
           id: 1,
           teamName: 'Equipo AYP Dev',
+          teamCode: 'N1-AYP-101',
           videogame: {
             id: 1,
             name: 'Juego AYP',
@@ -829,6 +830,10 @@ describe('JurorService', () => {
         {
           id: 1,
           nombre: 'Equipo AYP Dev',
+          // BG-39 (ARK-188)
+          teamCode: 'N1-AYP-101',
+          nivel: 1,
+          nivelEtiqueta: 'Nivel 1',
           videojuego: {
             id: 1,
             nombre: 'Juego AYP',

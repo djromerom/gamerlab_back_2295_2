@@ -19,7 +19,7 @@
 | Capacidad | Admin | Estudiante | Profesor | Jurado | Staff |
 |---|---|---|---|---|---|
 | Ver/editar su perfil | Sí | Sí | Sí | Sí | Sí |
-| Editar su equipo, ver evaluaciones/nota recibida e integrantes | Sí | Sí | No | No | No |
+| Editar su equipo, ver evaluaciones/nota recibida e integrantes | Sí | Sí (solo el líder, con límites: ver [equipos](equipos-y-verificacion.md#qué-puede-editar-el-estudiante-bg-38)) | No | No | No |
 | Ver materias, juegos pendientes y criterios | Sí | No | Sí | Sí | No |
 | Calificar | Sí | No | Sí | Sí | No |
 | Ver sus NRC, reportes por NRC/materia, exportar a Excel y guardar notas | Sí | No | Sí | No | No |

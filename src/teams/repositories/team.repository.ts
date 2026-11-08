@@ -23,7 +23,7 @@ import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
 import { AuthService } from 'src/auth/auth.service';
-import { findNrcIdsByCodes } from 'src/nrcs/nrc-lookup';
+import { resolveMemberNrcs } from 'src/nrcs/nrc-lookup';
 import {
   generateUniqueVerificationCode,
   isCollegeTeamCode,
@@ -34,6 +34,11 @@ import {
   activeEditionTeamOf,
 } from '../active-edition-team';
 import { findActiveEdition } from '../../editions/active-edition';
+import {
+  TeamLevelInfo,
+  byLevelThenName,
+  teamLevelInfo,
+} from '../../juror/assignment-validation/team-level';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -421,17 +426,21 @@ export class TeamRepository implements ITeamRepository {
   }
 
   // Overloaded update methods to match interface
+  /**
+   * `markPending` (ARK-161, BG-38): el juego vuelve a PENDIENTE para que el administrador lo
+   * revise. Lo decide el servicio: solo cuando un estudiante cambia el nombre del equipo o el logo.
+   */
   async update(
     id: number,
     data: UpdateTeamDto,
-    isAdmin: boolean,
+    markPending: boolean,
   ): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;
-  async update(id: number, data: any, isAdmin: boolean): Promise<Team>;
-  async update(id: number, data: any, isAdmin: boolean): Promise<any> {
+  async update(id: number, data: any, markPending: boolean): Promise<Team>;
+  async update(id: number, data: any, markPending: boolean): Promise<any> {
     if (
       data.teamName !== undefined ||
       data.isExternal !== undefined ||
@@ -457,7 +466,7 @@ export class TeamRepository implements ITeamRepository {
           const updatedVideogame = data.videogame
             ? await this.updateVideogame(tx, id, data.videogame)
             : null;
-          if (!isAdmin) {
+          if (markPending) {
             await tx.videogame.update({
               where: { teamId: id },
               data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
@@ -475,7 +484,7 @@ export class TeamRepository implements ITeamRepository {
       }
     } else {
       // Simple update
-      if (!isAdmin) {
+      if (markPending) {
         await this.prisma.videogame.update({
           where: { teamId: id },
           data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
@@ -491,7 +500,7 @@ export class TeamRepository implements ITeamRepository {
   async updateTeamInfo(
     teamId: number,
     updateTeamDto: UpdateTeamDto,
-    isAdmin: boolean,
+    markPending: boolean,
   ): Promise<any> {
     const { teamName, videogame } = updateTeamDto;
 
@@ -571,13 +580,14 @@ export class TeamRepository implements ITeamRepository {
             data: videogameUpdateData,
           });
         }
+      }
 
-        if (!isAdmin) {
-          await tx.videogame.update({
-            where: { teamId: teamId },
-            data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
-          });
-        }
+      // ARK-161 (BG-38): vuelve a revisión solo si el estudiante cambió el nombre o el logo
+      if (markPending) {
+        await tx.videogame.update({
+          where: { teamId: teamId },
+          data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
+        });
       }
     });
 
@@ -683,9 +693,13 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  /** ARK-132: solo los equipos de `editionId` (la resuelve el servicio). */
+  /**
+   * ARK-132: solo los equipos de `editionId` (la resuelve el servicio) con el juego CONFIRMADO.
+   * BG-39 (ARK-188): cada equipo trae `teamCode`, `nivel` y `nivelEtiqueta`, ordenados por nivel y
+   * nombre, para el diálogo de asignación manual.
+   */
   async getTeamsWithLessThanThreeJurors(editionId: number): Promise<
-    Array<{
+    Array<TeamLevelInfo & {
       id: number;
       nombre: string;
       videojuego: string | null;
@@ -761,6 +775,7 @@ export class TeamRepository implements ITeamRepository {
         .map((team) => ({
           id: team.id,
           nombre: team.teamName,
+          ...teamLevelInfo(team.teamCode),
           videojuego: team.videogame?.name || null,
           lider: {
             id: team.user.id,
@@ -773,7 +788,8 @@ export class TeamRepository implements ITeamRepository {
             email: juror.email,
           })),
           cantidadJurados: team.assignedJurors.length,
-        }));
+        }))
+        .sort(byLevelThenName);
     } catch (error) {
       this.logger.error(
         'Error al obtener equipos con menos de 3 jurados:',
@@ -1089,18 +1105,12 @@ export class TeamRepository implements ITeamRepository {
             : `El código estudiantil ${member.studentCode} ya está registrado en un equipo de esta edición`,
         );
 
-      const nrcRecords = await findNrcIdsByCodes(
+      // HU-31 (ARK-167): NRC activos de la edición y uno solo por materia
+      const nrcIds = await resolveMemberNrcs(
         tx,
-        member.nrc.map(Number),
+        member.nrc,
         editionId,
       );
-      if (nrcRecords.ids.length === 0) {
-        throw new NotFoundException({
-          statusCode: 400,
-          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
-          field: `nrc`,
-        });
-      }
 
       const createdMember = await tx.member.create({
         data: {
@@ -1111,7 +1121,7 @@ export class TeamRepository implements ITeamRepository {
           teamId,
           editionId,
           nrcs: {
-            connect: nrcRecords.ids.map((id) => ({ id })),
+            connect: nrcIds.map((id) => ({ id })),
           },
         },
         include: { nrcs: true },
@@ -1234,18 +1244,10 @@ export class TeamRepository implements ITeamRepository {
           `El correo ${existingEmail.email} ya está registrado en un equipo de esta edición`,
         );
 
-      const nrcRecords = await findNrcIdsByCodes(
-        tx,
-        (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
-        team.editionId,
-      );
-      if (member.nrc && member.nrc.length > 0 && nrcRecords.ids.length === 0) {
-        throw new NotFoundException({
-          statusCode: 400,
-          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
-          field: `nrc`,
-        });
-      }
+      // HU-31 (ARK-167): mismas reglas que al inscribirse
+      const nrcIds = member.nrc
+        ? await resolveMemberNrcs(tx, member.nrc, team.editionId)
+        : [];
 
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },
@@ -1257,7 +1259,7 @@ export class TeamRepository implements ITeamRepository {
           nrcs: member.nrc
             ? {
               set: [],
-              connect: nrcRecords.ids.map((id) => ({ id })),
+              connect: nrcIds.map((id) => ({ id })),
             }
             : undefined,
         },

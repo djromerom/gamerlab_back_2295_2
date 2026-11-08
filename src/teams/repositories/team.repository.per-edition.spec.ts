@@ -147,7 +147,7 @@ describe('TeamRepository — inscripción por edición (ARK-128)', () => {
         findFirst: jest.fn().mockResolvedValue(duplicate),
         create: jest.fn().mockResolvedValue({ id: 1 }),
       },
-      nRC: { findMany: jest.fn().mockResolvedValue([{ id: 41, code: 9999 }]) },
+      nRC: { findMany: jest.fn().mockResolvedValue([{ id: 41, code: 9999, subjectId: 1, subject: { name: 'POO' } }]) },
     });
     const repo = new TeamRepository({} as any, {} as any) as any;
 
@@ -340,7 +340,7 @@ describe('TeamRepository — inscripción por edición (ARK-128)', () => {
         findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 1 }),
       },
-      nRC: { findMany: jest.fn().mockResolvedValue([{ id: 41, code: 9999 }]) },
+      nRC: { findMany: jest.fn().mockResolvedValue([{ id: 41, code: 9999, subjectId: 1, subject: { name: 'POO' } }]) },
       videogame: { create: jest.fn().mockResolvedValue({ id: 5 }) },
     };
     const prisma = {
