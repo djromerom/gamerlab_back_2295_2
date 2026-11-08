@@ -27,7 +27,7 @@ describe('StudentsService.editNrc — solo administrador', () => {
       team: { userId: 'leader-1', edition: { status: 'ACTIVE', title: 'Edición 5' } },
     });
     // findNrcIdsByCodes (nrc-por-edicion) cruza por código: el mock debe traerlo.
-    tx.nRC.findMany.mockResolvedValue([{ id: 1, code: 100 }]);
+    tx.nRC.findMany.mockResolvedValue([{ id: 1, code: 100, subjectId: 1, subject: { name: 'POO' } }]);
     tx.member.update.mockResolvedValue({ id: 5 });
   });
 

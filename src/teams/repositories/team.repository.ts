@@ -23,7 +23,7 @@ import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
 import { AuthService } from 'src/auth/auth.service';
-import { findNrcIdsByCodes } from 'src/nrcs/nrc-lookup';
+import { resolveMemberNrcs } from 'src/nrcs/nrc-lookup';
 import {
   generateUniqueVerificationCode,
   isCollegeTeamCode,
@@ -1105,18 +1105,12 @@ export class TeamRepository implements ITeamRepository {
             : `El código estudiantil ${member.studentCode} ya está registrado en un equipo de esta edición`,
         );
 
-      const nrcRecords = await findNrcIdsByCodes(
+      // HU-31 (ARK-167): NRC activos de la edición y uno solo por materia
+      const nrcIds = await resolveMemberNrcs(
         tx,
-        member.nrc.map(Number),
+        member.nrc,
         editionId,
       );
-      if (nrcRecords.ids.length === 0) {
-        throw new NotFoundException({
-          statusCode: 400,
-          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
-          field: `nrc`,
-        });
-      }
 
       const createdMember = await tx.member.create({
         data: {
@@ -1127,7 +1121,7 @@ export class TeamRepository implements ITeamRepository {
           teamId,
           editionId,
           nrcs: {
-            connect: nrcRecords.ids.map((id) => ({ id })),
+            connect: nrcIds.map((id) => ({ id })),
           },
         },
         include: { nrcs: true },
@@ -1250,18 +1244,10 @@ export class TeamRepository implements ITeamRepository {
           `El correo ${existingEmail.email} ya está registrado en un equipo de esta edición`,
         );
 
-      const nrcRecords = await findNrcIdsByCodes(
-        tx,
-        (member.nrc ?? []).map(Number).filter((n) => !isNaN(n)),
-        team.editionId,
-      );
-      if (member.nrc && member.nrc.length > 0 && nrcRecords.ids.length === 0) {
-        throw new NotFoundException({
-          statusCode: 400,
-          message: `No se encontraron los NRCs con los códigos: ${member.nrc.join(`, `)}`,
-          field: `nrc`,
-        });
-      }
+      // HU-31 (ARK-167): mismas reglas que al inscribirse
+      const nrcIds = member.nrc
+        ? await resolveMemberNrcs(tx, member.nrc, team.editionId)
+        : [];
 
       const updatedMember = await tx.member.update({
         where: { id: member.id, teamId: id },
@@ -1273,7 +1259,7 @@ export class TeamRepository implements ITeamRepository {
           nrcs: member.nrc
             ? {
               set: [],
-              connect: nrcRecords.ids.map((id) => ({ id })),
+              connect: nrcIds.map((id) => ({ id })),
             }
             : undefined,
         },

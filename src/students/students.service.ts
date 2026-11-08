@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorE
 import { PrismaService } from "../prisma/prisma.service";
 import { StudentsEvaluations, StudentsGrade} from "./types/students.type";
 import { PaginatedResult } from 'src/common/types/paginated-result.type';
-import { findNrcIdsByCodes } from "src/nrcs/nrc-lookup";
+import { resolveMemberNrcs } from "src/nrcs/nrc-lookup";
 import { Member, Prisma } from "@prisma/client";
 import { AppUser } from "../auth/jwt.strategy";
 import { ROLE_IDS } from "../auth/constants/roles";
@@ -64,21 +64,18 @@ export class StudentsService {
                 assertEditionWritable(member.team.edition, 'el integrante');
 
 
-                const newNrc = await findNrcIdsByCodes(
+                // HU-31 (ARK-167): NRC activos de la edición y uno solo por materia
+                const nrcIds = await resolveMemberNrcs(
                     tx,
                     nrcCodes,
                     member.team.editionId,
                 );
 
-                if (newNrc.missing.length > 0) {
-                    throw new NotFoundException("One or more NRCs not found");
-                }
-
                 const updatedMember = await tx.member.update({
                     where: { id: memberId },
                     data: {
                         nrcs: {
-                            set: newNrc.ids.map(id => ({ id }))
+                            set: nrcIds.map(id => ({ id }))
                         }
                     },
                     select: selectClause,

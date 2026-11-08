@@ -13,6 +13,7 @@ Flujo en pasos del frontend: datos del equipo, integrantes (paso 2), juego (paso
 - Borrador del registro en `sessionStorage`, límite de tamaño, reCAPTCHA en español, NRC con materia (BG-11).
 - Sin NRC cargados en la edición, nadie completa la inscripción (BG-23).
 - Los estudiantes de una edición anterior se inscriben de nuevo (BG-17, HU-26).
+- **NRC por materia (HU-31, ARK-167):** cada integrante elige una o varias materias y **un solo NRC por materia** (en tercer semestre se participa por dos: Estructura de Datos I y POO). Todos deben ser NRC activos de la edición del equipo. El back responde 400 con `field: "nrc"` si falta alguno («Estos NRC no existen en la edición activa: …») o si hay dos de la misma materia («Elige un solo NRC por materia: …»). La misma regla aplica cuando el administrador cambia los NRC. `GET /nrcs/select-options?includeSubjects=true` trae la abreviatura de la materia y el nombre del profesor para el selector de botones (opción A).
 
 ## Código de verificación (HU-19)
 Código propio de cada equipo, visible en el **panel del estudiante**; el estudiante se lo da al jurado, que debe **digitarlo** para calificar ese grupo. **N0 (colegios) no tiene código** (P-25). Hay único `(codigo_verificacion, id_edicion)` y se generó para equipos existentes (migración `...add_team_verification_code`).
