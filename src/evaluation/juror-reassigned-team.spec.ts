@@ -194,6 +194,7 @@ function createDb() {
       ),
       findUnique: jest.fn(async () => null),
     },
+    evaluationDraft: { updateMany: jest.fn(async () => ({ count: 0 })) },
     evaluationIdempotency: {
       findUnique: jest.fn(
         async ({ where }) =>
