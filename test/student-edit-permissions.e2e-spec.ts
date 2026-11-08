@@ -7,6 +7,7 @@ import { StudentsService } from '../src/students/students.service';
 import { TeamRepository } from '../src/teams/repositories/team.repository';
 import { TeamsService } from '../src/teams/services/teams.service';
 import { blobRefsPassthrough } from '../src/upload/blob-reference.mock';
+import { VideogamesService } from '../src/videogames/videogames.service';
 
 /**
  * ARK-161 (BG-38) contra PostgreSQL real: el líder de un equipo confirmado intenta cambiar su
@@ -33,6 +34,7 @@ describeIfDb('Qué puede editar el estudiante (PostgreSQL)', () => {
     {} as any,
   );
   const students = new StudentsService(db);
+  const videogames = new VideogamesService(db, {} as any, blobRefsPassthrough());
   const runId = Date.now().toString(36).slice(-5);
   const admin = { id: 'admin-it', roleId: ROLE_IDS.ADMIN } as any;
   let leader: any;
@@ -126,6 +128,16 @@ describeIfDb('Qué puede editar el estudiante (PostgreSQL)', () => {
     ).rejects.toThrow(ForbiddenException);
     const team = await prisma.team.findUniqueOrThrow({ where: { id: teamId } });
     expect(team.isExternal).toBe(false);
+  });
+
+  it('el líder no puede renombrar su juego por PATCH /videogames/:id con `vgName`', async () => {
+    const vg = await prisma.videogame.findUniqueOrThrow({ where: { teamId } });
+    await expect(
+      videogames.update(vg.id, { vgName: 'Otro nombre' } as any, leader),
+    ).rejects.toThrow(ForbiddenException);
+    await videogames.update(vg.id, { vgName: ` ${vg.name} ` } as any, leader);
+    const after = await prisma.videogame.findUniqueOrThrow({ where: { teamId } });
+    expect(after.name).toBe(vg.name);
   });
 
   it('editar la descripción deja el juego CONFIRMADO; cambiar el nombre del equipo lo pasa a PENDIENTE', async () => {
