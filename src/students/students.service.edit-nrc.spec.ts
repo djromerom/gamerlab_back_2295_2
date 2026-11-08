@@ -5,8 +5,9 @@ import { ROLE_IDS } from '../auth/constants/roles';
 /**
  * El catálogo de permisos le da `EditMemberNrc` al administrador, por lo que el
  * servicio debe dejarlo editar los NRC de cualquier integrante (como en teams).
+ * ARK-161 (BG-38): desde SP-05 los NRC los cambia solo el administrador; el líder recibe 403.
  */
-describe('StudentsService.editNrc — líder o administrador', () => {
+describe('StudentsService.editNrc — solo administrador', () => {
   const tx = {
     member: { findUnique: jest.fn(), update: jest.fn() },
     nRC: { findMany: jest.fn() },
@@ -30,8 +31,11 @@ describe('StudentsService.editNrc — líder o administrador', () => {
     tx.member.update.mockResolvedValue({ id: 5 });
   });
 
-  it('permite al líder del equipo', async () => {
-    await expect(service.editNrc(leader, 5, [100])).resolves.toEqual({ id: 5 });
+  it('rechaza al líder de su propio equipo (BG-38)', async () => {
+    await expect(service.editNrc(leader, 5, [100])).rejects.toThrow(
+      /Solo el administrador puede cambiar los NRC de un integrante/,
+    );
+    expect(tx.member.update).not.toHaveBeenCalled();
   });
 
   it('permite al administrador en un equipo ajeno', async () => {

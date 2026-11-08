@@ -45,7 +45,7 @@ describe('Task 28 ronda 2 - control de acceso al referenciar', () => {
 
   describe('PATCH /teams/:id/info (TeamsService.updateTeamInfo)', () => {
     const repository = { findOne: jest.fn(), updateTeamInfo: jest.fn() };
-    const prisma = { videogame: { findUnique: jest.fn() }, team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) } };
+    const prisma = { videogame: { findUnique: jest.fn() }, team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) }, eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) } };
     let service: TeamsService;
     beforeEach(() => {
       repository.findOne.mockResolvedValue({ id: 1, userId: 'u1' });
@@ -72,9 +72,10 @@ describe('Task 28 ronda 2 - control de acceso al referenciar', () => {
   describe('PATCH /teams/:id completo (TeamsService.update)', () => {
     it('rechaza una referencia ajena y resuelve updatedVideogame en la respuesta', async () => {
       const repository = { findOne: jest.fn().mockResolvedValue({ id: 1, userId: 'u1' }), update: jest.fn() };
-      const prisma = { videogame: { findUnique: jest.fn().mockResolvedValue(null) }, team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) } };
+      const prisma = { videogame: { findUnique: jest.fn().mockResolvedValue(null) }, team: { findUnique: async () => ({ edition: { status: 'ACTIVE', title: 'E5' } }) }, eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) } };
       const service = new TeamsService({} as any, repository as any, {} as any, prisma as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, {} as any);
-      const user = { id: 'u1', roleId: ROLE_IDS.STUDENT } as any;
+      // ARK-161 (BG-38): `isExternal` solo lo envía el administrador; la referencia ajena se rechaza igual
+      const user = { id: 'u1', roleId: ROLE_IDS.ADMIN } as any;
       await expect(service.update(1, { isExternal: false, videogame: { gameFileUrl: 'upload:foreign' } } as any, user)).rejects.toThrow(
         BadRequestException,
       );
@@ -97,7 +98,7 @@ describe('Task 28 ronda 2 - control de acceso al referenciar', () => {
   });
 
   describe('PATCH /videogames/:id (VideogamesService.update)', () => {
-    const prisma = { videogame: { findUnique: jest.fn(), update: jest.fn() } };
+    const prisma = { videogame: { findUnique: jest.fn(), update: jest.fn() }, eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) } };
     let service: VideogamesService;
     beforeEach(() => {
       prisma.videogame.findUnique.mockResolvedValue({ id: 1, logoUrl: 'upload:stored', team: { userId: 'u1', edition: { status: 'ACTIVE', title: 'E5' } } });

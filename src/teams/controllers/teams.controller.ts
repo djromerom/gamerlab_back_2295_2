@@ -288,13 +288,13 @@ export class TeamsController {
     @Param('teamId', ParseIntPipe) teamId: number,
     @Param('memberId', ParseIntPipe) memberId: number,
     @Body() updateMemberEmailDto: UpdateMemberEmailDto,
-    @GetUser('id') userId: string,
+    @GetUser() user: AppUser,
   ) {
     return this.teamsService.updateMemberEmail(
       teamId,
       memberId,
       updateMemberEmailDto,
-      userId,
+      user,
     );
   }
 

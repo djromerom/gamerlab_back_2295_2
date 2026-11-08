@@ -36,6 +36,13 @@ import {
 import { RankingService } from '../../ranking/ranking.service';
 import { resolveListEdition } from '../../editions/list-edition';
 import { assertTeamWritable, findActiveEdition } from '../../editions/active-edition';
+import {
+  assertAdminOnly,
+  assertStudentEditWindowOpen,
+  assertStudentTeamPatch,
+  loadTeamEditSnapshot,
+  studentEditNeedsReview,
+} from '../student-edit-policy';
 
 @Injectable()
 export class TeamsService {
@@ -527,11 +534,12 @@ export class TeamsService {
     // ARK-130 (HU-27): los equipos de ediciones anteriores son de solo lectura
     await assertTeamWritable(this.prisma, id);
 
-    const result = await this.teamRepository.update(
+    const { data, markPending } = await this.checkStudentTeamEdit(
       id,
-      await this.withBlobReferences(updateTeamDto, id),
+      updateTeamDto,
       isAdmin,
     );
+    const result = await this.teamRepository.update(id, data, markPending);
     if (result && 'updatedVideogame' in result) {
       result.updatedVideogame = await this.blobRefs.resolveVideogame(
         result.updatedVideogame,
@@ -562,30 +570,47 @@ export class TeamsService {
 
     await assertTeamWritable(this.prisma, id);
 
-    const updated = await this.teamRepository.updateTeamInfo(
+    const { data, markPending } = await this.checkStudentTeamEdit(
       id,
-      await this.withBlobReferences(updateTeamDto, id),
+      updateTeamDto,
       isAdmin,
     );
+    const updated = await this.teamRepository.updateTeamInfo(id, data, markPending);
     return updated ? (await this.withSignedBlobs([updated]))[0] : updated;
   }
 
+  /**
+   * ARK-161 (BG-38): un estudiante solo edita el nombre del equipo y el contenido del juego,
+   * y solo con las inscripciones abiertas (403 en otro caso). Devuelve los datos con el logo
+   * como referencia y si el juego vuelve a PENDIENTE (solo si cambia el nombre o el logo).
+   */
+  private async checkStudentTeamEdit(
+    id: number,
+    dto: UpdateTeamDto,
+    isAdmin: boolean,
+  ): Promise<{ data: UpdateTeamDto; markPending: boolean }> {
+    if (isAdmin)
+      return { data: await this.withBlobReferences(dto, id), markPending: false };
+
+    const current = await loadTeamEditSnapshot(this.prisma, id);
+    assertStudentTeamPatch(dto, current);
+    await assertStudentEditWindowOpen(this.prisma);
+    const data = await this.withBlobReferences(dto, id);
+    return { data, markPending: studentEditNeedsReview(data, current) };
+  }
+
+  /** ARK-161 (BG-38): el correo de un integrante lo cambia solo el administrador. */
   async updateMemberEmail(
     teamId: number,
     memberId: number,
     updateMemberEmailDto: UpdateMemberEmailDto,
-    userId: string,
+    user: AppUser,
   ) {
+    assertAdminOnly(user, 'el correo de un integrante');
     const team = await this.teamRepository.findOne(teamId);
 
     if (!team) {
       throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
-    }
-
-    if (team.userId !== userId) {
-      throw new ForbiddenException(
-        'Solo el líder del equipo puede actualizar los emails de los integrantes',
-      );
     }
 
     await assertTeamWritable(this.prisma, teamId);
@@ -785,23 +810,16 @@ export class TeamsService {
    * BG-01: el permiso `UpdateTeam` lo tienen los estudiantes, por lo que sin esta
    * verificación podrían tocar cualquier equipo. Solo el líder o un administrador.
    */
-  private async assertLeaderOrAdmin(
+  /** ARK-161 (BG-38): agregar o quitar integrantes lo hace solo el administrador. */
+  private async assertAdminForMembers(
     teamId: number,
     user: AppUser,
   ): Promise<void> {
+    assertAdminOnly(user, 'los integrantes');
     const team = await this.teamRepository.findOne(teamId);
 
     if (!team) {
       throw new NotFoundException(`Equipo con ID ${teamId} no encontrado`);
-    }
-
-    const isLeader = team.userId === user.id;
-    const isAdmin = user.roleId === ROLE_IDS.ADMIN;
-
-    if (!isLeader && !isAdmin) {
-      throw new ForbiddenException(
-        'You do not have permission to access this resource.',
-      );
     }
   }
 
@@ -810,7 +828,7 @@ export class TeamsService {
     memberDto: MemberDto,
     user: AppUser,
   ): Promise<Member | undefined> {
-    await this.assertLeaderOrAdmin(id, user);
+    await this.assertAdminForMembers(id, user);
     await assertTeamWritable(this.prisma, id);
     return await this.teamRepository.addMember(id, memberDto);
   }
@@ -820,7 +838,7 @@ export class TeamsService {
     memberId: number,
     user: AppUser,
   ): Promise<{ message: string; member: Member | null } | undefined> {
-    await this.assertLeaderOrAdmin(teamId, user);
+    await this.assertAdminForMembers(teamId, user);
     await assertTeamWritable(this.prisma, teamId);
     return await this.teamRepository.deleteMember(teamId, memberId);
   }

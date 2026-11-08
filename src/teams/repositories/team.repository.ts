@@ -421,17 +421,21 @@ export class TeamRepository implements ITeamRepository {
   }
 
   // Overloaded update methods to match interface
+  /**
+   * `markPending` (ARK-161, BG-38): el juego vuelve a PENDIENTE para que el administrador lo
+   * revise. Lo decide el servicio: solo cuando un estudiante cambia el nombre del equipo o el logo.
+   */
   async update(
     id: number,
     data: UpdateTeamDto,
-    isAdmin: boolean,
+    markPending: boolean,
   ): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;
-  async update(id: number, data: any, isAdmin: boolean): Promise<Team>;
-  async update(id: number, data: any, isAdmin: boolean): Promise<any> {
+  async update(id: number, data: any, markPending: boolean): Promise<Team>;
+  async update(id: number, data: any, markPending: boolean): Promise<any> {
     if (
       data.teamName !== undefined ||
       data.isExternal !== undefined ||
@@ -457,7 +461,7 @@ export class TeamRepository implements ITeamRepository {
           const updatedVideogame = data.videogame
             ? await this.updateVideogame(tx, id, data.videogame)
             : null;
-          if (!isAdmin) {
+          if (markPending) {
             await tx.videogame.update({
               where: { teamId: id },
               data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
@@ -475,7 +479,7 @@ export class TeamRepository implements ITeamRepository {
       }
     } else {
       // Simple update
-      if (!isAdmin) {
+      if (markPending) {
         await this.prisma.videogame.update({
           where: { teamId: id },
           data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
@@ -491,7 +495,7 @@ export class TeamRepository implements ITeamRepository {
   async updateTeamInfo(
     teamId: number,
     updateTeamDto: UpdateTeamDto,
-    isAdmin: boolean,
+    markPending: boolean,
   ): Promise<any> {
     const { teamName, videogame } = updateTeamDto;
 
@@ -571,13 +575,14 @@ export class TeamRepository implements ITeamRepository {
             data: videogameUpdateData,
           });
         }
+      }
 
-        if (!isAdmin) {
-          await tx.videogame.update({
-            where: { teamId: teamId },
-            data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
-          });
-        }
+      // ARK-161 (BG-38): vuelve a revisión solo si el estudiante cambió el nombre o el logo
+      if (markPending) {
+        await tx.videogame.update({
+          where: { teamId: teamId },
+          data: { videogameStatusId: this.PENDING_REVIEW_STATUS_ID },
+        });
       }
     });
 

@@ -11,8 +11,8 @@ describe('StudentsService.editNrc — NRC por edición', () => {
     $transaction: jest.fn((fn: (t: typeof tx) => unknown) => fn(tx)),
   };
   const service = new StudentsService(prisma as any);
-  // editNrc recibe el usuario (validaciones-back), no su id.
-  const leader = { id: 'u1', roleId: ROLE_IDS.STUDENT } as any;
+  // editNrc recibe el usuario (validaciones-back), no su id. ARK-161 (BG-38): solo el administrador.
+  const leader = { id: 'admin-1', roleId: ROLE_IDS.ADMIN } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();

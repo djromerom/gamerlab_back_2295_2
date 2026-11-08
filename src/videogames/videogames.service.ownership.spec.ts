@@ -10,6 +10,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 describe('VideogamesService.update — propiedad (BG-01)', () => {
   const prisma = {
     videogame: { findUnique: jest.fn(), update: jest.fn() },
+  eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) }, // ARK-161: inscripciones abiertas
   };
   const service = new VideogamesService(prisma as any, {} as any, blobRefsPassthrough());
 

@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { BlobReferenceService } from '../upload/blob-reference.service';
+import { assertStudentEditWindowOpen } from '../teams/student-edit-policy';
 
 @Injectable()
 export class VideogamesService {
@@ -276,6 +277,9 @@ export class VideogamesService {
 
     // ARK-130 (HU-27): el videojuego de una edición anterior es de solo lectura
     assertEditionWritable(vg.team.edition, 'el videojuego');
+
+    // ARK-161 (BG-38): con las inscripciones cerradas el estudiante ya no edita su juego
+    if (!isAdmin) await assertStudentEditWindowOpen(this.prisma);
 
     // El estado de aprobación (CONFIRMADO / PENDIENTE / RECHAZADO) lo decide
     // un administrador: un estudiante no puede aprobar ni ocultar su propio juego.

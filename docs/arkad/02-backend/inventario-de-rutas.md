@@ -289,7 +289,7 @@
 | GET | `/students/members` | Permiso `MyTeamMembers` | Administrador, Estudiante |  |
 | GET | `/students/my-judges` | Permiso `MyEvaluations` | Administrador, Estudiante |  |
 | GET | `/students/participation` | Permiso `ListEditionStudents` | Administrador |  |
-| PATCH | `/students/members/:memberId/nrcs` | Permiso `EditMemberNrc` | Administrador, Estudiante |  |
+| PATCH | `/students/members/:memberId/nrcs` | Permiso `EditMemberNrc` | Administrador, Estudiante | Solo el Administrador cambia los NRC de un integrante, aunque el Estudiante tenga el permiso EditMemberNrc (ARK-161, BG-38). |
 
 ## SubjectsController
 
@@ -307,7 +307,7 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | DELETE | `/teams/:id` | Permiso `DeleteTeam` | Administrador |  |
-| DELETE | `/teams/:id/members/:memberId` | Permiso `UpdateTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo, y el integrante debe pertenecer a ese equipo (BG-01). |
+| DELETE | `/teams/:id/members/:memberId` | Permiso `UpdateTeam` | Administrador, Estudiante | Solo el Administrador quita integrantes, y el integrante debe pertenecer a ese equipo (ARK-161, BG-38). |
 | GET | `/teams` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/teams/:id` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
 | GET | `/teams/:id/full` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
@@ -318,10 +318,10 @@
 | GET | `/teams/leader/:email/status` | Permiso `ViewTeamLeaderStatus` | Administrador |  |
 | GET | `/teams/name/:teamName` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/teams/videogame/:videogameName` | Pública | Cualquiera (sin sesión) |  |
-| PATCH | `/teams/:id` | Permiso `UpdateTeam` | Administrador, Estudiante | Estudiante: solo si es líder del equipo (TeamsService.update). |
-| PATCH | `/teams/:teamId/members/:memberId` | Permiso `UpdateTeam` | Administrador, Estudiante | Estudiante: solo si es líder del equipo (TeamsService.updateMemberEmail). |
+| PATCH | `/teams/:id` | Permiso `UpdateTeam` | Administrador, Estudiante | Estudiante: solo el líder, solo el nombre del equipo y el contenido del juego, y solo con las inscripciones abiertas; integrantes, externo, nombre del juego y estado de aprobación responden 403 (ARK-161, BG-38). |
+| PATCH | `/teams/:teamId/members/:memberId` | Permiso `UpdateTeam` | Administrador, Estudiante | Solo el Administrador cambia el correo de un integrante (ARK-161, BG-38). |
 | POST | `/teams` | Pública | Cualquiera (sin sesión) |  |
-| POST | `/teams/:id/member` | Permiso `UpdateTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (BG-01). |
+| POST | `/teams/:id/member` | Permiso `UpdateTeam` | Administrador, Estudiante | Solo el Administrador agrega integrantes (ARK-161, BG-38). |
 | POST | `/teams/admin` | Permiso `RegisterTeam` | Administrador |  |
 | POST | `/teams/validate-emails` | Pública | Cualquiera (sin sesión) |  |
 | POST | `/teams/validate-student-codes` | Pública | Cualquiera (sin sesión) |  |
@@ -370,6 +370,6 @@
 | GET | `/videogames/:id` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id/likes` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id/my-like` | Solo sesión | Cualquier usuario con sesión | Cualquier usuario con sesión puede consultar si ya dio like a un juego. |
-| PATCH | `/videogames/:id` | Permiso `UpdateVideogame` | Administrador, Estudiante | Estudiante: solo el videojuego de su equipo; el estado de aprobación solo lo cambia el Administrador (BG-01). |
+| PATCH | `/videogames/:id` | Permiso `UpdateVideogame` | Administrador, Estudiante | Estudiante: solo el videojuego de su equipo y con las inscripciones abiertas; el nombre y el estado de aprobación solo los cambia el Administrador (BG-01, ARK-161). |
 | POST | `/videogames` | Permiso `ManageVideogames` | Administrador |  |
 | POST | `/videogames/:id/toggle-like` | Solo sesión | Cualquier usuario con sesión | Cualquier usuario con sesión puede dar o quitar su propio like. |

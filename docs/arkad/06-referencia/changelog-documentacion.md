@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-07: qué puede editar el estudiante (BG-38, ARK-161)
+- Nueva sección en [equipos-y-verificacion](../01-negocio/equipos-y-verificacion.md#qué-puede-editar-el-estudiante-bg-38) con la tabla de SP-05 aprobada por Allison; nota en `roles-y-permisos`.
+- `inventario-de-rutas`: notas de `PATCH /teams/:id`, rutas de integrantes, `PATCH /students/members/:memberId/nrcs` y `PATCH /videogames/:id`.
+
 ## 2026-11-07: decisiones de la reunión con profesores (6-nov) y aclaración de externos
 - **P-02 cerrada:** 60 % el promedio de los profesores que calificaron al grupo, 40 % el promedio de los jurados junior (HU-34); la nota incompleta queda en «Nota en proceso». Actualizados `glosario`, `reglas-de-negocio`, `decisiones-abiertas`, `que-es-arkad`, `evaluacion-y-ranking`, `estado-actual` y `calendario-feria`.
 - **Tres tipos de participante** aclarados en `glosario`, `reglas-de-negocio` y `roles-y-permisos`: equipo normal, colegio (N0, externo, sí se califica solo con seniors) y **presentador externo** (rol nuevo HU-33: lo registra solo el administrador y nunca se califica). La nota de los colegios (promedio de seniors al 100 %) es una propuesta del 7-nov a confirmar con los profesores.
