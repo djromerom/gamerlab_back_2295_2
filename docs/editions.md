@@ -50,7 +50,7 @@ La **cuenta** del estudiante, del jurado y del profesor es una sola para todas l
 
 | Qué | Modelos |
 |---|---|
-| Configuración | `EventConfiguration` (inscripciones, evaluaciones abiertas, ranking), `Weighting` (ponderados) |
+| Configuración | `EventConfiguration` (inscripciones, evaluaciones abiertas, ranking, tiempos de presencia del jurado de HU-23), `Weighting` (ponderados) |
 | Inscripción | `Team`, `Member` (BG-17: correo y código únicos por edición), `NRC` |
 | Jurados | `JurorEdition` (HU-25), `JurorBadge`, `JurorAttendance` |
 | Calificación | `Evaluation`, `RankingResult`, `TieBreakDecision` |

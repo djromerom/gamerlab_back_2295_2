@@ -19,6 +19,7 @@ import { createHash } from 'crypto';
 import { countProgress } from './evaluation-progress';
 import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { findActiveEdition } from '../editions/active-edition';
+import { MAX_SCORE, scoreError } from './score-rules';
 
 /** Quien califica: el usuario de la sesión. */
 type EvaluationActor = {
@@ -44,7 +45,6 @@ type PreparedRow =
       data: Prisma.EvaluationUncheckedCreateInput;
     };
 
-const MAX_SCORE = 5;
 const MAX_SERIALIZATION_ATTEMPTS = 3;
 
 @Injectable()
@@ -131,6 +131,7 @@ export class EvaluationService {
     try {
       evaluation = await this.prisma.$transaction(async (tx) => {
         const created = await tx.evaluation.create({ data: createData, select: { id: true } });
+        await this.closeDrafts(tx, jurorId, [videogameId]);
         const response = { evaluationId: created.id, message: 'Evaluación y detalles guardados correctamente' };
         if (idempotencyKey) await tx.evaluationIdempotency.create({ data: { jurorId, key: idempotencyKey, contentHash, response } });
         return created;
@@ -318,6 +319,7 @@ export class EvaluationService {
 
       // Se arma en cada intento: un reintento por P2034 no deja filas de la pasada anterior.
       const results: BatchResults = { successful: [], failed: [] };
+      const created: number[] = [];
 
       // Consulta previa de existentes: el contenido distinto se informa por fila, sin escribir.
       const existingRows = validIds.length
@@ -364,7 +366,11 @@ export class EvaluationService {
           videogameId: row.videogameId,
           evaluationId: evaluation.id,
         });
+        created.push(row.videogameId);
       }
+
+      // HU-18: lo que se acaba de crear deja de estar en borrador (misma transacción)
+      await this.closeDrafts(tx, jurorId, created);
 
       const response: BatchResponse = {
         results,
@@ -399,7 +405,7 @@ export class EvaluationService {
    *    integrante activo en la edición del equipo (aplica también a colegios).
    * `professorRoleId` es opcional para no repetir la consulta del rol si el llamador ya la hizo.
    */
-  private async findEvaluationBlockers(
+  async findEvaluationBlockers(
     actor: EvaluationActor,
     videogameIds: number[],
     activeEditionId: number,
@@ -529,22 +535,8 @@ export class EvaluationService {
         );
       }
 
-      if (
-        typeof detail.score !== 'number' ||
-        !Number.isFinite(detail.score) ||
-        detail.score < 0 ||
-        detail.score > MAX_SCORE
-      ) {
-        throw new BadRequestException(
-          `Score for criterion ${detail.criterionId} is out of range (0-5). Score: ${detail.score}`,
-        );
-      }
-
-      if (!this.hasAtMostTwoDecimals(detail.score)) {
-        throw new BadRequestException(
-          `El puntaje del criterio ${detail.criterionId} admite como máximo 2 decimales. Puntaje: ${detail.score}`,
-        );
-      }
+      const invalidScore = scoreError(detail.criterionId, detail.score);
+      if (invalidScore) throw new BadRequestException(invalidScore);
 
       totalScore += detail.score * weight;
 
@@ -563,15 +555,6 @@ export class EvaluationService {
       detailsData,
       totalScore: Math.min(MAX_SCORE, parseFloat(totalScore.toFixed(4))),
     };
-  }
-
-  /**
-   * `Number.isInteger(score * 100)` no sirve: 4.35 * 100 = 434.99999999999994 en coma flotante.
-   * Se compara contra el entero más cercano con una tolerancia muy por debajo de 0.001.
-   */
-  private hasAtMostTwoDecimals(score: number): boolean {
-    const scaled = score * 100;
-    return Math.abs(scaled - Math.round(scaled)) < 1e-6;
   }
 
   private criteriaWeightMap(criteria: { id: number; weight: number | null }[]) {
@@ -600,7 +583,7 @@ export class EvaluationService {
   }
 
   /** #13: isSenior lo decide el servidor con el rol y la categoría del usuario, nunca el body. */
-  private async loadActor(jurorId: string) {
+  async loadActor(jurorId: string) {
     const professorRoleId = await this.findProfessorRoleId();
     const jurorUser = await this.prisma.user.findUnique({
       where: { id: jurorId },
@@ -625,6 +608,22 @@ export class EvaluationService {
       (professorRoleId !== undefined && actor.roleId === professorRoleId) ||
       actor.jurorCategory === JurorCategory.SENIOR
     );
+  }
+
+  /**
+   * HU-18 (ARK-104): al enviar, el borrador del juego deja de estar pendiente (postcondición 6.1).
+   * Sube `version` para que un autoguardado atrasado no lo reviva (ver EvaluationDraftsService).
+   */
+  private async closeDrafts(
+    tx: Prisma.TransactionClient,
+    jurorId: string,
+    videogameIds: number[],
+  ) {
+    if (videogameIds.length === 0) return;
+    await tx.evaluationDraft.updateMany({
+      where: { jurorId, videogameId: { in: videogameIds }, isActive: true },
+      data: { isActive: false, version: { increment: 1 } },
+    });
   }
 
   private contentHash(value: unknown): string {

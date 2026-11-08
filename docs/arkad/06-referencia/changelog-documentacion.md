@@ -5,6 +5,9 @@
 ## 2026-11-08: NRC por materia (HU-31, ARK-167)
 - [equipos-y-verificacion](../01-negocio/equipos-y-verificacion.md#inscripción-registro-de-equipo): regla de un NRC por materia, de la edición del equipo, con varias materias por integrante, y los datos nuevos de `GET /nrcs/select-options`.
 
+## 2026-11-07: BG-36, notas del Excel del profesor con 2 decimales
+- `reglas-de-negocio` (§7): el Excel del panel del profesor guarda las notas como números con formato `0.00` (`src/professors/excel-export.service.ts`, `gradeCellValue` y `GRADE_NUM_FMT`).
+
 ## 2026-11-07: BG-40, Excel de asignación solo con jurados de la edición
 - `jurados` (Jurados por edición): `exportJurados` usa `jurorsOfEdition`; Estado y Tipo salen de la edición (`src/reports/reports.service.ts`, `getJurorAssignmentReport`).
 

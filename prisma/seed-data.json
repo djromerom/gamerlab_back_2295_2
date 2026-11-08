@@ -661,6 +661,14 @@
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 74,
+        "name": "MANAGE_JUROR_PRESENCE",
+        "description": "Permite ver la presencia de los jurados durante la feria y cambiar sus parámetros",
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1356,6 +1364,26 @@
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 74,
+        "name": "ManageJurorPresence",
+        "description": "Ver los indicadores de presencia de los jurados de la edición activa y sus parámetros",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 75,
+        "name": "ConfirmJurorPresence",
+        "description": "El jurado consulta cuándo debe confirmar su presencia y responde \"Sigo aquí\"",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1850,6 +1878,20 @@
         "permissionId": 73,
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 74,
+        "permissionId": 74,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 75,
+        "permissionId": 14,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
         "isActive": true
       }
     ]

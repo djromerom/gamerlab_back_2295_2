@@ -19,6 +19,21 @@ const ASSIGNED_IN_ACTIVE_EDITION = (jurorId: string): Prisma.VideogameWhereInput
   },
 });
 
+/**
+ * HU-18 (ARK-104): el juego con borrador sigue pendiente (no cambia el conteo ni el aviso de
+ * pendientes de HU-37); la lista solo lo marca para mostrar «Borrador» y reanudar.
+ */
+const DRAFT_SELECT = (jurorId: string) => ({
+  evaluationDrafts: {
+    where: { jurorId, isActive: true },
+    select: { updatedAt: true },
+  },
+});
+
+const draftInfo = (drafts: { updatedAt: Date }[] = []) => ({
+  hasDraft: drafts.length > 0,
+  draftUpdatedAt: drafts[0]?.updatedAt ?? null,
+});
 
 @Injectable()
 export class VideogamesService {
@@ -92,6 +107,7 @@ export class VideogamesService {
         name: true,
         logoUrl: true,
         description: true,
+        ...DRAFT_SELECT(jurorId),
         team: {
           select: {
             id: true, // teamId: lo necesita el front para /team-verification (HU-19)
@@ -150,6 +166,7 @@ export class VideogamesService {
         imagen: videogame.logoUrl ?? undefined,
         descripcion: videogame.description || 'Sin descripción',
         isEvaluated: false,
+        ...draftInfo(videogame.evaluationDrafts),
       };
     });
 
@@ -192,6 +209,7 @@ export class VideogamesService {
           name: true,
           logoUrl: true,
           description: true,
+          ...DRAFT_SELECT(jurorId),
           team: {
             select: {
               id: true, // teamId: lo necesita el front para /team-verification (HU-19)
@@ -256,6 +274,7 @@ export class VideogamesService {
         })) || [],
         nrc: Array.from(nrcCodes).join(', ') || 'Sin NRC',
         subject: firstSubject,
+        ...draftInfo(videogame.evaluationDrafts),
       };
     });
 
