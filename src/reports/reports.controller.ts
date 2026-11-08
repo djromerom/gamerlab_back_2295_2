@@ -290,7 +290,7 @@ export class ReportsController {
   @ApiOperation({
     summary: 'Export the juror assignment of an edition to Excel',
     description:
-      'Una fila por jurado: estado, categoría, tipo (oficial o suplente), niveles y grupos asignados, revisados y pendientes de la edición. ' +
+      'Una fila por jurado de la edición (BG-40: jurorsOfEdition, confirmados y profesores con NRC activo): estado en la edición, categoría, tipo (oficial o suplente) de la edición, niveles y grupos asignados, revisados y pendientes. ' +
       'Nombre: asignacion_jurados_<año>-<semestre>_<fecha>.xlsx. 404 "No hay asignaciones para exportar." si la edición no tiene asignaciones.',
   })
   @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Edición; por defecto la activa' })

@@ -7,16 +7,18 @@ import { SettingsService } from '../settings/settings.service';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { countProgress } from '../evaluation/evaluation-progress';
-import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evaluation/final-score';
 import { EditionStatus } from '@prisma/client';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
 import {
+  JUROR_EDITION_STATUS_LABEL,
   JurorAssignmentRow,
+  PROFESSOR_WITH_NRC_STATUS_LABEL,
   sortJurorAssignmentRows,
   toJurorAssignmentRow,
 } from './juror-assignment-export';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { resolveListEdition } from '../editions/list-edition';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 
 /**
  * ARK-135 (BG-22): id de edición que nunca existe. Sin edición activa los reportes salen
@@ -59,7 +61,7 @@ export class ReportsService {
       logoUrl?: string | null;
       materia?: string | null;
       nrc?: number | string | null;
-      promedio?: number | null;
+      promedio?: number;
       criterios?: { [nombreCriterio: string]: number };
       evaluacionesCompletadas?: number;
       totalJuradosAsignados?: number;
@@ -176,7 +178,7 @@ export class ReportsService {
       const fsVal = finalRow ? (finalRow.finalScore ?? finalRow.final_score ?? null) : null;
       const avgJuniorVal = finalRow ? (finalRow.avgJunior ?? finalRow.avg_junior ?? finalRow.avgjunior ?? null) : null;
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
-      const finalPromedio = reportedFairScore(finalRow, promedioCalc);
+      const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
 
       const progress = countProgress(
         (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
@@ -386,9 +388,6 @@ async getNrcWithSubjectNameAndAverage(
     },
   });
 
-  // HU-34: la nota de cada juego es la de la vista (cálculo único), no el promedio de sus evaluaciones
-  const finalByVideogame = await loadFinalScores(this.prisma, { editionId: reportEditionId });
-
   const promediosAgregadosPorNrc = new Map<number, { sum: number; count: number }>();
 
   videojuegosConInfo.forEach((vj) => {
@@ -400,12 +399,9 @@ async getNrcWithSubjectNameAndAverage(
         numEvaluacionesVideojuego++;
       }
     });
-    const promedioEsteVideojuego = scoreForNrcAverage(
-      finalByVideogame.get(vj.id),
-      numEvaluacionesVideojuego > 0
-        ? sumaScoresVideojuego / numEvaluacionesVideojuego
-        : null,
-    );
+    const promedioEsteVideojuego = numEvaluacionesVideojuego > 0
+      ? sumaScoresVideojuego / numEvaluacionesVideojuego
+      : null;
 
     if (promedioEsteVideojuego === null) return;
 
@@ -444,7 +440,9 @@ async getNrcWithSubjectNameAndAverage(
 
 /**
  * HU-16 (ARK-108): asignación de jurados de una edición (por defecto la activa) para el Excel.
- * Incluye a todo jurado activo y a cualquier otro usuario con grupos asignados en la edición.
+ * BG-40 (ARK-163): solo los jurados de esa edición según `jurorsOfEdition` (HU-25): confirmados
+ * en «Jurados de la edición» y profesores con NRC activo en ella. Pendientes, declinados y
+ * jurados de otras ediciones no salen. Estado y Tipo son los de la edición, no los de la cuenta.
  * Solo cuenta grupos y evaluaciones de esa edición. 404 si no hay edición o no hay asignaciones.
  */
 async getJurorAssignmentReport(editionId?: number): Promise<{
@@ -463,20 +461,19 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
   }
 
   const users = await this.prisma.user.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { roleId: ROL_JURADO_ID },
-        { teamsToEvaluate: { some: { editionId: edition.id, isActive: true } } },
-      ],
-    },
+    where: jurorsOfEdition(edition.id),
     select: {
       firstName: true,
       lastName: true,
       email: true,
       jurorCategory: true,
       jurorType: true,
-      confirmationStatus: { select: { status: true } },
+      // Fila de «Jurados de la edición»: solo existe para los inscritos (los profesores con NRC
+      // entran sin ella). jurorsOfEdition ya garantiza que, si existe, está Confirmada.
+      jurorEditions: {
+        where: { editionId: edition.id },
+        select: { type: true },
+      },
       teamsToEvaluate: {
         where: { editionId: edition.id, isActive: true },
         select: { teamCode: true, videogame: { select: { id: true, name: true } } },
@@ -488,22 +485,26 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
     },
   });
 
-  const rows = users.map((u) =>
-    toJurorAssignmentRow({
+  const rows = users.map((u) => {
+    const enrollment = u.jurorEditions[0];
+    return toJurorAssignmentRow({
       firstName: u.firstName,
       lastName: u.lastName,
       email: u.email,
-      status: u.confirmationStatus?.status ?? null,
+      status: enrollment
+        ? JUROR_EDITION_STATUS_LABEL.CONFIRMED
+        : PROFESSOR_WITH_NRC_STATUS_LABEL,
       jurorCategory: u.jurorCategory,
-      jurorType: u.jurorType,
+      // En una edición manda jurado_edicion.tipo (PR #218); sin fila, el dato de la cuenta
+      jurorType: enrollment?.type ?? u.jurorType,
       assigned: u.teamsToEvaluate.map((t) => ({
         teamCode: t.teamCode,
         videogameId: t.videogame?.id ?? null,
         videogameName: t.videogame?.name ?? null,
       })),
       evaluatedVideogameIds: u.evaluationsSubmitted.map((e) => e.videogameId),
-    }),
-  );
+    });
+  });
 
   if (rows.every((r) => r.totalAsignados === 0)) {
     throw new NotFoundException('No hay asignaciones para exportar.');
@@ -675,7 +676,7 @@ async getJuradosData(editionId?: number): Promise<
     semestre?: string;
     materia?: string | null;
     nrc?: number | string | null;
-    promedio: number | null;
+    promedio: number;
     criterios: { [nombreCriterio: string]: number };
     evaluacionesCompletadas?: number;
     totalJuradosAsignados?: number;
@@ -803,7 +804,7 @@ async getJuradosData(editionId?: number): Promise<
       const fsVal = finalRow ? (finalRow.finalScore ?? finalRow.final_score ?? null) : null;
       const avgJuniorVal = finalRow ? (finalRow.avgJunior ?? finalRow.avg_junior ?? finalRow.avgjunior ?? null) : null;
       const avgSeniorVal = finalRow ? (finalRow.avgSenior ?? finalRow.avg_senior ?? finalRow.avgsenior ?? null) : null;
-      const finalPromedio = reportedFairScore(finalRow, promedioCalc);
+      const finalPromedio: number = fsVal !== null && fsVal !== undefined ? (typeof fsVal === 'number' ? fsVal : parseFloat(String(fsVal))) : promedioCalc;
 
       const progress = countProgress(
         (v.team?.assignedJurors ?? []).map((j: { id: string }) => j.id),
