@@ -3,6 +3,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import fs from 'fs/promises';
 import path from 'path';
 import { ConfigService } from '@nestjs/config';
+import {
+  EXTERNAL_PRESENTER_TEMPLATE,
+  ExternalPresenterCertificateData,
+  renderExternalPresenterCertificate,
+} from './external-presenter-certificate';
 
 @Injectable()
 export class CertificatesService {
@@ -111,6 +116,18 @@ export class CertificatesService {
     });
 
     return certificateHtml;
+  }
+
+  // ─────────────────────────────────────────────
+  // EXTERNAL PRESENTER CERTIFICATE (HU-33)
+  // ─────────────────────────────────────────────
+
+  async generateExternalPresenterCertificatePdf(
+    data: ExternalPresenterCertificateData,
+  ): Promise<Buffer> {
+    const templatePath = path.join(__dirname, '.', 'assets', EXTERNAL_PRESENTER_TEMPLATE);
+    const template = await fs.readFile(templatePath, 'utf8');
+    return this.convertHtmlToPdf(renderExternalPresenterCertificate(template, data));
   }
 
   // ─────────────────────────────────────────────
