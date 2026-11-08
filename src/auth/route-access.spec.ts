@@ -25,7 +25,8 @@ import {
  */
 
 /** Roles NO administradores que deben recibir "sin permiso" en rutas administrativas. */
-const NON_ADMIN_ROLES = ['Estudiante', 'Profesor', 'Jurado', 'Staff'];
+// HU-33: el presentador externo no debe entrar a ninguna ruta administrativa
+const NON_ADMIN_ROLES = ['Estudiante', 'Profesor', 'Jurado', 'Staff', 'Presentador externo'];
 
 /**
  * Qué roles NO administradores pueden ejecutar cada servicio de las rutas que
@@ -68,6 +69,9 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   // HU-37: cada jurado (externo o profesor) administra sus dispositivos; los avisos manuales son solo del Administrador
   ManageOwnPushSubscription: ['Jurado', 'Profesor'],
   SendPushNotice: [],
+  // HU-33: solo el Administrador registra presentadores; el presentador solo ve su registro
+  ManageExternalPresenters: [],
+  ViewOwnExternalPresenterProfile: ['Presentador externo'],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],
@@ -225,6 +229,7 @@ describe('Control de acceso de las rutas (BG-01)', () => {
           Profesor: 'sin permiso',
           Jurado: 'sin permiso',
           Staff: 'sin permiso',
+          'Presentador externo': 'sin permiso',
         },
       ],
       [
@@ -234,6 +239,7 @@ describe('Control de acceso de las rutas (BG-01)', () => {
           Profesor: 'permitido',
           Jurado: 'permitido',
           Staff: 'sin permiso',
+          'Presentador externo': 'sin permiso',
         },
       ],
     ])('%s exige permiso según el rol (ARK-110)', async (key, expected) => {

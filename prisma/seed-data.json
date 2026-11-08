@@ -112,6 +112,14 @@
         "createdAt": "2026-11-01T06:00:00.000Z",
         "updatedAt": "2026-11-01T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 6,
+        "name": "Presentador externo",
+        "description": "Asiste a la feria sin ser calificado; solo recibe el certificado de asistencia",
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -660,6 +668,22 @@
         "description": "Permite enviar avisos push a los jurados de la edición activa",
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 76,
+        "name": "MANAGE_EXTERNAL_PRESENTERS",
+        "description": "Permite registrar, editar, quitar, exportar y certificar a los presentadores externos de la edición",
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 77,
+        "name": "VIEW_OWN_EXTERNAL_PRESENTER_PROFILE",
+        "description": "Permite al presentador externo ver su propio registro en la edición",
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
         "isActive": true
       }
     ]
@@ -1356,6 +1380,26 @@
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 76,
+        "name": "ManageExternalPresenters",
+        "description": "Presentadores externos de la edición (HU-33): alta, lista, edición, retiro, Excel y certificado",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 77,
+        "name": "ViewOwnExternalPresenterProfile",
+        "description": "El presentador externo consulta su registro en la edición (HU-33)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1851,6 +1895,20 @@
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 76,
+        "permissionId": 76,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 77,
+        "permissionId": 77,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -2114,6 +2172,20 @@
         "permissionId": 72,
         "createdAt": "2026-11-06T06:00:00.000Z",
         "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 6,
+        "permissionId": 3,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 6,
+        "permissionId": 77,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
         "isActive": true
       }
     ]
