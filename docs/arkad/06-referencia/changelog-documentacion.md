@@ -2,6 +2,9 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-07: BG-36, notas del Excel del profesor con 2 decimales
+- `reglas-de-negocio` (§7): el Excel del panel del profesor guarda las notas como números con formato `0.00` (`src/professors/excel-export.service.ts`, `gradeCellValue` y `GRADE_NUM_FMT`).
+
 ## 2026-11-07: BG-40, Excel de asignación solo con jurados de la edición
 - `jurados` (Jurados por edición): `exportJurados` usa `jurorsOfEdition`; Estado y Tipo salen de la edición (`src/reports/reports.service.ts`, `getJurorAssignmentReport`).
 
