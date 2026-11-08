@@ -147,7 +147,7 @@ describeIfDb(
             teamCode: `N1-S${index}-${runId.slice(-4)}`,
             verificationCode: CODES[index],
             videogame: {
-              create: { name: `it-ark183-${index}-${runId}`.slice(0, 30) },
+              create: { name: `it-ark183-${index}-${runId}`.slice(0, 30), videogameStatusId: 1 },
             },
             assignedJurors: { connect: { id: jurorA } },
           },

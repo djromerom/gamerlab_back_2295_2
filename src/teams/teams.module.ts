@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { SettingsModule } from '../settings/settings.module';
 import { UploadModule } from '../upload/upload.module';
 import { RankingModule } from '../ranking/ranking.module';
+import { PushNotificationsModule } from '../push-notifications/push-notifications.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RankingModule } from '../ranking/ranking.module';
     SettingsModule,
     UploadModule,
     RankingModule,
+    PushNotificationsModule,
   ],
   controllers: [TeamsController],
   providers: [

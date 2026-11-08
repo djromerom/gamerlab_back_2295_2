@@ -123,7 +123,7 @@ describeIfDb('Equipo reasignado (HTTP + PostgreSQL)', () => {
         editionId: edition.id,
         teamCode: `N1-R-${runId.slice(-5)}`,
         verificationCode: CODE,
-        videogame: { create: { name: `it-ark190-${runId}`.slice(0, 30) } },
+        videogame: { create: { name: `it-ark190-${runId}`.slice(0, 30), videogameStatusId: 1 } },
         assignedJurors: { connect: { id: jurorA } },
       },
       include: { videogame: true },

@@ -165,6 +165,7 @@ describe('TeamsService con BG-38', () => {
       10,
       expect.anything(),
       false,
+      undefined,
     );
   });
 
@@ -178,6 +179,7 @@ describe('TeamsService con BG-38', () => {
       10,
       expect.anything(),
       true,
+      undefined,
     );
   });
 
@@ -190,6 +192,7 @@ describe('TeamsService con BG-38', () => {
       10,
       expect.anything(),
       false,
+      'admin-1',
     );
     expect(prisma.eventConfiguration.findFirst).not.toHaveBeenCalled();
   });

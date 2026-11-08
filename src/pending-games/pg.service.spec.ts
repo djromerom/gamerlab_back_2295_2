@@ -64,6 +64,19 @@ describe('VideogamesService (pending-games)', () => {
     });
   });
 
+  it('BG-35: el jurado solo ve juegos confirmados, también en el conteo', async () => {
+    await service.getPendingVideogames('juror-1', 10, 1);
+    await service.getPendingVideogamesCount('juror-1');
+
+    const confirmed = { videogameStatus: { status: 'CONFIRMADO' } };
+    expect(JSON.stringify(prismaMock.videogame.findMany.mock.calls[0][0].where)).toContain(
+      JSON.stringify(confirmed).slice(1, -1),
+    );
+    expect(JSON.stringify(prismaMock.videogame.count.mock.calls.at(-1)?.[0].where)).toContain(
+      JSON.stringify(confirmed).slice(1, -1),
+    );
+  });
+
   describe('HU-18: borradores en la lista de pendientes', () => {
     const savedAt = new Date('2026-11-26T10:00:00Z');
 

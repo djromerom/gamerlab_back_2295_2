@@ -9,6 +9,7 @@ import {
   countedTotal,
 } from '../evaluation/counted-evaluations';
 import { PrismaService } from '../prisma/prisma.service';
+import { CONFIRMED_VIDEOGAME } from '../teams/team-status';
 import {
   HourBucket,
   MINIMUM_CHECK_HOUR,
@@ -92,7 +93,8 @@ export class EvaluationTrackingService {
       where: {
         editionId,
         isActive: true,
-        videogame: { is: { isActive: true } },
+        // BG-35 (ARK-158): de aquí salen también las alertas y el panel de HU-12
+        videogame: { is: { isActive: true, ...CONFIRMED_VIDEOGAME } },
       },
       select: {
         id: true,

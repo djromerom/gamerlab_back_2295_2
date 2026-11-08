@@ -9,6 +9,7 @@ import {
 import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { PrismaService } from '../prisma/prisma.service';
 import { findActiveEdition } from '../editions/active-edition';
+import { CONFIRMED_TEAM } from '../teams/team-status';
 
 const SEARCH_LIMIT = 20;
 
@@ -195,7 +196,7 @@ export class JurorCheckinService {
       select: {
         ...jurorSelect,
         teamsToEvaluate: {
-          where: { editionId, isActive: true },
+          where: { editionId, isActive: true, ...CONFIRMED_TEAM },
           select: { id: true, teamName: true },
           orderBy: { teamName: 'asc' },
         },

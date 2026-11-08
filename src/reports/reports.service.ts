@@ -10,6 +10,7 @@ import { countProgress } from '../evaluation/evaluation-progress';
 import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evaluation/final-score';
 import { EditionStatus } from '@prisma/client';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
+import { CONFIRMED_TEAM, CONFIRMED_VIDEOGAME } from '../teams/team-status';
 import {
   JUROR_EDITION_STATUS_LABEL,
   JurorAssignmentRow,
@@ -482,7 +483,7 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
         select: { type: true },
       },
       teamsToEvaluate: {
-        where: { editionId: edition.id, isActive: true },
+        where: { editionId: edition.id, isActive: true, ...CONFIRMED_TEAM },
         select: { teamCode: true, videogame: { select: { id: true, name: true } } },
       },
       evaluationsSubmitted: {
@@ -559,8 +560,9 @@ async getJuradosData(editionId?: number): Promise<
         where: {
           isActive: true, // Solo equipos activos
           editionId: reportEditionId,
-          videogame: { // Asegurarse que el equipo tenga un videojuego asociado y activo
+          videogame: { // Asegurarse que el equipo tenga un videojuego asociado, activo y confirmado
             isActive: true,
+            ...CONFIRMED_VIDEOGAME,
           }
         },
         select: {

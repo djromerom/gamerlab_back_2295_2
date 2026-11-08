@@ -77,6 +77,7 @@ describe('JurorSurveyService (HU-17)', () => {
       expect(prisma.videogame.findMany).toHaveBeenCalledWith({
         where: {
           isActive: true,
+          videogameStatus: { status: 'CONFIRMADO' },
           team: {
             isActive: true,
             editionId: 7,

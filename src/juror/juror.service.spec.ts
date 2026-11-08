@@ -751,7 +751,7 @@ describe('JurorService', () => {
       expect(where).toEqual({
         isActive: true,
         editionId: activeEdition.id,
-        videogame: { isNot: null },
+        videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
       });
     });
 

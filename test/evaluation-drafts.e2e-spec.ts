@@ -150,7 +150,7 @@ describeIfDb('Borradores de evaluación (HU-18, HTTP + PostgreSQL)', () => {
           teamCode: `N1-D${index}-${runId.slice(-4)}`,
           verificationCode: CODES[index],
           videogame: {
-            create: { name: `it-ark104-${index}-${runId}`.slice(0, 30) },
+            create: { name: `it-ark104-${index}-${runId}`.slice(0, 30), videogameStatusId: 1 },
           },
           assignedJurors: { connect: { id: jurorA } },
         },

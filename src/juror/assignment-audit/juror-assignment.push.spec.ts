@@ -27,7 +27,7 @@ describe('JurorAssignmentService: aviso push (HU-37)', () => {
     teamName: 'Nombre secreto',
     editionId: 5,
     edition: { status: 'ACTIVE', title: 'Feria' },
-    videogame: { id: 1, name: 'Juego' },
+    videogame: { id: 1, name: 'Juego', videogameStatus: { status: 'CONFIRMADO' } },
     assignedJurors: jurorIds.map(evaluator),
   });
 

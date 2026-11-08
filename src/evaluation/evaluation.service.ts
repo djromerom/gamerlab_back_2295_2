@@ -19,6 +19,10 @@ import { createHash } from 'crypto';
 import { countProgress } from './evaluation-progress';
 import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { findActiveEdition } from '../editions/active-edition';
+import {
+  CONFIRMED_VIDEOGAME,
+  CONFIRMED_VIDEOGAME_STATUS,
+} from '../teams/team-status';
 import { MAX_SCORE, scoreError } from './score-rules';
 
 /** Quien califica: el usuario de la sesión. */
@@ -178,7 +182,7 @@ export class EvaluationService {
     editionId: number,
   ): Promise<{ completed: number; assigned: number }> {
     const videogames = await this.prisma.videogame.findMany({
-      where: { isActive: true, team: { isActive: true, editionId } },
+      where: { isActive: true, ...CONFIRMED_VIDEOGAME, team: { isActive: true, editionId } },
       select: {
         team: { select: { assignedJurors: { where: { isActive: true }, select: { id: true } } } },
         evaluations: {
@@ -423,6 +427,7 @@ export class EvaluationService {
       select: {
         id: true,
         isActive: true,
+        videogameStatus: { select: { status: true } },
         team: {
           select: {
             id: true,
@@ -460,6 +465,12 @@ export class EvaluationService {
           videogameId,
           'El videojuego no pertenece a la edición activa',
         );
+        continue;
+      }
+
+      // BG-35 (ARK-158): lo no confirmado no se califica
+      if (videogame.videogameStatus.status !== CONFIRMED_VIDEOGAME_STATUS) {
+        blockers.set(videogameId, 'La inscripción de este grupo no está confirmada');
         continue;
       }
 

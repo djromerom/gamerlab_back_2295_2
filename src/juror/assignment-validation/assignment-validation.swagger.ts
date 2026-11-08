@@ -14,6 +14,9 @@ export const ASSIGNMENT_RULES_DOC = `
         edición y el profesor con un NRC activo en ella (HU-25). Quitar no lo exige.
       - Sin edición activa: 404 \`NO_ACTIVE_EDITION\`.
 
+      **Equipo sin confirmar (BG-35, 400):** asignar o reasignar en un equipo PENDIENTE o RECHAZADO
+      responde \`code: TEAM_NOT_CONFIRMED\`. Quitar jurados sí se permite.
+
       **Advertencias (409 ASSIGNMENT_WARNINGS, se guardan con confirmWarnings: true):**
       - JUROR_OVER_LIMIT: el jurado queda con más de 3 grupos en la edición.
       - JUROR_MIXED_LEVELS: el jurado queda con grupos de distintos niveles.

@@ -32,6 +32,7 @@ const gameRow = (
 ) => ({
   id,
   isActive: videogameIsActive,
+  videogameStatus: { status: 'CONFIRMADO' },
   team: {
     id: id * 10,
     teamCode: 'N1-01',
@@ -313,6 +314,15 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
         [7],
       );
       expect(result.get(7)).toBe(NOT_ASSIGNED_MESSAGE);
+    });
+
+    it.each(['PENDIENTE', 'RECHAZADO'])('BG-35: un juego %s no se califica', async (status) => {
+      const result = await blockers(
+        juniorJuror,
+        [{ ...gameRow(7), videogameStatus: { status } }],
+        [7],
+      );
+      expect(result.get(7)).toBe('La inscripción de este grupo no está confirmada');
     });
 
     it('permite jurado asignado', async () => {
@@ -1038,7 +1048,11 @@ describe('EvaluationService - getEvaluationProgress', () => {
     const { service, prisma } = build([]);
     await service.getEvaluationProgress(7);
     const q = prisma.videogame.findMany.mock.calls[0][0];
-    expect(q.where).toEqual({ isActive: true, team: { isActive: true, editionId: 7 } });
+    expect(q.where).toEqual({
+      isActive: true,
+      videogameStatus: { status: 'CONFIRMADO' },
+      team: { isActive: true, editionId: 7 },
+    });
     expect(q.select.team.select.assignedJurors.where).toEqual({ isActive: true });
     expect(q.select.evaluations.where).toEqual({
       isActive: true,
