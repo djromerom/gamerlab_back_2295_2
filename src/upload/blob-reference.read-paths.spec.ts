@@ -25,6 +25,7 @@ describe('Referencia de blob en el resto de lecturas y escrituras (Task 28)', ()
   describe('VideogamesService', () => {
     const prisma = {
       videogame: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+      eventConfiguration: { findFirst: async () => ({ registrationsOpen: true }) }, // ARK-161: inscripciones abiertas
     };
     let service: VideogamesService;
     beforeEach(() => {

@@ -4,8 +4,9 @@ import { TeamsService } from './teams.service';
 import { ROLE_IDS } from '../../auth/constants/roles';
 
 /**
- * BG-01 — Un estudiante tiene el permiso `UpdateTeam`, pero solo puede agregar o
- * quitar integrantes de SU equipo. El administrador puede hacerlo en cualquiera.
+ * BG-01 — Un estudiante tiene el permiso `UpdateTeam`, pero no cambia integrantes ajenos.
+ * ARK-161 (BG-38): desde SP-05 agregar, quitar o cambiar el correo de un integrante lo hace solo
+ * el administrador; el líder de su propio equipo también recibe 403.
  */
 describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
   const repository = {
@@ -38,9 +39,11 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
   });
 
   describe('addMember', () => {
-    it('permite al líder agregar un integrante a su equipo', async () => {
-      await service.addMember(10, memberDto, leader);
-      expect(repository.addMember).toHaveBeenCalledWith(10, memberDto);
+    it('rechaza al líder aunque sea su equipo (BG-38)', async () => {
+      await expect(service.addMember(10, memberDto, leader)).rejects.toThrow(
+        /Solo el administrador puede cambiar los integrantes/,
+      );
+      expect(repository.addMember).not.toHaveBeenCalled();
     });
 
     it('permite al administrador agregar un integrante a cualquier equipo', async () => {
@@ -64,9 +67,11 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
   });
 
   describe('deleteMember', () => {
-    it('permite al líder eliminar un integrante de su equipo', async () => {
-      await service.deleteMember(10, 55, leader);
-      expect(repository.deleteMember).toHaveBeenCalledWith(10, 55);
+    it('rechaza al líder aunque sea su equipo (BG-38)', async () => {
+      await expect(service.deleteMember(10, 55, leader)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repository.deleteMember).not.toHaveBeenCalled();
     });
 
     it('permite al administrador eliminar un integrante de cualquier equipo', async () => {
@@ -85,8 +90,14 @@ describe('TeamsService — propiedad del equipo en integrantes (BG-01)', () => {
   describe('updateMemberEmail (I2)', () => {
     it('responde 403 (no 401) a quien no es el líder: el front interpreta 401 como sesión vencida', async () => {
       await expect(
-        service.updateMemberEmail(10, 55, { email: 'x@uninorte.edu.co' } as any, 'otro-estudiante'),
+        service.updateMemberEmail(10, 55, { email: 'x@uninorte.edu.co' } as any, otherStudent),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rechaza también al líder: el correo lo cambia solo el administrador (BG-38)', async () => {
+      await expect(
+        service.updateMemberEmail(10, 55, { email: 'x@uninorte.edu.co' } as any, leader),
+      ).rejects.toThrow(/Solo el administrador puede cambiar el correo de un integrante/);
     });
   });
 });
