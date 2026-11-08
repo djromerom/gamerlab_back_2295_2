@@ -50,4 +50,12 @@ export class VideogameResponseDto {
   @IsString()
   @IsOptional()
   subject?: string;
+
+  /** HU-18: el jurado tiene un borrador activo de este juego (sigue pendiente). */
+  @IsOptional()
+  hasDraft?: boolean;
+
+  /** HU-18: última vez que se guardó el borrador; null sin borrador. */
+  @IsOptional()
+  draftUpdatedAt?: Date | null;
 }
