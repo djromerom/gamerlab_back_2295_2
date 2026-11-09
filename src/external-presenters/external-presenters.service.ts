@@ -43,7 +43,16 @@ export const presenterInclude = {
       lastSignInAt: true,
     },
   },
-  edition: { select: { id: true, title: true, status: true } },
+  edition: {
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      year: true,
+      semester: true,
+      startsAt: true,
+    },
+  },
 } satisfies Prisma.ExternalPresenterInclude;
 
 export type PresenterRow = Prisma.ExternalPresenterGetPayload<{

@@ -166,11 +166,19 @@ describe('Certificados de jurado por edición (ARK-135)', () => {
     EVENT_TIME_TEXT: '8:00 am',
     EVENT_PLACE_TEXT: 'Coliseo',
   };
-  const edition = { id: 5, title: 'Feria 5', status: 'ACTIVE', year: 2026, semester: 2 };
+  const edition = {
+    id: 5,
+    title: 'Feria 5',
+    status: 'ACTIVE',
+    year: 2026,
+    semester: 2,
+    startsAt: new Date('2026-11-26T13:00:00.000Z'),
+  };
 
   function build() {
     const prisma = {
       edition: { findFirst: jest.fn().mockResolvedValue(edition) },
+      fairSchedule: { findUnique: jest.fn().mockResolvedValue(null) },
       user: {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest

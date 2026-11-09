@@ -12,6 +12,7 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -26,6 +27,7 @@ import type { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
+import { sendCertificatePdf } from '../certificates/pdf-download';
 import { editionIdQuery } from '../editions/list-edition';
 import { ExcelExportService } from '../professors/excel-export.service';
 import {
@@ -60,7 +62,7 @@ export class ExternalPresentersController {
   @ApiOperation({
     summary: 'Mi registro como presentador externo',
     description:
-      'Edición activa o, si no está en ella, la más reciente. El certificado no se descarga: lo envía el administrador por correo (`certificateSentAt`). 404 EXTERNAL_PRESENTER_NOT_FOUND si no tiene registro activo.',
+      'Edición activa o, si no está en ella, la más reciente. El presentador no descarga el certificado desde su cuenta: lo envía o lo descarga el administrador (`certificateSentAt` marca el envío por correo). 404 EXTERNAL_PRESENTER_NOT_FOUND si no tiene registro activo.',
   })
   me(@GetUser('id') userId: string) {
     return this.presenters.me(userId);
@@ -205,5 +207,19 @@ export class ExternalPresentersController {
   })
   sendOne(@Param('id', ParseIntPipe) id: number) {
     return this.certificates.sendOne(id);
+  }
+
+  @Get(':id/certificate')
+  @RequiredService('ManageExternalPresenters')
+  @ApiProduces('application/pdf')
+  @ApiOperation({
+    summary: 'Descargar el certificado de asistencia (edición activa)',
+    description: 'No marca el certificado como enviado.',
+  })
+  async downloadCertificate(
+    @Param('id', ParseIntPipe) id: number,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    return sendCertificatePdf(res, await this.certificates.download(id));
   }
 }
