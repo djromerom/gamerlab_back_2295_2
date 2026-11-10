@@ -28,6 +28,7 @@ const activeEditionSelect = {
   status: true,
   year: true,
   semester: true,
+  startsAt: true,
   endsAt: true,
 } satisfies Prisma.EditionSelect;
 

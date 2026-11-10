@@ -385,6 +385,31 @@ describeIfDb('Presentadores externos (HU-33, HTTP + PostgreSQL)', () => {
     );
   });
 
+  it('ARK-170: el administrador descarga su certificado y no cuenta como enviado', async () => {
+    const before = await prisma.externalPresenter.findUniqueOrThrow({
+      where: { id: presenter.id },
+    });
+    generatePdf.mockClear();
+    const res = await binary(
+      server().get(`/external-presenters/${presenter.id}/certificate`).set(admin()),
+    ).expect(200);
+    expect(res.headers['content-type']).toContain('application/pdf');
+    expect(res.headers['content-disposition']).toContain(
+      'certificado-presentador-',
+    );
+    expect(generatePdf).toHaveBeenCalledTimes(1);
+    const after = await prisma.externalPresenter.findUniqueOrThrow({
+      where: { id: presenter.id },
+    });
+    expect(after.certificateSentAt).toEqual(before.certificateSentAt);
+    for (const role of ['Estudiante', 'Profesor', 'Jurado', 'Staff']) {
+      await server()
+        .get(`/external-presenters/${presenter.id}/certificate`)
+        .set(as(roleUsers[role]))
+        .expect(403);
+    }
+  });
+
   it('lista y Excel de la edición', async () => {
     const list = await server()
       .get('/external-presenters')
@@ -422,6 +447,10 @@ describeIfDb('Presentadores externos (HU-33, HTTP + PostgreSQL)', () => {
       .expect(404);
     await server()
       .post(`/external-presenters/${presenter.id}/certificate`)
+      .set(admin())
+      .expect(404);
+    await server()
+      .get(`/external-presenters/${presenter.id}/certificate`)
       .set(admin())
       .expect(404);
     expect(
