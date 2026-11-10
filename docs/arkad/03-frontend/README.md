@@ -11,7 +11,7 @@
 | UI | Radix UI + shadcn (`components.json`, `src/components/ui`), `lucide-react`, `react-icons`, `framer-motion`, `sonner`, `recharts` ^2.15 |
 | Formularios y datos | `react-hook-form` + `zod`, `react-router` / `react-router-dom` ^7.5 |
 | Tiempo real | `socket.io-client` ^4.8 |
-| Otros | `react-player`, `react-image-crop`, `html5-qrcode` (escáner de check-in) y `qrcode.react` (QR), `react-google-recaptcha`, `react-error-boundary`, `@supabase/supabase-js` (**heredado de V3**, ver [deuda técnica](deuda-tecnica.md)) |
+| Otros | `react-player`, `react-image-crop`, `html5-qrcode` (escáner de check-in) y `qrcode.react` (QR), `react-google-recaptcha`, `react-error-boundary` |
 | Pruebas | **Vitest** ^4.1 (`npm test`, `test:ci`, `test:watch`): ~52 archivos `*.test.ts(x)` en `origin/main` |
 | Build/serve | `npm run build` = `tsc -b && vite build`; producción: imagen nginx (`Dockerfile.prod`) |
 
@@ -26,7 +26,7 @@ Scripts: `dev` (Vite, `:5173`, con headers COOP/COEP `credentialless` para juego
 - [Guía de contribución](guia-de-contribucion.md)
 
 ## Variables de entorno (solo nombres)
-`VITE_ENDPOINT_BACKEND` (URL del back), `VITE_SITE_KEY` (reCAPTCHA), `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (heredadas: `src/supabase/client.ts` falla sin ellas), `VITE_MAINTENANCE_ESTIMATED_TIME` y `VITE_MAINTENANCE_MESSAGE` (el pipeline no las inyecta). **Se hornean en el bundle público** al construir la imagen: no son secretos y no se debe poner ninguno ahí. Ver [04-devops/variables-y-accesos](../04-devops/variables-y-accesos.md).
+`VITE_ENDPOINT_BACKEND` (URL del back), `VITE_SITE_KEY` (reCAPTCHA). **Se hornean en el bundle público** al construir la imagen: no son secretos y no se debe poner ninguno ahí. Ver [04-devops/variables-y-accesos](../04-devops/variables-y-accesos.md).
 
 ## Cómo correrlo
 ```bash

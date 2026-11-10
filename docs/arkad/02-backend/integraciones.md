@@ -13,7 +13,7 @@
 | **Excel / QR / ZIP** | `exceljs` (reportes), `qrcode` (escarapelas), `jszip` | — | Sin servicio externo |
 | **Fecha del evento** | Texto de certificados | `EVENT_DATE_TEXT`, `EVENT_TIME_TEXT`, `EVENT_PLACE_TEXT` | El año del certificado es el de la edición activa |
 
-## Variables obsoletas (ya no las lee el código; TA-08)
+## Variables obsoletas (ya no las lee el código; TA-18 / ARK-175)
 `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_JWT_SECRET`, `DIRECT_URL`, `EMAIL_SERVICE_ID`, `PUPPETEER_EXECUTABLE_PATH`, `AZURE_BLOB_SAS_URL`.
 
 ## Comportamiento ante fallos (leído de `origin/main`)

@@ -32,10 +32,10 @@
 - [ ] Tests unitarios (hoy 6 de 119 fallan y hay `continue-on-error`) e integración (TA-10, TA-11).
 - [ ] Actualizar el diagrama de despliegue.
 
-## Ticket de limpieza propuesto (TA-08)
-- Variables que el código ya no lee: `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_JWT_SECRET`, `DIRECT_URL`, `EMAIL_SERVICE_ID`, `PUPPETEER_EXECUTABLE_PATH`, `AZURE_BLOB_SAS_URL`.
-- GitHub Secrets sin uso en back y front (lista en `ark-43-seguimiento.md`).
-- Decisiones pendientes: Supabase en el front (`src/supabase/client.ts` no se usa pero falla sin sus variables) y `VITE_MAINTENANCE_*` (no las inyecta el pipeline).
+## Limpieza de variables y secretos (TA-18 / ARK-175, 10-nov)
+- Variables retiradas (el código ya no las lee): `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_JWT_SECRET`, `DIRECT_URL`, `EMAIL_SERVICE_ID`, `PUPPETEER_EXECUTABLE_PATH`, `AZURE_BLOB_SAS_URL`.
+- GitHub Secrets sin uso borrados en back y front.
+- Resuelto en el front: se retiró Supabase (módulo, dependencia y `VITE_SUPABASE_*`) y `MaintenancePage` con `VITE_MAINTENANCE_*`.
 - Módulos candidatos a retirar: back (`nestjs-supabase-auth`, `nest`, `multer`, `ts-loader`, …) y front (`@radix-ui/themes`, `dotenv`, `react-error-boundary`, `@types/js-cookie`). Detalle en `TA-02-docker-compose-build.md`.
 
 ## Preguntas abiertas
