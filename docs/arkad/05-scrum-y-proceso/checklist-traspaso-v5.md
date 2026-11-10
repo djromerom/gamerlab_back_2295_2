@@ -25,7 +25,7 @@
 - [ ] TA-08 (limpieza de variables, secretos y dependencias), TA-09 (dumps), TA-10 (tests: 6 de 119 fallan), TA-11.
 - [ ] Igualar `main → dev` y `main → dev-deploy`.
 - [ ] `chmod 600` del `.env` de producción.
-- [ ] Decidir si Supabase sigue en el front y qué hacer con `VITE_MAINTENANCE_*`.
+- [x] Supabase y `VITE_MAINTENANCE_*` retirados del front (ARK-175, 10-nov).
 
 ## Producto y proceso
 - [ ] Decisiones abiertas ([decisiones-abiertas](../01-negocio/decisiones-abiertas.md)): P-02, P-23, P-24, P-28, rangos de «Excelente/Bueno», histórico del profesor, equipos externos en el podio.

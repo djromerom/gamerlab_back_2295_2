@@ -13,7 +13,6 @@ src/
 ├─ hooks/         lógica reutilizable (useFetch, useWorkingEdition, useTeacherDashboard, juryManagement…)
 ├─ lib/           utilidades puras y su prueba (api.ts, session.ts, grades.ts, workingEdition.ts, schemas.ts…)
 ├─ types/         auth, criterion, jurados, Team, teamMembers, teamVideogames
-├─ supabase/      client.ts (heredado de V3, sin uso real)
 ├─ assets/, data/, styles/
 ```
 
@@ -23,7 +22,7 @@ Las carpetas `grupo 1`, `grupo 5`, `grupo 8`, `grupo 9`, `grupo 11`, `grupo 12` 
 | Carpeta | Contenido |
 |---|---|
 | `grupo 1` | `StatisticsPage` (estadísticas del admin), contexto global de criterios |
-| `grupo 5` | Pantallas **públicas y de estudiante**: Landing, Ranking, Información, Ediciones pasadas, Historical*, Créditos, HomeStudent, HomeTeacher, EditTeam, MisJurados, Maintenance |
+| `grupo 5` | Pantallas **públicas y de estudiante**: Landing, Ranking, Información, Ediciones pasadas, Historical*, Créditos, HomeStudent, HomeTeacher, EditTeam, MisJurados |
 | `grupo 8` | **Calificación**: PendingGrades, Rate, Graded, BatchRate (lote), School* (colegios N0) |
 | `grupo 9` | **Administración y acceso**: Login, Forget/ResetPassword, Verification, Home, Subjets, Criterion, Nrcs, Professors, TeamsManagement, GradeWeights, Tiebreaker, ProfessorRankingTies, Unauthorized/AuthError; `ProtectedRoute`; `EventConfigurationPage` |
 | `grupo 11` | Páginas del profesor/jurado/consultor (en `main` quedan pocas; ver `RatedPage`) |

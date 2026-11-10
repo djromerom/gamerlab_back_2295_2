@@ -4,8 +4,7 @@
 
 | Tema | Detalle | Acción sugerida |
 |---|---|---|
-| **Supabase heredado** | `@supabase/supabase-js` y `src/supabase/client.ts` no se importan en ninguna pantalla, pero **fallan sin `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`** | Decidir si se retira (TA-08) y quitar la dependencia y las variables |
-| `VITE_MAINTENANCE_*` | El pipeline no las inyecta (`MaintenancePage` existe en `grupo 5`) | Decidir si el modo mantenimiento se usa; si sí, inyectarlas en `Dockerfile`/`deploy-front.yml` |
+| Supabase y página de mantenimiento | Resuelto en ARK-175 (10-nov): se retiraron `src/supabase/client.ts`, `@supabase/supabase-js`, `MaintenancePage` y las variables `VITE_SUPABASE_*` y `VITE_MAINTENANCE_*`. Si se necesita un modo mantenimiento, se diseña de nuevo | Ninguna |
 | Carpetas «grupo N» | Reparto heredado de equipos de V3, con espacios en el nombre | Épica VII (TA-13..15): reorganizar de forma incremental, un módulo a la vez, al tocarlo por otra tarea |
 | **Zona horaria del navegador** | Las horas de las ediciones se guardan y muestran con la zona del navegador (`buildISODateTime` en `src/fetchs/editions.ts`, `isoToDate`, `isoToTime`, `formatTime` en `InformationPage.tsx`, `formatEditionDate`) | Fijar `America/Bogota` (BG-34, ARK-157); ver [ediciones](../01-negocio/ediciones.md#horas-de-las-ediciones-y-zona-horaria) |
 | README genérico | Resuelto el 6-nov: el README del repo ya no es la plantilla de Vite | Mantenerlo al día |

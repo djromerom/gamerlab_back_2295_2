@@ -30,7 +30,7 @@
 Prueba de humo con admin; cargar NRC y ponderados de la edición 5; script de BG-16 para escarapelas (después de HU-25 en producción); `chmod 600` del `.env`; igualar `main → dev/dev-deploy`; confirmar históricos (197/723/197).
 
 ## Deuda técnica principal
-2 **P0 de DevOps** abiertos (`main.yml` legados; credenciales expuestas en historial) · Supabase heredado en el front · dependencias sin uso · lint no bloqueante · archivos de más de 500 líneas · TA-08/09/10/11 · Épica VII sin ejecutar. Ver [riesgos](../04-devops/riesgos-y-deuda.md) y [deuda del front](../03-frontend/deuda-tecnica.md).
+2 **P0 de DevOps** abiertos (`main.yml` legados; credenciales expuestas en historial) · dependencias sin uso · lint no bloqueante · archivos de más de 500 líneas · TA-08/09/10/11 · Épica VII sin ejecutar. Ver [riesgos](../04-devops/riesgos-y-deuda.md) y [deuda del front](../03-frontend/deuda-tecnica.md).
 
 ## Qué NO existe todavía
 Entorno de preview por rama · aprobación en producción · respaldo automático antes de migrar · check-in sin conexión (decidido que no) · UI para administrar roles y permisos · contingencia técnica del día de la feria: hay una tabla propuesta en [calendario-feria](../05-scrum-y-proceso/calendario-feria.md), pero no se ha ensayado.

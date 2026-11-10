@@ -127,6 +127,6 @@ No pegar valores reales en `.env.example`, PR, issue, chat ni docs. No versionar
 - [ ] Confirmar el comando exacto con que el receptor recrea el contenedor y relee el `.env`.
 - [ ] Confirmar dueños de la consola de reCAPTCHA, del App registration de Entra ID y de Docker Hub.
 - [ ] Confirmar si test ejecuta el seed (contraseñas por defecto de desarrollo).
-- [ ] Decidir si Supabase sigue en uso en el front (`VITE_SUPABASE_*`).
+- [x] Supabase retirado del front (ARK-175, 10-nov).
 - [ ] Pasar `check:env` de aviso a obligatorio (quitar `continue-on-error`) tras un sprint limpio.
-- [ ] Ticket de limpieza TA-08: ver [riesgos y deuda](riesgos-y-deuda.md).
+- [x] Ticket de limpieza TA-18 / ARK-175: ver [riesgos y deuda](riesgos-y-deuda.md).
