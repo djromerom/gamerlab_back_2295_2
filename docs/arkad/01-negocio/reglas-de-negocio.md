@@ -14,7 +14,7 @@
 - **Tres tipos de participante, que no se mezclan:**
   - **Equipo normal:** se califica con profesores y jurados junior (60 % y 40 %).
   - **Colegio (N0):** es externo a Uninorte y **sí se califica**, pero solo lo califican seniors (P-08); no tiene jurados junior. Regla de nota (propuesta del 7-nov pasada al equipo; confirmar con los profesores si hay casos): su nota final es el promedio de los seniors que lo calificaron al 100 %, y no queda en «Nota en proceso» por falta de junior.
-  - **Presentador externo (HU-33):** persona sin equipo que **nunca se califica**; no entra al ranking, a la asignación ni a las exportaciones de notas. Lo registra solo el administrador y recibe el certificado final.
+  - **Presentador externo (HU-33):** persona sin equipo, o equipo no calificable que presenta un proyecto (HU-39, 10-nov), que **nunca se califica**; no entra al ranking, a la asignación ni a las exportaciones de notas. Lo registra solo el administrador y recibe el certificado final por correo, enviado por el administrador (nadie lo descarga). **Equipo rechazado (BG-43, 10-nov):** no tiene nota final ni sale en el ranking, pero sus evaluaciones se conservan y reaparecen si se reconfirma.
 - **Marca «equipo externo» (`isExternal`):** independiente del nivel; en la nota final solo cuenta la nota de jurados junior. Qué equipos la llevan no está definido; Santiago cuenta los casos en `Arkad-test` (BG-37, HU-34). Hasta entonces no se cambia código y los casos los resuelve el administrador a mano.
 - Los equipos de **colegios (N0) no tienen código de verificación** (P-25).
 - Detalle: [equipos-y-verificacion](equipos-y-verificacion.md).

@@ -2,6 +2,14 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-11: TA-25 (ARK-211)
+- Sprint 3 pasa a 157 pts con TA-25 (cambio manual del rol de un profesor de Jurado a Profesor en producción, Santiago). Actualizados [estado-actual](../00-inicio-rapido/estado-actual.md) y [sprints-historial](../05-scrum-y-proceso/sprints-historial.md).
+
+## 2026-11-10: hallazgos de Juan (ARK-158, ARK-188, ARK-194) y decisiones de Allison
+- **Presentador externo:** puede ser persona sin equipo (HU-33) o equipo no calificable (HU-39, ARK-207). Certificado solo por correo enviado por el administrador; nadie lo descarga. Actualizados [glosario](glosario.md), [roles-y-permisos](../01-negocio/roles-y-permisos.md) y [reglas-de-negocio](../01-negocio/reglas-de-negocio.md).
+- **Equipo rechazado (BG-43, ARK-205):** sin nota final ni ranking, evaluaciones conservadas. Actualizado [reglas-de-negocio](../01-negocio/reglas-de-negocio.md).
+- Sprint 3 pasa a 156 pts con BG-43, BG-44 (ARK-206), HU-39 y TA-24 (ARK-208): [estado-actual](../00-inicio-rapido/estado-actual.md) y [sprints-historial](../05-scrum-y-proceso/sprints-historial.md). Claves nuevas en [backlog-y-epicas](../05-scrum-y-proceso/backlog-y-epicas.md).
+
 ## 2026-11-10: limpieza de variables, secretos y código muerto (TA-18, ARK-175)
 - [riesgos-y-deuda](../04-devops/riesgos-y-deuda.md), [pipeline-y-despliegue](../04-devops/pipeline-y-despliegue.md), [runbook-incidentes](../04-devops/runbook-incidentes.md) y [checklist-traspaso-v5](../05-scrum-y-proceso/checklist-traspaso-v5.md): los `main.yml` legados de los receptores están deshabilitados (falta eliminarlos); el receptor del back es `openlabun/Arkad-Api` (antes «repo openlab»); dependencias retiradas y secretos de GitHub borrados.
 - [variables-y-accesos](../04-devops/variables-y-accesos.md) e [integraciones](../02-backend/integraciones.md): secretos que quedan en `Arkad-Api` y retiro de `AZURE_BLOB_SAS_URL` del `.env` de test y prod.
