@@ -6,13 +6,13 @@
 |---|---|---|---|---|
 | 1 | 23-oct → 30-oct | 84 | Sprint 1 Arranque y seguridad | Seguridad, proceso, «Guardar todo» con filtros, escarapelas con QR, sesión estable |
 | 2 | 30-oct → 6-nov | 124 | Sprint 2 Ranking y jurados (id 7) | Ranking por nivel con desempate, asignación automática con validaciones, check-in QR, seguimiento por hora |
-| 3 | 7-nov → 13-nov | 142 | Sprint 3 Asistencia y ajustes (id 8) | Alerta de inasistencia, borradores, nota final, errores del Sprint 2 y cambios de la reunión con profesores (NRC, externos, 60/40, jurados sin niveles, PWA con push) |
+| 3 | 7-nov → 13-nov | 157 | Sprint 3 Asistencia y ajustes (id 8) | Alerta de inasistencia, borradores, nota final, errores del Sprint 2 y cambios de la reunión con profesores (NRC, externos, 60/40, jurados sin niveles, PWA con push) |
 | 4 | 13-nov → 20-nov | 35 | Sprint 4 Contingencia y cierre | Suplentes, jurado de último momento, cierre estable |
 | Feria | 20-nov → 26-nov | 5 | — | Despliegue, ensayo, feria (jueves 26) |
 
 Total planeado: **294 pts** (más TA-16), sin contar los 10 tickets de datos por edición (BG-17 a BG-23, HU-26, HU-27, TA-17) ni BG-24, que seguían sin estimar. Puntos propuestos de los de datos por edición (3-nov, **no aplicados en Jira**): BG-17 8, HU-26 5, HU-27 8, BG-18 3, BG-19 5, BG-20 2, BG-21 2, BG-22 3, BG-23 3, TA-17 3 = 42.
 
-El **Sprint 3 se creó en Jira el 6-nov** (id 8, 7 al 13 de nov; el nombre no puede pasar de 30 caracteres): 33 tickets, 38 subtareas y más subtareas que se sumaron después, con responsable por persona. Pasó de 51 a 142 pts con los errores del Sprint 2, la reunión con los profesores del 6-nov y el ticket de Santiago (TA-18). Detalle y claves ARK-158 a ARK-202 en el backlog (sección 10.5).
+El **Sprint 3 se creó en Jira el 6-nov** (id 8, 7 al 13 de nov; el nombre no puede pasar de 30 caracteres): 33 tickets, 38 subtareas y más subtareas que se sumaron después, con responsable por persona. Pasó de 51 a 142 pts con los errores del Sprint 2, la reunión con los profesores del 6-nov y el ticket de Santiago (TA-18), y a 157 con BG-43 (ARK-205), BG-44 (ARK-206), HU-39 (ARK-207, subtareas ARK-209 y ARK-210) y TA-24 (ARK-208) el 10-nov, y TA-25 (ARK-211) el 11-nov. Detalle y claves ARK-158 a ARK-211 en el backlog (sección 10.5).
 
 ## Cómo evolucionó el Sprint 2 (para entender por qué creció)
 Plan del 29-oct: 75-76 pts → +BG-09 a BG-14 de Rafael (2-nov) → +BG-15, HU-25, BG-16 → +10 tickets de datos por edición asignados a Juan (3-nov, sin estimar) → +7 de las pruebas del Sprint 1 en test (4-nov, +21 pts) = **124**. Lección: con el sprint iniciado se siguieron sumando tickets; Rafael llegó a 33 pts y Juan a HU-07/HU-08 más diez tickets sin puntos.

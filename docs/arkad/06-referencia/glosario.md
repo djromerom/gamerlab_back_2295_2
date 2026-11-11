@@ -11,7 +11,7 @@
 | **Nivel (N0–N4)** | Primer número del código del equipo (`N1-AYP-06`). N1–N4 asignaturas de menor a mayor; **N0 = colegios invitados** |
 | **Colegio invitado** | Equipo de un colegio (N0). Es externo a Uninorte y **sí se califica**, pero solo lo califican jurados senior (profesores) y no tiene código de verificación |
 | **Equipo externo** | Marca del equipo (`isExternal`), independiente del nivel: en la nota solo cuenta la nota de jurados junior. Un colegio (N0) es un equipo externo que sí se califica, pero solo por seniors (ver [reglas de negocio](../01-negocio/reglas-de-negocio.md), sección 2) |
-| **Presentador externo** | Rol nuevo (HU-33, 6-nov). Persona que va a la feria sin equipo y **nunca se califica**; solo se registra para obtener el certificado. Lo registra solo el administrador. No es un equipo ni un colegio |
+| **Presentador externo** | Rol nuevo (HU-33, 6-nov). Persona que va a la feria y **nunca se califica**; solo se registra para obtener el certificado, que le envía por correo el administrador (nadie descarga su propio certificado). Lo registra solo el administrador. Puede ser una **persona sin equipo** (HU-33) o un **equipo no calificable** que presenta un proyecto (HU-39, 10-nov): sale en la galería, pero no en el ranking, la asignación, el seguimiento ni las notas. No es un colegio |
 | **NRC** | Código de un curso o sección; tiene grupos participantes y un profesor, por edición |
 | **Profesor** | Rol Profesor; sube notas por NRC y califica (su nota cuenta como senior) |
 | **Jurado** | Rol Jurado; califica en la feria. Puede ser un profesor sin NRC |
