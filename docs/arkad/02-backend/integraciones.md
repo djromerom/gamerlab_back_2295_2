@@ -16,6 +16,8 @@
 ## Variables obsoletas (ya no las lee el código; TA-18 / ARK-175)
 `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_JWT_SECRET`, `DIRECT_URL`, `EMAIL_SERVICE_ID`, `PUPPETEER_EXECUTABLE_PATH`, `AZURE_BLOB_SAS_URL`.
 
+El 2026-11-10 se quitó `AZURE_BLOB_SAS_URL` del `.env` de test y prod (la única de la lista que seguía ahí) y se revocó su SAS.
+
 ## Comportamiento ante fallos (leído de `origin/main`)
 | Si falla… | Qué pasa |
 |---|---|

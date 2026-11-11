@@ -26,7 +26,7 @@ Antes que nada, todos: leer [qué es ARKAD](que-es-arkad.md), [arquitectura](arq
 3. Crear **tu propio `DEPLOY_PAT`** ([§5.F](../04-devops/variables-y-accesos.md)).
 4. Leer [riesgos](../04-devops/riesgos-y-deuda.md) (2 P0 abiertos) y los [runbooks](../04-devops/runbook-promocion-a-produccion.md).
 5. Verificar un deploy a test con `workflow_dispatch`.
-6. Primera tarea: resolver los P0 (deshabilitar `main.yml` legados) y confirmar si los históricos están cargados en producción.
+6. Primera tarea: resolver los P0 (eliminar los `main.yml` legados, ya deshabilitados) y confirmar si los históricos están cargados en producción.
 
 ## Scrum Master
 1. [05-scrum-y-proceso/jira-y-flujo-de-trabajo](../05-scrum-y-proceso/jira-y-flujo-de-trabajo.md), [roles](../05-scrum-y-proceso/roles-y-revisiones.md), [sprints](../05-scrum-y-proceso/sprints-historial.md), [backlog](../05-scrum-y-proceso/backlog-y-epicas.md).
