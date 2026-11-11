@@ -32,7 +32,7 @@ Referencias de la entrega: `repo-back/env.example` y `repo-front/env.example` (m
 |---|---|
 | Back (`djromerom/gamerlab_back_2295_2`) | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `DOCKERHUB_REPOSITORY`, `BRANCH_IMAGE_TAGS`, `DEPLOY_PAT`, `REPO_DISPATCH_TARGET` |
 | Front (`djromerom/gamerlab_front_2295_2`) | los mismos + `VITE_ENDPOINT_BACKEND_TEST_TEMP`, `VITE_ENDPOINT_BACKEND_PROD_V3`, `VITE_SITE_KEY_TEMP` |
-| Receptor back (openlab) | `HOST`, `KEYS`, `PASSPHRASE` (test); `USERNAME`, `SSH_PRIVATE_KEY` (prod); `DOCKERHUB_*` |
+| Receptor back (`openlabun/Arkad-Api`) | `HOST`, `KEYS`, `PASSPHRASE` (test); `USERNAME`, `SSH_PRIVATE_KEY` (prod); `DOCKERHUB_*`. Quedan además `DATABASE_URL_PROD_TEMP`, `DATABASE_URL_TEST` y `ENV_FILE_TEST`: ningún workflow activo los usa y se dejaron a propósito (ARK-175) |
 | Receptor front (`openlabun/Arkad-Front`) | `HOST_TEST`, `HOST_PROD`, `USERNAME`, `SSH_PRIVATE_KEY`, `PASSPHRASE`, `DOCKERHUB_*` |
 
 Mapeo de secretos del front a variables de build (paso «Resolve VITE_secrets» de `deploy-front.yml`):

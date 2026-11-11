@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-10: limpieza de variables, secretos y código muerto (TA-18, ARK-175)
+- [riesgos-y-deuda](../04-devops/riesgos-y-deuda.md), [pipeline-y-despliegue](../04-devops/pipeline-y-despliegue.md), [runbook-incidentes](../04-devops/runbook-incidentes.md) y [checklist-traspaso-v5](../05-scrum-y-proceso/checklist-traspaso-v5.md): los `main.yml` legados de los receptores están deshabilitados (falta eliminarlos); el receptor del back es `openlabun/Arkad-Api` (antes «repo openlab»); dependencias retiradas y secretos de GitHub borrados.
+- [variables-y-accesos](../04-devops/variables-y-accesos.md) e [integraciones](../02-backend/integraciones.md): secretos que quedan en `Arkad-Api` y retiro de `AZURE_BLOB_SAS_URL` del `.env` de test y prod.
+- [endpoints](../02-backend/endpoints.md) y [arquitectura-modulos](../02-backend/arquitectura-modulos.md): `/teams/:teamId/members` no existe en la API (`MembersModule` no está montado).
+
 ## 2026-11-08: NRC por materia (HU-31, ARK-167)
 - [equipos-y-verificacion](../01-negocio/equipos-y-verificacion.md#inscripción-registro-de-equipo): regla de un NRC por materia, de la edición del equipo, con varias materias por integrante, y los datos nuevos de `GET /nrcs/select-options`.
 

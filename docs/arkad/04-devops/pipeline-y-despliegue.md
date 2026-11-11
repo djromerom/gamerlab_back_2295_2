@@ -6,7 +6,7 @@
 ```mermaid
 flowchart LR
   PR[PR aceptado + merge] --> GH[Repo gamerlab: build + push imagen a Docker Hub]
-  GH -->|repository_dispatch con DEPLOY_PAT| R[Repo receptor: openlab back / openlabun Arkad-Front]
+  GH -->|repository_dispatch con DEPLOY_PAT| R[Repo receptor: openlabun Arkad-Api / openlabun Arkad-Front]
   R -->|SSH| S[Servidor OpenLab: docker pull + run]
 ```
 
@@ -26,12 +26,12 @@ Dos repos distintos intervienen: el **de origen** (`gamerlab_*`), que construye 
 
 | Repo receptor | Archivo | Función |
 |---|---|---|
-| Back (copia openlab) | `test-deploy.yml` (`Test_deploy_back`) | Escucha `test-image-published`. SSH, carpeta `Arkad-api-test`, contenedor `arkad-app-test` |
+| Back (`openlabun/Arkad-Api`) | `test-deploy.yml` (`Test_deploy_back`) | Escucha `test-image-published`. SSH, carpeta `Arkad-api-test`, contenedor `arkad-app-test` |
 | Back | `prod-deploy.yml` (`Prod_deploy_back`) | Escucha `prod-image-published`. Carpeta `Arkad-api-prod`, contenedor `arkad-api` |
-| Back | `main.yml` (`Deploy_back`) | **LEGADO (Supabase). Peligroso**, ver [riesgos P0](riesgos-y-deuda.md) |
+| Back | `main.yml` (`Deploy_back`) | **LEGADO (Supabase). Deshabilitado el 2026-11-10** (falta eliminarlo), ver [riesgos P0](riesgos-y-deuda.md) |
 | Front (`openlabun/Arkad-Front`) | `test-deploy.yml` (`Deploy-dev-front`) | Contenedor `arkad-test` |
 | Front | `prod-deploy.yml` (`Deploy-prod-front`) | Contenedor `arkad` (aquí prod **sí** usa `PASSPHRASE`) |
-| Front | `main.yml` (`Deploy`) | **LEGADO.** Detiene un contenedor `arkadn` (puerto 5035) no documentado |
+| Front | `main.yml` (`Deploy`) | **LEGADO. Deshabilitado el 2026-11-10** (falta eliminarlo). Detenía un contenedor `arkadn` (puerto 5035) no documentado |
 
 `openlabun/Arkad-Front` es un fork privado muy desactualizado del front original. > A CONFIRMAR: quién lo administra.
 

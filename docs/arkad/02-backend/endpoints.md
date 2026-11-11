@@ -11,7 +11,7 @@ El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada
 | `/editions` | `POST /`, `GET /`, `GET :id`, `PATCH :id`, `DELETE :id`, `PATCH :id/activate`, `POST :id/archive`, `POST :id/main-photo`, `POST|DELETE :id/photos`, `GET :id/videogames` |
 | `/editions/:editionId/educational-focuses` · `/testimonials` · `/highlighted-games` | CRUD (`highlighted-games`: `POST`, `GET`, `DELETE :videogameId`) |
 | `/teams` | `POST /`, `POST admin`, `GET /`, `GET incomplete-jurors`, `GET name/:teamName`, `GET videogame/:videogameName`, `GET final-score/videogame/:videogameId`, `GET final-score/team/:teamId`, `GET final-score/by-n/:n`, `POST validate-emails`, `POST validate-student-codes`, `GET leader/:email/status`, `GET :id`, `GET :id/full`, `PATCH :id`, `DELETE :id`, `POST :id/member`, `DELETE :id/members/:memberId`, `PATCH :teamId/members/:memberId` |
-| `/teams/:teamId/members` | CRUD |
+| `/teams/:teamId/members` | **No existe en la API.** `MembersModule` (`src/members/`) no lo importa ningún módulo, así que sus rutas nunca se montan; se mantiene como código sin uso por decisión del equipo (ARK-175). Las rutas de integrantes que sí existen están en `/teams` (`POST :id/member`, `PATCH :teamId/members/:memberId`, `DELETE :id/members/:memberId`) y en `/students` (`GET members`, `PATCH members/:memberId/nrcs`) |
 | `/team-verification` | `POST verify`, `GET my-code`, `GET status`, `GET :teamId`, `POST :teamId/regenerate` |
 | `/videogames` | `POST`, `GET`, `GET :id`, `PATCH :id`, `DELETE :id`, `GET :id/likes`, `GET :id/my-like`, `POST :id/toggle-like` |
 | `/upload` | `POST /`, `POST zip`, `GET :id`, `GET :id/url`, `POST :id/public`, `DELETE :id` |

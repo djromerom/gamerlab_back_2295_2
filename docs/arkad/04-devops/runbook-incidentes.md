@@ -19,7 +19,7 @@
 `entrypoint.sh` corre `prisma migrate deploy` sin `set -e`. Revisar siempre el log del contenedor y `_prisma_migrations` tras desplegar. Nunca editar una migración ya mergeada.
 
 ## Se cayó producción tras un push a `main` en un repo receptor
-Sospechar de `main.yml` legado (back: detiene `arkad-api`; front: detiene `arkadn` en el puerto 5035). Están sin deshabilitar: ver [riesgos P0](riesgos-y-deuda.md). Recrear el contenedor con la última imagen buena `sha-<7>-api_prod` / `-frontend_prod`.
+Sospechar de `main.yml` legado (back: detiene `arkad-api`; front: detiene `arkadn` en el puerto 5035). Desde el 2026-11-10 están deshabilitados en ambos receptores (siguen en el repo; ver [riesgos P0](riesgos-y-deuda.md)); si alguien los reactivó, vuelven a ser la causa más probable. Recrear el contenedor con la última imagen buena `sha-<7>-api_prod` / `-frontend_prod`.
 
 ## Producción quedó caída por un tag que no existe
 Los receptores hacen `docker stop/rm` **antes** de `docker pull`: si el pull falla, el ambiente queda caído. Recrear manualmente con la imagen anterior (etiquetas `arkad-rollback/*` si existen).

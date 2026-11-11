@@ -12,7 +12,7 @@ NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con contro
 | Plataforma | `prisma`, `cache`, `common`, `settings`, `app.*` | Cliente Prisma, caché en memoria, utilidades (`common/throttle`, `common/utils`), configuración del evento y ponderados |
 | Acceso | `auth`, `email`, `staff` | Login/refresh/logout/reset, Entra ID, guards; envío de correos; alta de cuentas Staff |
 | Ediciones y landing | `editions`, `educational-focuses`, `testimonials`, `highlighted-games`, `historicals` | Ciclo de vida de la edición (crear, activar, archivar), contenido público por edición, histórico |
-| Inscripción | `teams`, `members`, `team-verification`, `students`, `videogames`, `upload` | Equipos e integrantes, código de verificación, panel del estudiante, videojuegos y multimedia, archivos (Azure Blob) |
+| Inscripción | `teams`, `members` (sin montar: ver [endpoints](endpoints.md)), `team-verification`, `students`, `videogames`, `upload` | Equipos e integrantes, código de verificación, panel del estudiante, videojuegos y multimedia, archivos (Azure Blob) |
 | Académico | `subjects`, `nrcs`, `professors`, `criterion` | Materias, NRC, panel del profesor (notas, reportes, filtros), criterios de evaluación |
 | Jurados | `juror`, `juror-edition`, `juror-badges`, `juror-checkin`, `evaluation-tracking` | Alta y asignación de jurados (con validación y bitácora), jurados por edición, escarapelas QR, check-in, seguimiento por hora |
 | Evaluación | `evaluation`, `pending-games`, `graded-games`, `ranking` | Calificar (con detalles, en lote, idempotente), juegos pendientes/calificados, ranking por nivel y desempate |

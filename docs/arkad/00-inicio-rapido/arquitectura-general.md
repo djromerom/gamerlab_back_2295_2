@@ -51,7 +51,7 @@ Toda ruta del back exige sesión salvo `@Public()`; permisos por rol y servicio;
 | Qué | Dónde |
 |---|---|
 | Código back / front | GitHub `djromerom/gamerlab_back_2295_2` / `gamerlab_front_2295_2` |
-| Receptores de despliegue | repo openlab del back y `openlabun/Arkad-Front` |
+| Receptores de despliegue | `openlabun/Arkad-Api` (back) y `openlabun/Arkad-Front` |
 | Imágenes | Docker Hub `openlabarkad/openlabarkad-test` (incluye producción) |
 | Servidor | Servidor OpenLab (acceso SSH; los datos de acceso se entregan por canal privado, no están en el repo) |
 | Backlog y tickets | Jira, proyecto ARK + `ARKAD_v4_plan_y_backlog.md` |

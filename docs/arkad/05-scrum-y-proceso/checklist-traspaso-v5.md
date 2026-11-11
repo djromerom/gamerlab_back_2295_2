@@ -7,7 +7,7 @@
 - [ ] Admin prod y test, Gmail del proyecto, Azure (ACS, Storage, Entra ID), Docker Hub, contraseña de BD (vive en el `.env` del servidor).
 - [ ] Llave SSH y credenciales del servidor (acceso humano).
 - [ ] Decidir si la V5 rota la llave SSH y la contraseña admin de prod (circularon antes de ARK-43).
-- [ ] Acceso de colaborador de la V5 a: `djromerom/gamerlab_back_2295_2`, `djromerom/gamerlab_front_2295_2`, repo openlab del back y `openlabun/Arkad-Front`; acceso a Jira (proyecto ARK) y Discord.
+- [ ] Acceso de colaborador de la V5 a: `djromerom/gamerlab_back_2295_2`, `djromerom/gamerlab_front_2295_2`, `openlabun/Arkad-Api` (receptor del back) y `openlabun/Arkad-Front`; acceso a Jira (proyecto ARK) y Discord.
 - [ ] Retirar accesos de integrantes V4 que ya no participen.
 - [ ] El nuevo DevOps crea **su propio** `DEPLOY_PAT` y lo carga en back y front ([§5.F](../04-devops/variables-y-accesos.md)).
 
@@ -19,10 +19,11 @@
 | Dueño de consola reCAPTCHA / App registration Entra ID / Docker Hub | > A CONFIRMAR |
 
 ## Pendientes técnicos heredados
-- [ ] P0: deshabilitar y eliminar `main.yml` legados en los dos receptores ([riesgos](../04-devops/riesgos-y-deuda.md)).
+- [ ] P0: eliminar los `main.yml` legados en los dos receptores (ya están deshabilitados desde el 2026-11-10) ([riesgos](../04-devops/riesgos-y-deuda.md)).
 - [ ] Confirmar si los históricos (197/723/197) están cargados en producción.
 - [ ] Cargar NRC y ponderados de la edición que corresponda.
-- [ ] TA-08 (limpieza de variables, secretos y dependencias), TA-09 (dumps), TA-10 (tests: 6 de 119 fallan), TA-11.
+- [x] Limpieza de variables, secretos y dependencias (TA-18 / ARK-175, 10-nov).
+- [ ] TA-09 (dumps), TA-10 (tests: 6 de 119 fallan), TA-11.
 - [ ] Igualar `main → dev` y `main → dev-deploy`.
 - [ ] `chmod 600` del `.env` de producción.
 - [x] Supabase y `VITE_MAINTENANCE_*` retirados del front (ARK-175, 10-nov).
