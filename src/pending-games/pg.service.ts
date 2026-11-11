@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { BlobReferenceService } from '../upload/blob-reference.service';
 import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { CONFIRMED_VIDEOGAME } from '../teams/team-status';
 
 /**
  * ARK-132 (BG-19): el jurado solo ve juegos de equipos de la edición activa que le asignaron.
@@ -13,12 +14,28 @@ import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
  * pasadas que no puede calificar.
  */
 const ASSIGNED_IN_ACTIVE_EDITION = (jurorId: string): Prisma.VideogameWhereInput => ({
+  ...CONFIRMED_VIDEOGAME, // BG-35 (ARK-158): lo no confirmado no se le muestra al jurado
   team: {
     edition: ACTIVE_EDITION_WHERE,
     assignedJurors: { some: { id: jurorId } },
   },
 });
 
+/**
+ * HU-18 (ARK-104): el juego con borrador sigue pendiente (no cambia el conteo ni el aviso de
+ * pendientes de HU-37); la lista solo lo marca para mostrar «Borrador» y reanudar.
+ */
+const DRAFT_SELECT = (jurorId: string) => ({
+  evaluationDrafts: {
+    where: { jurorId, isActive: true },
+    select: { updatedAt: true },
+  },
+});
+
+const draftInfo = (drafts: { updatedAt: Date }[] = []) => ({
+  hasDraft: drafts.length > 0,
+  draftUpdatedAt: drafts[0]?.updatedAt ?? null,
+});
 
 @Injectable()
 export class VideogamesService {
@@ -92,6 +109,7 @@ export class VideogamesService {
         name: true,
         logoUrl: true,
         description: true,
+        ...DRAFT_SELECT(jurorId),
         team: {
           select: {
             id: true, // teamId: lo necesita el front para /team-verification (HU-19)
@@ -150,6 +168,7 @@ export class VideogamesService {
         imagen: videogame.logoUrl ?? undefined,
         descripcion: videogame.description || 'Sin descripción',
         isEvaluated: false,
+        ...draftInfo(videogame.evaluationDrafts),
       };
     });
 
@@ -192,6 +211,7 @@ export class VideogamesService {
           name: true,
           logoUrl: true,
           description: true,
+          ...DRAFT_SELECT(jurorId),
           team: {
             select: {
               id: true, // teamId: lo necesita el front para /team-verification (HU-19)
@@ -256,6 +276,7 @@ export class VideogamesService {
         })) || [],
         nrc: Array.from(nrcCodes).join(', ') || 'Sin NRC',
         subject: firstSubject,
+        ...draftInfo(videogame.evaluationDrafts),
       };
     });
 

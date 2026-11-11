@@ -114,20 +114,38 @@ export class NrcsService {
       editionId: true,
     };
 
-    if (includeSubjects)
+    // HU-31 (ARK-167): el selector por materia (opción A) muestra la abreviatura de la materia
+    // y el profesor de cada NRC. Solo nombre y apellido: el endpoint es público.
+    if (includeSubjects) {
       selectClause['subject'] = {
-        select: { id: true, name: true },
+        select: { id: true, name: true, abrevName: true },
       };
+      selectClause['professor'] = {
+        select: { firstName: true, lastName: true },
+      };
+    }
 
-    const nrcs = await this.prisma.nRC.findMany({
+    const nrcs = (await this.prisma.nRC.findMany({
       where: {
         isActive: true,
         ...(activeEdition ? { editionId: activeEdition.id } : { id: -1 }),
       },
       select: selectClause,
-    });
+      orderBy: [{ subjectId: 'asc' }, { code: 'asc' }],
+    })) as Array<
+      Omit<SelectOption, 'professorName'> & {
+        professor?: { firstName: string; lastName: string };
+      }
+    >;
 
-    return nrcs;
+    return nrcs.map(({ professor, ...nrc }) =>
+      professor
+        ? {
+            ...nrc,
+            professorName: `${professor.firstName} ${professor.lastName}`.trim(),
+          }
+        : nrc,
+    );
   }
 
   async findOne(id: number) {

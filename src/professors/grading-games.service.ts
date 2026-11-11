@@ -15,6 +15,7 @@ import {
   sortPanelTeams,
 } from './professor-panel-query.service';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { isCollegeTeamCode } from '../team-verification/verification-code.util';
 
 /** Fila de `GET /professors/grading-games` (mismo formato que antes de HU-03). */
 export interface GradingGameRow {
@@ -32,7 +33,28 @@ export interface GradingGameRow {
   nrcId: number | null;
   calificacionFeria: number | null;
   calificacionDocente: number | null;
+  /**
+   * BG-37: en un equipo externo solo cuenta la nota de los jurados, así que la nota del profesor
+   * no saca `calificacionFeria` de null. False si el equipo no tiene videojuego activo.
+   */
+  isExternal: boolean;
+  /** BG-37: con qué regla se calcula `calificacionFeria`, para que el panel explique el motivo. */
+  fairGradeRule: FairGradeRule;
   canEdit: boolean;
+}
+
+/**
+ * BG-37: `SCHOOL`, un colegio (N0) solo cuenta a profesores y seniors, tenga o no la marca de
+ * externo. `EXTERNAL`, un equipo externo solo cuenta a los jurados junior. `STANDARD`, los demás.
+ */
+export type FairGradeRule = 'STANDARD' | 'EXTERNAL' | 'SCHOOL';
+
+export function fairGradeRuleOf(
+  teamCode: string,
+  isExternal: boolean,
+): FairGradeRule {
+  if (isCollegeTeamCode(teamCode)) return 'SCHOOL';
+  return isExternal ? 'EXTERNAL' : 'STANDARD';
 }
 
 interface ListedTeam {
@@ -175,7 +197,7 @@ export class GradingGamesService {
         ? []
         : this.prisma.teamFinalScore.findMany({
             where: { videogameId: { in: videogameIds } },
-            select: { videogameId: true, finalScore: true },
+            select: { videogameId: true, finalScore: true, isExternal: true },
           }),
       videogameIds.length === 0 || jurorIds.length === 0
         ? []
@@ -191,8 +213,10 @@ export class GradingGamesService {
     ]);
 
     const feria = new Map<number, number>();
+    const external = new Set<number>();
     for (const row of finalScores) {
       if (row.finalScore !== null) feria.set(row.videogameId, row.finalScore);
+      if (row.isExternal) external.add(row.videogameId);
     }
     // Igual que la exportación: primera evaluación activa con nota
     const docente = new Map<string, number>();
@@ -225,6 +249,11 @@ export class GradingGamesService {
           vgId === null || juror === null
             ? null
             : (docente.get(`${juror}:${vgId}`) ?? null),
+        isExternal: vgId !== null && external.has(vgId),
+        fairGradeRule: fairGradeRuleOf(
+          t.team.teamCode,
+          vgId !== null && external.has(vgId),
+        ),
         canEdit:
           vgId !== null &&
           editable &&
@@ -306,6 +335,8 @@ export class GradingGamesService {
         nrcId: matching.length === 1 ? matching[0][0] : null,
         calificacionFeria: t.videogame!.finalScore,
         calificacionDocente: null,
+        isExternal: t.isExternal,
+        fairGradeRule: fairGradeRuleOf(t.teamCode, t.isExternal),
         canEdit: false,
       };
     });

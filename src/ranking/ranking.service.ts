@@ -9,6 +9,7 @@ import { EditionStatus, Prisma, TieBreakMethod } from '@prisma/client';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { AppUser } from '../auth/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
+import { snapshotWeighting } from '../evaluation/final-score';
 import { BlobReferenceService } from '../upload/blob-reference.service';
 import { DecideTieDto } from './dto/decide-tie.dto';
 import { RankingQueryDto, TiesQueryDto } from './dto/ranking-query.dto';
@@ -424,11 +425,7 @@ export class RankingService {
     return {
       editionId,
       podiumSize,
-      weighting: {
-        configured: weighting !== null,
-        juniorPct: weighting?.juniorPct ?? 50,
-        seniorPct: weighting?.seniorPct ?? 50,
-      },
+      weighting: snapshotWeighting(weighting, rows),
       pendingTies: levels
         .flatMap((l) => l.ties)
         .filter((t) => t.status === 'PENDING').length,

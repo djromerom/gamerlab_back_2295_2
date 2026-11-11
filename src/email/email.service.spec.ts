@@ -32,7 +32,13 @@ function build(env: Record<string, string | undefined> = ENV) {
       findFirst: jest.fn().mockResolvedValue(user),
     },
     verificationToken: { deleteMany: jest.fn(), create: jest.fn() },
-    edition: { findFirst: jest.fn().mockResolvedValue({ year: 2031 }) },
+    edition: {
+      findFirst: jest.fn().mockResolvedValue({
+        year: 2031,
+        startsAt: new Date('2031-11-27T13:00:00.000Z'),
+      }),
+    },
+    fairSchedule: { findUnique: jest.fn().mockResolvedValue(null) },
   };
   const certificates = {
     generateJurorCertificateHtml: jest.fn().mockResolvedValue(Buffer.from('x')),
@@ -158,9 +164,6 @@ describe('EmailService - fecha, hora y lugar configurables', () => {
       InternalServerErrorException,
     );
     expect(sendSpy).not.toHaveBeenCalled();
-    await expect(service['getEventDateWithYear']()).rejects.toThrow(
-      /edición activa/,
-    );
   });
 
   it('getEventInfo lanza un error claro si falta una variable', () => {
@@ -168,12 +171,12 @@ describe('EmailService - fecha, hora y lugar configurables', () => {
     expect(() => service.getEventInfo()).toThrow(/EVENT_PLACE_TEXT/);
   });
 
-  it('el certificado de jurado falla con mensaje de configuración faltante sin EVENT_DATE_TEXT', async () => {
+  it('el certificado de jurado no depende de EVENT_DATE_TEXT', async () => {
     const { service, sendSpy } = build({ ...ENV, EVENT_DATE_TEXT: undefined });
-    await expect(service.resendJurorCertEmail('u1')).rejects.toBeInstanceOf(
-      InternalServerErrorException,
-    );
-    expect(sendSpy).not.toHaveBeenCalled();
+    await service.resendJurorCertEmail('u1');
+    expect(sendSpy.mock.calls[0][3]).toMatchObject({
+      eventDateWithYear: '27 de noviembre de 2031',
+    });
   });
 
   it('el correo de videojuego aprobado usa EVENT_DATE_TEXT', async () => {

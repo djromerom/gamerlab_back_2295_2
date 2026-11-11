@@ -25,7 +25,8 @@ import {
  */
 
 /** Roles NO administradores que deben recibir "sin permiso" en rutas administrativas. */
-const NON_ADMIN_ROLES = ['Estudiante', 'Profesor', 'Jurado', 'Staff'];
+// HU-33: el presentador externo no debe entrar a ninguna ruta administrativa
+const NON_ADMIN_ROLES = ['Estudiante', 'Profesor', 'Jurado', 'Staff', 'Presentador externo'];
 
 /**
  * Qué roles NO administradores pueden ejecutar cada servicio de las rutas que
@@ -53,13 +54,31 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   JurorCheckIn: ['Staff'],
   // HU-29: la mesa de escarapelas ve quién llegó y quién falta (solo lectura)
   ViewJurorAttendance: ['Staff'],
+  // HU-13: el administrador registra y consulta; el profesor informa fuera del sistema
+  ManageAbsentJurorResponses: [],
+  // HU-23: el administrador ve los indicadores y cambia los parámetros
+  ManageJurorPresence: [],
+  // HU-23: responde "Sigo aquí" quien puede calificar (mismo permiso ADD_EVALUATION)
+  ConfirmJurorPresence: ['Profesor', 'Jurado'],
   // HU-21: los profesores lo ven en solo lectura (P-26)
   ViewEvaluationTracking: ['Profesor'],
+  // HU-12: alerta y panel en solo lectura para profesores (P-16, P-26); el cronograma, solo Administrador
+  ViewAbsenceAlert: ['Profesor'],
+  ManageFairSchedule: [],
   // HU-25: jurados por edición, solo Administrador
   ListEditionJurors: [],
   ManageEditionJurors: [],
   // HU-26: estudiantes por edición, solo Administrador
   ListEditionStudents: [],
+  // HU-37: cada jurado (externo o profesor) administra sus dispositivos; los avisos manuales son solo del Administrador
+  ManageOwnPushSubscription: ['Jurado', 'Profesor'],
+  SendPushNotice: [],
+  // HU-33: solo el Administrador registra presentadores; el presentador solo ve su registro
+  ManageExternalPresenters: [],
+  ViewOwnExternalPresenterProfile: ['Presentador externo'],
+  // HU-17: el jurado (externo o profesor) responde su encuesta; los resultados, solo el Administrador
+  AnswerJurorSurvey: ['Jurado', 'Profesor'],
+  ViewJurorSurveyResults: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],
@@ -217,6 +236,7 @@ describe('Control de acceso de las rutas (BG-01)', () => {
           Profesor: 'sin permiso',
           Jurado: 'sin permiso',
           Staff: 'sin permiso',
+          'Presentador externo': 'sin permiso',
         },
       ],
       [
@@ -226,6 +246,7 @@ describe('Control de acceso de las rutas (BG-01)', () => {
           Profesor: 'permitido',
           Jurado: 'permitido',
           Staff: 'sin permiso',
+          'Presentador externo': 'sin permiso',
         },
       ],
     ])('%s exige permiso según el rol (ARK-110)', async (key, expected) => {

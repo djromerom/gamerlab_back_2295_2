@@ -81,6 +81,7 @@ export type AssignmentBlockerCode =
   | 'SCHOOL_REQUIRES_SENIOR'
   | 'DUPLICATE_ASSIGNMENT'
   | 'TEAM_NOT_IN_ACTIVE_EDITION'
+  | 'TEAM_NOT_CONFIRMED'
   | 'EVALUATOR_NOT_IN_EDITION';
 
 export type AssignmentWarningCode =

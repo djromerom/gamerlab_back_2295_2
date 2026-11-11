@@ -33,6 +33,9 @@ import {
 } from '../assignment-validation/assignment-rules.types';
 import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
 import { resolveListEdition } from '../../editions/list-edition';
+import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
+import { CONFIRMED_TEAM } from '../../teams/team-status';
+import { findTeamNotConfirmedBlocker } from '../assignment-validation/assignment-rules';
 
 type EvaluatorForValidation = {
   id: string;
@@ -95,6 +98,8 @@ export class JurorAssignmentService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly jurorAssignmentAuditService: JurorAssignmentAuditService,
     private readonly assignmentValidation: AssignmentValidationService,
+    // HU-37: se llama después de confirmar cada transacción; no espera ni puede fallar.
+    private readonly pushNotifier: AssignmentPushNotifier,
   ) {}
 
   async onModuleInit() {
@@ -250,11 +255,21 @@ export class JurorAssignmentService implements OnModuleInit {
     };
   }
 
+  /** BG-35 (ARK-158): asignar y reasignar exigen equipo confirmado; quitar no. */
+  private assertTeamConfirmed(
+    team: Parameters<typeof findTeamNotConfirmedBlocker>[0],
+  ) {
+    const blocker = findTeamNotConfirmedBlocker(team);
+    if (blocker) {
+      this.assignmentValidation.enforce({ blockers: [blocker], warnings: [] });
+    }
+  }
+
   private async findActiveTeam(teamId: number, activeEdition: ActiveEdition) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
       include: {
-        videogame: true,
+        videogame: { include: { videogameStatus: { select: { status: true } } } },
         edition: { select: { status: true, title: true } },
         assignedJurors: {
           where: {
@@ -307,6 +322,7 @@ export class JurorAssignmentService implements OnModuleInit {
       const activeEdition = await requireActiveEdition(this.prisma);
       const evaluator = await this.findEvaluatorToAdd(jurorId, activeEdition);
       const team = await this.findActiveTeam(teamId, activeEdition);
+      this.assertTeamConfirmed(team);
 
       const acceptedWarnings = await this.validateChanges(
         activeEdition,
@@ -377,6 +393,8 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
+      this.pushNotifier.notifyAssignmentChanged([jurorId]);
+
       return {
         message: 'Jurado asignado correctamente al equipo.',
         equipo: {
@@ -422,6 +440,7 @@ export class JurorAssignmentService implements OnModuleInit {
         activeEdition,
       );
       const team = await this.findActiveTeam(teamId, activeEdition);
+      this.assertTeamConfirmed(team);
 
       const isCurrentAssigned = team.assignedJurors.some(
         (juror) => juror.id === currentJurorId,
@@ -517,6 +536,8 @@ export class JurorAssignmentService implements OnModuleInit {
           'Equipo no encontrado después de la reasignación.',
         );
       }
+
+      this.pushNotifier.notifyAssignmentChanged([currentJurorId, newJurorId]);
 
       return {
         message: 'Evaluador reasignado correctamente.',
@@ -636,6 +657,8 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
+      this.pushNotifier.notifyAssignmentChanged([jurorId]);
+
       return {
         message: 'Evaluador desasignado correctamente del equipo.',
         equipo: {
@@ -733,6 +756,12 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       });
 
+      this.pushNotifier.notifyAssignmentChanged(
+        teamsWithAssignments.flatMap((team) =>
+          team.assignedJurors.map((juror) => juror.id),
+        ),
+      );
+
       return {
         message: `${removedVerb(assignmentCount, 'Se eliminó', 'Se eliminaron')} ${count(assignmentCount, 'asignación', 'asignaciones')} de evaluadores en ${count(teamCount, 'equipo', 'equipos')} de «${edition.title}».`,
         asignacionesEliminadas: assignmentCount,
@@ -817,6 +846,8 @@ export class JurorAssignmentService implements OnModuleInit {
           tx,
         );
       });
+
+      this.pushNotifier.notifyAssignmentChanged([jurorId]);
 
       return {
         message: `${removedVerb(assignedTeams.length, 'Se quitó', 'Se quitaron')} ${count(assignedTeams.length, 'equipo', 'equipos')} de «${edition.title}» al evaluador.`,
@@ -938,9 +969,8 @@ export class JurorAssignmentService implements OnModuleInit {
                 },
               }
             : {}),
-          videogame: {
-            isNot: null,
-          },
+          // BG-35 (ARK-158): solo equipos confirmados en la pantalla de asignación.
+          ...CONFIRMED_TEAM,
         },
         include: {
           videogame: {

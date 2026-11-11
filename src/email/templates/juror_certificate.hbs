@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Certificado de Jurado — V Feria Gamer</title>
+  <title>Certificado de Jurado — {{fairName}}</title>
   <style>
     body {
       margin: 0;
@@ -73,11 +73,11 @@
   <div class="wrapper">
     <div class="header">
       <!-- Reemplaza con la URL SAS del logo de Arkad si quieres mostrarlo aquí -->
-      <p style="color:#5ae7f1; font-size:18px; font-weight:700; margin:0;">V Feria Gamer — Arkad</p>
+      <p style="color:#5ae7f1; font-size:18px; font-weight:700; margin:0;">{{fairName}} — Arkad</p>
     </div>
 
     <div class="body">
-      <h1>¡Gracias por ser parte de la V Feria Gamer!</h1>
+      <h1>¡Gracias por ser parte de la {{fairName}}!</h1>
 
       <p>
         Estimado/a <span class="highlight">{{ jurorName }}</span>,
@@ -88,7 +88,7 @@
         <strong>Departamento de Ingeniería de Sistemas y Computación</strong>
         de la Universidad del Norte, queremos agradecerte por tu valioso tiempo
         y dedicación como <strong>jurado</strong> en la
-        <strong>V Feria Gamer</strong>, celebrada el
+        <strong>{{fairName}}</strong>, celebrada el
         <strong>{{eventDateWithYear}}</strong> en Barranquilla.
       </p>
 

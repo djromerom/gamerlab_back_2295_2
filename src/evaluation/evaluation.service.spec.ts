@@ -32,6 +32,7 @@ const gameRow = (
 ) => ({
   id,
   isActive: videogameIsActive,
+  videogameStatus: { status: 'CONFIRMADO' },
   team: {
     id: id * 10,
     teamCode: 'N1-01',
@@ -65,6 +66,7 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       findMany: jest.fn(),
     },
     evaluationIdempotency: { findUnique: jest.fn(), create: jest.fn() },
+    evaluationDraft: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   };
@@ -314,6 +316,15 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       expect(result.get(7)).toBe(NOT_ASSIGNED_MESSAGE);
     });
 
+    it.each(['PENDIENTE', 'RECHAZADO'])('BG-35: un juego %s no se califica', async (status) => {
+      const result = await blockers(
+        juniorJuror,
+        [{ ...gameRow(7), videogameStatus: { status } }],
+        [7],
+      );
+      expect(result.get(7)).toBe('La inscripción de este grupo no está confirmada');
+    });
+
     it('permite jurado asignado', async () => {
       const result = await blockers(juniorJuror, [gameRow(7)], [7]);
       expect(result.size).toBe(0);
@@ -441,6 +452,16 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       expect(prismaMock.evaluation.create.mock.calls[0][0].data.editionId).toBe(
         1,
       );
+    });
+
+    it('HU-18: al enviar cierra el borrador del juego dentro de la misma transacción', async () => {
+      await service.createEvaluationWithDetails('juror-1', evaluation(7) as any);
+
+      expect(prismaMock.$transaction).toHaveBeenCalled();
+      expect(prismaMock.evaluationDraft.updateMany).toHaveBeenCalledWith({
+        where: { jurorId: 'juror-1', videogameId: { in: [7] }, isActive: true },
+        data: { isActive: false, version: { increment: 1 } },
+      });
     });
 
     it('rechaza details con el mismo criterio repetido (400)', async () => {
@@ -640,6 +661,21 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       ]);
       expect(results.failed).toHaveLength(1);
       expect(prismaMock.evaluation.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('HU-18: el lote cierra solo los borradores de las filas que se crearon', async () => {
+      await service.createBatchEvaluations('juror-1', {
+        evaluations: [
+          evaluation(7),
+          { ...evaluation(8), details: [{ ...detail, score: 3.333 }] },
+        ] as any,
+      });
+
+      expect(prismaMock.evaluationDraft.updateMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.evaluationDraft.updateMany).toHaveBeenCalledWith({
+        where: { jurorId: 'juror-1', videogameId: { in: [7] }, isActive: true },
+        data: { isActive: false, version: { increment: 1 } },
+      });
     });
 
     it('un score con 3 decimales va a failed', async () => {
@@ -878,6 +914,7 @@ describe('EvaluationService batch idempotency', () => {
     };
     const tx: any = {
       $executeRaw: jest.fn().mockResolvedValue(0),
+      evaluationDraft: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       evaluationIdempotency: {
         findUnique: jest.fn(
           async ({ where }: any) => receipts.get(where.jurorId_key.key) ?? null,
@@ -1011,7 +1048,11 @@ describe('EvaluationService - getEvaluationProgress', () => {
     const { service, prisma } = build([]);
     await service.getEvaluationProgress(7);
     const q = prisma.videogame.findMany.mock.calls[0][0];
-    expect(q.where).toEqual({ isActive: true, team: { isActive: true, editionId: 7 } });
+    expect(q.where).toEqual({
+      isActive: true,
+      videogameStatus: { status: 'CONFIRMADO' },
+      team: { isActive: true, editionId: 7 },
+    });
     expect(q.select.team.select.assignedJurors.where).toEqual({ isActive: true });
     expect(q.select.evaluations.where).toEqual({
       isActive: true,

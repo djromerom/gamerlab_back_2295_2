@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   NotImplementedException,
+  Optional,
 } from '@nestjs/common';
 import { assertEditionWritable, assertVideogameWritable } from '../editions/active-edition';
 import { CreateVideogameDto } from './dto/create-videogame.dto';
@@ -16,6 +17,9 @@ import { Prisma } from '@prisma/client';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { BlobReferenceService } from '../upload/blob-reference.service';
+import { assertStudentEditWindowOpen } from '../teams/student-edit-policy';
+import { AssignmentPushNotifier } from '../push-notifications/assignment-push-notifier.service';
+import { ReleasedJuror, rejectionNotice, releaseJurorsIfRejected } from '../teams/team-status';
 
 @Injectable()
 export class VideogamesService {
@@ -24,6 +28,7 @@ export class VideogamesService {
     private prisma: PrismaService,
     private gateway: VideogamesGateway,
     private readonly blobRefs: BlobReferenceService,
+    @Optional() private readonly pushNotifier?: AssignmentPushNotifier,
   ) { }
 
   private readonly MAX_LIKES_LOGO_ONLY = 20;
@@ -277,6 +282,9 @@ export class VideogamesService {
     // ARK-130 (HU-27): el videojuego de una edición anterior es de solo lectura
     assertEditionWritable(vg.team.edition, 'el videojuego');
 
+    // ARK-161 (BG-38): con las inscripciones cerradas el estudiante ya no edita su juego
+    if (!isAdmin) await assertStudentEditWindowOpen(this.prisma);
+
     // El estado de aprobación (CONFIRMADO / PENDIENTE / RECHAZADO) lo decide
     // un administrador: un estudiante no puede aprobar ni ocultar su propio juego.
     if (!isAdmin && videogameData.videogameStatusId !== undefined) {
@@ -285,17 +293,19 @@ export class VideogamesService {
       );
     }
 
-    // `name` (la columna) solo la cambia un administrador. Un no administrador
-    // que lo envíe igual al actual (o sin enviarlo) no cambia nada y se ignora.
-    const { name: requestedName, ...dataWithoutName } = videogameData;
-    if (
-      !isAdmin &&
-      requestedName !== undefined &&
-      requestedName.trim() !== vg.name.trim()
-    ) {
-      throw new ForbiddenException(
-        'Solo un administrador puede cambiar el nombre del videojuego',
-      );
+    // El nombre del juego solo lo cambia un administrador, llegue como `name` (la columna)
+    // o como `vgName` (el campo del DTO que se guarda en `name`). Un no administrador que
+    // lo envíe igual al actual (el front lo manda siempre) o sin enviarlo no cambia nada.
+    const { name: requestedName, ...rest } = videogameData;
+    const dataWithoutName = { ...rest, vgName: undefined };
+    if (!isAdmin) {
+      for (const requested of [requestedName, videogameData.vgName]) {
+        if (requested !== undefined && requested.trim() !== vg.name.trim()) {
+          throw new ForbiddenException(
+            'Solo un administrador puede cambiar el nombre del videojuego',
+          );
+        }
+      }
     }
 
     // Task 28: se guarda la referencia del archivo, no la URL firmada
@@ -309,12 +319,32 @@ export class VideogamesService {
       updateData.name = vgName;
     }
 
-    return this.blobRefs.resolveVideogame(
-      await this.prisma.videogame.update({
-        where: { id: videogameId },
-        data: updateData,
-      }),
-    );
+    // BG-35 (ARK-158): rechazar retira los jurados del equipo en la misma transacción
+    let released: ReleasedJuror[] = [];
+    const updated =
+      isAdmin && updateData.videogameStatusId !== undefined
+        ? await this.prisma.$transaction(async (tx) => {
+            const saved = await tx.videogame.update({
+              where: { id: videogameId },
+              data: updateData,
+            });
+            released = await releaseJurorsIfRejected(
+              tx,
+              vg.teamId,
+              user.id,
+              updateData.videogameStatusId,
+            );
+            return saved;
+          })
+        : await this.prisma.videogame.update({
+            where: { id: videogameId },
+            data: updateData,
+          });
+
+    const resolved = await this.blobRefs.resolveVideogame(updated);
+    if (released.length === 0) return resolved;
+    this.pushNotifier?.notifyAssignmentChanged(released.map((j) => j.id));
+    return { ...resolved, ...rejectionNotice(released) };
   }
 
   //TODO: remove static game files, if there are any. possible interface with upload module?

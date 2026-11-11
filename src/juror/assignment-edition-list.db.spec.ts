@@ -21,7 +21,12 @@ const maybe = process.env.RUN_DB_TESTS === '1' ? describe : describe.skip;
 maybe('Lista de jurados de la asignación por edición (BD real)', () => {
   const prisma = new PrismaService();
   const jurors = new JurorService({} as any, prisma, {} as any);
-  const assignments = new JurorAssignmentService(prisma, {} as any, {} as any);
+  const assignments = new JurorAssignmentService(
+    prisma,
+    {} as any,
+    {} as any,
+    {} as any,
+  );
 
   const tag = randomUUID().slice(0, 6);
   const ids = {

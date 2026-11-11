@@ -7,5 +7,7 @@ import { JurorAttendanceService } from './juror-attendance.service';
   imports: [PrismaModule],
   controllers: [JurorAttendanceController],
   providers: [JurorAttendanceService],
+  // HU-12 reutiliza las filas de asistencia para la alerta de inasistencia.
+  exports: [JurorAttendanceService],
 })
 export class JurorAttendanceModule {}

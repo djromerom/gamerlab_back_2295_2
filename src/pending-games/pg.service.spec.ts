@@ -63,4 +63,63 @@ describe('VideogamesService (pending-games)', () => {
       teamCode: 'N10-ABC-1001',
     });
   });
+
+  it('BG-35: el jurado solo ve juegos confirmados, también en el conteo', async () => {
+    await service.getPendingVideogames('juror-1', 10, 1);
+    await service.getPendingVideogamesCount('juror-1');
+
+    const confirmed = { videogameStatus: { status: 'CONFIRMADO' } };
+    expect(JSON.stringify(prismaMock.videogame.findMany.mock.calls[0][0].where)).toContain(
+      JSON.stringify(confirmed).slice(1, -1),
+    );
+    expect(JSON.stringify(prismaMock.videogame.count.mock.calls.at(-1)?.[0].where)).toContain(
+      JSON.stringify(confirmed).slice(1, -1),
+    );
+  });
+
+  describe('HU-18: borradores en la lista de pendientes', () => {
+    const savedAt = new Date('2026-11-26T10:00:00Z');
+
+    it('marca el juego con borrador del jurado y sigue en pendientes', async () => {
+      prismaMock.videogame.findMany.mockResolvedValue([
+        { ...pendingVideogame, evaluationDrafts: [{ updatedAt: savedAt }] },
+        { ...pendingVideogame, id: 8, evaluationDrafts: [] },
+      ]);
+
+      const result = await service.getPendingVideogames('juror-1', 10, 1);
+
+      expect(prismaMock.videogame.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            evaluationDrafts: {
+              where: { jurorId: 'juror-1', isActive: true },
+              select: { updatedAt: true },
+            },
+          }) as unknown,
+        }),
+      );
+      expect(result.data.map((g) => [g.videogameId, g.hasDraft, g.draftUpdatedAt])).toEqual([
+        [7, true, savedAt],
+        [8, false, null],
+      ]);
+    });
+
+    it('la búsqueda también lo marca', async () => {
+      prismaMock.videogame.findMany.mockResolvedValue([
+        { ...pendingVideogame, evaluationDrafts: [{ updatedAt: savedAt }] },
+      ]);
+
+      const result = await service.searchPendingGames('juror-1', 'Juego');
+
+      expect(result.data[0]).toMatchObject({ hasDraft: true, draftUpdatedAt: savedAt });
+    });
+
+    it('el conteo de pendientes (y el aviso de HU-37) no mira borradores', async () => {
+      await service.getPendingVideogamesCount('juror-1');
+
+      expect(JSON.stringify(prismaMock.videogame.count.mock.calls[0][0])).not.toContain(
+        'evaluationDrafts',
+      );
+    });
+  });
 });

@@ -751,7 +751,7 @@ describe('JurorService', () => {
       expect(where).toEqual({
         isActive: true,
         editionId: activeEdition.id,
-        videogame: { isNot: null },
+        videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
       });
     });
 
@@ -771,6 +771,23 @@ describe('JurorService', () => {
     });
   });
 
+  // ARK-156 (BG-33): la pantalla de asignación recorre páginas de 100
+  it('findAll ordena por apellido e id para que las páginas sean estables', async () => {
+    prismaMock.user.findMany.mockResolvedValueOnce([]);
+    prismaMock.user.count.mockResolvedValueOnce(0);
+    prismaMock.team.findMany.mockResolvedValueOnce([]);
+
+    await service.findAll(false, 100, 2, undefined, true);
+
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 100,
+        take: 100,
+        orderBy: [{ lastName: 'asc' }, { id: 'asc' }],
+      }),
+    );
+  });
+
   describe('getTeamsAssignedToJuror', () => {
     it('debe devolver los equipos asignados a un jurado', async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce({
@@ -784,6 +801,7 @@ describe('JurorService', () => {
         {
           id: 1,
           teamName: 'Equipo AYP Dev',
+          teamCode: 'N1-AYP-101',
           videogame: {
             id: 1,
             name: 'Juego AYP',
@@ -812,6 +830,10 @@ describe('JurorService', () => {
         {
           id: 1,
           nombre: 'Equipo AYP Dev',
+          // BG-39 (ARK-188)
+          teamCode: 'N1-AYP-101',
+          nivel: 1,
+          nivelEtiqueta: 'Nivel 1',
           videojuego: {
             id: 1,
             nombre: 'Juego AYP',

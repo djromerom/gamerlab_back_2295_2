@@ -140,6 +140,20 @@ export function findTeamEditionBlocker(
   };
 }
 
+/** BG-35 (ARK-158): solo se asignan jurados a equipos con el juego confirmado. Quitar sí se puede. */
+export function findTeamNotConfirmedBlocker(team: {
+  id: number;
+  teamCode: string;
+  videogame: { videogameStatus: { status: string } } | null;
+}): AssignmentBlocker | null {
+  if (team.videogame?.videogameStatus.status === 'CONFIRMADO') return null;
+  return {
+    code: 'TEAM_NOT_CONFIRMED',
+    message: `No se pueden asignar jurados al equipo ${team.teamCode}: su inscripción no está confirmada.`,
+    teamId: team.id,
+  };
+}
+
 /**
  * ARK-131 (BG-18): solo se agrega a quien participa en la edición activa (HU-25,
  * `jurorsOfEdition`): jurado externo confirmado en la edición o profesor con un NRC activo

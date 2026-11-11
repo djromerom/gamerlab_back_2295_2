@@ -10,6 +10,7 @@ import {
   teamLevel,
   toJurorAssignmentRow,
 } from './juror-assignment-export';
+import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 
 /** HU-16 (ARK-108): reporte de jurados con la asignación de la edición. */
 const source = (
@@ -141,7 +142,7 @@ describe('ReportsService.getJurorAssignmentReport (HU-16)', () => {
     email: 'ana@x.co',
     jurorCategory: 'JUNIOR',
     jurorType: 'OFFICIAL',
-    confirmationStatus: { status: 'Confirmado' },
+    jurorEditions: [{ type: 'OFFICIAL' }],
     teamsToEvaluate: teams,
     evaluationsSubmitted: evals.map((videogameId) => ({ videogameId })),
   });
@@ -160,13 +161,13 @@ describe('ReportsService.getJurorAssignmentReport (HU-16)', () => {
       status: 'ACTIVE',
     });
     const query = prisma.user.findMany.mock.calls[0][0];
-    expect(query.where.OR).toEqual([
-      { roleId: 4 },
-      { teamsToEvaluate: { some: { editionId: 3, isActive: true } } },
-    ]);
+    // BG-40: la lista es la de jurorsOfEdition, no todo usuario con rol Jurado
+    expect(query.where).toEqual(jurorsOfEdition(3));
+    expect(query.select.jurorEditions.where).toEqual({ editionId: 3 });
     expect(query.select.teamsToEvaluate.where).toEqual({
       editionId: 3,
       isActive: true,
+      videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
     });
     expect(query.select.evaluationsSubmitted.where).toEqual({
       editionId: 3,
@@ -178,6 +179,31 @@ describe('ReportsService.getJurorAssignmentReport (HU-16)', () => {
       revisados: ['N1-A-1 · Juego'],
       pendientes: [],
     });
+  });
+
+  it('BG-40: Estado y Tipo salen de la edición; el profesor con NRC no tiene fila', async () => {
+    prisma.edition.findFirst.mockResolvedValue(edition);
+    prisma.user.findMany.mockResolvedValue([
+      {
+        ...user([{ teamCode: 'N1-A-1', videogame: null }]),
+        firstName: 'Bea',
+        jurorType: 'OFFICIAL',
+        jurorEditions: [{ type: 'BACKUP' }],
+      },
+      {
+        ...user([{ teamCode: 'N2-B-1', videogame: null }]),
+        firstName: 'Carlos',
+        jurorCategory: 'SENIOR',
+        jurorEditions: [],
+      },
+    ]);
+
+    const { rows } = await service.getJurorAssignmentReport();
+
+    expect(rows.map((r) => [r.nombre, r.estado, r.tipo])).toEqual([
+      ['Carlos Ruiz', 'Profesor con NRC', 'Oficial'],
+      ['Bea Ruiz', 'Confirmado', 'Suplente'],
+    ]);
   });
 
   it('con editionId busca esa edición', async () => {

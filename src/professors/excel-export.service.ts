@@ -17,6 +17,22 @@ const COLORS: Record<string, string> = {
 
 const BRAND_NAME = 'ARKAD';
 
+/** BG-36: formato de Excel para las notas, siempre con 2 decimales (3.50, 4.00). */
+export const GRADE_NUM_FMT = '0.00';
+
+/**
+ * BG-36: nota para una celda de Excel. Se redondea a 2 decimales igual que las pantallas
+ * (BG-30, `toFixed(2)`) y se deja como **número** para poder ordenar y sumar; el formato
+ * `0.00` de la celda muestra siempre los 2 decimales. `null` deja la celda vacía.
+ */
+export function gradeCellValue(
+  value: number | null | undefined,
+): number | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Number(value.toFixed(2))
+    : null;
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 export interface GroupRow {
   teamCode:      string;
@@ -189,9 +205,9 @@ export class ExcelExportService {
       anyRow = true;
 
       // Resolve scores
-      let docenteScore = '';
-      let feriaScore   = '';
-      let juniorScore  = '';
+      let docenteScore: number | null = null;
+      let feriaScore:   number | null = null;
+      let juniorScore:  number | null = null;
 
       try {
         let vgId = g.videogameId ? Number(g.videogameId) : null;
@@ -206,14 +222,14 @@ export class ExcelExportService {
             sheet.professorId ?? professorId,
           );
           if (ds !== null) {
-            docenteScore = ds.toFixed(1);
+            docenteScore = gradeCellValue(ds);
             g.grade = ds;
           }
           if (final) {
             const fs = await getFeriaScore(vgId);
-            if (fs !== null) feriaScore = fs.toFixed(1);
+            feriaScore = gradeCellValue(fs);
             const js = await getJuniorScore(vgId);
-            if (js !== null) juniorScore = js.toFixed(1);
+            juniorScore = gradeCellValue(js);
           }
         }
       } catch (err) {
@@ -235,7 +251,7 @@ export class ExcelExportService {
         rowObj.juniorScore  = juniorScore;
         rowObj.docenteScore = docenteScore;
       } else {
-        rowObj.score = g.grade !== null ? g.grade.toFixed(1) : '';
+        rowObj.score = gradeCellValue(g.grade);
       }
 
       const dataRow = worksheet.addRow(rowObj);
@@ -262,6 +278,7 @@ export class ExcelExportService {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: scoreColors[i] } } as any;
           cell.font = { bold: true } as any;
           cell.alignment = { horizontal: 'center', vertical: 'middle' } as any;
+          cell.numFmt = GRADE_NUM_FMT;
         }
       });
 
@@ -278,7 +295,8 @@ export class ExcelExportService {
 
       // Update max lengths for column sizing
       columnKeys.forEach((k, i) => {
-        const v = String(rowObj[k] ?? '');
+        const raw: unknown = rowObj[k];
+        const v = typeof raw === 'number' ? raw.toFixed(2) : String(raw ?? '');
         // For members, use the longest single name (not joined)
         const len = k === 'members'
           ? Math.max(...Array.from(g.members).map((m) => m.length), 0)

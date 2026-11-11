@@ -32,6 +32,8 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { JurorListItem } from './types/juror-list-item.type';
 import { PROFESSOR_MUST_BE_SENIOR_MESSAGE } from '../professors/professor-juror-profile';
+import { CONFIRMED_TEAM } from '../teams/team-status';
+import { byLevelThenName, teamLevelInfo } from './assignment-validation/team-level';
 
 @Injectable()
 export class JurorService {
@@ -164,7 +166,7 @@ export class JurorService {
           assignedJurors: {
             some: { id: jurorId },
           },
-          videogame: { isNot: null },
+          ...CONFIRMED_TEAM, // BG-35 (ARK-158)
         },
         select: {
           videogame: {
@@ -282,7 +284,9 @@ export class JurorService {
         where: whereClause,
         skip: offset,
         take: limit,
-        orderBy: { lastName: 'asc' },
+        // ARK-156: `id` desempata apellidos repetidos; sin él, entre dos páginas un jurado
+        // puede salir dos veces o no salir.
+        orderBy: [{ lastName: 'asc' }, { id: 'asc' }],
         include: {
           evaluationsSubmitted: {
             where: { editionId: statsEditionId },
@@ -301,7 +305,7 @@ export class JurorService {
         where: {
           isActive: true,
           editionId: statsEditionId,
-          videogame: { isNot: null },
+          ...CONFIRMED_TEAM, // BG-35 (ARK-158)
         },
         select: {
           videogame: { select: { id: true, name: true } },
@@ -544,6 +548,7 @@ export class JurorService {
           isActive: true,
           editionId: listEditionId,
           assignedJurors: { some: evaluatorsOfEdition },
+          ...CONFIRMED_TEAM, // BG-35 (ARK-158)
         },
         include: {
           assignedJurors: {
@@ -764,9 +769,11 @@ export class JurorService {
         },
       });
 
-      return teams.map((team) => ({
+      // BG-39 (ARK-188): con su nivel, para indicar qué niveles ya tiene el jurado (HU-08).
+      const assignedTeams = teams.map((team) => ({
         id: team.id,
         nombre: team.teamName,
+        ...teamLevelInfo(team.teamCode),
         videojuego: team.videogame
           ? {
             id: team.videogame.id,
@@ -786,6 +793,7 @@ export class JurorService {
         })),
         cantidadJurados: team.assignedJurors.length,
       }));
+      return assignedTeams.sort(byLevelThenName);
     } catch (error) {
       if (
         error instanceof NotFoundException ||

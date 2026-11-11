@@ -91,7 +91,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         editionId: 1,
         teamName: 'Equipo Colegio Dev',
         edition: { status: 'ACTIVE', title: 'Edición 1' },
-        videogame: { id: 1, name: 'Juego Colegio' },
+        videogame: { id: 1, name: 'Juego Colegio', videogameStatus: { status: 'CONFIRMADO' } },
         assignedJurors: [],
     };
 
@@ -102,7 +102,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
         editionId: 1,
         teamName: 'Equipo AYP Dev',
         edition: { status: 'ACTIVE', title: 'Edición 1' },
-        videogame: { id: 2, name: 'Juego AYP' },
+        videogame: { id: 2, name: 'Juego AYP', videogameStatus: { status: 'CONFIRMADO' } },
         assignedJurors: [],
     };
 
@@ -130,6 +130,7 @@ describe('JurorAssignmentService - manual assignment module', () => {
             prismaMock as any,
             auditMock as any,
             new AssignmentValidationService(validationPrismaMock as any),
+            { notifyAssignmentChanged: jest.fn() } as any,
         );
 
         /**
@@ -217,6 +218,26 @@ describe('JurorAssignmentService - manual assignment module', () => {
         expect(auditMock.create).not.toHaveBeenCalled();
         expect(prismaMock.$transaction).not.toHaveBeenCalled();
     });
+
+    it.each(['PENDIENTE', 'RECHAZADO'])(
+        'BG-35: no asigna a un equipo %s y no escribe nada',
+        async (status) => {
+            prismaMock.user.findUnique.mockResolvedValueOnce(juniorJuror);
+            prismaMock.team.findUnique.mockResolvedValueOnce({
+                ...n1Team,
+                videogame: { ...n1Team.videogame, videogameStatus: { status } },
+            });
+
+            await expect(
+                service.assign(juniorJuror.id, n1Team.id, actorUserId),
+            ).rejects.toMatchObject({
+                response: expect.objectContaining({ code: 'TEAM_NOT_CONFIRMED', teamId: n1Team.id }),
+            });
+
+            expect(auditMock.create).not.toHaveBeenCalled();
+            expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        },
+    );
 
     it('debe permitir asignar un JUNIOR a un equipo N1', async () => {
         prismaMock.user.findUnique.mockResolvedValueOnce(juniorJuror);

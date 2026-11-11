@@ -55,7 +55,7 @@ describe('EditionsService', () => {
   };
 
   const mockAzureStorageService = {
-    getReadSasUrlById: jest.fn().mockResolvedValue({ url: 'http://sas.url', expiresAt: '2025-01-01' }),
+    signReadUrlById: jest.fn().mockResolvedValue({ url: 'http://sas.url', expiresAt: '2025-01-01' }),
     uploadFile: jest.fn().mockResolvedValue({ id: 'uuid-1' }),
     deleteById: jest.fn().mockResolvedValue({ id: 'uuid-1', deleted: true }),
   };
@@ -102,7 +102,11 @@ describe('EditionsService', () => {
       const dto = { year: 2025, semester: 10, title: 'Test Edition', startsAt: new Date(), endsAt: new Date() };
       const result = await service.create(dto);
       expect(prisma.edition.create).toHaveBeenCalledWith({
-        data: { ...dto, eventConfiguration: { create: {} } },
+        data: {
+          ...dto,
+          eventConfiguration: { create: {} },
+          weighting: { create: { seniorPct: 60, juniorPct: 40 } },
+        },
       });
       expect(result).toEqual(mockEdition);
     });

@@ -32,6 +32,8 @@ model Edition {
   endsAt   DateTime @map("termina_en")
 
   status    EditionStatus @default(INACTIVE) @map("estado")
+  // HU-34: edición anterior a la ponderación 60/40; su nota final conserva la regla de entonces.
+  legacyFinalScoreRule Boolean @default(false) @map("regla_nota_heredada")
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
 
@@ -41,6 +43,9 @@ model Edition {
   teams              Team[]
   members            Member[]
   evaluations        Evaluation[]
+  externalPresenters ExternalPresenter[]
+  jurorSurveyResponses JurorSurveyResponse[]
+  evaluationDrafts   EvaluationDraft[]
   nrcs               NRC[]
   weighting          Weighting?
   testimonials       Testimonial[]
@@ -50,6 +55,8 @@ model Edition {
   jurorBadges        JurorBadge[]
   jurorAttendances   JurorAttendance[]
   jurorEditions      JurorEdition[]
+  absentJurorResponses AbsentJurorResponse[]
+  fairSchedule       FairSchedule?
 
   @@unique([year, semester])
   @@map("ediciones")
@@ -64,6 +71,13 @@ model EventConfiguration {
   showEvaluations Boolean  @default(false) @map("mostrar_evaluaciones")
   showRanking     Boolean  @default(false) @map("mostrar_ranking")
   registrationsOpen Boolean @default(false) @map("inscripciones_abiertas")
+  // HU-20: el estudiante ve su nota final solo cuando el administrador la libera (desde las 12:00).
+  showFinalGrade       Boolean   @default(false) @map("mostrar_nota_final")
+  finalGradeReleasedAt DateTime? @map("nota_final_liberada_en")
+  // HU-23: parámetros de la presencia del jurado durante la feria, en minutos.
+  presencePromptMinutes   Int @default(60) @map("presencia_pregunta_min")
+  presenceResponseMinutes Int @default(15) @map("presencia_respuesta_min")
+  inactivityMinutes       Int @default(45) @map("presencia_inactividad_min")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -213,6 +227,7 @@ model User {
   // ARK-128: un equipo por edición; la cuenta se conserva entre ediciones
   createdTeams         Team[]             @relation("createdTeam")
   evaluationsSubmitted Evaluation[]       @relation("JurorEvaluations")
+  evaluationDrafts     EvaluationDraft[]
   managedNrcs          NRC[]              @relation("ProfessorNRC")
   confirmationStatus   ConfirmationStatus @relation(fields: [confirmationStatusId], references: [id])
   role                 Role               @relation(fields: [roleId], references: [id])
@@ -225,6 +240,11 @@ model User {
   jurorEditions        JurorEdition[]
   refreshTokens        RefreshToken[]
   tieBreakDecisions    TieBreakDecision[]
+  absentResponses      AbsentJurorResponse[] @relation("AbsentResponseJuror")
+  recordedAbsentResponses AbsentJurorResponse[] @relation("AbsentResponseRecorder")
+  pushSubscriptions    PushSubscription[]
+  externalPresenterEditions ExternalPresenter[]
+  jurorSurveyResponses JurorSurveyResponse[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -383,6 +403,7 @@ model Videogame {
 
   highlightedGames HighlightedGame[]
   evaluations      Evaluation[]
+  evaluationDrafts EvaluationDraft[]
   likedBy          VideogameLike[]
   rankingResults   RankingResult[]
 
@@ -453,6 +474,79 @@ model Evaluation {
   @@map("evaluacion")
 }
 
+/// HU-18 (ARK-104): borrador de una evaluación de jurado. Vive aparte de `evaluacion` para que
+/// nunca cuente como evaluación recibida (nota, progreso, seguimiento) hasta el envío definitivo.
+/// Uno por jurado y videojuego; descartar o enviar lo desactiva (borrado lógico) y sube `version`.
+model EvaluationDraft {
+  id          Int       @id @default(autoincrement()) @map("id_borrador")
+  jurorId     String    @map("id_jurado")
+  videogameId Int       @map("id_videojuego")
+  editionId   Int       @map("id_edicion")
+  /// [{ criterionId, score }]: solo los criterios ya llenados (puede estar incompleto).
+  scores      Json      @default("[]") @map("puntajes")
+  comments    String?   @map("comentarios")
+  /// Concurrencia: cada guardado manda la versión que conoce (0 = no hay borrador activo).
+  version     Int       @default(1) @map("version")
+  isActive    Boolean   @default(true) @map("activo")
+  createdAt   DateTime  @default(now()) @map("creado_en")
+  updatedAt   DateTime  @updatedAt @map("actualizado_en")
+  juror       User      @relation(fields: [jurorId], references: [id])
+  videogame   Videogame @relation(fields: [videogameId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  edition     Edition   @relation(fields: [editionId], references: [id])
+
+  @@unique([jurorId, videogameId], name: "borrador_jurado_videojuego_unique")
+  @@index([jurorId, isActive])
+  @@map("borrador_evaluacion")
+}
+
+/// HU-17 (ARK-183): encuesta de experiencia del jurado (P-13). Una respuesta por jurado y edición;
+/// solo se acepta cuando el jurado terminó de evaluar todos sus grupos asignados. Cada campo de 1 a 5.
+model JurorSurveyResponse {
+  id               Int      @id @default(autoincrement()) @map("id_respuesta")
+  jurorId          String   @map("id_jurado")
+  editionId        Int      @map("id_edicion")
+  loginEase        Int      @map("facilidad_ingreso")
+  groupsClarity    Int      @map("claridad_grupos")
+  gradingEase      Int      @map("facilidad_calificar")
+  stability        Int      @map("estabilidad")
+  fairOrganization Int      @map("organizacion_feria")
+  overall          Int      @map("experiencia_general")
+  comments         String?  @map("comentarios") @db.VarChar(1000)
+  isActive         Boolean  @default(true) @map("activo")
+  createdAt        DateTime @default(now()) @map("creado_en")
+  updatedAt        DateTime @updatedAt @map("actualizado_en")
+  juror            User     @relation(fields: [jurorId], references: [id])
+  edition          Edition  @relation(fields: [editionId], references: [id])
+
+  @@unique([jurorId, editionId], name: "encuesta_jurado_edicion_unique")
+  @@index([editionId, isActive])
+  @@map("respuesta_encuesta_jurado")
+}
+
+/// HU-33 (ARK-194): presentador externo de una edición. Lo registra solo el administrador; la
+/// persona tiene una cuenta con el rol «Presentador externo» y no se califica (no tiene equipo).
+/// Una fila por persona y edición (puede volver otro semestre). Quitarlo es borrado lógico.
+model ExternalPresenter {
+  id                Int       @id @default(autoincrement()) @map("id_presentador")
+  userId            String    @map("id_usuario")
+  editionId         Int       @map("id_edicion")
+  /// Datos del certificado (opcionales; nombre y apellido salen de la cuenta).
+  organization      String?   @map("organizacion") @db.VarChar(150)
+  presentationTitle String?   @map("titulo_presentacion") @db.VarChar(200)
+  certificateSentAt DateTime? @map("certificado_enviado_en")
+  isActive          Boolean   @default(true) @map("activo")
+  createdAt         DateTime  @default(now()) @map("creado_en")
+  updatedAt         DateTime  @updatedAt @map("actualizado_en")
+  /// Administrador que hizo el último cambio (sin llave foránea, solo auditoría).
+  updatedById       String?   @map("actualizado_por")
+  user              User      @relation(fields: [userId], references: [id])
+  edition           Edition   @relation(fields: [editionId], references: [id])
+
+  @@unique([userId, editionId], name: "presentador_usuario_edicion_unique")
+  @@index([editionId, isActive])
+  @@map("presentador_edicion")
+}
+
 model EvaluationIdempotency {
   id             Int    @id @default(autoincrement())
   jurorId        String @map("juror_id")
@@ -517,6 +611,8 @@ model JurorAttendance {
   method        CheckInMethod @map("metodo")
   badgeId       Int?          @map("id_escarapela")
   isActive      Boolean       @default(true) @map("activo")
+  // HU-23: último "Sigo aquí" del jurado. Null = no ha respondido desde su llegada.
+  lastPresenceConfirmedAt DateTime? @map("ultima_confirmacion_presencia")
   juror         User          @relation("JurorAttendance", fields: [jurorId], references: [id])
   checkedInBy   User          @relation("AttendanceRecorder", fields: [checkedInById], references: [id])
   edition       Edition       @relation(fields: [editionId], references: [id])
@@ -524,6 +620,23 @@ model JurorAttendance {
 
   @@index([editionId])
   @@map("asistencia_jurado")
+}
+
+// HU-37: suscripción a notificaciones push de un dispositivo (la dirección `endpoint` es única
+// por navegador). Desuscribirse la desactiva; las vencidas (404/410) se borran físicamente.
+model PushSubscription {
+  id        Int      @id @default(autoincrement()) @map("id_suscripcion")
+  userId    String   @map("id_usuario")
+  endpoint  String   @unique @db.VarChar(2048)
+  p256dh    String   @map("clave_p256dh") @db.VarChar(128)
+  auth      String   @map("clave_auth") @db.VarChar(64)
+  isActive  Boolean  @default(true) @map("activo")
+  createdAt DateTime @default(now()) @map("creado_en")
+  updatedAt DateTime @updatedAt @map("actualizado_en")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("suscripcion_push")
 }
 
 model Subject {
@@ -678,12 +791,14 @@ view TeamFinalScore {
   editionId        Int     @map("edition_id")
   avgJunior        Float?  @map("avg_junior")
   avgSenior        Float?  @map("avg_senior")
+  // HU-34: null si falta una de las dos partes («Nota en proceso»), salvo externos, N0 y ediciones congeladas.
   finalScore       Float?  @map("final_score")
   // HU-04: evaluaciones activas con nota. Junior = jurados (solo cuentan las 3 primeras); senior = profesor.
   juniorEvaluations   Int     @map("junior_evaluations")
   juniorCounted       Int     @map("junior_counted")
   seniorEvaluations   Int     @map("senior_evaluations")
   weightingConfigured Boolean @map("weighting_configured")
+  legacyFinalScoreRule Boolean @map("legacy_final_score_rule")
 
   @@unique([teamId, videogameId, editionId])
   @@map("vw_team_final_scores")
@@ -716,6 +831,24 @@ enum ManualJurorAssignmentAction {
 // ediciones; aquí se guarda si viene a esta (Pendiente, Confirmado, Declinó) y si es Oficial o
 // Suplente. Los profesores no tienen fila: son jurados de la edición si tienen un NRC activo en ella.
 // Sin isActive: Declinó cumple esa función y hay una sola fila por jurado y edición.
+/// HU-12: cronograma del día de la feria, uno por edición. Horas "HH:mm" en hora de Bogotá.
+model FairSchedule {
+  id          Int      @id @default(autoincrement()) @map("id_cronograma")
+  editionId   Int      @unique @map("id_edicion")
+  fairDate    DateTime @map("fecha_feria") @db.Date
+  startTime   String   @map("hora_inicio") @db.VarChar(5)
+  alertTime   String   @map("hora_alerta") @db.VarChar(5)
+  controlTime String   @map("hora_control") @db.VarChar(5)
+  closeTime   String   @map("hora_cierre") @db.VarChar(5)
+  createdAt   DateTime @default(now()) @map("creado_en")
+  updatedAt   DateTime @updatedAt @map("actualizado_en")
+  // Id del administrador que hizo el último cambio (sin llave foránea, solo auditoría).
+  updatedById String?  @map("actualizado_por")
+  edition     Edition  @relation(fields: [editionId], references: [id])
+
+  @@map("cronograma_feria")
+}
+
 model JurorEdition {
   id          Int                @id @default(autoincrement()) @map("id_jurado_edicion")
   jurorId     String             @map("id_usuario")
@@ -738,6 +871,32 @@ enum JurorEditionStatus {
   PENDING
   CONFIRMED
   DECLINED
+}
+
+/// HU-13: lo que los profesores averiguaron de un jurado que no llegó.
+enum AbsentJurorResponseResult {
+  ON_THE_WAY // viene en camino
+  CANNOT_ATTEND // no podrá asistir
+  NO_RESPONSE // sin respuesta
+}
+
+// HU-13: historial de respuestas sobre un jurado sin llegada registrada. Cada registro es una fila
+// nueva y no se edita ni se borra (por eso no lleva isActive): la última fila es la vigente y una
+// equivocación se corrige con otro registro. Es informativo: no cambia las reglas de cobertura.
+model AbsentJurorResponse {
+  id                 Int                       @id @default(autoincrement()) @map("id_respuesta")
+  jurorId            String                    @map("id_usuario")
+  editionId          Int                       @map("id_edicion")
+  result             AbsentJurorResponseResult @map("resultado")
+  estimatedArrivalAt DateTime?                 @map("hora_estimada")
+  recordedAt         DateTime                  @default(now()) @map("registrado_en")
+  recordedById       String                    @map("registrado_por")
+  juror              User                      @relation("AbsentResponseJuror", fields: [jurorId], references: [id])
+  recordedBy         User                      @relation("AbsentResponseRecorder", fields: [recordedById], references: [id])
+  edition            Edition                   @relation(fields: [editionId], references: [id])
+
+  @@index([editionId, jurorId, recordedAt])
+  @@map("respuesta_jurado_ausente")
 }
 
 /// HU-04: cómo se resolvió un empate del ranking por nivel.

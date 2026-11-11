@@ -116,6 +116,7 @@ describe('JurorCheckinService', () => {
       expect(query.select.teamsToEvaluate.where).toEqual({
         editionId: 3,
         isActive: true,
+        videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
       });
     });
 

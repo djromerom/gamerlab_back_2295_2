@@ -130,9 +130,11 @@ describe('GET /professors/juror-evaluations', () => {
   const prisma = {
     edition: { findFirst: jest.fn(), findUnique: jest.fn() },
     evaluation: { findMany: jest.fn() },
+    teamFinalScore: { findMany: jest.fn() },
   };
   const service = new ProfessorsService({} as any, prisma as any, {} as any);
   const row = {
+    videogameId: 9,
     totalScore: 4,
     videogame: {
       id: 9,
@@ -144,6 +146,7 @@ describe('GET /professors/juror-evaluations', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     prisma.evaluation.findMany.mockResolvedValue([row]);
+    prisma.teamFinalScore.findMany.mockResolvedValue([]);
   });
 
   it('por defecto filtra por la edición activa y la devuelve', async () => {
@@ -161,6 +164,24 @@ describe('GET /professors/juror-evaluations', () => {
     );
     expect(result.edition).toEqual({ ...ACTIVE, readOnly: false });
     expect(result.data).toHaveLength(1);
+  });
+
+  it('HU-34: calificacionFeria es la nota final; la que puso el profesor va en miEvaluacion', async () => {
+    prisma.edition.findFirst.mockResolvedValue(ACTIVE);
+    prisma.teamFinalScore.findMany.mockResolvedValue([
+      { videogameId: row.videogameId, finalScore: 4.1 },
+    ]);
+    const result = await service.getJurorEvaluations('p1', 20, 1);
+    expect(result.data[0]).toMatchObject({
+      calificacionFeria: 4.1,
+      miEvaluacion: row.totalScore,
+    });
+  });
+
+  it('HU-34: sin nota final, calificacionFeria es null (no la nota del profesor)', async () => {
+    prisma.edition.findFirst.mockResolvedValue(ACTIVE);
+    const result = await service.getJurorEvaluations('p1', 20, 1);
+    expect(result.data[0].calificacionFeria).toBeNull();
   });
 
   it('con editionId devuelve el historial en solo lectura', async () => {

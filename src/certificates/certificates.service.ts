@@ -1,11 +1,81 @@
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import fs from 'fs/promises';
 import path from 'path';
 import { ConfigService } from '@nestjs/config';
+import { ActiveEdition, requireActiveEdition } from '../editions/active-edition';
+import { CERT_EMAIL_CONFIG, CertEmailType } from '../email/types/cert-email.type';
+import {
+  assertJurorOfEdition,
+  CERTIFIABLE_VIDEOGAME_STATUS,
+  CERTIFICATE_TEAM_NOT_CONFIRMED,
+  CERTIFICATE_TEAM_NOT_FOUND,
+  CERTIFICATE_TEAM_WITHOUT_MEMBERS,
+  eventDayOf,
+} from './certificate-eligibility';
+import {
+  fairDateNumeric,
+  fillCertificateTemplate,
+  joinStudentNames,
+  placeWithDate,
+} from './certificate-content';
+import { ConcurrencyLimiter } from './concurrency-limiter';
+import {
+  EXTERNAL_PRESENTER_TEMPLATE,
+  ExternalPresenterCertificateData,
+  renderExternalPresenterCertificate,
+} from './external-presenter-certificate';
+import { fairNameOf } from './fair-name';
+import type { CertificateDownload } from './pdf-download';
+
+/**
+ * ARK-170 (TA-19): medido contra Gotenberg, varias conversiones a la vez agotan su tiempo y
+ * responde 503 (60 simultáneas: 54 fallidas); con 4 no hubo errores. Se deja margen con 3.
+ */
+const PDF_MAX_CONCURRENCY = 3;
+const PDF_MAX_ATTEMPTS = 3;
+const PDF_RETRY_BASE_MS = 1000;
+/** Por encima de los 30 s que Gotenberg se da a sí mismo para cada conversión. */
+const PDF_ATTEMPT_TIMEOUT_MS = 45_000;
+const RETRYABLE_GOTENBERG_STATUS = new Set([429, 502, 503, 504]);
+
+const TEMPLATE_BY_PLACE: Record<number, string> = {
+  1: 'certificate-First.html',
+  2: 'certificate-Second.html',
+  3: 'certificate-Third.html',
+};
+const PARTICIPATION_TEMPLATE = 'certificate-printable.html';
+
+const CERTIFICATE_FILE_LABEL: Record<CertEmailType, string> = {
+  PARTICIPATION_CERTIFICATE: 'participacion',
+  '1ST_PLACE_CERTIFICATE': 'primer-puesto',
+  '2ND_PLACE_CERTIFICATE': 'segundo-puesto',
+  '3RD_PLACE_CERTIFICATE': 'tercer-puesto',
+};
+
+export interface CertifiableTeam {
+  id: number;
+  teamName: string;
+  teamCode: string | null;
+  gameName: string;
+  memberNames: string[];
+  memberEmails: string[];
+  fairName: string;
+  eventDate: string;
+}
+
+/** Fallo de Gotenberg que vale la pena reintentar (saturación o red). */
+class RetryablePdfError extends Error {}
 
 @Injectable()
 export class CertificatesService {
+  private readonly pdfLimiter = new ConcurrencyLimiter(PDF_MAX_CONCURRENCY);
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -15,64 +85,93 @@ export class CertificatesService {
   // TEAM CERTIFICATES
   // ─────────────────────────────────────────────
 
-  async generateCertificateHtml(teamId: number, place: number): Promise<Buffer> {
-    let templateName: string;
-    switch (place) {
-      case 1:
-        templateName = 'certificate-First.html';
-        break;
-      case 2:
-        templateName = 'certificate-Second.html';
-        break;
-      case 3:
-        templateName = 'certificate-Third.html';
-        break;
-      default:
-        templateName = 'certificate-printable.html'; // Participation certificate
-        break;
-    }
-
-    const templatePath = path.join(__dirname, '.', 'assets', templateName);
-    let template = await fs.readFile(templatePath, 'utf8');
-
-    const certificateHtml = await this.adjustCertificateParameters(template, teamId);
-    const pdfBuffer = await this.convertHtmlToPdf(certificateHtml);
-
-    return pdfBuffer;
-  }
-
-  private async adjustCertificateParameters(template: string, teamId: number) {
-    const team = await this.prisma.team.findUnique({
-      where: { id: teamId },
+  /**
+   * ARK-170 (TA-19, BG-22, BG-40): solo se certifica un equipo activo de la edición activa con el
+   * videojuego confirmado, y solo figuran sus integrantes activos.
+   */
+  async findCertifiableTeam(
+    where: { id: number } | { userId: string },
+  ): Promise<CertifiableTeam> {
+    const edition = await requireActiveEdition(this.prisma);
+    const team = await this.prisma.team.findFirst({
+      where: { ...where, editionId: edition.id, isActive: true },
+      orderBy: { id: 'desc' },
       include: {
-        members: true,
-        videogame: true
+        members: { where: { isActive: true }, orderBy: { id: 'asc' } },
+        videogame: { include: { videogameStatus: true } },
       },
     });
 
     if (!team) {
-      throw new BadRequestException('Team not found');
+      throw new NotFoundException({
+        statusCode: 404,
+        code: CERTIFICATE_TEAM_NOT_FOUND,
+        message: `No hay un equipo activo en «${edition.title}» para este certificado.`,
+      });
+    }
+    if (
+      !team.videogame?.isActive ||
+      team.videogame.videogameStatus?.status !== CERTIFIABLE_VIDEOGAME_STATUS
+    ) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: CERTIFICATE_TEAM_NOT_CONFIRMED,
+        message: `El equipo «${team.teamName}» no tiene la inscripción confirmada: no se le puede generar el certificado.`,
+      });
+    }
+    if (team.members.length === 0) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: CERTIFICATE_TEAM_WITHOUT_MEMBERS,
+        message: `El equipo «${team.teamName}» no tiene integrantes activos.`,
+      });
     }
 
-    const names = team.members.map(member => member.firstName + ' ' + member.lastName);
-    const namesString =
-      names.length > 1
-        ? names.slice(0, -1).join(', ') + ' y ' + names[names.length - 1]
-        : names[0];
-    const teamName = team.teamName;
-    const videogameName = team.videogame?.name || 'N/A';
-
-    const replacements: Record<string, string> = {
-      teamName,
-      gameName: videogameName,
-      studentList: namesString,
+    return {
+      id: team.id,
+      teamName: team.teamName,
+      teamCode: team.teamCode,
+      gameName: team.videogame.name,
+      memberNames: team.members.map((m) => `${m.firstName} ${m.lastName}`),
+      memberEmails: team.members.map((m) => m.email),
+      fairName: fairNameOf(edition),
+      eventDate: await this.eventDateOf(edition),
     };
+  }
 
-    const certificateHtml = template.replace(/{{\s*([\w.]+)\s*}}/g, (_, key) => {
-      return replacements[key] ?? '';
-    });
+  async generateTeamCertificatePdf(
+    team: CertifiableTeam,
+    place: number,
+  ): Promise<Buffer> {
+    const template = await this.readTemplate(
+      TEMPLATE_BY_PLACE[place] ?? PARTICIPATION_TEMPLATE,
+    );
+    return this.convertHtmlToPdf(
+      fillCertificateTemplate(template, {
+        teamName: team.teamName,
+        gameName: team.gameName,
+        studentList: joinStudentNames(team.memberNames),
+        fairName: team.fairName,
+        eventDate: team.eventDate,
+        placeAndDate: placeWithDate(team.eventDate),
+      }),
+    );
+  }
 
-    return certificateHtml;
+  /** Descarga individual para el administrador: las mismas reglas que el envío por correo. */
+  async downloadTeamCertificate(
+    teamId: number,
+    type: CertEmailType,
+  ): Promise<CertificateDownload> {
+    const team = await this.findCertifiableTeam({ id: teamId });
+    const pdf = await this.generateTeamCertificatePdf(
+      team,
+      CERT_EMAIL_CONFIG[type].certIndex,
+    );
+    return {
+      pdf,
+      fileName: `certificado-${CERTIFICATE_FILE_LABEL[type]}-${team.teamCode ?? team.teamName}.pdf`,
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -81,43 +180,88 @@ export class CertificatesService {
   // ─────────────────────────────────────────────
 
   async generateJurorCertificateHtml(userId: string): Promise<Buffer> {
-    const templatePath = path.join(__dirname, '.', 'assets', 'certificate-juror.html');
-    const template = await fs.readFile(templatePath, 'utf8');
-
-    const certificateHtml = await this.adjustJurorCertificateParameters(template, userId);
-    const pdfBuffer = await this.convertHtmlToPdf(certificateHtml);
-
-    return pdfBuffer;
-  }
-
-  private async adjustJurorCertificateParameters(template: string, userId: string): Promise<string> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new BadRequestException('Juror (user) not found');
     }
 
+    const edition = await requireActiveEdition(this.prisma);
+    const eventDate = await this.eventDateOf(edition);
+    const template = await this.readTemplate('certificate-juror.html');
+    return this.convertHtmlToPdf(
+      fillCertificateTemplate(template, {
+        jurorName: `${user.firstName} ${user.lastName}`,
+        jurorTitle: '', // No hay campo título en User
+        fairName: fairNameOf(edition),
+        placeAndDate: placeWithDate(eventDate),
+      }),
+    );
+  }
+
+  /** Descarga individual para el administrador: solo jurados de la edición activa. */
+  async downloadJurorCertificate(userId: string): Promise<CertificateDownload> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User (juror) with id ${userId} not found`);
+    }
     const jurorName = `${user.firstName} ${user.lastName}`;
-
-    const replacements: Record<string, string> = {
-      jurorName,
-      jurorTitle: '', // No hay campo título en User; puedes quitarlo del HTML si no lo necesitas
+    const edition = await requireActiveEdition(this.prisma);
+    await assertJurorOfEdition(this.prisma, edition, userId, jurorName);
+    return {
+      pdf: await this.generateJurorCertificateHtml(userId),
+      fileName: `certificado-jurado-${jurorName}.pdf`,
     };
+  }
 
-    const certificateHtml = template.replace(/{{\s*([\w.]+)\s*}}/g, (_, key) => {
-      return replacements[key] ?? '';
-    });
+  // ─────────────────────────────────────────────
+  // EXTERNAL PRESENTER CERTIFICATE (HU-33)
+  // ─────────────────────────────────────────────
 
-    return certificateHtml;
+  async generateExternalPresenterCertificatePdf(
+    data: ExternalPresenterCertificateData,
+  ): Promise<Buffer> {
+    const template = await this.readTemplate(EXTERNAL_PRESENTER_TEMPLATE);
+    return this.convertHtmlToPdf(renderExternalPresenterCertificate(template, data));
   }
 
   // ─────────────────────────────────────────────
   // SHARED
   // ─────────────────────────────────────────────
 
-  async convertHtmlToPdf(htmlContent: string): Promise<Buffer> {
+  private async eventDateOf(edition: ActiveEdition): Promise<string> {
+    return fairDateNumeric(await eventDayOf(this.prisma, edition));
+  }
+
+  private readTemplate(name: string): Promise<string> {
+    return fs.readFile(path.join(__dirname, '.', 'assets', name), 'utf8');
+  }
+
+  /** ARK-170 (TA-19): un lote no puede saturar Gotenberg, venga de donde venga. */
+  convertHtmlToPdf(htmlContent: string): Promise<Buffer> {
+    return this.pdfLimiter.run(() => this.requestPdfWithRetry(htmlContent));
+  }
+
+  private async requestPdfWithRetry(htmlContent: string): Promise<Buffer> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.requestPdf(htmlContent);
+      } catch (error) {
+        if (!(error instanceof RetryablePdfError)) throw error;
+        if (attempt >= PDF_MAX_ATTEMPTS) {
+          throw new InternalServerErrorException(
+            `Gotenberg PDF generation failed: ${error.message}`,
+          );
+        }
+        await this.wait(PDF_RETRY_BASE_MS * attempt);
+      }
+    }
+  }
+
+  private wait(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async requestPdf(htmlContent: string): Promise<Buffer> {
     const gotenbergUrl = this.configService.get<string>('GOTENBERG_URL');
 
     if (!gotenbergUrl) {
@@ -130,29 +274,33 @@ export class CertificatesService {
       new Blob([htmlContent], { type: 'text/html' }),
       'index.html',
     );
-    formData.append('waitDelay', '4s');
+    // Gotenberg espera a que la red quede inactiva (imágenes y fuentes). Una espera fija adicional
+    // de 4 s no cambiaba el PDF y triplicaba el tiempo de cada uno.
     formData.append('skipNetworkIdleEvent', 'false');
 
     let response: Response;
     try {
-      response = await fetch(
-        `${gotenbergUrl}/forms/chromium/convert/html`,
-        { method: 'POST', body: formData },
-      );
+      response = await fetch(`${gotenbergUrl}/forms/chromium/convert/html`, {
+        method: 'POST',
+        body: formData,
+        signal: AbortSignal.timeout(PDF_ATTEMPT_TIMEOUT_MS),
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new InternalServerErrorException(
-        `Gotenberg PDF generation failed: ${message}`
+      throw new RetryablePdfError(
+        error instanceof Error ? error.message : String(error),
       );
     }
 
     if (!response.ok) {
+      const detail = `${response.status} ${response.statusText}`;
+      if (RETRYABLE_GOTENBERG_STATUS.has(response.status)) {
+        throw new RetryablePdfError(detail);
+      }
       throw new InternalServerErrorException(
-        `Gotenberg PDF generation failed: ${response.status} ${response.statusText}`
+        `Gotenberg PDF generation failed: ${detail}`,
       );
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    return Buffer.from(await response.arrayBuffer());
   }
 }

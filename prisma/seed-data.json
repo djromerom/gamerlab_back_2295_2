@@ -112,6 +112,14 @@
         "createdAt": "2026-11-01T06:00:00.000Z",
         "updatedAt": "2026-11-01T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 6,
+        "name": "Presentador externo",
+        "description": "Asiste a la feria sin ser calificado; solo recibe el certificado de asistencia",
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -620,6 +628,86 @@
         "description": "Permite ver qué jurados de la edición activa llegaron y cuáles faltan (solo lectura)",
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 67,
+        "name": "MANAGE_ABSENT_JUROR_RESPONSES",
+        "description": "Permite registrar y consultar las respuestas sobre los jurados que no llegaron",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 72,
+        "name": "MANAGE_OWN_PUSH_SUBSCRIPTION",
+        "description": "Permite activar y desactivar las notificaciones push en los dispositivos propios",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 64,
+        "name": "VIEW_ABSENCE_ALERT",
+        "description": "Permite ver la alerta de inasistencia y el panel de asistencia de los jurados (solo lectura)",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 65,
+        "name": "MANAGE_FAIR_SCHEDULE",
+        "description": "Permite configurar el cronograma de la feria de una edición",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 73,
+        "name": "SEND_PUSH_NOTICE",
+        "description": "Permite enviar avisos push a los jurados de la edición activa",
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 74,
+        "name": "MANAGE_JUROR_PRESENCE",
+        "description": "Permite ver la presencia de los jurados durante la feria y cambiar sus parámetros",
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 76,
+        "name": "ANSWER_JUROR_SURVEY",
+        "description": "Permite al jurado responder la encuesta de experiencia de la edición",
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 77,
+        "name": "VIEW_JUROR_SURVEY_RESULTS",
+        "description": "Permite ver y exportar los resultados de la encuesta de experiencia de los jurados",
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 78,
+        "name": "MANAGE_EXTERNAL_PRESENTERS",
+        "description": "Permite registrar, editar, quitar, exportar y certificar a los presentadores externos de la edición",
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 79,
+        "name": "VIEW_OWN_EXTERNAL_PRESENTER_PROFILE",
+        "description": "Permite al presentador externo ver su propio registro en la edición",
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
         "isActive": true
       }
     ]
@@ -1266,6 +1354,116 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 67,
+        "name": "ManageAbsentJurorResponses",
+        "description": "Registrar y consultar las respuestas sobre los jurados ausentes de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 72,
+        "name": "ManageOwnPushSubscription",
+        "description": "Suscribir y desuscribir los dispositivos propios a las notificaciones push",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 65,
+        "name": "ViewAbsenceAlert",
+        "description": "Ver la alerta de inasistencia y el panel de asistencia de los jurados de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 66,
+        "name": "ManageFairSchedule",
+        "description": "Consultar y configurar el cronograma de la feria de una edición",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 73,
+        "name": "SendPushNotice",
+        "description": "Enviar un aviso push a los jurados de la edición activa",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 74,
+        "name": "ManageJurorPresence",
+        "description": "Ver los indicadores de presencia de los jurados de la edición activa y sus parámetros",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 75,
+        "name": "ConfirmJurorPresence",
+        "description": "El jurado consulta cuándo debe confirmar su presencia y responde \"Sigo aquí\"",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 76,
+        "name": "AnswerJurorSurvey",
+        "description": "Consultar y responder la encuesta de experiencia del jurado (HU-17)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 77,
+        "name": "ViewJurorSurveyResults",
+        "description": "Resumen y exportación de la encuesta de experiencia de los jurados (HU-17)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 78,
+        "name": "ManageExternalPresenters",
+        "description": "Presentadores externos de la edición (HU-33): alta, lista, edición, retiro, Excel y certificado",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": 79,
+        "name": "ViewOwnExternalPresenterProfile",
+        "description": "El presentador externo consulta su registro en la edición (HU-33)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1726,12 +1924,96 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 67,
+        "permissionId": 67,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 72,
+        "permissionId": 72,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 65,
+        "permissionId": 64,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 66,
+        "permissionId": 65,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 73,
+        "permissionId": 73,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 74,
+        "permissionId": 74,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 75,
+        "permissionId": 14,
+        "createdAt": "2026-11-07T06:00:00.000Z",
+        "updatedAt": "2026-11-07T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 76,
+        "permissionId": 76,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 77,
+        "permissionId": 77,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 78,
+        "permissionId": 78,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 79,
+        "permissionId": 79,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
   {
     "table": "rol_permiso",
     "data": [
+      {
+        "roleId": 3,
+        "permissionId": 51,
+        "createdAt": "2026-11-06T00:00:00.000Z",
+        "updatedAt": "2026-11-06T00:00:00.000Z",
+        "isActive": true
+      },
       {
         "roleId": 2,
         "permissionId": 3,
@@ -1962,6 +2244,55 @@
         "createdAt": "2026-11-05T06:00:00.000Z",
         "updatedAt": "2026-11-05T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 64,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 72,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 72,
+        "createdAt": "2026-11-06T06:00:00.000Z",
+        "updatedAt": "2026-11-06T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 76,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 3,
+        "permissionId": 76,
+        "createdAt": "2026-11-08T06:00:00.000Z",
+        "updatedAt": "2026-11-08T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 6,
+        "permissionId": 3,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 6,
+        "permissionId": 79,
+        "createdAt": "2026-11-08T07:00:00.000Z",
+        "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1979,6 +2310,7 @@
         "startsAt": "2024-03-01T00:00:00.000Z",
         "endsAt": "2024-03-31T23:59:59.000Z",
         "status": "ARCHIVED",
+        "legacyFinalScoreRule": true,
         "createdAt": "2025-01-01T00:00:00.000Z",
         "updatedAt": "2025-01-01T00:00:00.000Z"
       },
@@ -1993,6 +2325,7 @@
         "startsAt": "2024-04-01T00:00:00.000Z",
         "endsAt": "2024-04-30T23:59:59.000Z",
         "status": "INACTIVE",
+        "legacyFinalScoreRule": true,
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z"
       },
@@ -2018,8 +2351,8 @@
       {
         "id": 1,
         "editionId": 3,
-        "seniorPct": 40,
-        "juniorPct": 60,
+        "seniorPct": 60,
+        "juniorPct": 40,
         "createdAt": "2025-11-15T00:00:00.000Z",
         "updatedAt": "2025-11-15T00:00:00.000Z"
       }

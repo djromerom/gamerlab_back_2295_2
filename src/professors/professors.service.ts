@@ -1,3 +1,4 @@
+import { loadFinalScores } from '../evaluation/final-score';
 import { findUsersByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import { jurorEvaluationsOf } from '../evaluation/juror-evaluation';
 import {
@@ -529,6 +530,9 @@ export class ProfessorsService {
       offset,
       offset + limit,
     );
+    const feria = await loadFinalScores(this.prisma, {
+      videogameId: { in: pagedEvaluations.map((e) => e.videogameId) },
+    });
 
     const data = pagedEvaluations.map((ev) => {
       const videogame = ev.videogame;
@@ -555,7 +559,9 @@ export class ProfessorsService {
           .map((m) => `${m.firstName} ${m.lastName}`)
           .join(', '),
         videogame: videogame?.name ?? 'Sin videojuego',
-        calificacionFeria: ev.totalScore ?? null,
+        // HU-34: la nota de la feria es la de la vista; la que puso el profesor va aparte
+        calificacionFeria: feria.get(ev.videogameId)?.finalScore ?? null,
+        miEvaluacion: ev.totalScore ?? null,
         calificacionDocente: null, // No aplica evaluación docente para equipos externos al NRC
         videogameId: videogame?.id ?? null,
         isExternal: false,
@@ -1203,6 +1209,8 @@ export class ProfessorsService {
         where: whereUnique,
         update: {
           totalScore: score,
+          // BG-37: si la fila estaba inactiva, la nota se escribía pero no contaba ni se mostraba
+          isActive: true,
           ...(typeof isSenior === 'boolean' ? { isSenior } : {}),
         },
         create: {

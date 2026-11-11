@@ -28,6 +28,9 @@ import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-ema
 import { ActiveEdition, findActiveEdition } from '../editions/active-edition';
 import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { JUROR_ROLE_NAME } from '../juror-badges/juror-label';
+import { assertJurorOfEdition, eventDayOf } from '../certificates/certificate-eligibility';
+import { fairDateLong } from '../certificates/external-presenter-certificate';
+import { fairNameOf } from '../certificates/fair-name';
 
 @Injectable()
 export class EmailService {
@@ -98,11 +101,9 @@ export class EmailService {
     return info;
   }
 
-  /** Fecha del evento con el año de la edición activa, p. ej. "27 de noviembre de 2026". */
-  private async getEventDateWithYear(edition?: ActiveEdition): Promise<string> {
-    const { eventDate } = this.getEventInfo();
-    const { year } = edition ?? (await this.requireCertificateEdition());
-    return `${eventDate} de ${year}`;
+  /** ARK-170 (TA-19): "26 de noviembre de 2026", la fecha del evento de la edición activa. */
+  private async getCertificateEventDate(edition: ActiveEdition): Promise<string> {
+    return fairDateLong(await eventDayOf(this.prisma, edition));
   }
 
   /** La edición que se certifica: siempre la activa (sin ella no se sabe el año del evento). */
@@ -361,39 +362,17 @@ export class EmailService {
         throw new NotFoundException('The email address is not registered.');
       }
 
-      const team = user
-        ? await this.prisma.team.findFirst({
-          where: { user: { id: user.id } },
-          // ARK-128: el líder puede tener equipos en varias ediciones; se toma el más reciente
-          orderBy: { editionId: 'desc' },
-          select: { id: true },
-        })
-        : null;
-
-      if (!team) {
-        this.logger.error(
-          `User with email ${email} is not connected to any team.`,
-        );
-        throw new NotFoundException('The user is not connected to any team.');
-      }
-
-      const emails = await this.prisma.member
-        .findMany({
-          where: { teamId: team.id },
-          select: { email: true },
-        })
-        .then((members) => members.map((member) => member.email));
-
-      const teamId = team.id;
-
       const certConfig = CERT_EMAIL_CONFIG[typeOfEmail];
       if (!certConfig) {
         this.logger.error(`Invalid certificate email type specified: ${typeOfEmail}`);
         throw new BadRequestException('Invalid certificate email type specified.');
       }
 
+      // ARK-170 (TA-19): solo el equipo del líder en la edición activa, activo y confirmado.
+      const team = await this.certificatesService.findCertifiableTeam({ userId: user.id });
+
       const { template: templateName, subject, certIndex } = certConfig;
-      const pdfBuffer = await this.certificatesService.generateCertificateHtml(teamId, certIndex);
+      const pdfBuffer = await this.certificatesService.generateTeamCertificatePdf(team, certIndex);
 
       const attachments = [{
         name: `${typeOfEmail}.pdf`,
@@ -402,7 +381,7 @@ export class EmailService {
       }];
 
       let templateParams: Record<string, unknown> = {
-        email: emails.join(', '),
+        email: team.memberEmails.join(', '),
       };
 
       await this.sendEmail(
@@ -451,7 +430,7 @@ export class EmailService {
     }
 
     // Falla antes de generar PDFs si falta la configuración del evento.
-    const eventDateWithYear = await this.getEventDateWithYear(edition);
+    const eventDateWithYear = await this.getCertificateEventDate(edition);
 
     this.logger.log(`Found ${jurors.length} active jurors. Sending certificates...`);
 
@@ -473,9 +452,9 @@ export class EmailService {
 
         await this.sendEmail(
           juror.email,
-          'Tu certificado de participación — V Feria Gamer',
+          `Tu certificado de participación — ${fairNameOf(edition)}`,
           'juror_certificate',
-          { jurorName, eventDateWithYear },
+          { jurorName, eventDateWithYear, fairName: fairNameOf(edition) },
           attachments,
         );
 
@@ -521,19 +500,10 @@ export class EmailService {
 
       const jurorName = `${user.firstName} ${user.lastName}`;
       const edition = await this.requireCertificateEdition();
-      const eventDateWithYear = await this.getEventDateWithYear(edition);
+      const eventDateWithYear = await this.getCertificateEventDate(edition);
 
-      // ARK-135 (BG-22): solo se certifica a quien participa en la edición activa (HU-25:
-      // jurado confirmado en Jurados de la edición o profesor con un NRC activo en ella).
-      const participates = await this.prisma.user.findFirst({
-        where: jurorsOfEdition(edition.id, [userId]),
-        select: { id: true },
-      });
-      if (!participates) {
-        throw new BadRequestException(
-          `${jurorName} no participa en «${edition.title}»: solo se certifica a los jurados de la edición activa.`,
-        );
-      }
+      // ARK-135 (BG-22): jurado confirmado en Jurados de la edición o profesor con un NRC activo.
+      await assertJurorOfEdition(this.prisma, edition, userId, jurorName);
 
       // 2. Generar el PDF
       const pdfBuffer = await this.certificatesService.generateJurorCertificateHtml(userId);
@@ -547,9 +517,9 @@ export class EmailService {
       // 3. Enviar el email con el PDF adjunto
       await this.sendEmail(
         user.email,
-        'Tu certificado de participación — V Feria Gamer',
+        `Tu certificado de participación — ${fairNameOf(edition)}`,
         'juror_certificate',   // → src/email/templates/juror_certificate.hbs
-        { jurorName, eventDateWithYear },
+        { jurorName, eventDateWithYear, fairName: fairNameOf(edition) },
         attachments,
       );
 

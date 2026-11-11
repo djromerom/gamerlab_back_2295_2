@@ -119,7 +119,7 @@ describe('ranking.logic (HU-04)', () => {
         row(2, 'N1-A-2', 4.8),
         row(3, 'N1-A-3', 4.9, { editionId: 99 }),
         row(4, 'SIN-NIVEL', 5),
-        row(5, 'N1-A-5', null),
+        row(5, 'N1-A-5', null, { juniorEvaluations: 0, seniorEvaluations: 1 }),
       ],
       {
         1: info(1),
@@ -132,8 +132,59 @@ describe('ranking.logic (HU-04)', () => {
     expect(levels).toHaveLength(1);
     expect(levels[0].teams.map((t) => t.teamId)).toEqual([1]);
     expect(levels[0].withoutScore).toEqual([
-      { teamId: 5, teamCode: 'N1-A-5', teamName: 'Equipo 5' },
+      {
+        teamId: 5,
+        teamCode: 'N1-A-5',
+        teamName: 'Equipo 5',
+        missing: ['JUROR'],
+      },
     ]);
+  });
+
+  it('la lista de incompletos dice qué parte le falta a cada equipo según lo que cuenta en su nota', () => {
+    const empty = { juniorEvaluations: 0, seniorEvaluations: 0 };
+    const [n0, n1] = build(
+      [
+        row(1, 'N0-C-1', null, empty),
+        row(2, 'N0-C-2', null, { ...empty, isExternal: true }),
+        row(3, 'N1-A-3', null, empty),
+        row(4, 'N1-A-4', null, { juniorEvaluations: 2, seniorEvaluations: 0 }),
+        row(5, 'N1-A-5', null, { ...empty, isExternal: true }),
+      ],
+      { 1: info(1), 2: info(2), 3: info(3), 4: info(4), 5: info(5) },
+    );
+    const missingOf = (level: typeof n0) =>
+      level.withoutScore.map((t) => [t.teamId, t.missing]);
+
+    expect(missingOf(n0)).toEqual([
+      [1, ['PROFESSOR']],
+      [2, ['PROFESSOR']],
+    ]);
+    expect(missingOf(n1)).toEqual([
+      [3, ['PROFESSOR', 'JUROR']],
+      [4, ['PROFESSOR']],
+      [5, ['JUROR']],
+    ]);
+  });
+
+  it('a un colegio (N0) no se le marcan evaluaciones de jurado faltantes', () => {
+    const [level] = build(
+      [
+        row(1, 'N0-C-1', 4.5, { juniorEvaluations: 0, juniorCounted: 0 }),
+        row(2, 'N0-C-2', 4, {
+          juniorEvaluations: 0,
+          juniorCounted: 0,
+          isExternal: true,
+        }),
+      ],
+      { 1: info(1), 2: info(2) },
+    );
+    for (const team of level.teams) {
+      expect(team).toMatchObject({
+        lessThanMinEvaluations: false,
+        missingProfessorScore: false,
+      });
+    }
   });
 
   it('teamsWithoutLevel devuelve los equipos activos de la edición cuyo código no indica nivel', () => {

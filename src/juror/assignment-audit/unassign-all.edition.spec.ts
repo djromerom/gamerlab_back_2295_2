@@ -36,7 +36,12 @@ describe('JurorAssignmentService: quitar todas solo en la edición activa (ARK-1
     prisma.$transaction.mockImplementation(async (cb: any) => cb(tx));
     tx.team.update.mockResolvedValue({});
     audit.create.mockResolvedValue({ id: 1 });
-    service = new JurorAssignmentService(prisma as any, audit as any, {} as any);
+    service = new JurorAssignmentService(
+      prisma as any,
+      audit as any,
+      {} as any,
+      { notifyAssignmentChanged: jest.fn() } as any,
+    );
     (service as any).professorRoleId = 3;
     (service as any).jurorRoleId = 4;
   });

@@ -23,14 +23,14 @@ export interface ITeamRepository {
   isActiveMember(teamId: number, email: string): Promise<boolean>;
   
   // Overloaded update methods to support both signatures  
-  update(id: number, data: UpdateTeamDto, isAdmin: boolean): Promise<{
+  update(id: number, data: UpdateTeamDto, markPending: boolean): Promise<{
     updatedTeam: Team | null;
     updatedMembers: UpdateMemberDto[] | null;
     updatedVideogame: Videogame | null;
   }>;
-  update(id: number, data: any, isAdmin: boolean): Promise<Team>;
+  update(id: number, data: any, markPending: boolean): Promise<Team>;
   
-  updateTeamInfo(teamId: number, updateTeamDto: UpdateTeamDto, isAdmin: boolean): Promise<any>;
+  updateTeamInfo(teamId: number, updateTeamDto: UpdateTeamDto, markPending: boolean, actorUserId?: string): Promise<any>;
   updateMemberEmail(memberId: number, newEmail: string, teamId: number): Promise<Member>;
   
   remove(id: number): Promise<Team>;

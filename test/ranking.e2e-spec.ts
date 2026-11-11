@@ -121,6 +121,9 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
         startsAt: new Date(Date.UTC(2099, 0, 1)),
         endsAt: new Date(Date.UTC(2099, 0, 31)),
         status: EditionStatus.INACTIVE,
+        // Regla anterior a HU-34 (nota parcial): prueba también que una edición congelada no cambia.
+        // La regla 60/40 está en src/evaluation/final-score.db.spec.ts.
+        legacyFinalScoreRule: true,
       },
     });
     editionId = edition.id;
