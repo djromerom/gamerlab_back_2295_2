@@ -287,6 +287,38 @@ describe('JurorBadgesService', () => {
       expect(html).toContain('&lt;b&gt;Ana');
       expect(html).not.toContain('<b>Ana');
     });
+
+    it('imprime «Jurado» sin junior ni senior, también para profesores (HU-35)', async () => {
+      prisma.jurorBadge.findMany.mockResolvedValue([
+        {
+          jurorId: 'u1',
+          token: 't1',
+          juror: juror('u1', { jurorCategory: 'JUNIOR' }),
+        },
+        {
+          jurorId: 'u2',
+          token: 't2',
+          juror: juror('u2', { jurorCategory: 'SENIOR' }),
+        },
+        {
+          jurorId: 'p1',
+          token: 't3',
+          juror: juror('p1', {
+            jurorCategory: null,
+            role: { name: 'Profesor' },
+          }),
+        },
+      ]);
+      certificates.convertHtmlToPdf.mockResolvedValue(Buffer.from('pdf'));
+
+      await service.generatePdf();
+
+      const html = callArg<string>(certificates.convertHtmlToPdf);
+      expect(html.match(/<div class="category">Jurado<\/div>/g)).toHaveLength(
+        3,
+      );
+      expect(html).not.toMatch(/junior|senior|sin categor/i);
+    });
   });
 });
 

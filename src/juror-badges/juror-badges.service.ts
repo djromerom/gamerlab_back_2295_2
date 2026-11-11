@@ -190,7 +190,6 @@ export class JurorBadgesService {
     const cards = await Promise.all(
       badges.map(async (b) => ({
         name: jurorFullName(b.juror),
-        category: jurorCategoryLabel(b.juror),
         qrDataUri: await toDataURL(b.token, {
           errorCorrectionLevel: 'M',
           margin: 1,

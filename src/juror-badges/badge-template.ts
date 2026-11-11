@@ -1,6 +1,11 @@
+/**
+ * HU-35 (ARK-172): la escarapela la lleva puesta el jurado, así que no muestra junior ni senior.
+ * La categoría sigue en la lista del administrador y en el check-in.
+ */
+export const BADGE_ROLE_LABEL = 'Jurado';
+
 export interface BadgeCard {
   name: string;
-  category: string;
   qrDataUri: string;
 }
 
@@ -14,7 +19,7 @@ const escapeHtml = (value: string): string =>
 
 /**
  * HTML imprimible (A4, 2 columnas x 4 filas) con una escarapela por jurado.
- * El QR contiene solo el token opaco; el nombre y la categoría son texto visible.
+ * El QR contiene solo el token opaco; el nombre y «Jurado» son texto visible.
  */
 export function buildBadgesHtml(
   cards: BadgeCard[],
@@ -26,7 +31,7 @@ export function buildBadgesHtml(
       <div class="badge">
         <div class="edition">${escapeHtml(editionTitle)}</div>
         <div class="name">${escapeHtml(card.name)}</div>
-        <div class="category">${escapeHtml(card.category)}</div>
+        <div class="category">${BADGE_ROLE_LABEL}</div>
         <img class="qr" src="${card.qrDataUri}" alt="QR" />
       </div>`,
     )
