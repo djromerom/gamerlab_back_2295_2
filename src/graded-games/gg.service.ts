@@ -7,6 +7,7 @@ import { BlobReferenceService } from '../upload/blob-reference.service';
 import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { jurorEvaluationsOf } from '../evaluation/juror-evaluation';
+import { GRADABLE_TEAM } from '../teams/team-status';
 
 /**
  * ARK-132 (BG-19): el jurado solo ve lo que calificó en la edición activa (por el equipo del
@@ -16,7 +17,8 @@ import { jurorEvaluationsOf } from '../evaluation/juror-evaluation';
 function gradedInActiveEdition(jurorId: string): Prisma.EvaluationWhereInput {
   return {
     ...jurorEvaluationsOf(jurorId),
-    videogame: { team: { edition: ACTIVE_EDITION_WHERE } },
+    // HU-39 (ARK-209): lo que calificó de un equipo luego marcado no calificable deja de verse
+    videogame: { team: { edition: ACTIVE_EDITION_WHERE, ...GRADABLE_TEAM } },
   };
 }
 

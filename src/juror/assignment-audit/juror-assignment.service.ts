@@ -34,8 +34,11 @@ import {
 import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
 import { resolveListEdition } from '../../editions/list-edition';
 import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
-import { CONFIRMED_TEAM } from '../../teams/team-status';
-import { findTeamNotConfirmedBlocker } from '../assignment-validation/assignment-rules';
+import { ASSIGNABLE_TEAM } from '../../teams/team-status';
+import {
+  findTeamNotConfirmedBlocker,
+  findTeamNotGradableBlocker,
+} from '../assignment-validation/assignment-rules';
 
 type EvaluatorForValidation = {
   id: string;
@@ -255,11 +258,16 @@ export class JurorAssignmentService implements OnModuleInit {
     };
   }
 
-  /** BG-35 (ARK-158): asignar y reasignar exigen equipo confirmado; quitar no. */
+  /**
+   * BG-35 (ARK-158): asignar y reasignar exigen equipo confirmado; quitar no.
+   * HU-39 (ARK-209): ni a un equipo no calificable (presentador externo).
+   */
   private assertTeamConfirmed(
-    team: Parameters<typeof findTeamNotConfirmedBlocker>[0],
+    team: Parameters<typeof findTeamNotConfirmedBlocker>[0] &
+      Parameters<typeof findTeamNotGradableBlocker>[0],
   ) {
-    const blocker = findTeamNotConfirmedBlocker(team);
+    const blocker =
+      findTeamNotConfirmedBlocker(team) ?? findTeamNotGradableBlocker(team);
     if (blocker) {
       this.assignmentValidation.enforce({ blockers: [blocker], warnings: [] });
     }
@@ -970,7 +978,8 @@ export class JurorAssignmentService implements OnModuleInit {
               }
             : {}),
           // BG-35 (ARK-158): solo equipos confirmados en la pantalla de asignación.
-          ...CONFIRMED_TEAM,
+          // HU-39 (ARK-209): tampoco los no calificables (presentadores externos).
+          ...ASSIGNABLE_TEAM,
         },
         include: {
           videogame: {

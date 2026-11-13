@@ -10,7 +10,7 @@ import { countProgress } from '../evaluation/evaluation-progress';
 import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evaluation/final-score';
 import { EditionStatus } from '@prisma/client';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
-import { CONFIRMED_TEAM, CONFIRMED_VIDEOGAME } from '../teams/team-status';
+import { ASSIGNABLE_TEAM, CONFIRMED_VIDEOGAME, GRADABLE_TEAM } from '../teams/team-status';
 import {
   JUROR_EDITION_STATUS_LABEL,
   JurorAssignmentRow,
@@ -76,7 +76,8 @@ export class ReportsService {
       !(await this.settingsService.isRankingVisible());
     const videojuegos = await this.prisma.videogame.findMany({
       // ARK-135: solo los juegos de la edición del reporte
-      where: { isActive: true, team: { editionId: reportEditionId } },
+      // HU-39 (ARK-209): sin los no calificables (sin fila en la vista caerían al promedio crudo)
+      where: { isActive: true, team: { editionId: reportEditionId, ...GRADABLE_TEAM } },
       include: {
         team: {
           include: {
@@ -368,7 +369,8 @@ async getNrcWithSubjectNameAndAverage(
 
   // 2. Obtener videojuegos y sus evaluaciones para calcular promedios por NRC
   const videojuegosConInfo = await this.prisma.videogame.findMany({
-    where: { isActive: true, team: { editionId: reportEditionId } },
+    // HU-39 (ARK-209): sin los no calificables
+    where: { isActive: true, team: { editionId: reportEditionId, ...GRADABLE_TEAM } },
     include: {
       team: {
         include: {
@@ -483,7 +485,7 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
         select: { type: true },
       },
       teamsToEvaluate: {
-        where: { editionId: edition.id, isActive: true, ...CONFIRMED_TEAM },
+        where: { editionId: edition.id, isActive: true, ...ASSIGNABLE_TEAM },
         select: { teamCode: true, videogame: { select: { id: true, name: true } } },
       },
       evaluationsSubmitted: {
@@ -560,6 +562,7 @@ async getJuradosData(editionId?: number): Promise<
         where: {
           isActive: true, // Solo equipos activos
           editionId: reportEditionId,
+          ...GRADABLE_TEAM, // HU-39 (ARK-209)
           videogame: { // Asegurarse que el equipo tenga un videojuego asociado, activo y confirmado
             isActive: true,
             ...CONFIRMED_VIDEOGAME,
@@ -697,6 +700,7 @@ async getJuradosData(editionId?: number): Promise<
         team: {
           // ARK-135: el Excel es de una sola edición
           editionId: reportEditionId,
+          ...GRADABLE_TEAM, // HU-39 (ARK-209): el Excel de notas no incluye presentadores externos
           members: {
             some: {
               nrcs: {

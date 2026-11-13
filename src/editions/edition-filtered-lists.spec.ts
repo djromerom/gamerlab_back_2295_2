@@ -120,7 +120,7 @@ describe('Panel del jurado: solo la edición activa', () => {
         isActive: true,
         // ARK-147: solo evaluaciones de jurado (con detalles), no la nota del NRC
         details: { some: {} },
-        videogame: { team: { edition: { status: 'ACTIVE' } } },
+        videogame: { team: { edition: { status: 'ACTIVE' }, notGradable: false } },
       });
     }
   });
@@ -158,7 +158,7 @@ describe('GET /professors/juror-evaluations', () => {
           jurorId: 'p1',
           isActive: true,
           details: { some: {} },
-          videogame: { team: { editionId: 5 } },
+          videogame: { team: { editionId: 5, notGradable: false } },
         },
       }),
     );
@@ -193,7 +193,7 @@ describe('GET /professors/juror-evaluations', () => {
           jurorId: 'p1',
           isActive: true,
           details: { some: {} },
-          videogame: { team: { editionId: 4 } },
+          videogame: { team: { editionId: 4, notGradable: false } },
         },
       }),
     );
@@ -210,7 +210,7 @@ describe('GET /professors/juror-evaluations', () => {
           jurorId: 'p1',
           isActive: true,
           details: { some: {} },
-          videogame: { team: { editionId: -1 } },
+          videogame: { team: { editionId: -1, notGradable: false } },
         },
       }),
     );

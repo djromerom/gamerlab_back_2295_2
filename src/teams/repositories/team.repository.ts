@@ -34,7 +34,7 @@ import {
   activeEditionTeamOf,
 } from '../active-edition-team';
 import { findActiveEdition } from '../../editions/active-edition';
-import { ReleasedJuror, releaseJurorsIfRejected } from '../team-status';
+import { GRADABLE_TEAM, ReleasedJuror, releaseJurorsIfRejected } from '../team-status';
 import {
   TeamLevelInfo,
   byLevelThenName,
@@ -751,6 +751,7 @@ export class TeamRepository implements ITeamRepository {
         where: {
           isActive: true,
           editionId,
+          ...GRADABLE_TEAM, // HU-39 (ARK-209)
           videogame: {
             videogameStatusId: confirmedStatus.id,
           },

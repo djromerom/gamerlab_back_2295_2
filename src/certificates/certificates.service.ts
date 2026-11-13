@@ -19,6 +19,10 @@ import {
   eventDayOf,
 } from './certificate-eligibility';
 import {
+  CERTIFICATE_TEAM_GRADABLE,
+  CERTIFICATE_TEAM_NOT_GRADABLE,
+} from '../teams/team-gradable';
+import {
   fairDateNumeric,
   fillCertificateTemplate,
   joinStudentNames,
@@ -88,9 +92,13 @@ export class CertificatesService {
   /**
    * ARK-170 (TA-19, BG-22, BG-40): solo se certifica un equipo activo de la edición activa con el
    * videojuego confirmado, y solo figuran sus integrantes activos.
+   * HU-39 (ARK-209): `kind` separa los dos certificados. El de participación y los de podio
+   * (`graded`) no se dan a un equipo no calificable; el de presentador externo (`presenter`) solo
+   * se da a uno no calificable.
    */
   async findCertifiableTeam(
     where: { id: number } | { userId: string },
+    kind: 'graded' | 'presenter' = 'graded',
   ): Promise<CertifiableTeam> {
     const edition = await requireActiveEdition(this.prisma);
     const team = await this.prisma.team.findFirst({
@@ -117,6 +125,20 @@ export class CertificatesService {
         statusCode: 400,
         code: CERTIFICATE_TEAM_NOT_CONFIRMED,
         message: `El equipo «${team.teamName}» no tiene la inscripción confirmada: no se le puede generar el certificado.`,
+      });
+    }
+    if (kind === 'graded' && team.notGradable) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: CERTIFICATE_TEAM_NOT_GRADABLE,
+        message: `El equipo «${team.teamName}» es un presentador externo: recibe el certificado de presentador externo, no el de participación.`,
+      });
+    }
+    if (kind === 'presenter' && !team.notGradable) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: CERTIFICATE_TEAM_GRADABLE,
+        message: `El equipo «${team.teamName}» no está marcado como presentador externo (no calificable).`,
       });
     }
     if (team.members.length === 0) {

@@ -31,7 +31,8 @@ export type IncompleteReason =
   | 'MISSING_JUNIOR_SCORE'
   | 'LESS_THAN_MIN_EVALUATIONS';
 
-export type StudentGradeStatus = 'NOT_RELEASED' | 'IN_PROCESS' | 'AVAILABLE';
+/** NOT_GRADABLE (HU-39, ARK-209): el equipo es un presentador externo y no tiene nota. */
+export type StudentGradeStatus = 'NOT_GRADABLE' | 'NOT_RELEASED' | 'IN_PROCESS' | 'AVAILABLE';
 
 /** Fila de `vw_team_final_scores` con los campos que usa esta regla. */
 export interface FinalScoreRow {
@@ -135,7 +136,9 @@ export function checkTeamGrade(
 export function studentGrade(
   released: boolean,
   row: FinalScoreRow | null | undefined,
+  notGradable = false,
 ): { status: StudentGradeStatus; finalGrade: number | null } {
+  if (notGradable) return { status: 'NOT_GRADABLE', finalGrade: null };
   if (!released) return { status: 'NOT_RELEASED', finalGrade: null };
   if (checkTeamGrade(row).inProcess || row?.finalScore == null) {
     return { status: 'IN_PROCESS', finalGrade: null };

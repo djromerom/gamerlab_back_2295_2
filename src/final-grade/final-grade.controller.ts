@@ -113,7 +113,7 @@ export class FinalGradeController {
   @ApiOperation({
     summary: 'Nota final del equipo del estudiante (sin desglose)',
     description:
-      '`status`: NOT_RELEASED (el administrador no la ha liberado), IN_PROCESS (falta la nota de los profesores o de los jurados: mostrar «Nota en proceso») o AVAILABLE (`finalGrade` con 2 decimales).',
+      '`status`: NOT_GRADABLE (HU-39: el equipo es un presentador externo y no se califica), NOT_RELEASED (el administrador no la ha liberado), IN_PROCESS (falta la nota de los profesores o de los jurados: mostrar «Nota en proceso») o AVAILABLE (`finalGrade` con 2 decimales).',
   })
   @ApiOkResponse({
     schema: {

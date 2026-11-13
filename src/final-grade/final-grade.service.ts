@@ -181,6 +181,7 @@ export class FinalGradeService {
         teamName: true,
         teamCode: true,
         editionId: true,
+        notGradable: true,
         edition: {
           select: { eventConfiguration: { select: { showFinalGrade: true } } },
         },
@@ -190,12 +191,12 @@ export class FinalGradeService {
       throw new NotFoundException('No tienes un equipo en la edición activa.');
     }
     const released = team.edition.eventConfiguration?.showFinalGrade === true;
-    const row = released
+    const row = released && !team.notGradable
       ? await this.prisma.teamFinalScore.findFirst({
           where: { teamId: team.id, editionId: team.editionId },
         })
       : null;
-    const grade = studentGrade(released, row);
+    const grade = studentGrade(released, row, team.notGradable);
     return {
       editionId: team.editionId,
       team: { id: team.id, teamName: team.teamName, teamCode: team.teamCode },

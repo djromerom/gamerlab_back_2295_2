@@ -22,8 +22,10 @@ import { findActiveEdition } from '../editions/active-edition';
 import {
   CONFIRMED_VIDEOGAME,
   CONFIRMED_VIDEOGAME_STATUS,
+  GRADABLE_TEAM,
 } from '../teams/team-status';
 import { MAX_SCORE, scoreError } from './score-rules';
+import { NOT_GRADABLE_MESSAGE } from '../teams/team-gradable';
 
 /** Quien califica: el usuario de la sesión. */
 type EvaluationActor = {
@@ -182,7 +184,11 @@ export class EvaluationService {
     editionId: number,
   ): Promise<{ completed: number; assigned: number }> {
     const videogames = await this.prisma.videogame.findMany({
-      where: { isActive: true, ...CONFIRMED_VIDEOGAME, team: { isActive: true, editionId } },
+      where: {
+        isActive: true,
+        ...CONFIRMED_VIDEOGAME,
+        team: { isActive: true, editionId, ...GRADABLE_TEAM }, // HU-39 (ARK-209)
+      },
       select: {
         team: { select: { assignedJurors: { where: { isActive: true }, select: { id: true } } } },
         evaluations: {
@@ -434,6 +440,7 @@ export class EvaluationService {
             teamCode: true,
             editionId: true,
             isActive: true,
+            notGradable: true,
             assignedJurors: { where: { id: actor.id }, select: { id: true } },
             members: {
               where: { isActive: true },
@@ -471,6 +478,12 @@ export class EvaluationService {
       // BG-35 (ARK-158): lo no confirmado no se califica
       if (videogame.videogameStatus.status !== CONFIRMED_VIDEOGAME_STATUS) {
         blockers.set(videogameId, 'La inscripción de este grupo no está confirmada');
+        continue;
+      }
+
+      // HU-39 (ARK-209): el presentador externo no se califica
+      if (team.notGradable) {
+        blockers.set(videogameId, NOT_GRADABLE_MESSAGE);
         continue;
       }
 

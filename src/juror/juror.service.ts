@@ -32,7 +32,7 @@ import { CreateJurorDto } from './dto/create-juror.dto';
 import { UpdateJurorDto } from './dto/update-juror.dto';
 import { JurorListItem } from './types/juror-list-item.type';
 import { PROFESSOR_MUST_BE_SENIOR_MESSAGE } from '../professors/professor-juror-profile';
-import { CONFIRMED_TEAM } from '../teams/team-status';
+import { ASSIGNABLE_TEAM, GRADABLE_TEAM } from '../teams/team-status';
 import { byLevelThenName, teamLevelInfo } from './assignment-validation/team-level';
 
 @Injectable()
@@ -166,7 +166,7 @@ export class JurorService {
           assignedJurors: {
             some: { id: jurorId },
           },
-          ...CONFIRMED_TEAM, // BG-35 (ARK-158)
+          ...ASSIGNABLE_TEAM, // BG-35 (ARK-158) y HU-39 (ARK-209)
         },
         select: {
           videogame: {
@@ -305,7 +305,7 @@ export class JurorService {
         where: {
           isActive: true,
           editionId: statsEditionId,
-          ...CONFIRMED_TEAM, // BG-35 (ARK-158)
+          ...ASSIGNABLE_TEAM, // BG-35 (ARK-158) y HU-39 (ARK-209)
         },
         select: {
           videogame: { select: { id: true, name: true } },
@@ -548,7 +548,7 @@ export class JurorService {
           isActive: true,
           editionId: listEditionId,
           assignedJurors: { some: evaluatorsOfEdition },
-          ...CONFIRMED_TEAM, // BG-35 (ARK-158)
+          ...ASSIGNABLE_TEAM, // BG-35 (ARK-158) y HU-39 (ARK-209)
         },
         include: {
           assignedJurors: {
@@ -640,6 +640,7 @@ export class JurorService {
         where: {
           isActive: true,
           editionId: listEditionId,
+          ...GRADABLE_TEAM, // HU-39 (ARK-209)
           videogame: {
             videogameStatusId: this.confirmedStatusId,
           },

@@ -147,7 +147,7 @@ describe('AutomaticAssignmentService (HU-07)', () => {
       );
       expect(prisma.team.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { editionId: 5, isActive: true },
+          where: { editionId: 5, isActive: true, notGradable: false },
         }),
       );
       expect(prisma.user.findMany).toHaveBeenCalledWith(
