@@ -61,7 +61,7 @@ Prioridad = cuánto frena a alguien nuevo × cuántos archivos toca.
 
 | Ruta | Por qué |
 |---|---|
-| `src/members/` completo (módulo, controlador, servicio y specs; 185 líneas) | `MembersModule` no se importa en `app.module.ts` ni en otro módulo: sus rutas no existen en la API (ya anotado en [endpoints](endpoints.md)) |
+| `src/members/members.module.ts`, `.controller.ts`, `.service.ts`, sus dos specs y `dto/create-member.dto.ts` | `MembersModule` no se importa en `app.module.ts` ni en otro módulo: sus rutas no existen en la API (ya anotado en [endpoints](endpoints.md)). **Ojo:** `members/dto/update-member.dto.ts` sí está vivo: lo usan `teams/dto/update-team.dto.ts`, `teams/interfaces/team-repository.interface.ts`, `teams/repositories/team.repository.ts` y una spec; se muda a `teams/dto/` antes de borrar el resto |
 | `src/pending-games/dto/create-videogame.dto.ts`, `update-videogame.dto.ts` | Nadie los importa; se usan los de `src/videogames/dto/` |
 | `src/students/dto/update-member.dto.ts` | Nadie lo importa; tiene el mismo nombre de clase que `members/dto/update-member.dto.ts` con otro contenido |
 | `src/templates/email/account-verification.html` | Sin referencias; las plantillas vivas son `src/email/templates/*.hbs` |
