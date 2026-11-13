@@ -724,8 +724,15 @@ export class JurorService {
         throw new NotFoundException('Jurado no encontrado o inactivo');
       }
 
-      if (juror.roleId !== this.jurorRoleId) {
-        throw new BadRequestException('El usuario no es un jurado');
+      // BG-44 (ARK-206): un profesor también es jurado (HU-25, HU-28, P-07), como en la
+      // asignación y en removeJurorFromTeam. Los demás roles siguen recibiendo 400.
+      if (
+        juror.roleId !== this.jurorRoleId &&
+        juror.roleId !== this.professorRoleId
+      ) {
+        throw new BadRequestException(
+          'El usuario no es un jurado ni un profesor',
+        );
       }
 
       const listEditionId = await this.listEditionId(editionId);

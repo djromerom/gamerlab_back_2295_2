@@ -864,18 +864,83 @@ describe('JurorService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('debe lanzar error si el usuario no es jurado', async () => {
+    // BG-44 (ARK-206): un profesor jurado ve sus equipos con el mismo formato
+    it('devuelve los equipos asignados a un profesor que es jurado', async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce({
         ...baseJuror,
         roleId: professorRoleId,
-        role: {
-          name: 'Profesor',
+        role: { name: 'Profesor' },
+      });
+      prismaMock.team.findMany.mockResolvedValueOnce([
+        {
+          id: 2,
+          teamName: 'Equipo POO',
+          teamCode: 'N2-POO-201',
+          videogame: { id: 5, name: 'Juego POO', description: 'Desc' },
+          user: {
+            id: 'leader-2',
+            firstName: 'Líder',
+            lastName: 'Dos',
+            email: 'lider2@uninorte.edu.co',
+          },
+          assignedJurors: [
+            {
+              id: baseJuror.id,
+              firstName: baseJuror.firstName,
+              lastName: baseJuror.lastName,
+              email: baseJuror.email,
+            },
+          ],
         },
+      ]);
+
+      const result = await service.getTeamsAssignedToJuror(baseJuror.id);
+
+      expect(result).toEqual([
+        {
+          id: 2,
+          nombre: 'Equipo POO',
+          teamCode: 'N2-POO-201',
+          nivel: 2,
+          nivelEtiqueta: 'Nivel 2',
+          videojuego: { id: 5, nombre: 'Juego POO', descripcion: 'Desc' },
+          lider: {
+            id: 'leader-2',
+            nombre: 'Líder Dos',
+            email: 'lider2@uninorte.edu.co',
+          },
+          juradosAsignados: [
+            { id: baseJuror.id, nombre: 'Jurado Prueba', email: baseJuror.email },
+          ],
+          cantidadJurados: 1,
+        },
+      ]);
+      expect(prismaMock.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            assignedJurors: { some: { id: baseJuror.id } },
+          }),
+        }),
+      );
+    });
+
+    it.each([
+      ['Estudiante', 2],
+      ['Administrador', 1],
+    ])('un %s sigue recibiendo 400', async (name, roleId) => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        ...baseJuror,
+        roleId,
+        role: { name },
       });
 
       await expect(
         service.getTeamsAssignedToJuror(baseJuror.id),
-      ).rejects.toThrow('El usuario no es un jurado');
+      ).rejects.toMatchObject({
+        status: 400,
+        message: 'El usuario no es un jurado ni un profesor',
+      });
+      expect(prismaMock.team.findMany).not.toHaveBeenCalled();
     });
   });
 
