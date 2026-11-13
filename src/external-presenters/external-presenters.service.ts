@@ -19,6 +19,7 @@ import {
 import { resolveListEdition } from '../editions/list-edition';
 import { resolveEdition } from '../juror-edition/edition-resolver';
 import { PrismaService } from '../prisma/prisma.service';
+import { PresenterTeamView, presenterTeamsOf } from './external-presenter-teams';
 import {
   CreateExternalPresenterDto,
   UpdateExternalPresenterDto,
@@ -233,16 +234,26 @@ export class ExternalPresentersService {
   async list(editionId?: number) {
     const edition = await resolveListEdition(this.prisma, editionId);
     if (!edition)
-      return { edition: null, presenters: [] as ExternalPresenterView[] };
-    const rows = await this.rowsOf(edition.id);
-    return { edition, presenters: rows.map(toPresenterView) };
+      return {
+        edition: null,
+        presenters: [] as ExternalPresenterView[],
+        teams: [] as PresenterTeamView[],
+      };
+    const [rows, teams] = await Promise.all([
+      this.rowsOf(edition.id),
+      presenterTeamsOf(this.prisma, edition.id),
+    ]);
+    return { edition, presenters: rows.map(toPresenterView), teams };
   }
 
   /** Para el Excel: la edición pedida o la activa (404 si no existe) con sus presentadores. */
   async exportData(editionId?: number) {
     const edition = await resolveEdition(this.prisma, editionId);
-    const rows = await this.rowsOf(edition.id);
-    return { edition, presenters: rows.map(toPresenterView) };
+    const [rows, teams] = await Promise.all([
+      this.rowsOf(edition.id),
+      presenterTeamsOf(this.prisma, edition.id),
+    ]);
+    return { edition, presenters: rows.map(toPresenterView), teams };
   }
 
   async rowsOf(editionId: number): Promise<PresenterRow[]> {

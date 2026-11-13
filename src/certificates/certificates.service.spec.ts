@@ -111,6 +111,29 @@ describe('CertificatesService (ARK-170)', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it('un equipo no calificable no recibe el de participación (HU-39)', async () => {
+      const { service, prisma } = build();
+      prisma.team.findFirst.mockResolvedValue(team({ notGradable: true }));
+      await expect(
+        service.findCertifiableTeam({ id: 10 }),
+      ).rejects.toMatchObject({
+        response: { code: 'CERTIFICATE_TEAM_NOT_GRADABLE' },
+      });
+    });
+
+    it('el de presentador externo es solo para equipos no calificables (HU-39)', async () => {
+      const { service, prisma } = build();
+      await expect(
+        service.findCertifiableTeam({ id: 10 }, 'presenter'),
+      ).rejects.toMatchObject({
+        response: { code: 'CERTIFICATE_TEAM_GRADABLE' },
+      });
+      prisma.team.findFirst.mockResolvedValue(team({ notGradable: true }));
+      await expect(
+        service.findCertifiableTeam({ id: 10 }, 'presenter'),
+      ).resolves.toMatchObject({ gameName: 'Juego', memberNames: ['Ana Ruiz'] });
+    });
+
     it('un equipo sin integrantes activos no se certifica', async () => {
       const { service, prisma } = build();
       prisma.team.findFirst.mockResolvedValue(team({ members: [] }));

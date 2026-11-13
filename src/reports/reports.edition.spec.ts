@@ -79,11 +79,12 @@ describe('Reportes por edición (ARK-135)', () => {
     await service.getVideogamesData(admin);
     expect(prisma.videogame.findMany.mock.calls[0][0].where).toEqual({
       isActive: true,
-      team: { editionId: active.id },
+      team: { editionId: active.id, notGradable: false },
     });
     await service.getVideogamesData(admin, previous.id);
     expect(prisma.videogame.findMany.mock.calls[1][0].where.team).toEqual({
       editionId: previous.id,
+      notGradable: false,
     });
   });
 
@@ -102,7 +103,7 @@ describe('Reportes por edición (ARK-135)', () => {
     });
     expect(prisma.videogame.findMany.mock.calls[0][0].where).toEqual({
       isActive: true,
-      team: { editionId: active.id },
+      team: { editionId: active.id, notGradable: false },
     });
   });
 

@@ -1051,7 +1051,7 @@ describe('EvaluationService - getEvaluationProgress', () => {
     expect(q.where).toEqual({
       isActive: true,
       videogameStatus: { status: 'CONFIRMADO' },
-      team: { isActive: true, editionId: 7 },
+      team: { isActive: true, editionId: 7, notGradable: false },
     });
     expect(q.select.team.select.assignedJurors.where).toEqual({ isActive: true });
     expect(q.select.evaluations.where).toEqual({

@@ -82,6 +82,7 @@ export type AssignmentBlockerCode =
   | 'DUPLICATE_ASSIGNMENT'
   | 'TEAM_NOT_IN_ACTIVE_EDITION'
   | 'TEAM_NOT_CONFIRMED'
+  | 'TEAM_NOT_GRADABLE'
   | 'EVALUATOR_NOT_IN_EDITION';
 
 export type AssignmentWarningCode =

@@ -752,6 +752,7 @@ describe('JurorService', () => {
         isActive: true,
         editionId: activeEdition.id,
         videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
+        notGradable: false, // HU-39 (ARK-209)
       });
     });
 

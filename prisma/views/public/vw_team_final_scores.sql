@@ -37,9 +37,9 @@ SELECT
     ROUND(sr.avg_score::numeric, 2)::double precision AS avg_senior,
     ROUND((
         CASE
+            WHEN ed.regla_nota_heredada = false AND t.codigo_equipo LIKE 'N0-%' THEN sr.avg_score
             WHEN t.externo = true THEN jr.avg_score
             WHEN ed.regla_nota_heredada = false
-                AND t.codigo_equipo NOT LIKE 'N0-%'
                 AND (jr.avg_score IS NULL OR sr.avg_score IS NULL) THEN NULL
             WHEN jr.avg_score IS NULL THEN sr.avg_score
             WHEN sr.avg_score IS NULL THEN jr.avg_score
@@ -65,4 +65,5 @@ CROSS JOIN LATERAL (
     SELECT
         COALESCE(w.junior_pct, CASE WHEN ed.regla_nota_heredada THEN 50 ELSE 40 END::double precision) AS junior_pct,
         COALESCE(w.senior_pct, CASE WHEN ed.regla_nota_heredada THEN 50 ELSE 60 END::double precision) AS senior_pct
-) pct;
+) pct
+WHERE t.no_calificable = false;

@@ -8,6 +8,7 @@ import {
   ProfessorPanelQueryDto,
 } from './dto/professor-panel-query.dto';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { GRADABLE_TEAM } from '../teams/team-status';
 
 export interface PanelEdition {
   id: number;
@@ -171,6 +172,7 @@ export class ProfessorPanelQueryService {
     const teams = await this.prisma.team.findMany({
       where: {
         isActive: true,
+        ...GRADABLE_TEAM, // HU-39 (ARK-209): el presentador externo no está en Calificaciones Uninorte
         members: {
           some: { isActive: true, nrcs: { some: { id: { in: nrcIds } } } },
         },

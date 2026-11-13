@@ -1,4 +1,4 @@
-import { CONFIRMED_VIDEOGAME_STATUS } from '../../teams/team-status';
+import { CONFIRMED_VIDEOGAME_STATUS, GRADABLE_TEAM } from '../../teams/team-status';
 import {
   BadRequestException,
   ConflictException,
@@ -285,7 +285,8 @@ export class AutomaticAssignmentService {
 
     const [teams, users] = await Promise.all([
       db.team.findMany({
-        where: { editionId: edition.id, isActive: true },
+        // HU-39 (ARK-209): el presentador externo (no calificable) no entra a la asignación
+        where: { editionId: edition.id, isActive: true, ...GRADABLE_TEAM },
         select: {
           id: true,
           teamCode: true,

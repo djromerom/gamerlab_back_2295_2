@@ -168,6 +168,7 @@ describe('ReportsService.getJurorAssignmentReport (HU-16)', () => {
       editionId: 3,
       isActive: true,
       videogame: { is: { videogameStatus: { status: 'CONFIRMADO' } } },
+      notGradable: false, // HU-39 (ARK-209)
     });
     expect(query.select.evaluationsSubmitted.where).toEqual({
       editionId: 3,

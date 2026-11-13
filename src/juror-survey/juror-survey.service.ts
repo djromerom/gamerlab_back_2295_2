@@ -8,7 +8,7 @@ import { findActiveEdition } from '../editions/active-edition';
 import { resolveEdition } from '../juror-edition/edition-resolver';
 import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
 import { PrismaService } from '../prisma/prisma.service';
-import { CONFIRMED_VIDEOGAME } from '../teams/team-status';
+import { CONFIRMED_VIDEOGAME, GRADABLE_TEAM } from '../teams/team-status';
 import { AnswerJurorSurveyDto } from './dto/answer-juror-survey.dto';
 import {
   FieldSummary,
@@ -64,7 +64,7 @@ export interface SurveySummary {
 const countedVideogames = (editionId: number): Prisma.VideogameWhereInput => ({
   isActive: true,
   ...CONFIRMED_VIDEOGAME,
-  team: { isActive: true, editionId },
+  team: { isActive: true, editionId, ...GRADABLE_TEAM },
 });
 
 /**
@@ -220,6 +220,7 @@ export class JurorSurveyService {
           team: {
             isActive: true,
             editionId,
+            ...GRADABLE_TEAM,
             assignedJurors: { some: { id: userId } },
           },
         },

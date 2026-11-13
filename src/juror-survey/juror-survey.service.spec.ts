@@ -81,6 +81,7 @@ describe('JurorSurveyService (HU-17)', () => {
           team: {
             isActive: true,
             editionId: 7,
+            notGradable: false,
             assignedJurors: { some: { id: USER } },
           },
         },

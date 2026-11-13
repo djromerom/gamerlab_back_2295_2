@@ -4,10 +4,12 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { TeamsService } from './services/teams.service';
 import { TeamsController } from './controllers/teams.controller';
+import { TeamGradableController } from './controllers/team-gradable.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { TeamRepository } from './repositories/team.repository';
 import { RecaptchaService } from './services/recaptcha.service'
+import { TeamGradableService } from './services/team-gradable.service';
 import { ConfigModule } from '@nestjs/config';
 import { SettingsModule } from '../settings/settings.module';
 import { UploadModule } from '../upload/upload.module';
@@ -25,11 +27,12 @@ import { PushNotificationsModule } from '../push-notifications/push-notification
     RankingModule,
     PushNotificationsModule,
   ],
-  controllers: [TeamsController],
+  controllers: [TeamsController, TeamGradableController],
   providers: [
     TeamsService,
     TeamRepository,
-    RecaptchaService
+    RecaptchaService,
+    TeamGradableService,
   ],
 })
 export class TeamsModule {}

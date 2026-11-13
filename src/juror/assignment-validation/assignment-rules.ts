@@ -155,6 +155,23 @@ export function findTeamNotConfirmedBlocker(team: {
 }
 
 /**
+ * HU-39 (ARK-209): el presentador externo (equipo no calificable) no recibe jurados. Quitar sí se
+ * puede (en la práctica ya no tiene: se le retiran al marcarlo).
+ */
+export function findTeamNotGradableBlocker(team: {
+  id: number;
+  teamCode: string;
+  notGradable: boolean;
+}): AssignmentBlocker | null {
+  if (!team.notGradable) return null;
+  return {
+    code: 'TEAM_NOT_GRADABLE',
+    message: `No se pueden asignar jurados al equipo ${team.teamCode}: es un presentador externo y no se califica.`,
+    teamId: team.id,
+  };
+}
+
+/**
  * ARK-131 (BG-18): solo se agrega a quien participa en la edición activa (HU-25,
  * `jurorsOfEdition`): jurado externo confirmado en la edición o profesor con un NRC activo
  * en ella. Quitar no lo exige: un jurado que dejó de participar se debe poder retirar.

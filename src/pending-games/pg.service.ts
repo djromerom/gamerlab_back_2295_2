@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client';
 import { BlobReferenceService } from '../upload/blob-reference.service';
 import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
-import { CONFIRMED_VIDEOGAME } from '../teams/team-status';
+import { CONFIRMED_VIDEOGAME, GRADABLE_TEAM } from '../teams/team-status';
 
 /**
  * ARK-132 (BG-19): el jurado solo ve juegos de equipos de la edición activa que le asignaron.
@@ -18,6 +18,7 @@ const ASSIGNED_IN_ACTIVE_EDITION = (jurorId: string): Prisma.VideogameWhereInput
   team: {
     edition: ACTIVE_EDITION_WHERE,
     assignedJurors: { some: { id: jurorId } },
+    ...GRADABLE_TEAM, // HU-39 (ARK-209): el presentador externo no se califica
   },
 });
 
