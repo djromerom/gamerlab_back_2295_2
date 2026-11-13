@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { EVENT_CONFIGURATION_NOT_FOUND } from '../settings/active-edition-config';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
+import { REJECTED_VIDEOGAME_STATUS } from '../teams/team-status';
 import {
   checkTeamGrade,
   FINAL_GRADE_RELEASE_TOO_EARLY,
@@ -19,6 +20,7 @@ import {
   IncompleteReason,
   resolveReleaseMoment,
   StudentGradeStatus,
+  UngradedReason,
   studentGrade,
 } from './final-grade.logic';
 
@@ -182,6 +184,7 @@ export class FinalGradeService {
         teamCode: true,
         editionId: true,
         notGradable: true,
+        videogame: { select: { videogameStatus: { select: { status: true } } } },
         edition: {
           select: { eventConfiguration: { select: { showFinalGrade: true } } },
         },
@@ -191,12 +194,17 @@ export class FinalGradeService {
       throw new NotFoundException('No tienes un equipo en la edición activa.');
     }
     const released = team.edition.eventConfiguration?.showFinalGrade === true;
-    const row = released && !team.notGradable
+    const ungraded: UngradedReason = team.notGradable
+      ? 'NOT_GRADABLE'
+      : team.videogame?.videogameStatus.status === REJECTED_VIDEOGAME_STATUS
+        ? 'REJECTED'
+        : null;
+    const row = released && !ungraded
       ? await this.prisma.teamFinalScore.findFirst({
           where: { teamId: team.id, editionId: team.editionId },
         })
       : null;
-    const grade = studentGrade(released, row, team.notGradable);
+    const grade = studentGrade(released, row, ungraded);
     return {
       editionId: team.editionId,
       team: { id: team.id, teamName: team.teamName, teamCode: team.teamCode },

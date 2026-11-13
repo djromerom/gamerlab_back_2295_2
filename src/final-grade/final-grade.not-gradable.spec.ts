@@ -14,8 +14,15 @@ describe('studentGrade con equipo no calificable', () => {
   };
 
   it.each([true, false])('responde NOT_GRADABLE (liberada: %s)', (released) => {
-    expect(studentGrade(released, row, true)).toEqual({
+    expect(studentGrade(released, row, 'NOT_GRADABLE')).toEqual({
       status: 'NOT_GRADABLE',
+      finalGrade: null,
+    });
+  });
+
+  it.each([true, false])('equipo rechazado: REJECTED (liberada: %s)', (released) => {
+    expect(studentGrade(released, row, 'REJECTED')).toEqual({
+      status: 'REJECTED',
       finalGrade: null,
     });
   });

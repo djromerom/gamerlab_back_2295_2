@@ -57,6 +57,7 @@ SELECT
     ed.regla_nota_heredada AS legacy_final_score_rule
 FROM equipos t
 JOIN videojuegos v ON v.id_equipo = t.id_equipo
+JOIN estado_videojuego st ON st.id_estado = v.id_estado_videojuego
 JOIN ediciones ed ON ed.id_edicion = t.id_edicion
 LEFT JOIN jr ON jr.id_videojuego = v.id_videojuego
 LEFT JOIN sr ON sr.id_videojuego = v.id_videojuego
@@ -66,4 +67,5 @@ CROSS JOIN LATERAL (
         COALESCE(w.junior_pct, CASE WHEN ed.regla_nota_heredada THEN 50 ELSE 40 END::double precision) AS junior_pct,
         COALESCE(w.senior_pct, CASE WHEN ed.regla_nota_heredada THEN 50 ELSE 60 END::double precision) AS senior_pct
 ) pct
-WHERE t.no_calificable = false;
+WHERE t.no_calificable = false
+  AND st.estado <> 'RECHAZADO';

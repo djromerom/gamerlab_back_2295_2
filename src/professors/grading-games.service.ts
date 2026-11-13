@@ -40,6 +40,8 @@ export interface GradingGameRow {
   isExternal: boolean;
   /** BG-37: con qué regla se calcula `calificacionFeria`, para que el panel explique el motivo. */
   fairGradeRule: FairGradeRule;
+  /** BG-43 (ARK-205): inscripción rechazada; `calificacionFeria` es null mientras lo esté. */
+  rejected: boolean;
   canEdit: boolean;
 }
 
@@ -254,6 +256,8 @@ export class GradingGamesService {
           t.team.teamCode,
           vgId !== null && external.has(vgId),
         ),
+        // BG-43 (ARK-205): rechazado, sin nota de feria (vuelve si lo confirman de nuevo)
+        rejected: t.team.rejected === true,
         canEdit:
           vgId !== null &&
           editable &&
@@ -337,6 +341,7 @@ export class GradingGamesService {
         calificacionDocente: null,
         isExternal: t.isExternal,
         fairGradeRule: fairGradeRuleOf(t.teamCode, t.isExternal),
+        rejected: false,
         canEdit: false,
       };
     });

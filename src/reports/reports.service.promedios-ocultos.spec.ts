@@ -23,13 +23,17 @@ describe('ReportsService — promedios por NRC y por materia con el ranking ocul
 
   beforeEach(() => {
     jest.resetAllMocks();
-    prisma.teamFinalScore.findMany.mockResolvedValue([]);
+    // Todo juego tiene fila en la vista; sin fila (rechazado o no calificable) no cuenta (BG-43)
+    prisma.teamFinalScore.findMany.mockResolvedValue([
+      { videogameId: 9, finalScore: 4, legacyFinalScoreRule: false },
+    ]);
     prisma.nRC.findMany.mockResolvedValue([
       { id: 1, code: 111, subject: { name: 'Algoritmos' } },
       { id: 2, code: 222, subject: { name: 'Diseño' } },
     ]);
     prisma.videogame.findMany.mockResolvedValue([
       {
+        id: 9,
         team: { members: [{ nrcs: [{ id: 1 }] }] },
         evaluations: [{ totalScore: 4 }],
       },
