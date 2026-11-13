@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-13: diagnóstico de la estructura de los repos (TA-13, ARK-49)
+- Nuevos: [diagnóstico del backend](../02-backend/diagnostico-estructura.md) y [diagnóstico del frontend](../03-frontend/diagnostico-estructura.md), medidos sobre `origin/dev` (`a564190`) y `origin/dev-deploy` (`10b4bd7f`), con hallazgos priorizados para TA-14 (ARK-50).
+- [estructura-del-proyecto](../03-frontend/estructura-del-proyecto.md) y [deuda-tecnica](../03-frontend/deuda-tecnica.md) del front apuntan al diagnóstico para las cifras de tamaño; se corrige qué contiene `grupo 11`. Índices de [02-backend](../02-backend/README.md) y [03-frontend](../03-frontend/README.md).
+- **Pendiente aparte:** las dos copias de `docs/arkad/` (back y front) difieren en 13 archivos desde antes de este cambio; reconciliarlas no es parte de TA-13.
+
 ## 2026-11-11: TA-25 (ARK-211)
 - Sprint 3 pasa a 157 pts con TA-25 (cambio manual del rol de un profesor de Jurado a Profesor en producción, Santiago). Actualizados [estado-actual](../00-inicio-rapido/estado-actual.md) y [sprints-historial](../05-scrum-y-proceso/sprints-historial.md).
 
