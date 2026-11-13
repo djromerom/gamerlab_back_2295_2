@@ -2,6 +2,8 @@
 
 > **Audiencia:** Backend · **Actualizado:** 2026-11-05 · **Estado:** parcial (módulos y responsabilidades inferidas de `app.module.ts` y controladores; falta leer cada servicio) · **Fuente:** `src/app.module.ts`, `src/*/*.controller.ts`
 
+> Estructura objetivo, agrupación de dominios (`src/jurors/`) y convenciones: [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) (TA-14).
+
 ## Patrón
 NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con controlador(es), servicio(s), DTOs (`dto/`), a veces entidades/repositorios (`teams/` tiene `controllers/`, `services/`, `repositories/`). Guard JWT **global** (`APP_GUARD`) y `@Public()` para rutas abiertas; permisos con `RolePermissionGuard` + `@RequiredService('<servicio>')` ([auth-y-sesiones](auth-y-sesiones.md)). Los ficheros `*.spec.ts` van junto al código.
 

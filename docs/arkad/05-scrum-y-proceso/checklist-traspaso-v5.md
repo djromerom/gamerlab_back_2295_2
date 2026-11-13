@@ -37,5 +37,6 @@
 
 ## Documentación
 - [ ] Esta documentación al día ([changelog](../06-referencia/changelog-documentacion.md)); no versionar la carpeta de accesos y credenciales ni ninguna carpeta `keys/`.
+- [ ] Re-medir la estructura de los repos con los comandos de los diagnósticos ([back](../02-backend/diagnostico-estructura.md), [front](../03-frontend/diagnostico-estructura.md)) y entregar las cifras junto con las [convenciones de estructura](../02-backend/estructura-objetivo-y-convenciones.md) vigentes.
 - [ ] Mover la documentación al repositorio/espacio que decida el PO (el `00-INDICE` de Santiago menciona un repositorio compartido por centralizar).
 - [ ] Reunión de traspaso con la V5: recorrer [onboarding por rol](../00-inicio-rapido/onboarding-por-rol.md).

@@ -12,11 +12,12 @@
 2. Revisar la pantalla a **360 px** de ancho (sin scroll horizontal) y con las distintas edades de datos (edición activa vs. histórica).
 3. Notas con 2 decimales; textos en español; «suplente» (no «remanente»).
 4. Nada de secretos ni `.env` en el commit; variables nuevas: `.env.example`, `Dockerfile`, `Dockerfile.prod` y `deploy-front.yml` ([variables-y-accesos §5.A](../04-devops/variables-y-accesos.md)).
-5. Archivo de menos de 500 líneas; lógica en hooks, vistas separadas.
+5. Archivo de menos de 500 líneas; lógica en hooks, vistas separadas. Copia el checklist de [estructura](estructura-objetivo-y-convenciones.md#cómo-se-mantiene-el-orden) en la descripción del PR.
 
 ## Convenciones
+- Dónde va cada archivo y cómo se nombra: [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) (TA-14), con `src/features/<dominio>/`.
 - Alias `@/…`; componentes UI de `components/ui` (shadcn/Radix); formularios con `react-hook-form` + `zod` (`lib/schemas.ts`).
-- Llamadas a la API con `apiFetch`, no `fetch` directo ([consumo-de-api](consumo-de-api.md)).
+- Llamadas a la API con `apiFetch`, no `fetch` directo, y **desde `features/<dominio>/api/`**, nunca desde una página o componente ([consumo-de-api](consumo-de-api.md)).
 - Pruebas con Vitest junto al código (`*.test.ts(x)`); poner en `lib/` la lógica pura para probarla fácil.
 - Rutas nuevas: [rutas-y-pantallas](rutas-y-pantallas.md) (lista `routes`, menú, rol).
 - Commits con prefijo: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`.

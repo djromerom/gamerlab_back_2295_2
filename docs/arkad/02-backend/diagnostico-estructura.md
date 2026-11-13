@@ -1,6 +1,6 @@
 # Diagnóstico de la estructura del backend (TA-13)
 
-> **Audiencia:** Backend, Scrum · **Actualizado:** 2026-11-13 · **Estado:** completo · **Fuente:** `origin/dev` en `a564190` (13-nov), medido con los comandos de abajo. Ticket: ARK-49 (TA-13). Insumo de la estructura objetivo y las convenciones (TA-14, ARK-50).
+> **Audiencia:** Backend, Scrum · **Actualizado:** 2026-11-13 · **Estado:** completo · **Fuente:** `origin/dev` en `a564190` (13-nov), medido con los comandos de abajo. Ticket: ARK-49 (TA-13). Insumo de la [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) (TA-14, ARK-50).
 
 Este documento dice **qué hay y qué estorba**, no cómo se arregla: la propuesta va en TA-14 y los movimientos de archivos en TA-15 (ARK-51). Nada de lo que aparece aquí se cambió al escribirlo.
 

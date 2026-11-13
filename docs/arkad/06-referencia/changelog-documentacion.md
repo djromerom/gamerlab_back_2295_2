@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-13: estructura objetivo y convenciones (TA-14, ARK-50)
+- Nuevos: [estructura objetivo y convenciones del backend](../02-backend/estructura-objetivo-y-convenciones.md) (módulo por dominio, `src/jurors/`, nombres y capas), [del frontend](../03-frontend/estructura-objetivo-y-convenciones.md) (`src/features/<dominio>/`) y el [mapa de movimientos para TA-15](mapa-de-movimientos-ark-51.md). Propuesta a validar con el equipo y el profesor el 17-nov.
+- Guías de contribución de back y front, [arquitectura-modulos](../02-backend/arquitectura-modulos.md), [estructura-del-proyecto](../03-frontend/estructura-del-proyecto.md), índices y [checklist de traspaso](../05-scrum-y-proceso/checklist-traspaso-v5.md) enlazan a las convenciones.
+- Corregido el H4 del [diagnóstico del back](../02-backend/diagnostico-estructura.md): `members/dto/update-member.dto.ts` sigue en uso.
+
 ## 2026-11-13: aviso al suplente al asignarle grupos (HU-22, ARK-84)
 - [jurados](../01-negocio/jurados.md#aviso-al-suplente-hu-22): sección nueva con quién recibe el aviso, el correo por ACS sin datos de otras personas y qué pasa si falla.
 - [endpoints](../02-backend/endpoints.md): prefijo `/substitute-notices` (`GET me`, `PATCH :id/read`, `GET unread`). [modelo-de-datos](../02-backend/modelo-de-datos.md): tablas `aviso_suplente` y `aviso_suplente_equipo`.
