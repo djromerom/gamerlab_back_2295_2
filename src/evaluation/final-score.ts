@@ -79,12 +79,15 @@ const toScore = (value: unknown): number | null =>
 /**
  * «Calificación Feria» de los reportes. Sin nota final, las ediciones vigentes devuelven `null`
  * («Nota en proceso»), no un promedio parcial; las congeladas, `rawAverage` como hasta ahora.
+ * Sin fila en la vista, `null`: todo juego tiene fila salvo los que la vista excluye (equipo
+ * rechazado, BG-43; no calificable, HU-39), que no tienen nota.
  */
 export function reportedFairScore(
   row: FinalScoreRow | undefined,
   rawAverage: number,
 ): number | null {
-  const score = toScore(row?.finalScore);
+  if (!row) return null;
+  const score = toScore(row.finalScore);
   if (score !== null) return score;
   return usesWeightedRule(row) ? null : rawAverage;
 }
@@ -94,5 +97,6 @@ export function scoreForNrcAverage(
   row: FinalScoreRow | undefined,
   rawAverage: number | null,
 ): number | null {
+  if (!row) return null; // excluido de la vista (BG-43, HU-39): no cuenta en el promedio
   return usesWeightedRule(row) ? toScore(row?.finalScore) : rawAverage;
 }

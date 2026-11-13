@@ -60,6 +60,13 @@ describe('final-score (HU-34)', () => {
     });
   });
 
+  describe('juego sin fila en la vista (rechazado o no calificable, BG-43 y HU-39)', () => {
+    it('no tiene «Calificación Feria» ni cuenta en el promedio por NRC', () => {
+      expect(reportedFairScore(undefined, 3)).toBeNull();
+      expect(scoreForNrcAverage(undefined, 3)).toBeNull();
+    });
+  });
+
   describe('scoreForNrcAverage', () => {
     it('edición vigente: la nota de la vista, o nada si está en proceso', () => {
       expect(

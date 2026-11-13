@@ -535,6 +535,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionDocente: 4.8,
       isExternal: false,
       fairGradeRule: 'STANDARD',
+      rejected: false,
       canEdit: true,
     });
     // Varios NRC del profesor: se listan juntos y nrcId queda en null
@@ -752,6 +753,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionDocente: null,
       isExternal: true,
       fairGradeRule: 'EXTERNAL',
+      rejected: false,
       canEdit: false,
     });
     expect(withHistory.metadata.totalItems).toBe(4);

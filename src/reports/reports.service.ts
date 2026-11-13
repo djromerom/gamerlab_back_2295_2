@@ -10,7 +10,7 @@ import { countProgress } from '../evaluation/evaluation-progress';
 import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evaluation/final-score';
 import { EditionStatus } from '@prisma/client';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
-import { ASSIGNABLE_TEAM, CONFIRMED_VIDEOGAME, GRADABLE_TEAM } from '../teams/team-status';
+import { ASSIGNABLE_TEAM, CONFIRMED_VIDEOGAME, GRADABLE_TEAM, SCORED_TEAM } from '../teams/team-status';
 import {
   JUROR_EDITION_STATUS_LABEL,
   JurorAssignmentRow,
@@ -273,6 +273,8 @@ export class ReportsService {
           where: { isActive: true, editionId: reportEditionId },
           include: {
             members: {
+              // BG-43 y HU-39: sin equipos rechazados ni no calificables, como la nota final
+              where: { team: SCORED_TEAM },
               include: {
                 team: {
                   include: {

@@ -23,6 +23,16 @@ export const CONFIRMED_TEAM = {
  */
 export const GRADABLE_TEAM = { notGradable: false } satisfies Prisma.TeamWhereInput;
 
+/**
+ * Filtro sobre `Team`: equipo con nota final, el mismo criterio de `vw_team_final_scores`.
+ * Excluye a los no calificables (HU-39) y a los rechazados (BG-43, ARK-205). Sirve para los
+ * cálculos que no pasan por la vista, como el promedio por materia.
+ */
+export const SCORED_TEAM = {
+  notGradable: false,
+  videogame: { is: { videogameStatus: { status: { not: REJECTED_VIDEOGAME_STATUS } } } },
+} satisfies Prisma.TeamWhereInput;
+
 /** Filtro sobre `Team`: equipo que puede tener jurados y ser calificado (confirmado y calificable). */
 export const ASSIGNABLE_TEAM = {
   ...CONFIRMED_TEAM,
