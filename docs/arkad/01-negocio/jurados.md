@@ -34,9 +34,17 @@ Independientes del rol. Un suplente también es junior o senior (al reemplazar c
 7. **Cierre ~12:00:** nota final liberada por el administrador (HU-20); encuesta opcional al jurado (HU-17).
 
 ## Aviso al suplente (HU-22)
-- Cuando el administrador asigna grupos a un **suplente** (tipo `BACKUP` confirmado en la edición; asignar o reasignar a mano), se registra el aviso «Te asignaron grupos» con los grupos y su nivel. A los oficiales y a los profesores no se les avisa; la asignación automática no carga a los suplentes. Quitar grupos no crea ni borra avisos.
+- Cuando el administrador asigna grupos a un **suplente** (tipo `BACKUP` confirmado en la edición; asignar o reasignar a mano, o en lote con HU-09), se registra el aviso «Te asignaron grupos» con los grupos y su nivel. A los oficiales y a los profesores no se les avisa; la asignación automática no carga a los suplentes. Quitar grupos no crea ni borra avisos.
 - El aviso queda en la plataforma hasta que el suplente lo marca como leído (el front consulta cada 10 s). También sale un correo por Azure ACS con su nombre, los grupos y a dónde ir, sin datos de otras personas. Si el correo falla, queda registrado y el aviso sigue activo; la asignación nunca falla por el correo.
 - El panel de seguimiento puede mostrar quién no ha leído el aviso (`GET /substitute-notices/unread`). El «Entendido» del texto explicativo lo guarda el front, no el backend.
+
+## Suplentes en lote (HU-09)
+- El administrador elige uno o varios jurados (los que no llegaron) y uno o varios suplentes, y en **una sola operación** cada suplente queda asignado a **todos** los grupos que esos jurados tienen en la edición activa (`POST /juror/assignments/substitutes/bulk`, ARK-215).
+- **Se suma, no se quita:** los jurados originales conservan sus grupos y sus evaluaciones; un grupo puede quedar con más de 3 jurados (solo cuentan las 3 primeras evaluaciones, P-10). Si el suplente ya estaba en un grupo, ese grupo se omite sin error; repetir la operación no duplica nada.
+- Solo se aceptan suplentes de verdad: rol Jurado, cuenta activa y tipo Suplente **confirmado** en la edición activa. Si uno no lo es, no se asigna nada. Un mismo usuario no puede venir como jurado a cubrir y como suplente.
+- Los grupos sin confirmar o no calificables no reciben jurados (BG-35, HU-39): se omiten y se informan. Un jurado sin grupos en la edición activa se informa; si ninguno tiene grupos asignables, la operación responde error y no cambia nada.
+- Se aplican las reglas de HU-08 a todos los pares nuevos juntos: un bloqueo (por ejemplo, suplente junior y un grupo de colegios) frena toda la operación; las advertencias (más de 3 grupos, niveles distintos, NRC) se muestran y piden confirmación antes de guardar.
+- Todo va en una transacción: cada par queda en la bitácora (acción `ASSIGN`, nota «Suplente en lote desde módulo admin (HU-09).» con los jurados cubiertos) y cada suplente recibe **un** aviso de HU-22 con todos sus grupos nuevos. Si algo falla a mitad, se revierte todo y ninguna asignación cambia. Contrato para el front: `docs/frontend/HU-09-suplentes-en-lote.md`.
 
 ## Calificar un grupo
 - El jurado debe digitar el **código de verificación** del grupo (lo ve el estudiante) para calificar; N0 no lo lleva (HU-19, P-25).

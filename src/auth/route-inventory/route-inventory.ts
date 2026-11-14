@@ -102,6 +102,8 @@ export const ROUTE_NOTES: Record<string, string> = {
     'Solo el dueño del aviso; si no es suyo responde 404 (HU-22, ARK-84).',
   'GET /substitute-notices/unread':
     'Solo Administrador (AssignJurors): suplentes con el aviso de grupos sin leer, para el panel de seguimiento (HU-22, ARK-84).',
+  'POST /juror/assignments/substitutes/bulk':
+    'Solo Administrador (AssignJurors): suma suplentes a los grupos de uno o varios jurados sin quitar a nadie, en una sola transacción (HU-09, ARK-215).',
   'GET /reports/DatosGraficoMateria':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
 };
