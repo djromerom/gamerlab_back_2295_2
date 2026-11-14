@@ -25,13 +25,13 @@ src/
 test/                              e2e (*.e2e-spec.ts)
 ```
 
-**Agrupar módulos por dominio.** Cuando 3 o más módulos son parte del mismo dominio, se agrupan en `src/<dominio en plural>/`. **Cada módulo conserva el nombre de su carpeta y de sus archivos** dentro del grupo: `src/juror-attendance/` pasa a `src/jurors/juror-attendance/` y su `juror-attendance.module.ts` no cambia de nombre. Así la búsqueda por nombre de archivo encuentra lo mismo de antes. Los imports entre módulos hermanos del grupo siguen la regla general de imports: hacia otro módulo, `src/...` (TA-15 convierte los 42 relativos que hay hoy).
+**Agrupar módulos por dominio.** Cuando 3 o más módulos son parte del mismo dominio, se agrupan en `src/<dominio en plural>/`. **Cada módulo conserva el nombre de su carpeta y de sus archivos** dentro del grupo: `src/juror-attendance/` pasa a `src/jurors/juror-attendance/` y su `juror-attendance.module.ts` no cambia de nombre. Así la búsqueda por nombre de archivo encuentra lo mismo de antes. Los imports entre módulos hermanos del grupo siguen la regla general de imports: hacia otro módulo, `src/...` (TA-15 convierte los relativos que hay hoy).
 
 **Primer grupo: `src/jurors/`** (se crea en TA-15):
 
 | Módulo | Archivos (specs) | Qué hace |
 |---|---|---|
-| `juror` | 44 (20) | Jurados, asignación manual y automática, validación y auditoría de asignaciones |
+| `juror` | 45 (21) | Jurados, asignación manual y automática, validación y auditoría de asignaciones |
 | `juror-edition` | 20 (8) | Jurados inscritos por edición |
 | `absence-alert` | 12 (4) | Alertas de inasistencia de jurados |
 | `juror-presence` | 10 (3) | Presencia de jurados durante la feria |
@@ -40,6 +40,7 @@ test/                              e2e (*.e2e-spec.ts)
 | `juror-survey` | 8 (2) | Encuesta a jurados |
 | `absent-juror-responses` | 6 (2) | Respuestas de jurados ausentes |
 | `juror-checkin` | 5 (1) | Check-in con QR |
+| `substitute-notices` | 7 (2) | Aviso al jurado suplente cuando le asignan grupos (HU-22, entró con #281) |
 
 El resto de dominios queda como está: ninguno tiene hoy 3 o más módulos que lo justifiquen. Equipos (`teams`, `team-verification`, `students`, `videogames`, `pending-games`, `graded-games`, `highlighted-games`) es el siguiente candidato y se evalúa después de la feria.
 

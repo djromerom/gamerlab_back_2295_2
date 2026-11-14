@@ -17,7 +17,7 @@ TA-15 **solo mueve, renombra (archivos y símbolos) y borra código sin uso, y c
 |---|---|---|---|---|
 | B1 | back | Borrar código muerto confirmado y mudar `update-member.dto.ts` a `teams/dto/` | 11 (1 se muda, 10 se borran) | Bajo |
 | B2 | back | Renombrar `gg.*` y `pg.*`, nombres de clase únicos, `create-upload.dto.ts` a `dto/` | 8, más sus importadores (detalle abajo) | Bajo |
-| B3 | back | Anidar los 9 módulos de jurados en `src/jurors/` | 122 + 232 líneas de import (42 entre módulos hermanos) | Medio |
+| B3 | back | Anidar los 10 módulos de jurados en `src/jurors/` | 130 + 247 líneas de import | Medio |
 | FA | front | Features pequeñas | ver abajo | Bajo |
 | FB | front | Jurados | ver abajo | Medio |
 | FC | front | Calificación y resultados | ver abajo | Medio |
@@ -76,11 +76,11 @@ El renombre de clases solo toca el import que viene de `pending-games`: `upload/
 
 ### B3. `src/jurors/`
 
-Cada carpeta se mueve **con su nombre**: `src/<módulo>/` pasa a `src/jurors/<módulo>/`. Se reescriben los imports que cruzan la frontera del grupo y, para cumplir la convención, los 42 imports relativos entre módulos hermanos (`../juror-edition/...`) pasan a `src/jurors/...`. Los imports dentro de un mismo módulo no cambian. Las rutas escritas como texto en `editions/active-edition.regression.spec.ts` (lista `ALLOWED`) se actualizan en el mismo commit.
+Cada carpeta se mueve **con su nombre**: `src/<módulo>/` pasa a `src/jurors/<módulo>/`. Se reescriben los imports que cruzan la frontera del grupo y, para cumplir la convención, los imports relativos entre módulos hermanos (`../juror-edition/...`) pasan a `src/jurors/...`. Los imports dentro de un mismo módulo no cambian. Las rutas escritas como texto en `editions/active-edition.regression.spec.ts` (lista `ALLOWED`) se actualizan en el mismo commit.
 
 | Módulo | Archivos (specs) | Imports relativos que salen del grupo | Imports que entran desde fuera |
 |---|---|---|---|
-| `juror` | 44 (20) | 60 | 4 |
+| `juror` | 45 (21) | 60 | 4 |
 | `juror-edition` | 20 (8) | 22 | 13 |
 | `absence-alert` | 12 (4) | 19 | 2 |
 | `juror-presence` | 10 (3) | 10 | 1 |
@@ -89,7 +89,8 @@ Cada carpeta se mueve **con su nombre**: `src/<módulo>/` pasa a `src/jurors/<m�
 | `juror-survey` | 8 (2) | 9 | 1 |
 | `absent-juror-responses` | 6 (2) | 10 | 1 |
 | `juror-checkin` | 5 (1) | 10 | 1 |
-| **Total** | **122 (45)** | **164** | **26** (9 en `app.module.ts`) |
+| `substitute-notices` | 7 (2) | 12 | 1 |
+| **Total** | **130 (48)** | **176** | **27** (10 en `app.module.ts`) |
 
 **No se afecta:** el Dockerfile (solo fija `src/email/templates` y `src/certificates/assets`), `nest-cli.json` (los assets van por patrón), el `moduleNameMapper` de Jest (`^src/(.*)$`, válido para cualquier profundidad) y ningún `jest.mock` (ninguno apunta a estas rutas).
 
