@@ -16,7 +16,7 @@
 
 ## Convenciones
 - Dónde va cada archivo y cómo se nombra: [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) (TA-14), con `src/features/<dominio>/`.
-- Alias `@/…`; componentes UI de `components/ui` (shadcn/Radix); formularios con `react-hook-form` + `zod` (`lib/schemas.ts`).
+- Alias `@/…`; componentes UI de `components/ui` (shadcn/Radix); formularios con `react-hook-form` + `zod` (`features/teams/lib/schemas.ts`).
 - Llamadas a la API con `apiFetch`, no `fetch` directo, y **desde `features/<dominio>/api/`**, nunca desde una página o componente ([consumo-de-api](consumo-de-api.md)).
 - Pruebas con Vitest junto al código (`*.test.ts(x)`); poner en `lib/` la lógica pura para probarla fácil.
 - Rutas nuevas: [rutas-y-pantallas](rutas-y-pantallas.md) (lista `routes`, menú, rol).

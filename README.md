@@ -201,7 +201,7 @@ npm test
 
 # One file or folder
 npx jest src/evaluation/evaluation.service.spec.ts
-npx jest src/juror
+npx jest src/jurors
 
 # Same command as CI (sequential, with coverage report in coverage/)
 npm run test:ci

@@ -1,44 +1,33 @@
 # Estructura del proyecto
 
-> **Audiencia:** Frontend · **Actualizado:** 2026-11-05 · **Estado:** parcial (estructura leída de `origin/main`; no se leyó cada componente) · **Fuente:** `git ls-tree origin/main src`
+> **Audiencia:** Frontend · **Actualizado:** 2026-11-19 (TA-15, ARK-51) · **Estado:** vigente · **Fuente:** `git ls-tree` de `dev-deploy` tras TA-15. Las reglas para ubicar y nombrar archivos están en [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md).
 
 ```
 src/
-├─ routes/        RoutesConfiguration.tsx (router único, lista `routes` con roles), RegistrationGate.tsx
-├─ layouts/       LayoutAplication.tsx (menú lateral por rol)
-├─ contexts/      AuthContext, SocketContext, MultiFormContext, TextSizeContext
-├─ pages/         pantallas (ver abajo)
-├─ components/    por «grupo» + admin + ui + staff + jurados-modals + videogamePage
-├─ fetchs/        llamadas a la API por tema (editions, ranking, jurorEdition, jurorCheckIn…)
-├─ hooks/         lógica reutilizable (useFetch, useWorkingEdition, useTeacherDashboard, juryManagement…)
-├─ lib/           utilidades puras y su prueba (api.ts, session.ts, grades.ts, workingEdition.ts, schemas.ts…)
-├─ types/         auth, criterion, jurados, Team, teamMembers, teamVideogames
-├─ assets/, data/, styles/
+├─ features/      un dominio funcional por carpeta, con pages/, components/, hooks/, api/, lib/, types/ y contexts/ según necesite
+│   ├─ auth/  home/  academic/  teams/  games/  grading/  results/  editions/
+│   ├─ external-presenters/  public/  notifications/  pwa/  staff-accounts/
+│   └─ jurors/    assignment/  management/  attendance/  presence/  badges/  survey/  edition/  (y types/, común a varios)
+├─ api/           llamadas al back compartidas (editions, evaluationProgress, registrations)
+├─ components/    componentes compartidos (NavBar, LoadingScreen, TeamCode, background/…) y ui/ (shadcn)
+├─ contexts/      AuthContext, SocketContext, TextSizeContext, GlobalStateContext
+├─ hooks/         hooks compartidos (useFetch, useWorkingEdition, useCriteria, useLockViewportZoom, use-mobile)
+├─ lib/           cliente HTTP único (api.ts), sesión y utilidades puras con su prueba
+├─ types/         auth, team
+├─ routes/        RoutesConfiguration.tsx (router único, lista `routes` con roles), ProtectedRoute, RegistrationGate, RestoreInteraction
+├─ layouts/       LayoutApplication.tsx (menú lateral por rol), AppSidebar, NavContent, NavUser, Breadcrumbs
+└─ assets/  styles/
 ```
 
-> **Estructura objetivo:** las carpetas `grupo N` se reemplazan por `src/features/<dominio>/` en TA-15 (ARK-51). Ver [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) y el [mapa de movimientos](../06-referencia/mapa-de-movimientos-ark-51.md). Esta página describe la estructura **actual**.
+**Para encontrar una pantalla:** la URL está en `routes/RoutesConfiguration.tsx`, que importa la página desde `features/<dominio>/pages/`. Qué contiene cada dominio: tabla de [dominios](estructura-objetivo-y-convenciones.md#dominios).
 
-## Convención de «grupos» (herencia de V3)
-Las carpetas `grupo 1`, `grupo 5`, `grupo 8`, `grupo 9`, `grupo 11`, `grupo 12` son el reparto de **equipos de semestres anteriores** (una carpeta por grupo de estudiantes), no un criterio funcional. Aproximadamente:
-
-| Carpeta | Contenido |
-|---|---|
-| `grupo 1` | `StatisticsPage` (estadísticas del admin), contexto global de criterios |
-| `grupo 5` | Pantallas **públicas y de estudiante**: Landing, Ranking, Información, Ediciones pasadas, Historical*, Créditos, HomeStudent, HomeTeacher, EditTeam, MisJurados |
-| `grupo 8` | **Calificación**: PendingGrades, Rate, Graded, BatchRate (lote), School* (colegios N0) |
-| `grupo 9` | **Administración y acceso**: Login, Forget/ResetPassword, Verification, Home, Subjets, Criterion, Nrcs, Professors, TeamsManagement, GradeWeights, Tiebreaker, ProfessorRankingTies, Unauthorized/AuthError; `ProtectedRoute`; `EventConfigurationPage` |
-| `grupo 11` | Asistente de registro de equipo (pasos, recorte de imagen, subida a Azure) |
-| `grupo 12` | `JuryManagementPage` (gestión de jurados) |
-
-`pages/admin/` (Ediciones, Escarapelas, Jurados de la edición, Cuentas staff), `pages/staff/` (Check-in, Asistencia), `pages/teams/` (registro de equipos y galería de videojuegos), `pages/gameplayer/` (reproductor de juegos web), `pages/settingsAdmin/`, y sueltas: `JuradosAssignment`, `RealtimeTrackingPanel`, `RegistrationClosedPage`, `NotFoundPage`.
-
-> Los nombres con espacio (`grupo 9`) rompen algunas herramientas; es parte del plan de la Épica VII (TA-13/14/15: ordenar repos de forma incremental). No renombrar masivamente sin acuerdo: toca muchos imports (`@/…`).
+> Hasta TA-15 (19-nov) el código estaba repartido en carpetas `grupo N` (una por equipo de estudiantes de V3), `pages/` y `fetchs/`. El [diagnóstico](diagnostico-estructura.md) y el [mapa de movimientos](../06-referencia/mapa-de-movimientos-ark-51.md) registran de dónde salió cada archivo.
 
 ## Alias e imports
-Alias `@/` → `src/`. UI base en `components/ui` (shadcn: Button, Dialog, Table, etc.).
+Alias `@/` → `src/`, sin extensión `.ts`/`.tsx`. UI base en `components/ui` (shadcn: Button, Dialog, Table, etc.).
 
 ## Pruebas
-Archivos `*.test.ts(x)` junto al código (`lib/`, `hooks/`, `fetchs/`, páginas clave, `AuthContext.test.tsx`, `RoutesConfiguration.test.tsx`). Ver [guía de contribución](guia-de-contribucion.md).
+Archivos `*.test.ts(x)` junto al código (`lib/`, `hooks/`, `api/`, `features/*/api/`, páginas clave, `AuthContext.test.tsx`, `RoutesConfiguration.test.tsx`). Ver [guía de contribución](guia-de-contribucion.md).
 
 ## Tamaño de archivos
 Regla del equipo: máximo 500 líneas por archivo. Medición vigente (22 archivos la superan al 13-nov) y hallazgos de estructura: [diagnóstico de la estructura](diagnostico-estructura.md) (TA-13, ARK-49).
@@ -46,7 +35,7 @@ Regla del equipo: máximo 500 líneas por archivo. Medición vigente (22 archivo
 ## Pantallas más grandes (líneas en `origin/main`, 2026-11-05; cifras vigentes en el [diagnóstico](diagnostico-estructura.md))
 | Archivo | Líneas | Nota |
 |---|---|---|
-| `pages/JuradosAssignment.tsx` | **~1960** | La pantalla de asignación de jurados. Es el archivo más grande y rompe la regla de 500 líneas; define **su propio** `apiFetch` y su propia llamada a `/auth/refresh` en lugar de usar `lib/api.ts`. Candidato a dividir en hooks y componentes antes de tocarlo (BG-33 vive aquí: pide 300 jurados y el servidor acepta 100 por página) |
-| `pages/grupo 8/BatchRatePage.tsx` | ~640 | Calificación por lote (`POST /evaluation/batch`) |
-| `pages/RealtimeTrackingPanel.tsx` | ~275 | Seguimiento por hora (HU-21): `fetchEvaluationTracking(nivel, fecha)` con recarga periódica; usa Popover (no Tooltip) porque el Tooltip de Radix no abre con un toque en celular (BG-28) |
-| `pages/teams/TeamRegisterPage.tsx` | ~40 | Solo orquesta el registro; los pasos están en `components/` y el estado en `MultiFormContext` |
+| `features/jurors/assignment/pages/JurorAssignmentPage.tsx` | **~1960** | La pantalla de asignación de jurados. Es el archivo más grande y rompe la regla de 500 líneas; define **su propio** `apiFetch` y su propia llamada a `/auth/refresh` en lugar de usar `lib/api.ts`. Candidato a dividir en hooks y componentes antes de tocarlo (BG-33 vive aquí: pide 300 jurados y el servidor acepta 100 por página) |
+| `features/grading/pages/BatchRatePage.tsx` | ~640 | Calificación por lote (`POST /evaluation/batch`) |
+| `features/grading/pages/RealtimeTrackingPage.tsx` | ~275 | Seguimiento por hora (HU-21): `fetchEvaluationTracking(nivel, fecha)` con recarga periódica; usa Popover (no Tooltip) porque el Tooltip de Radix no abre con un toque en celular (BG-28) |
+| `features/teams/pages/TeamRegisterPage.tsx` | ~40 | Solo orquesta el registro; los pasos están en `components/` y el estado en `MultiFormContext` |
