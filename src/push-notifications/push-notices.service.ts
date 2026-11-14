@@ -8,7 +8,7 @@ import {
   ActiveEdition,
   requireActiveEdition,
 } from '../editions/active-edition';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { PendingGamesService } from 'src/pending-games/pending-games.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {

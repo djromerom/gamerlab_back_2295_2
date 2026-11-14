@@ -10,7 +10,7 @@ import {
   teamLevel,
   toJurorAssignmentRow,
 } from './juror-assignment-export';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 
 /** HU-16 (ARK-108): reporte de jurados con la asignación de la edición. */
 const source = (

@@ -1,7 +1,7 @@
 import {
   DEFAULT_FAIR_TIMES,
   fairInstant,
-} from '../absence-alert/fair-schedule';
+} from 'src/jurors/absence-alert/fair-schedule';
 import { MIN_EVALUATIONS, parseLevel } from '../ranking/ranking.logic';
 
 /**

@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { AssignmentPushNotifier } from './assignment-push-notifier.service';
 import {
   ARRIVAL_REMINDER_NOTICE,
