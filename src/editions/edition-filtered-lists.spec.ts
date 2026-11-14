@@ -8,7 +8,7 @@ import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 
 /**
  * ARK-132 (BG-19): las listas de equipos, jurados y el panel del jurado no mezclan ediciones.
- * La prueba con dos ediciones reales está en `src/juror/edition-lists.db.spec.ts`.
+ * La prueba con dos ediciones reales está en `src/jurors/juror/edition-lists.db.spec.ts`.
  */
 const ACTIVE = { id: 5, title: 'E5', status: 'ACTIVE' };
 

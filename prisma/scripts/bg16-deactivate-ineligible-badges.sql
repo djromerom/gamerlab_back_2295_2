@@ -1,5 +1,5 @@
 -- BG-16 (ARK-127): desactiva (activo = false) las escarapelas de la edición activa cuyo dueño
--- NO es jurado de esa edición. Regla = `jurorsOfEdition` (src/juror-edition/jurors-of-edition.ts):
+-- NO es jurado de esa edición. Regla = `jurorsOfEdition` (src/jurors/juror-edition/jurors-of-edition.ts):
 --   cuenta activa Y ( rol Jurado CONFIRMADO en jurado_edicion para la edición
 --                     O rol Profesor con al menos un NRC activo en la edición ).
 -- Los profesores con NRC activo en la edición conservan su escarapela.

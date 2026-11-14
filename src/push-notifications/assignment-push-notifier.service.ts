@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { findActiveEdition } from '../editions/active-edition';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { PrismaService } from '../prisma/prisma.service';
 import { ASSIGNMENT_CHANGED_NOTICE } from './push-messages';
 import { PushSenderService } from './push-sender.service';

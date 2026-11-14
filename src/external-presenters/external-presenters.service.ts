@@ -17,7 +17,7 @@ import {
   requireActiveEdition,
 } from '../editions/active-edition';
 import { resolveListEdition } from '../editions/list-edition';
-import { resolveEdition } from '../juror-edition/edition-resolver';
+import { resolveEdition } from 'src/jurors/juror-edition/edition-resolver';
 import { PrismaService } from '../prisma/prisma.service';
 import { PresenterTeamView, presenterTeamsOf } from './external-presenter-teams';
 import {

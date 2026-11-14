@@ -39,7 +39,7 @@ import {
   TeamLevelInfo,
   byLevelThenName,
   teamLevelInfo,
-} from '../../juror/assignment-validation/team-level';
+} from 'src/jurors/juror/assignment-validation/team-level';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {

@@ -20,7 +20,7 @@ import {
 } from './juror-assignment-export';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { resolveListEdition } from '../editions/list-edition';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 
 /**
  * ARK-135 (BG-22): id de edición que nunca existe. Sin edición activa los reportes salen

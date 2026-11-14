@@ -6,7 +6,7 @@ Una **edición** es una feria (por ejemplo, «Feria Gamer 2026 - S2»). Solo una
 
 | | Qué se hace | Dónde se exige |
 |---|---|---|
-| **Leer** | Todo listado acepta `?editionId=`; si no se envía, usa la edición ACTIVE. Las demás ediciones se consultan como historial. | `resolveListEdition` (`src/editions/list-edition.ts`) y `resolveEdition` (`src/juror-edition/edition-resolver.ts`) |
+| **Leer** | Todo listado acepta `?editionId=`; si no se envía, usa la edición ACTIVE. Las demás ediciones se consultan como historial. | `resolveListEdition` (`src/editions/list-edition.ts`) y `resolveEdition` (`src/jurors/juror-edition/edition-resolver.ts`) |
 | **Escribir** | Inscribir, editar y borrar equipos, integrantes y videojuegos, asignar jurados, cambiar NRC y ponderados solo sobre datos de la edición ACTIVE. Lo exige el **servidor**, no la pantalla, **también para el administrador**. | `assertTeamWritable`, `assertNrcWritable`, `assertVideogameWritable`, `assertMemberWritable` y `assertEditionWritable` (`src/editions/active-edition.ts`) |
 | **Calificar** | Ya usaba solo la edición activa antes de HU-27 (`EvaluationService`: el videojuego debe ser de la edición activa); HU-27 no agregó una guarda nueva, solo cambió esa búsqueda al método central. | `findEvaluationBlockers` en `src/evaluation/evaluation.service.ts` |
 | **Una sola fuente** | La edición activa sale de `findActiveEdition` / `requireActiveEdition`, o del filtro `ACTIVE_EDITION_WHERE` dentro de otra consulta. Nunca «la edición con el id más alto»: una edición nueva se crea INACTIVE. | `src/editions/active-edition.ts`. La prueba `active-edition.regression.spec.ts` falla si alguien filtra la edición a mano. |

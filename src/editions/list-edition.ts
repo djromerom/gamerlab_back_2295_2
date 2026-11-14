@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { EditionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { resolveEdition } from '../juror-edition/edition-resolver';
+import { resolveEdition } from 'src/jurors/juror-edition/edition-resolver';
 import { findActiveEdition } from './active-edition';
 
 type EditionClient = Pick<PrismaService, 'edition'>;

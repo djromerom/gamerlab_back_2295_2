@@ -8,7 +8,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { CertificatesService } from '../src/certificates/certificates.service';
 import { EmailService } from '../src/email/email.service';
-import { jurorsOfEdition } from '../src/juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from '../src/jurors/juror-edition/jurors-of-edition';
 import { AzureStorageService } from '../src/upload/azure-storage.service';
 
 /**
