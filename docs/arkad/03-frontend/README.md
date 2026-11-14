@@ -20,6 +20,7 @@ Scripts: `dev` (Vite, `:5173`, con headers COOP/COEP `credentialless` para juego
 ## Índice
 - [Estructura del proyecto](estructura-del-proyecto.md)
 - [Diagnóstico de la estructura (TA-13)](diagnostico-estructura.md)
+- [Estructura objetivo y convenciones (TA-14)](estructura-objetivo-y-convenciones.md)
 - [Rutas y pantallas por rol](rutas-y-pantallas.md)
 - [Autenticación, estado y sockets](estado-auth-y-sockets.md)
 - [Consumo de la API](consumo-de-api.md)

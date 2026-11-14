@@ -1,6 +1,6 @@
 # Diagnóstico de la estructura del frontend (TA-13)
 
-> **Audiencia:** Frontend, Scrum · **Actualizado:** 2026-11-13 · **Estado:** completo · **Fuente:** `origin/dev-deploy` en `10b4bd7f` (13-nov), medido con los comandos de abajo. Ticket: ARK-49 (TA-13). Insumo de la estructura objetivo y las convenciones (TA-14, ARK-50).
+> **Audiencia:** Frontend, Scrum · **Actualizado:** 2026-11-13 · **Estado:** completo · **Fuente:** `origin/dev-deploy` en `10b4bd7f` (13-nov), medido con los comandos de abajo. Ticket: ARK-49 (TA-13). Insumo de la [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) (TA-14, ARK-50).
 
 Este documento dice **qué hay y qué estorba**, no cómo se arregla: la propuesta va en TA-14 y los movimientos de archivos en TA-15 (ARK-51). Nada de lo que aparece aquí se cambió al escribirlo. Reemplaza las cifras de tamaño de [estructura del proyecto](estructura-del-proyecto.md) y [deuda técnica](deuda-tecnica.md), que se habían leído de `origin/main` el 5-nov.
 

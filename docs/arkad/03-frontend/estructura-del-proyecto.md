@@ -16,6 +16,8 @@ src/
 ├─ assets/, data/, styles/
 ```
 
+> **Estructura objetivo:** las carpetas `grupo N` se reemplazan por `src/features/<dominio>/` en TA-15 (ARK-51). Ver [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) y el [mapa de movimientos](../06-referencia/mapa-de-movimientos-ark-51.md). Esta página describe la estructura **actual**.
+
 ## Convención de «grupos» (herencia de V3)
 Las carpetas `grupo 1`, `grupo 5`, `grupo 8`, `grupo 9`, `grupo 11`, `grupo 12` son el reparto de **equipos de semestres anteriores** (una carpeta por grupo de estudiantes), no un criterio funcional. Aproximadamente:
 

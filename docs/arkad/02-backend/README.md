@@ -34,6 +34,7 @@ Levantar todo en local: [04-devops/flujo-fullstack-y-ramas §5](../04-devops/flu
 ## Índice
 - [Arquitectura y módulos](arquitectura-modulos.md)
 - [Diagnóstico de la estructura (TA-13)](diagnostico-estructura.md)
+- [Estructura objetivo y convenciones (TA-14)](estructura-objetivo-y-convenciones.md)
 - [Autenticación y sesiones](auth-y-sesiones.md)
 - [Modelo de datos](modelo-de-datos.md)
 - [Endpoints](endpoints.md)
