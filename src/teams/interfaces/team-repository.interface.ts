@@ -1,7 +1,7 @@
 // src/teams/interfaces/team-repository.interface.ts
 import { Team, Member, Videogame, User } from '@prisma/client';
 import { CreateTeamDto } from '../dto/create-team.dto';
-import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
+import { UpdateMemberDto } from '../dto/update-member.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
 
 export interface ITeamRepository {

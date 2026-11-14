@@ -17,7 +17,7 @@ import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { Team, Member, Videogame, Prisma, User, EditionStatus } from '@prisma/client';
 import { UpdateTeamDto } from '../dto/update-team.dto';
-import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
+import { UpdateMemberDto } from '../dto/update-member.dto';
 import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
 import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';

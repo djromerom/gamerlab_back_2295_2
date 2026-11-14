@@ -7,7 +7,7 @@ import {
 import { CreateTeamDto } from './dto/create-team.dto';
 import { ValidateEmailsDto } from './dto/validate-emails.dto';
 import { ValidateStudentCodesDto } from './dto/validate-student-codes.dto';
-import { UpdateMemberDto } from '../members/dto/update-member.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
 import { TeamRepository } from './repositories/team.repository';
 import { TeamsService } from './services/teams.service';
 

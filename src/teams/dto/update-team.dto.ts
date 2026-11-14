@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
-import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
+import { UpdateMemberDto } from './update-member.dto';
 
 export class UpdateTeamDto {
   @IsOptional()
