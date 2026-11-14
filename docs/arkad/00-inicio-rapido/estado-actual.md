@@ -27,7 +27,9 @@
 - Podio propio para los equipos externos (HU-38, ARK-204, backlog) y rangos de las etiquetas de nota (BG-32, decididos el 7-nov).
 
 ## Pendientes de producción
-Prueba de humo con admin; cargar NRC y ponderados de la edición 5; script de BG-16 para escarapelas (después de HU-25 en producción); `chmod 600` del `.env`; igualar `main → dev/dev-deploy`; confirmar históricos (197/723/197).
+Prueba de humo con admin; cargar NRC y ponderados de la edición 5; `chmod 600` del `.env`; igualar `main → dev/dev-deploy`; confirmar históricos (197/723/197).
+
+**Script de BG-16 ejecutado el 2026-11-14.** El 2-nov a las 16:01 se generaron escarapelas en producción con la regla anterior a BG-16 (toda cuenta activa con rol Jurado o Profesor): 114 en la edición 5. Se desactivaron 106 (103 jurados externos sin inscripción en la edición y 3 profesores con NRC solo en ediciones anteriores) con `prisma/scripts/bg16-deactivate-ineligible-badges.sql`, después de un `pg_dump` de `escarapelas_jurado` y `asistencia_jurado` (en `backups/` del servidor de prod) y de la vista previa. Quedaron activas 8, las de los profesores con NRC activo en la edición. No había llegadas registradas. Las filas originales están en `bg16_respaldo_escarapelas`, y el script trae al final cómo revertir. A los jurados que se confirmen se les crea una escarapela nueva al generarlas otra vez.
 
 ## Deuda técnica principal
 2 **P0 de DevOps** abiertos (`main.yml` legados; credenciales expuestas en historial) · dependencias sin uso · lint no bloqueante · archivos de más de 500 líneas · TA-08/09/10/11 · Épica VII sin ejecutar. Ver [riesgos](../04-devops/riesgos-y-deuda.md) y [deuda del front](../03-frontend/deuda-tecnica.md).
