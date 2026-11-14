@@ -17,8 +17,10 @@ build · lint (`continue-on-error`) · `npm run test:ci` · job de integración 
 
 ## Estado conocido
 - TA-10: según el backlog, 6 de 119 pruebas fallaban y había `continue-on-error`; corregirlas y quitarlo era trabajo de Samuel en el Sprint 2 (marcado Hecho en Jira el 3-nov). **Verificado el 2026-11-05** corriendo `npm run test:ci` (`jest --runInBand --coverage`) sobre `origin/main` (`bcfe237`): **136 suites pasan y 15 se omiten** (151 en total); **1313 pruebas pasan, 77 se omiten, 0 fallan**. Las omitidas son las de base de datos (`*.db.spec.ts`), que solo corren con `RUN_DB_TESTS` y una BD de prueba.
-- TA-11 (integración en el pipeline) y TA-06 (pruebas funcionales del flujo de evaluación, tras HU-18): pendientes en el plan.
-- El frontend tiene sus propias pruebas con Vitest ([03-frontend](../03-frontend/README.md)).
+- TA-24 (ARK-208, Hecho el 2026-11-14): las e2e y los `*.db.spec.ts` corren en serie también en local; en CI el job `integration` pasó 3 corridas seguidas (137 y 147 pruebas).
+- TA-06 (ARK-42, Hecho el 2026-11-14): pruebas funcionales del flujo de evaluación con Playwright contra Arkad-test, en el repo del front (`e2e/`, workflow `E2E-Arkad-test` bajo demanda). Corrida completa del 2026-11-14: 9 de 9.
+- TA-11 (ARK-47, pruebas de integración contra Arkad-test): por hacer (Jira, 2026-11-14).
+- El frontend tiene sus propias pruebas con Vitest ([03-frontend](../03-frontend/README.md)) y las e2e de TA-06.
 
 ## Reglas
 Toda regla de negocio nueva lleva su `*.spec.ts` junto al código; si depende de comportamiento real de la BD, añade un e2e/DB test. Rutas nuevas con permiso: prueba de que los roles sin permiso reciben error.

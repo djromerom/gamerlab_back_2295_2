@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-14: pruebas e2e (TA-06, ARK-42), integración en serie (TA-24, ARK-208) y borradores con reloj desfasado
+- [pruebas](../02-backend/pruebas.md): lista real de las 15 e2e y los 29 `*.db.spec.ts`, por qué corren en serie (`maxWorkers: 1`, `npm run test:db`), y estado de TA-24 y TA-06 (Hecho) y TA-11 (por hacer). Igual en la copia del front.
+- [pruebas-y-verificacion](../04-devops/pruebas-y-verificacion.md): fila nueva de las e2e del front (Playwright contra Arkad-test, workflow `E2E-Arkad-test`) y el CI del back con `test:e2e` / `test:db`.
+- Front: `estado-auth-y-sockets` explica que el respaldo local de un borrador se decide por versión (`baseVersion`) y no por la hora del navegador (front #310). `e2e/README.md` del front: cómo leer el resultado de una corrida y descargar el informe, con capturas.
+
 ## 2026-11-14: suplentes en lote (HU-09, ARK-215)
 - [jurados](../01-negocio/jurados.md#suplentes-en-lote-hu-09): sección nueva. Se suma sin quitar grupos, se omiten los pares que ya existen, solo suplentes confirmados de la edición, reglas de HU-08 sobre todos los pares, una transacción con bitácora y un aviso de HU-22 por suplente.
 - [reglas-de-negocio §5](../01-negocio/reglas-de-negocio.md#5-asignación-de-jurados): filas «Jurados por grupo» (más de 3 es válido) y «Suplentes».
