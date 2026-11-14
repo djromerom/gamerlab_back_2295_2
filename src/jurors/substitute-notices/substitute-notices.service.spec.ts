@@ -354,7 +354,7 @@ describe('SubstituteNoticesService (HU-22)', () => {
 
   it('la plantilla del correo muestra los grupos, el nivel y a dónde ir', () => {
     const source = fs.readFileSync(
-      path.join(__dirname, '..', 'email', 'templates', `${SUBSTITUTE_NOTICE_TEMPLATE}.hbs`),
+      path.join(__dirname, '..', '..', 'email', 'templates', `${SUBSTITUTE_NOTICE_TEMPLATE}.hbs`),
       'utf8',
     );
     const html = handlebars.compile(source)({
