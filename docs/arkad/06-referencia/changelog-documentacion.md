@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-13: reorganización de carpetas aplicada (TA-15, ARK-51)
+- Los documentos que citaban rutas o nombres viejos apuntan a la estructura nueva (`src/jurors/` en el back, `src/features/<dominio>/` en el front): [estructura-del-proyecto](../03-frontend/estructura-del-proyecto.md) (árbol reescrito), [consumo-de-api](../03-frontend/consumo-de-api.md), [arquitectura-modulos](../02-backend/arquitectura-modulos.md), [endpoints](../02-backend/endpoints.md) (`members` ya no existe), [integraciones](../02-backend/integraciones.md), [riesgos-y-deuda](../04-devops/riesgos-y-deuda.md), [inventario-de-rutas](../02-backend/inventario-de-rutas.md) (sección `PendingGamesController`) y el resto de `03-frontend/`.
+- [Mapa de movimientos](mapa-de-movimientos-ark-51.md): estado «ejecutado» con los PR de cada bloque. Los diagnósticos y las convenciones no se tocan (son el «antes» y la regla).
+
 ## 2026-11-13: estructura objetivo y convenciones (TA-14, ARK-50)
 - Nuevos: [estructura objetivo y convenciones del backend](../02-backend/estructura-objetivo-y-convenciones.md) (módulo por dominio, `src/jurors/`, nombres y capas), [del frontend](../03-frontend/estructura-objetivo-y-convenciones.md) (`src/features/<dominio>/`) y el [mapa de movimientos para TA-15](mapa-de-movimientos-ark-51.md). Propuesta a validar con el equipo y el profesor el 17-nov.
 - Guías de contribución de back y front, [arquitectura-modulos](../02-backend/arquitectura-modulos.md), [estructura-del-proyecto](../03-frontend/estructura-del-proyecto.md), índices y [checklist de traspaso](../05-scrum-y-proceso/checklist-traspaso-v5.md) enlazan a las convenciones.

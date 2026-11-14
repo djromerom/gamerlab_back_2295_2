@@ -1,6 +1,6 @@
 # Mapa de movimientos para TA-15
 
-> **Audiencia:** quien ejecute TA-15 (ARK-51), revisores · **Actualizado:** 2026-11-13 · **Estado:** decidido por el equipo el 13-nov (se presenta al profesor el 17-nov) y ensayado en local el 13-nov sin regresiones; las cifras se recalculan el 19-nov antes de mover · **Fuente:** `origin/dev` y `origin/dev-deploy` del 13-nov ([diagnóstico back](../02-backend/diagnostico-estructura.md), [diagnóstico front](../03-frontend/diagnostico-estructura.md)). Estructura destino: [back](../02-backend/estructura-objetivo-y-convenciones.md) y [front](../03-frontend/estructura-objetivo-y-convenciones.md). Ticket: ARK-50 (TA-14).
+> **Audiencia:** quien ejecute TA-15 (ARK-51), revisores · **Actualizado:** 2026-11-13 · **Estado:** **ejecutado el 13-nov** (adelantado del 19-nov: no había PR de features abiertos); decidido por el equipo y ensayado en local el mismo día sin regresiones · **Fuente:** `origin/dev` y `origin/dev-deploy` del 13-nov ([diagnóstico back](../02-backend/diagnostico-estructura.md), [diagnóstico front](../03-frontend/diagnostico-estructura.md)). Estructura destino: [back](../02-backend/estructura-objetivo-y-convenciones.md) y [front](../03-frontend/estructura-objetivo-y-convenciones.md). Ticket: ARK-50 (TA-14).
 
 TA-15 **solo mueve, renombra (archivos y símbolos) y borra código sin uso, y corrige imports**. No cambia comportamiento, URLs ni contratos de la API. Lo que cambia código (partir archivos grandes, quitar duplicación, sacar `apiFetch` de las vistas) queda fuera.
 
@@ -586,6 +586,6 @@ Hay 311 archivos que se mueven: 237 de código y 74 pruebas, que acompañan a su
 
 ## Después de TA-15
 
-- Actualizar este documento: qué bloques entraron y cuáles quedaron pendientes.
+- **Entraron los 8 bloques el 13-nov, sin pendientes:** back B1 #282, B2 #283, B3 #284 (incluye `substitute-notices`, que entró con #281, y la ruta de su plantilla en la spec); front FA #302, FB #303, FC #304, FD #305, FE #306; documentación en el PR que cierra TA-15 en cada repo. Antes de empezar se guardó una copia de los dos repos (`git bundle --all`).
 - Volver a correr los comandos de los diagnósticos para dejar la nueva línea base.
 - Las 35 vistas que importan `apiFetch`, la duplicación de `grading` y los archivos de más de 500 líneas siguen como deuda, con sus hallazgos (H2–H4 del front, H2–H3 del back).

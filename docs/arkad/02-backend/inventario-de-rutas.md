@@ -212,6 +212,15 @@
 | PATCH | `/nrcs/:id` | Permiso `UpdateNrc` | Administrador |  |
 | POST | `/nrcs` | Permiso `CreateNrc` | Administrador |  |
 
+## PendingGamesController
+
+| Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
+|---|---|---|---|---|
+| GET | `/pending-games` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+| GET | `/pending-games/count` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+| GET | `/pending-games/search` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+| GET | `/pending-games/search/quick` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+
 ## ProfessorsController
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
@@ -362,10 +371,6 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | DELETE | `/videogames/:id` | Permiso `ManageVideogames` | Administrador |  |
-| GET | `/pending-games` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
-| GET | `/pending-games/count` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
-| GET | `/pending-games/search` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
-| GET | `/pending-games/search/quick` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
 | GET | `/videogames` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id/likes` | Pública | Cualquiera (sin sesión) |  |
