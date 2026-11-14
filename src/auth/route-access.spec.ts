@@ -251,6 +251,17 @@ describe('Control de acceso de las rutas (BG-01)', () => {
           'Presentador externo': 'sin permiso',
         },
       ],
+      // HU-09 (ARK-215): suplentes en lote, solo el Administrador
+      [
+        'POST /juror/assignments/substitutes/bulk',
+        {
+          Estudiante: 'sin permiso',
+          Profesor: 'sin permiso',
+          Jurado: 'sin permiso',
+          Staff: 'sin permiso',
+          'Presentador externo': 'sin permiso',
+        },
+      ],
     ])('%s exige permiso según el rol (ARK-110)', async (key, expected) => {
       const route = permissionRoutes.find((r) => r.key === key);
       expect(route).toBeDefined();

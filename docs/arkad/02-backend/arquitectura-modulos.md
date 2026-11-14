@@ -24,6 +24,7 @@ NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con contro
 - **Edición activa:** `src/editions/active-edition.ts` (`findActiveEdition`, `requireActiveEdition`, `ACTIVE_EDITION_WHERE`, `assert*Writable`) y `list-edition.ts` (`resolveListEdition`). Una prueba (`active-edition.regression.spec.ts`) falla si alguien filtra la edición a mano. Ver `docs/editions.md`.
 - **Validación de asignaciones:** `src/jurors/juror/assignment-validation/` (`assignment-rules.ts` con las reglas, servicio central, tipos). Reglas de [negocio](../01-negocio/reglas-de-negocio.md): bloqueos vs advertencias.
 - **Bitácora de asignaciones:** `src/jurors/juror/assignment-audit` y modelo `JurorAssignmentAuditLog`.
+- **Suplentes en lote:** `src/jurors/juror/substitute-assignment/` (subcarpeta del módulo `juror`, sin módulo propio): `POST /juror/assignments/substitutes/bulk` suma suplentes a los grupos de uno o varios jurados en una transacción, con bitácora y aviso de HU-22 (HU-09, ARK-215).
 - **Evaluaciones que cuentan:** `src/evaluation/counted-evaluations.ts` (`MAX_COUNTED_EVALUATIONS = 3`, ordena por hora de envío) y `evaluation-progress.ts`.
 - **Ranking:** `src/ranking/ranking.logic.ts` (lógica pura, sin BD) + `ranking.service.ts`.
 - **Visibilidad/privacidad:** `common/utils/strip-personal-data.ts`, `omit-password.ts`, `opaque-user-key.ts`, `teams/team-visibility.ts` (BG-02, BG-06, BG-07).

@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-14: suplentes en lote (HU-09, ARK-215)
+- [jurados](../01-negocio/jurados.md#suplentes-en-lote-hu-09): sección nueva. Se suma sin quitar grupos, se omiten los pares que ya existen, solo suplentes confirmados de la edición, reglas de HU-08 sobre todos los pares, una transacción con bitácora y un aviso de HU-22 por suplente.
+- [reglas-de-negocio §5](../01-negocio/reglas-de-negocio.md#5-asignación-de-jurados): filas «Jurados por grupo» (más de 3 es válido) y «Suplentes».
+- [endpoints](../02-backend/endpoints.md): `POST /juror/assignments/substitutes/bulk` (servicio `AssignJurors`, sin permisos nuevos ni migración). [arquitectura-modulos](../02-backend/arquitectura-modulos.md): subcarpeta `src/jurors/juror/substitute-assignment/`.
+- Contrato para el front en `docs/frontend/HU-09-suplentes-en-lote.md` (ARK-216). [inventario-de-rutas](../02-backend/inventario-de-rutas.md) no se regenera: es la foto de `origin/main`.
+
 ## 2026-11-13: reorganización de carpetas aplicada (TA-15, ARK-51)
 - Los documentos que citaban rutas o nombres viejos apuntan a la estructura nueva (`src/jurors/` en el back, `src/features/<dominio>/` en el front): [estructura-del-proyecto](../03-frontend/estructura-del-proyecto.md) (árbol reescrito), [consumo-de-api](../03-frontend/consumo-de-api.md), [arquitectura-modulos](../02-backend/arquitectura-modulos.md), [endpoints](../02-backend/endpoints.md) (`members` ya no existe), [integraciones](../02-backend/integraciones.md), [riesgos-y-deuda](../04-devops/riesgos-y-deuda.md), [inventario-de-rutas](../02-backend/inventario-de-rutas.md) (sección `PendingGamesController`) y el resto de `03-frontend/`.
 - [Mapa de movimientos](mapa-de-movimientos-ark-51.md): estado «ejecutado» con los PR de cada bloque. Los diagnósticos y las convenciones no se tocan (son el «antes» y la regla).
