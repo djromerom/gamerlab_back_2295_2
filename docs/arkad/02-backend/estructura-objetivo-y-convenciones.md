@@ -1,6 +1,6 @@
 # Estructura objetivo y convenciones del backend (TA-14)
 
-> **Audiencia:** Backend, revisores de PR · **Actualizado:** 2026-11-13 · **Estado:** propuesta a validar con el equipo y el profesor el 17-nov · **Fuente:** [diagnóstico](diagnostico-estructura.md) (TA-13, ARK-49). Ticket: ARK-50 (TA-14). Los movimientos se hacen en TA-15 (ARK-51) según el [mapa de movimientos](../06-referencia/mapa-de-movimientos-ark-51.md).
+> **Audiencia:** Backend, revisores de PR · **Actualizado:** 2026-11-13 · **Estado:** decidido por el equipo el 13-nov; se presenta al profesor el 17-nov · **Fuente:** [diagnóstico](diagnostico-estructura.md) (TA-13, ARK-49). Ticket: ARK-50 (TA-14). Los movimientos se hacen en TA-15 (ARK-51) según el [mapa de movimientos](../06-referencia/mapa-de-movimientos-ark-51.md).
 
 El backend ya sigue en casi todo el patrón de NestJS: un módulo por dominio, con DTOs y pruebas al lado. Este documento **conserva ese patrón**, le agrega una regla para agrupar dominios grandes (primer caso: jurados) y fija las convenciones que hoy varían de un módulo a otro.
 
@@ -25,7 +25,7 @@ src/
 test/                              e2e (*.e2e-spec.ts)
 ```
 
-**Agrupar módulos por dominio.** Cuando 3 o más módulos son parte del mismo dominio, se agrupan en `src/<dominio en plural>/`. **Cada módulo conserva el nombre de su carpeta y de sus archivos** dentro del grupo: `src/juror-attendance/` pasa a `src/jurors/juror-attendance/` y su `juror-attendance.module.ts` no cambia de nombre. Así los imports entre módulos hermanos siguen funcionando y la búsqueda por nombre de archivo encuentra lo mismo de antes.
+**Agrupar módulos por dominio.** Cuando 3 o más módulos son parte del mismo dominio, se agrupan en `src/<dominio en plural>/`. **Cada módulo conserva el nombre de su carpeta y de sus archivos** dentro del grupo: `src/juror-attendance/` pasa a `src/jurors/juror-attendance/` y su `juror-attendance.module.ts` no cambia de nombre. Así la búsqueda por nombre de archivo encuentra lo mismo de antes. Los imports entre módulos hermanos del grupo siguen la regla general de imports: hacia otro módulo, `src/...` (TA-15 convierte los 42 relativos que hay hoy).
 
 **Primer grupo: `src/jurors/`** (se crea en TA-15):
 
@@ -73,7 +73,7 @@ El resto de dominios queda como está: ninguno tiene hoy 3 o más módulos que l
 | DTOs | En `dto/`, `<acción>-<recurso>.dto.ts` | `dto/create-upload.dto.ts` |
 | Pruebas | `*.spec.ts` al lado; `*.db.spec.ts` si usan BD real; e2e en `test/` | `ranking.logic.spec.ts` |
 | Idioma | Identificadores en inglés; mensajes al usuario en español | — |
-| Imports | Relativos dentro del módulo; `src/...` para importar **otro** módulo, así mover un módulo no rompe a quien lo usa. Hoy 796 imports entre módulos son relativos y 106 usan `src/`: no se reescriben en masa, solo en código nuevo y en los archivos que mueva TA-15 | `import { X } from 'src/teams/...'` |
+| Imports | Relativos dentro del módulo; `src/...` para importar **otro** módulo, también si es un módulo hermano dentro de un grupo (`src/jurors/...`), así mover un módulo no rompe a quien lo usa. Las excepciones son `app.module.ts` y `main.ts`, que importan con `./`. Hoy 796 imports entre módulos son relativos y 106 usan `src/`: no se reescriben en masa, solo en código nuevo y en los archivos que mueva TA-15 | `import { X } from 'src/teams/...'` |
 
 **Reglas de código:**
 - **Capas.** El controlador valida la entrada y delega; el servicio tiene las reglas de negocio; el repositorio, si existe, **solo accede a datos**: sin `HttpException` ni reglas (H3).

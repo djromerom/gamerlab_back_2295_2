@@ -1,8 +1,8 @@
 # Mapa de movimientos para TA-15
 
-> **Audiencia:** quien ejecute TA-15 (ARK-51), revisores · **Actualizado:** 2026-11-13 · **Estado:** propuesta a validar el 17-nov; las cifras se recalculan el 19-nov antes de mover · **Fuente:** `origin/dev` y `origin/dev-deploy` del 13-nov ([diagnóstico back](../02-backend/diagnostico-estructura.md), [diagnóstico front](../03-frontend/diagnostico-estructura.md)). Estructura destino: [back](../02-backend/estructura-objetivo-y-convenciones.md) y [front](../03-frontend/estructura-objetivo-y-convenciones.md). Ticket: ARK-50 (TA-14).
+> **Audiencia:** quien ejecute TA-15 (ARK-51), revisores · **Actualizado:** 2026-11-13 · **Estado:** decidido por el equipo el 13-nov (se presenta al profesor el 17-nov) y ensayado en local el 13-nov sin regresiones; las cifras se recalculan el 19-nov antes de mover · **Fuente:** `origin/dev` y `origin/dev-deploy` del 13-nov ([diagnóstico back](../02-backend/diagnostico-estructura.md), [diagnóstico front](../03-frontend/diagnostico-estructura.md)). Estructura destino: [back](../02-backend/estructura-objetivo-y-convenciones.md) y [front](../03-frontend/estructura-objetivo-y-convenciones.md). Ticket: ARK-50 (TA-14).
 
-TA-15 **solo mueve y renombra archivos y corrige imports**. No cambia comportamiento, URLs ni contratos de la API. Lo que cambia código (partir archivos grandes, quitar duplicación, sacar `apiFetch` de las vistas) queda fuera.
+TA-15 **solo mueve, renombra (archivos y símbolos) y borra código sin uso, y corrige imports**. No cambia comportamiento, URLs ni contratos de la API. Lo que cambia código (partir archivos grandes, quitar duplicación, sacar `apiFetch` de las vistas) queda fuera.
 
 ## Cuándo y con qué reglas
 
@@ -17,7 +17,7 @@ TA-15 **solo mueve y renombra archivos y corrige imports**. No cambia comportami
 |---|---|---|---|---|
 | B1 | back | Borrar código muerto confirmado y mudar `update-member.dto.ts` a `teams/dto/` | 11 (1 se muda, 10 se borran) | Bajo |
 | B2 | back | Renombrar `gg.*` y `pg.*`, nombres de clase únicos, `create-upload.dto.ts` a `dto/` | 8, más sus importadores (detalle abajo) | Bajo |
-| B3 | back | Anidar los 9 módulos de jurados en `src/jurors/` | 122 + 190 líneas de import | Medio |
+| B3 | back | Anidar los 9 módulos de jurados en `src/jurors/` | 122 + 232 líneas de import (42 entre módulos hermanos) | Medio |
 | FA | front | Features pequeñas | ver abajo | Bajo |
 | FB | front | Jurados | ver abajo | Medio |
 | FC | front | Calificación y resultados | ver abajo | Medio |
@@ -28,17 +28,20 @@ Back y front son independientes: si el back se atrasa, el front puede seguir, y 
 
 ## Procedimiento de cada PR
 
-1. Rama `refactor/ARK-51-<bloque>` desde `origin/dev` (back) o `origin/dev-deploy` (front).
-2. `git mv` de cada archivo de la tabla, con su prueba al lado.
-3. Reescribir los imports con un script de Node de un solo uso, que lee cada `import`, lo resuelve contra el árbol **viejo** y lo escribe contra el **nuevo**. No se edita a mano.
-   - **Front:** se escriben siempre con `@/`; hoy 1115 imports ya usan `@/` y solo 19 son relativos.
-   - **Back:** dentro del mismo módulo, relativos; hacia **otro** módulo, `src/...`, según la convención.
+1. Rama `refactor/ARK-51-<bloque>` desde `origin/dev` (back) o `origin/dev-deploy` (front), **ya actualizada** con el squash del bloque anterior. Los commits del ensayo del 13-nov no se rebasean: se vuelve a correr el script.
+2. Correr el script de un solo uso `ark51.mjs` (se adjunta al PR): primero con `--dry`, después sin él. El script:
+   - hace `git mv` de cada archivo de la tabla, con su prueba al lado, y `git rm` de las filas «(se borra)»;
+   - reescribe los imports que dejarían de resolver: lee cada `import`, lo resuelve contra el árbol **viejo** y lo escribe contra el **nuevo**. No se edita a mano.
+     - **Front:** siempre con `@/` y sin extensión `.ts`/`.tsx`.
+     - **Back:** dentro del mismo módulo, relativos; hacia **otro** módulo, `src/...`, también entre módulos hermanos de `src/jurors/`.
+   - renombra los símbolos de la tabla «Símbolos que se renombran» con el servicio de lenguaje de TypeScript (declaración y todos sus usos; no toca cadenas ni comentarios);
+   - reemplaza la ruta completa en documentos, código y `.sql`, y al final lista las rutas viejas que todavía aparecen.
+3. Primer commit: la salida exacta del script. Segundo commit: los ajustes manuales (documentos y comentarios que el script listó). Así quien revisa puede volver a correr el script sobre la base y comparar.
 4. Verificar, sin errores nuevos respecto de la integración:
-   - **Back:** `npm run build`, `npm run test:ci`, `npm run test:e2e`, `npx eslint src`, `npm run routes:inventory` (el inventario no debe cambiar salvo las rutas de archivo) y `docker build .`.
-   - **Front:** `npm run build`, `npm run test:ci`, `npx eslint .`.
-   - **Ambos:** `git grep` de cada ruta vieja da 0 resultados (fuera de los documentos fechados).
-5. Actualizar en el mismo PR los documentos que citan las rutas movidas (lista abajo).
-6. PR a `dev` / `dev-deploy` con la lista de movimientos; squash al mergear.
+   - **Back:** `npm run build`, `npm run test:ci`, `npm run test:e2e` y los `*.db.spec.ts` con base (como el job `integration` del CI), `npx eslint src` y `docker build .`.
+   - **Front:** `npm run build`, `npm run test:ci`, `npx eslint .` y `docker build .`.
+   - **Ambos:** `npx tsc --noEmit` (incluye las specs) y `git grep` de cada ruta vieja da 0 resultados (fuera de los documentos fechados y de las convenciones).
+5. PR a `dev` / `dev-deploy` con el comando exacto, la línea de resumen del dry-run, la lista de ajustes manuales y la frase «no cambia URLs ni contratos»; squash al mergear.
 
 ## Backend
 
@@ -51,7 +54,11 @@ Back y front son independientes: si el back se atrasa, el front puede seguir, y 
 | Borrar (nadie los importa) | `src/pending-games/dto/create-videogame.dto.ts`, `src/pending-games/dto/update-videogame.dto.ts`, `src/students/dto/update-member.dto.ts` |
 | Borrar (sin referencias) | `src/templates/email/account-verification.html` |
 
+**Por qué se borra `members`:** ARK-175 lo dejó sin tocar para no ampliar ese PR, no porque se fuera a usar. `MembersModule` no lo importa ningún módulo, así que sus rutas nunca existieron en la API; el historial queda en git. Decisión del equipo del 13-nov.
+
 Los dudosos del diagnóstico (`prisma/seed-test-juror.ts`, `scripts/migrate-blob-references.ts`) **no se tocan**.
+
+**Documentos a actualizar en el mismo PR:** `docs/arkad/02-backend/endpoints.md:14` (la fila `/teams/:teamId/members` sale), `arquitectura-modulos.md` (`members` y `templates` salen de la tabla), `integraciones.md:29` (`src/templates/email/` deja de existir) y `04-devops/riesgos-y-deuda.md:42` (el punto de código sin montar se cierra).
 
 ### B2. Nombres (H5)
 
@@ -61,9 +68,15 @@ Los dudosos del diagnóstico (`prisma/seed-test-juror.ts`, `scripts/migrate-blob
 | `src/pending-games/pg.module.ts`, `pg.controller.ts`, `pg.service.ts`, `pg.service.spec.ts` | `pending-games.module.ts`, `pending-games.controller.ts`, `pending-games.service.ts`, `pending-games.service.spec.ts` | Hay 14 líneas de import. Además, las clases `VideogamesService` y `VideogamesController` de este módulo pasan a `PendingGamesService` y `PendingGamesController`: hoy se llaman igual que las del módulo `videogames`, y varias specs las importan con alias (`as PendingGamesService`). La ruta HTTP del controlador no cambia |
 | `src/upload/create-upload.dto.ts` | `src/upload/dto/create-upload.dto.ts` | 1 importador (`videogames/dto/create-videogame.dto.ts`) |
 
+El renombre de clases solo toca el import que viene de `pending-games`: `upload/blob-reference.read-paths.spec.ts` importa también el `VideogamesService` de `videogames/`, que no cambia.
+
+**Inventario de rutas:** las 4 filas `/pending-games*` de `docs/arkad/02-backend/inventario-de-rutas.md` pasan a mano de `## VideogamesController` a una sección nueva `## PendingGamesController`. No se regenera el documento dentro de este PR: generado desde `dev` traería 43 rutas ajenas a TA-15; eso va en un PR de documentación aparte.
+
+**Swagger** (solo fuera de producción): `/pending-games` pasa de la etiqueta «Videogames» a «PendingGames» y cambian sus `operationId`. Los permisos (`@RequiredService('PendingGamesService')`) no cambian. Se menciona en la descripción del PR.
+
 ### B3. `src/jurors/`
 
-Cada carpeta se mueve **con su nombre**: `src/<módulo>/` pasa a `src/jurors/<módulo>/`. Los 252 imports entre estos módulos no cambian. Solo se reescriben los que cruzan la frontera del grupo.
+Cada carpeta se mueve **con su nombre**: `src/<módulo>/` pasa a `src/jurors/<módulo>/`. Se reescriben los imports que cruzan la frontera del grupo y, para cumplir la convención, los 42 imports relativos entre módulos hermanos (`../juror-edition/...`) pasan a `src/jurors/...`. Los imports dentro de un mismo módulo no cambian. Las rutas escritas como texto en `editions/active-edition.regression.spec.ts` (lista `ALLOWED`) se actualizan en el mismo commit.
 
 | Módulo | Archivos (specs) | Imports relativos que salen del grupo | Imports que entran desde fuera |
 |---|---|---|---|
@@ -80,24 +93,26 @@ Cada carpeta se mueve **con su nombre**: `src/<módulo>/` pasa a `src/jurors/<m�
 
 **No se afecta:** el Dockerfile (solo fija `src/email/templates` y `src/certificates/assets`), `nest-cli.json` (los assets van por patrón), el `moduleNameMapper` de Jest (`^src/(.*)$`, válido para cualquier profundidad) y ningún `jest.mock` (ninguno apunta a estas rutas).
 
-**Documentos a actualizar en el mismo PR:** `README.md` (1 mención), `docs/editions.md` (ruta de `juror-edition/edition-resolver.ts`), `docs/arkad/02-backend/arquitectura-modulos.md` (2) y `docs/arkad/02-backend/inventario-de-rutas.md` (se regenera).
+**Documentos a actualizar en el mismo PR:** `README.md:204` (`npx jest src/jurors`), `docs/editions.md` (ruta de `juror-edition/edition-resolver.ts`) y `docs/arkad/02-backend/arquitectura-modulos.md` (tabla de dominios y rutas de archivo). El inventario de rutas no cambia en B3: agrupa por clase de controlador, no por archivo.
 
 ## Frontend
 
-Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su archivo. El total de líneas de import que apuntan a ellos y que se reescriben es 626. Las rutas URL no cambian: solo cambian los imports en `routes/RoutesConfiguration.tsx`.
+Hay 311 archivos que se mueven: 237 de código y 74 pruebas, que acompañan a su archivo; además se borra 1 (`FairStartedAnnouncement`, sin importadores). El script reescribe 649 líneas de import (las que dejarían de resolver tras mover) y renombra 40 símbolos. Las rutas URL no cambian: solo cambian los imports en `routes/RoutesConfiguration.tsx`.
 
-**Cómo se asignó cada archivo:** las carpetas `grupo N`, `pages/` y `components/` se asignaron a mano según la tabla de dominios. Los archivos de `lib/`, `hooks/`, `fetchs/` y `types/` sin regla explícita se asignaron por sus consumidores: si todos sus importadores van al mismo dominio, se van con ellos (marcados como «asignado por consumidores»); si no, se quedan compartidos. Lo que usan 3 o más dominios va a compartido (`api/`, `components/`, `hooks/`). Con este mapa quedan 17 imports entre dos dominios, que la convención permite.
+**Cómo se asignó cada archivo:** las carpetas `grupo N`, `pages/` y `components/` se asignaron a mano según la tabla de dominios. Los archivos de `lib/`, `hooks/`, `fetchs/` y `types/` sin regla explícita se asignaron por sus consumidores: si todos sus importadores van al mismo dominio, se van con ellos (marcados como «asignado por consumidores»); si no, se quedan compartidos. Lo que usan 3 o más dominios va a compartido (`api/`, `components/`, `hooks/`). Dos excepciones, según la convención: lo **genérico** (no habla de ningún dominio, como `pluralize` o `CircularProgress`) se queda en compartido aunque hoy lo use un solo dominio, y lo que comparten **dos subdominios de `jurors`** va al nivel `features/jurors/<tipo>/`. Con este mapa quedan 17 imports entre dos dominios, que la convención permite.
 
-**Documentos a actualizar en el mismo PR que mueve sus rutas:** `README.md`, `docs/arkad/03-frontend/estructura-del-proyecto.md`, `consumo-de-api.md`, `deuda-tecnica.md`, `estado-auth-y-sockets.md` y `01-negocio/ediciones.md`. Los diagnósticos y el changelog **no** se actualizan, porque son registros fechados.
+**Nombres:** el archivo y su símbolo principal se llaman igual. Cuando el mapa renombra un archivo o el símbolo no coincide con el nombre del archivo, el símbolo se renombra en la tabla «Símbolos que se renombran» de su bloque (el script usa el *rename* de TypeScript, que cambia la declaración y todos sus usos). Quedan como están, por convención: los contextos (`XContext.tsx` exporta `XProvider` y `useX`), los archivos que agrupan varias piezas del mismo tema (`EvaluationDrafts.tsx`, `TeamSkeleton.tsx`, `TeamVerification.tsx`, `validationTeamsAdmin.tsx`) y lo generado por shadcn (`components/ui/`, `hooks/use-mobile.ts`).
+
+**Documentos a actualizar en el mismo PR que mueve sus rutas:** `README.md:56`, `docs/arkad/03-frontend/estructura-del-proyecto.md` (el árbol y la sección de grupos se reescriben en el PR de FE), `consumo-de-api.md`, `deuda-tecnica.md`, `estado-auth-y-sockets.md`, `rutas-y-pantallas.md`, `guia-de-contribucion.md` y `01-negocio/ediciones.md`, más `docs/frontend/HU-25-jurados-por-edicion.md` en el back. `docs/arkad` está duplicado en los dos repos: el cambio se replica en el otro repo en el PR de documentación que cierra TA-15. Los diagnósticos, el changelog y los documentos de convenciones **no** se actualizan: son registros fechados o describen el «antes» a propósito.
 
 | PR | Contenido | Archivos (de ellos, pruebas) | Líneas de import que apuntan a ellos |
 |---|---|---|---|
-| FA | Features pequeñas: `staff-accounts`, `home`, `notifications`, `pwa`, `auth`, `games`, `public`, `academic`, `external-presenters` | 68 (15) | 93 |
-| FB | Jurados: `jurors/badges`, `jurors/edition`, `jurors/attendance`, `jurors/survey`, `jurors/presence`, `jurors/management`, `jurors/assignment` | 70 (24) | 146 |
-| FC | Calificación y resultados: `grading`, `results` | 65 (18) | 97 |
-| FD | Ediciones y equipos: `editions`, `teams` | 69 (7) | 115 |
-| FE | Compartido (layouts, routes, components, contexts, api): — | 28 (6) | 175 |
-| | **Total** | **300 (70)** | **626** |
+| FA | Features pequeñas: `staff-accounts`, `home`, `notifications`, `pwa`, `auth`, `games`, `public`, `academic`, `external-presenters` | 69 (15) + 1 borrado | 93 |
+| FB | Jurados: `jurors/badges`, `jurors/edition`, `jurors/attendance`, `jurors/survey`, `jurors/presence`, `jurors/management`, `jurors/assignment` | 71 (24) | 152 |
+| FC | Calificación y resultados: `grading`, `results` | 65 (18) | 89 |
+| FD | Ediciones y equipos: `editions`, `teams` | 72 (9) | 111 |
+| FE | Compartido (layouts, routes, components, contexts, api): — | 34 (8) | 204 |
+| | **Total** | **311 (74)** + 1 borrado | **649** |
 
 ### FA. Features pequeñas
 
@@ -137,13 +152,14 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 
 </details>
 
-<details><summary><b>src/features/auth</b>: 6 archivos + 1 pruebas</summary>
+<details><summary><b>src/features/auth</b>: 7 archivos + 1 pruebas</summary>
 
 | Ruta actual (`src/`) | Ruta nueva (`src/`) | Imports | Nota |
 |---|---|---|---|
 | `pages/grupo 9/VerificationPage.tsx` | `features/auth/pages/AccountVerificationPage.tsx` | 1 | renombre |
 | `pages/grupo 9/AuthErrorPage.tsx` | `features/auth/pages/AuthErrorPage.tsx` | 1 |  |
 | `pages/grupo 9/ForgetPassword.tsx` | `features/auth/pages/ForgotPasswordPage.tsx` | 1 | renombre |
+| `pages/grupo 9/ButtonLoading.tsx` | `features/auth/components/ButtonLoading.tsx` | 2 | solo lo usa auth |
 | `pages/grupo 9/LoginPage.tsx` | `features/auth/pages/LoginPage.tsx` | 2 |  |
 | `pages/grupo 9/ResetPassword.tsx` | `features/auth/pages/ResetPasswordPage.tsx` | 1 | renombre |
 | `pages/grupo 9/UnauthorizedPage.tsx` | `features/auth/pages/UnauthorizedPage.tsx` | 1 |  |
@@ -162,7 +178,7 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `hooks/useGameLoader.ts` | `features/games/hooks/useGameLoader.ts` | 1 |  |
 | `hooks/useInfiniteCarousel.ts` | `features/games/hooks/useInfiniteCarousel.ts` | 1 |  |
 | `hooks/useLikesSocket.ts` | `features/games/hooks/useLikesSocket.ts` | 1 |  |
-| `pages/gameplayer/gameplayerpage.css` | `features/games/pages/gameplayerpage.css` | 1 |  |
+| `pages/gameplayer/gameplayerpage.css` | `features/games/pages/GamePlayerPage.css` | 1 | renombre |
 | `pages/gameplayer/GamePlayerPage.tsx` | `features/games/pages/GamePlayerPage.tsx` | 1 |  |
 | `pages/grupo 5/HistoricalVideogamesPage.tsx` | `features/games/pages/HistoricalVideogamesPage.tsx` | 1 |  |
 | `pages/teams/VideogamesPage.tsx` | `features/games/pages/VideogamesPage.tsx` | 1 |  |
@@ -174,7 +190,8 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | Ruta actual (`src/`) | Ruta nueva (`src/`) | Imports | Nota |
 |---|---|---|---|
 | `components/grupo 5/CountdownTimer.tsx` | `features/public/components/CountdownTimer.tsx` | 1 |  |
-| `components/grupo 5/FairStartedAnnouncement.tsx` | `features/public/components/FairStartedAnnouncement.tsx` | 1 |  |
+| `components/grupo 5/FairStartedAnnouncement.tsx` | (se borra) | 0 | sin importadores desde #299 |
+| `components/grupo 5/LandingHeader.tsx` | `features/public/components/LandingHeader.tsx` | 1 | entró con #299 |
 | `data/contributorsData.tsx` | `features/public/lib/contributorsData.tsx` | 2 |  |
 | `pages/grupo 5/CreditsPage.css` | `features/public/pages/CreditsPage.css` | 1 |  |
 | `pages/grupo 5/CreditsPage.tsx` | `features/public/pages/CreditsPage.tsx` | 1 |  |
@@ -196,7 +213,7 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `components/grupo 9/professorsTable.tsx` | `features/academic/components/ProfessorsTable.tsx` | 1 | renombre |
 | `components/grupo 9/SubjectsTable.tsx` | `features/academic/components/SubjectsTable.tsx` | 1 |  |
 | `lib/weightsResponse.ts` | `features/academic/lib/weightsResponse.ts` | 2 | asignado por consumidores |
-| `pages/grupo 9/CriterionPage.tsx` | `features/academic/pages/CriterionPage.tsx` | 1 |  |
+| `pages/grupo 9/CriterionPage.tsx` | `features/academic/pages/CriteriaPage.tsx` | 1 | renombre (como su componente y `/criterios`) |
 | `pages/grupo 9/GradeWeightsPage.tsx` | `features/academic/pages/GradeWeightsPage.tsx` | 1 |  |
 | `pages/grupo 9/NrcsPage.tsx` | `features/academic/pages/NrcsPage.tsx` | 2 |  |
 | `pages/grupo 9/professorsPage.tsx` | `features/academic/pages/ProfessorsPage.tsx` | 2 | renombre |
@@ -216,6 +233,18 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `pages/external-presenter/MyRegistrationPage.tsx` | `features/external-presenters/pages/MyRegistrationPage.tsx` | 2 |  |
 
 </details>
+
+#### Símbolos que se renombran (FA)
+
+| Archivo (ruta nueva en `src/`) | Símbolo actual | Símbolo nuevo |
+|---|---|---|
+| `features/auth/pages/AccountVerificationPage.tsx` | `VerifyEmailPage` | `AccountVerificationPage` |
+| `features/auth/pages/ForgotPasswordPage.tsx` | `ForgetPassword` | `ForgotPasswordPage` |
+| `features/auth/pages/ResetPasswordPage.tsx` | `ResetPassword` | `ResetPasswordPage` |
+| `features/public/pages/CreditsPage.tsx` | `DevelopersCredits` | `CreditsPage` |
+| `features/public/pages/InformationPage.tsx` | `CompetitionInfo` | `InformationPage` |
+| `features/public/pages/LandingPage.tsx` | `Landing` | `LandingPage` |
+| `features/public/pages/PastFairsPage.tsx` | `CompetitionInfo` | `PastFairsPage` |
 
 ### FB. Jurados
 
@@ -286,7 +315,7 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `components/grupo 12/JuryManagementTable.tsx` | `features/jurors/management/components/JuryManagementTable.tsx` | 2 |  |
 | `components/grupo 12/ManualAssignTeamDialog.tsx` | `features/jurors/management/components/ManualAssignTeamDialog.tsx` | 2 |  |
 | `components/grupo 12/RemoveTeamDialog.tsx` | `features/jurors/management/components/RemoveTeamDialog.tsx` | 2 |  |
-| `hooks/juryManagement.ts` | `features/jurors/management/hooks/useJuryManagement.ts` | 11 | renombre |
+| `hooks/juryManagement.ts` | `features/jurors/management/api/juryManagement.ts` | 11 | no es un hook: son llamadas a la API |
 | `components/grupo 12/manualAssignment.ts` | `features/jurors/management/lib/manualAssignment.ts` | 7 |  |
 | `components/grupo 12/utils.ts` | `features/jurors/management/lib/utils.ts` | 7 |  |
 | `pages/grupo 12/JuryManagementPage.tsx` | `features/jurors/management/pages/JuryManagementPage.tsx` | 1 |  |
@@ -314,6 +343,22 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 
 </details>
 
+<details><summary><b>src/features/jurors</b> (lo que comparten dos o más subdominios): 1 archivos + 0 pruebas</summary>
+
+| Ruta actual (`src/`) | Ruta nueva (`src/`) | Imports | Nota |
+|---|---|---|---|
+| `types/jurados.ts` | `features/jurors/types/jurors.ts` | 15 | lo usan `assignment` y `management`; renombre |
+
+</details>
+
+#### Símbolos que se renombran (FB)
+
+| Archivo (ruta nueva en `src/`) | Símbolo actual | Símbolo nuevo |
+|---|---|---|
+| `features/jurors/assignment/components/JurorAssignModal.tsx` | `JuradoAssignModal` | `JurorAssignModal` |
+| `features/jurors/assignment/components/JurorsListModal.tsx` | `JuradosListModal` | `JurorsListModal` |
+| `features/jurors/assignment/pages/JurorAssignmentPage.tsx` | `JuradosAssignment` | `JurorAssignmentPage` |
+
 ### FC. Calificación y resultados
 
 <details><summary><b>src/features/grading</b>: 21 archivos + 6 pruebas</summary>
@@ -337,7 +382,7 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `pages/grupo 8/PendingGradesPage.tsx` | `features/grading/pages/PendingGradesPage.tsx` | 1 |  |
 | `pages/grupo 8/PendingSchoolGradesPage.tsx` | `features/grading/pages/PendingSchoolGradesPage.tsx` | 1 |  |
 | `pages/grupo 8/RatePage.tsx` | `features/grading/pages/RatePage.tsx` | 1 |  |
-| `pages/RealtimeTrackingPanel.tsx` | `features/grading/pages/RealtimeTrackingPanel.tsx` | 2 |  |
+| `pages/RealtimeTrackingPanel.tsx` | `features/grading/pages/RealtimeTrackingPage.tsx` | 2 | renombre |
 | `pages/grupo 8/SchoolGradesPage.tsx` | `features/grading/pages/SchoolGradesPage.tsx` | 1 |  |
 | `pages/grupo 8/SchoolRate.tsx` | `features/grading/pages/SchoolRatePage.tsx` | 1 | renombre |
 | `types/criterion.ts` | `features/grading/types/criterion.ts` | 2 | asignado por consumidores |
@@ -364,7 +409,7 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `components/grupo 5/StudentGradeTableView.tsx` | `features/results/components/StudentGradeTableView.tsx` | 2 |  |
 | `hooks/useTeacherDashboard.ts` | `features/results/hooks/useTeacherDashboard.ts` | 3 |  |
 | `lib/averages.ts` | `features/results/lib/averages.ts` | 5 | asignado por consumidores |
-| `lib/criteria-columns.ts` | `features/results/lib/criteria-columns.ts` | 3 | asignado por consumidores |
+| `lib/criteria-columns.ts` | `features/results/lib/criteriaColumns.ts` | 3 | asignado por consumidores; renombre |
 | `lib/finalGradeWeights.ts` | `features/results/lib/finalGradeWeights.ts` | 2 | asignado por consumidores |
 | `lib/grades.ts` | `features/results/lib/grades.ts` | 2 | asignado por consumidores |
 | `pages/admin/FinalGradeReleasePage.tsx` | `features/results/pages/FinalGradeReleasePage.tsx` | 2 |  |
@@ -376,6 +421,26 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `components/grupo 5/student-grade-table-types.ts` | `features/results/types/studentGradeTable.ts` | 7 | renombre |
 
 </details>
+
+#### Símbolos que se renombran (FC)
+
+| Archivo (ruta nueva en `src/`) | Símbolo actual | Símbolo nuevo |
+|---|---|---|
+| `features/grading/components/CriteriaButton.tsx` | `Criteriabutton` | `CriteriaButton` |
+| `features/grading/components/GradingButton.tsx` | `Button` | `GradingButton` |
+| `features/grading/components/GradingInput.tsx` | `Input` | `GradingInput` |
+| `features/grading/components/GradingTextarea.tsx` | `Textarea` | `GradingTextarea` |
+| `features/grading/components/PendingGradesGrid.tsx` | `PendingGamesGrid` | `PendingGradesGrid` |
+| `features/grading/pages/RealtimeTrackingPage.tsx` | `RealtimeTrackingPanel` | `RealtimeTrackingPage` |
+| `features/grading/pages/SchoolRatePage.tsx` | `SchoolRate` | `SchoolRatePage` |
+| `features/results/components/CustomTableRow.tsx` | `CustomTableRowBeta` | `CustomTableRow` |
+| `features/results/components/FilterPanel.tsx` | `FiltrosPanel` | `FilterPanel` |
+| `features/results/components/GraphicsDisplay.tsx` | `GraphicDisplay` | `GraphicsDisplay` |
+| `features/results/components/JudgesTable.tsx` | `TablaPorJurado` | `JudgesTable` |
+| `features/results/components/RankingTable.tsx` | `TablaRanking` | `RankingTable` |
+| `features/results/components/ResultsTable.tsx` | `TablaResultados` | `ResultsTable` |
+| `features/results/pages/RankingPage.tsx` | `PodioGamer` | `RankingPage` |
+| `features/results/pages/TeacherHomePage.tsx` | `HomeTeacherPage` | `TeacherHomePage` |
 
 ### FD. Ediciones y equipos
 
@@ -405,11 +470,12 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 
 </details>
 
-<details><summary><b>src/features/teams</b>: 43 archivos + 6 pruebas</summary>
+<details><summary><b>src/features/teams</b>: 44 archivos + 8 pruebas</summary>
 
 | Ruta actual (`src/`) | Ruta nueva (`src/`) | Imports | Nota |
 |---|---|---|---|
 | `fetchs/editionStudents.ts` | `features/teams/api/editionStudents.ts` | 4 |  |
+| `fetchs/teamGradable.ts` | `features/teams/api/teamGradable.ts` | 3 | entró con #298 |
 | `fetchs/teamVerification.ts` | `features/teams/api/teamVerification.ts` | 5 |  |
 | `components/grupo 5/CardTeamMembers.tsx` | `features/teams/components/CardTeamMembers.tsx` | 1 |  |
 | `components/grupo 5/CardTeamVideogame.tsx` | `features/teams/components/CardTeamVideogame.tsx` | 1 |  |
@@ -455,16 +521,23 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 
 </details>
 
+#### Símbolos que se renombran (FD)
+
+| Archivo (ruta nueva en `src/`) | Símbolo actual | Símbolo nuevo |
+|---|---|---|
+| `features/teams/components/CardTeamMembers.tsx` | `CardTeamMember` | `CardTeamMembers` |
+| `features/teams/pages/MyJurorsPage.tsx` | `MisJuradosPage` | `MyJurorsPage` |
+| `features/teams/pages/StudentHomePage.tsx` | `HomeStudentPage` | `StudentHomePage` |
+
 ### FE. Compartido (layouts, routes, components, contexts, api)
 
-<details><summary><b>compartido</b>: 22 archivos + 6 pruebas</summary>
+<details><summary><b>compartido</b>: 26 archivos + 8 pruebas</summary>
 
 | Ruta actual (`src/`) | Ruta nueva (`src/`) | Imports | Nota |
 |---|---|---|---|
 | `fetchs/editions.ts` | `api/editions.ts` | 31 |  |
 | `fetchs/evaluationProgress.ts` | `api/evaluationProgress.ts` | 3 |  |
 | `fetchs/registrations.ts` | `api/registrations.ts` | 5 |  |
-| `pages/grupo 9/ButtonLoading.tsx` | `components/ButtonLoading.tsx` | 2 |  |
 | `components/grupo 5/DiscordButton.tsx` | `components/DiscordButton.tsx` | 5 |  |
 | `components/juror-presence/JurorPresenceNotice.tsx` | `components/JurorPresenceNotice.tsx` | 3 |  |
 | `components/juror-survey/JurorSurveyAccess.tsx` | `components/JurorSurveyAccess.tsx` | 5 |  |
@@ -480,13 +553,35 @@ Hay 300 archivos que se mueven: 230 de código y 70 pruebas, que acompañan a su
 | `components/grupo 9/app-sidebar.tsx` | `layouts/AppSidebar.tsx` | 13 | renombre |
 | `components/grupo 9/BreadCrums.tsx` | `layouts/Breadcrumbs.tsx` | 1 | renombre |
 | `layouts/LayoutAplication.tsx` | `layouts/LayoutApplication.tsx` | 39 | renombre |
-| `components/grupo 9/nav-projects.tsx` | `layouts/NavProjects.tsx` | 1 | renombre |
+| `components/fondo/FondoArkad.tsx` | `components/background/ArkadBackground.tsx` | 19 | renombre |
+| `components/fondo/FondoPanel.tsx` | `components/background/PanelBackground.tsx` | 5 | renombre |
+| `components/fondo/escena.ts` | `components/background/scene.ts` | 1 | renombre |
+| `routes/RestablecerInteraccion.tsx` | `routes/RestoreInteraction.tsx` | 2 | renombre |
+| `types/Team.ts` | `types/team.ts` | 15 | renombre (camelCase) |
+| `components/grupo 9/nav-projects.tsx` | `layouts/NavContent.tsx` | 1 | renombre (como su componente) |
 | `components/grupo 9/nav-user.tsx` | `layouts/NavUser.tsx` | 1 | renombre |
 | `components/grupo 9/ProtectedRoute.tsx` | `routes/ProtectedRoute.tsx` | 2 |  |
 
 </details>
 
-**Se quedan donde están (compartidos):** `contexts/AuthContext.tsx`, `contexts/SocketContext.tsx`, `contexts/TextSizeContext.tsx`, `hooks/use-mobile.ts`, `hooks/useFetch.ts`, `hooks/useLockViewportZoom.ts`, `hooks/useWorkingEdition.ts`, `lib/api.ts`, `lib/certificates.ts`, `lib/editionDate.ts`, `lib/evaluationDrafts.ts`, `lib/gradeDrafts.ts`, `lib/jurorLabel.ts`, `lib/jurorSurvey.ts`, `lib/localDraftsOwner.ts`, `lib/notEnrolled.ts`, `lib/opaqueKeys.ts`, `lib/ownTeam.ts`, `lib/pagination.ts`, `lib/pluralize.ts`, `lib/pwa.ts`, `lib/session.ts`, `lib/utils.ts`, `lib/workingEdition.ts`, `types/auth.ts`, `types/jurados.ts`, `types/Team.ts`.
+#### Símbolos que se renombran (FE)
+
+| Archivo (ruta nueva en `src/`) | Símbolo actual | Símbolo nuevo |
+|---|---|---|
+| `components/TextSizeControl.tsx` | `TextSizeControls` | `TextSizeControl` |
+| `layouts/LayoutApplication.tsx` | `LayoutAplication` | `LayoutApplication` |
+| `components/background/ArkadBackground.tsx` | `FondoArkad` | `ArkadBackground` |
+| `components/background/ArkadBackground.tsx` | `FondoArkadProps` | `ArkadBackgroundProps` |
+| `components/background/PanelBackground.tsx` | `FondoPanel` | `PanelBackground` |
+| `components/background/scene.ts` | `crearEscena` | `createScene` |
+| `components/background/scene.ts` | `Escena` | `Scene` |
+| `components/background/scene.ts` | `OpcionesEscena` | `SceneOptions` |
+| `components/background/scene.ts` | `ModoFondo` | `BackgroundMode` |
+| `routes/RestoreInteraction.tsx` | `RestablecerInteraccion` | `RestoreInteraction` |
+| `components/NavBar.tsx` | `navBar` | `NavBar` |
+| `components/PurpleButton.tsx` | `purpleButton` | `PurpleButton` |
+
+**Se quedan donde están (compartidos):** `contexts/AuthContext.tsx`, `contexts/SocketContext.tsx`, `contexts/TextSizeContext.tsx`, `hooks/use-mobile.ts` (shadcn), `hooks/useFetch.ts`, `hooks/useWorkingEdition.ts` (con `lib/workingEdition.ts`), `lib/api.ts`, `lib/certificates.ts`, `lib/editionDate.ts`, `lib/evaluationDrafts.ts`, `lib/gradeDrafts.ts`, `lib/jurorLabel.ts`, `lib/jurorSurvey.ts`, `lib/localDraftsOwner.ts`, `lib/notEnrolled.ts`, `lib/opaqueKeys.ts`, `lib/ownTeam.ts`, `lib/pwa.ts`, `lib/session.ts`, `lib/utils.ts`, `lib/workingEdition.ts`, `types/auth.ts`, `types/team.ts`. Se quedan por **genéricos**, aunque hoy los use un solo dominio: `components/CircularProgress.tsx`, `hooks/useLockViewportZoom.ts`, `lib/pagination.ts` y `lib/pluralize.ts`.
 
 ## Después de TA-15
 
