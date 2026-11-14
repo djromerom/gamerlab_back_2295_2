@@ -39,7 +39,7 @@ const draftInfo = (drafts: { updatedAt: Date }[] = []) => ({
 });
 
 @Injectable()
-export class VideogamesService {
+export class PendingGamesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly blobRefs: BlobReferenceService,

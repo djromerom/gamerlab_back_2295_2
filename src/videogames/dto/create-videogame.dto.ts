@@ -7,7 +7,7 @@ import {
   ValidateNested,
   IsUrl,
 } from 'class-validator';
-import { UploadDto } from 'src/upload/create-upload.dto';
+import { UploadDto } from 'src/upload/dto/create-upload.dto';
 
 export class CreateVideogameDto {
   @IsString()

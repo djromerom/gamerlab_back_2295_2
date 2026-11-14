@@ -3,8 +3,8 @@ import { EditionStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EvaluationService } from '../evaluation/evaluation.service';
-import { VideogamesService as PendingGamesService } from '../pending-games/pg.service';
-import { GradedGamesService } from '../graded-games/gg.service';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
+import { GradedGamesService } from 'src/graded-games/graded-games.service';
 import { SettingsService } from './settings.service';
 import { EVENT_CONFIGURATION_NOT_FOUND } from './active-edition-config';
 

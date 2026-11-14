@@ -4,8 +4,8 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { JurorService } from './juror.service';
 import { TeamRepository } from '../teams/repositories/team.repository';
-import { VideogamesService as PendingGamesService } from '../pending-games/pg.service';
-import { GradedGamesService } from '../graded-games/gg.service';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
+import { GradedGamesService } from 'src/graded-games/graded-games.service';
 import { ProfessorsService } from '../professors/professors.service';
 
 /**

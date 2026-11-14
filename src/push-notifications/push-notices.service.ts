@@ -9,7 +9,7 @@ import {
   requireActiveEdition,
 } from '../editions/active-edition';
 import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
-import { VideogamesService } from '../pending-games/pg.service';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ARRIVAL_REMINDER_NOTICE,
@@ -35,7 +35,7 @@ export class PushNoticesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sender: PushSenderService,
-    private readonly pendingGames: VideogamesService,
+    private readonly pendingGames: PendingGamesService,
   ) {}
 
   /** Solo a quienes no tienen llegada activa en `asistencia_jurado` en esta edición. */
