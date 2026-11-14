@@ -20,7 +20,7 @@
 |---|---|
 | `npm run start:dev` | Arranque en watch (SWC) |
 | `npm run build` / `build:all` | Compilar (y compilar `seed.ts`) |
-| `npm run test` / `test:ci` / `test:e2e` | Pruebas (`test:ci` = `--runInBand --coverage`) |
+| `npm run test` / `test:ci` / `test:e2e` / `test:db` | Pruebas (`test:ci` = `--runInBand --coverage`; `test:e2e` y `test:db` corren en serie contra una base desechable, ver [pruebas](pruebas.md)) |
 | `npm run lint` | ESLint con `--fix` |
 | `npm run prisma:migrate` / `prisma:migrate:deploy` | Migrar en desarrollo / en producción |
 | `npm run db:seed` / `db:setup` / `db:reset` | Seed / migrar+seed / reset+seed |
