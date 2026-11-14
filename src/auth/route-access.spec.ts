@@ -79,6 +79,8 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   // HU-17: el jurado (externo o profesor) responde su encuesta; los resultados, solo el Administrador
   AnswerJurorSurvey: ['Jurado', 'Profesor'],
   ViewJurorSurveyResults: [],
+  // HU-22 (ARK-84): solo el suplente (rol Jurado) ve y marca sus avisos; el listado de no leídos usa AssignJurors
+  ViewOwnSubstituteNotices: ['Jurado'],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],

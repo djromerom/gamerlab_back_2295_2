@@ -709,6 +709,14 @@
         "createdAt": "2026-11-08T07:00:00.000Z",
         "updatedAt": "2026-11-08T07:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 93,
+        "name": "VIEW_OWN_SUBSTITUTE_NOTICES",
+        "description": "Permite al jurado suplente ver sus avisos de grupos asignados y marcarlos como leídos",
+        "createdAt": "2026-11-13T06:00:00.000Z",
+        "updatedAt": "2026-11-13T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1464,6 +1472,16 @@
         "createdAt": "2026-11-08T07:00:00.000Z",
         "updatedAt": "2026-11-08T07:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 93,
+        "name": "ViewOwnSubstituteNotices",
+        "description": "El suplente consulta sus avisos de grupos asignados y los marca como leídos (HU-22)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-13T06:00:00.000Z",
+        "updatedAt": "2026-11-13T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -2001,6 +2019,13 @@
         "createdAt": "2026-11-08T07:00:00.000Z",
         "updatedAt": "2026-11-08T07:00:00.000Z",
         "isActive": true
+      },
+      {
+        "serviceId": 93,
+        "permissionId": 93,
+        "createdAt": "2026-11-13T06:00:00.000Z",
+        "updatedAt": "2026-11-13T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -2292,6 +2317,13 @@
         "permissionId": 79,
         "createdAt": "2026-11-08T07:00:00.000Z",
         "updatedAt": "2026-11-08T07:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "roleId": 4,
+        "permissionId": 93,
+        "createdAt": "2026-11-13T06:00:00.000Z",
+        "updatedAt": "2026-11-13T06:00:00.000Z",
         "isActive": true
       }
     ]

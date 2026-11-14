@@ -96,6 +96,12 @@ export const ROUTE_NOTES: Record<string, string> = {
     'Profesor: solo empates entre grupos de sus NRC (RankingService.decide); el Administrador, cualquier empate pendiente (HU-04).',
   'GET /ranking/my-ties':
     'Profesor: solo los empates que le toca decidir (HU-04).',
+  'GET /substitute-notices/me':
+    'Solo los avisos del propio suplente en la edición activa (HU-22, ARK-84).',
+  'PATCH /substitute-notices/:id/read':
+    'Solo el dueño del aviso; si no es suyo responde 404 (HU-22, ARK-84).',
+  'GET /substitute-notices/unread':
+    'Solo Administrador (AssignJurors): suplentes con el aviso de grupos sin leer, para el panel de seguimiento (HU-22, ARK-84).',
   'GET /reports/DatosGraficoMateria':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
 };

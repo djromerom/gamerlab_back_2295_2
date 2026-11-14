@@ -338,6 +338,8 @@ describe('Jurado y equipo reasignado por HTTP (ARK-190)', () => {
       new JurorAssignmentAuditService(db.prisma),
       { validate: async () => ({}), enforce: () => [] } as any,
       { notifyAssignmentChanged: () => undefined } as any,
+      // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+      { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
     );
     await assignments.onModuleInit();
     db.verified.add('juror-a');

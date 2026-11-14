@@ -39,6 +39,7 @@ import { AbsenceAlertModule } from './absence-alert/absence-alert.module';
 import { PushNotificationsModule } from './push-notifications/push-notifications.module';
 import { ExternalPresentersModule } from './external-presenters/external-presenters.module';
 import { JurorSurveyModule } from './juror-survey/juror-survey.module';
+import { SubstituteNoticesModule } from './substitute-notices/substitute-notices.module';
 import { StaffModule } from './staff/staff.module';
 import { JurorEditionModule } from './juror-edition/juror-edition.module';
 import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
@@ -87,6 +88,7 @@ import { RankingModule } from './ranking/ranking.module';
     PushNotificationsModule,
     ExternalPresentersModule,
     JurorSurveyModule,
+    SubstituteNoticesModule,
     StaffModule,
     JurorEditionModule,
     EvaluationTrackingModule,

@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-13: aviso al suplente al asignarle grupos (HU-22, ARK-84)
+- [jurados](../01-negocio/jurados.md#aviso-al-suplente-hu-22): sección nueva con quién recibe el aviso, el correo por ACS sin datos de otras personas y qué pasa si falla.
+- [endpoints](../02-backend/endpoints.md): prefijo `/substitute-notices` (`GET me`, `PATCH :id/read`, `GET unread`). [modelo-de-datos](../02-backend/modelo-de-datos.md): tablas `aviso_suplente` y `aviso_suplente_equipo`.
+- Contrato para el front en `docs/frontend/HU-22-aviso-suplente.md` (consulta cada 10 s; el «Entendido» lo guarda el front). [inventario-de-rutas](../02-backend/inventario-de-rutas.md) no se regenera: es la foto de `origin/main`.
+
 ## 2026-11-13: diagnóstico de la estructura de los repos (TA-13, ARK-49)
 - Nuevos: [diagnóstico del backend](../02-backend/diagnostico-estructura.md) y [diagnóstico del frontend](../03-frontend/diagnostico-estructura.md), medidos sobre `origin/dev` (`a564190`) y `origin/dev-deploy` (`10b4bd7f`), con hallazgos priorizados para TA-14 (ARK-50).
 - [estructura-del-proyecto](../03-frontend/estructura-del-proyecto.md) y [deuda-tecnica](../03-frontend/deuda-tecnica.md) del front apuntan al diagnóstico para las cifras de tamaño; se corrige qué contiene `grupo 11`. Índices de [02-backend](../02-backend/README.md) y [03-frontend](../03-frontend/README.md).

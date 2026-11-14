@@ -131,6 +131,8 @@ describe('JurorAssignmentService - manual assignment module', () => {
             auditMock as any,
             new AssignmentValidationService(validationPrismaMock as any),
             { notifyAssignmentChanged: jest.fn() } as any,
+            // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+            { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
         );
 
         /**
