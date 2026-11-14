@@ -83,6 +83,8 @@ describe('JurorAssignmentService: aviso push (HU-37)', () => {
       { create: jest.fn().mockResolvedValue({ id: 1 }) } as any,
       validation as any,
       new AssignmentPushNotifier(prisma as any, sender as any),
+      // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+      { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
     );
     Object.assign(service, { professorRoleId: 3, jurorRoleId: 4 });
     jest.spyOn(Logger.prototype, 'error').mockImplementation();

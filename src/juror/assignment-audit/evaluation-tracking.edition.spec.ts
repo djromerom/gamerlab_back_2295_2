@@ -22,6 +22,8 @@ describe('JurorAssignmentService.getEvaluationTracking por edición (ARK-132)', 
       {} as any,
       {} as any,
       {} as any,
+      // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+      { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
     );
     (service as any).professorRoleId = 3;
     (service as any).jurorRoleId = 4;

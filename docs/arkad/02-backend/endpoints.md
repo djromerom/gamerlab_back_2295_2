@@ -28,6 +28,7 @@ El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada
 | `/juror-checkin` | `POST scan`, `GET search`, `POST manual` |
 | `/staff` | `POST /` (alta de cuentas Staff) |
 | `/evaluation-tracking` | `GET /` (seguimiento por hora) |
+| `/substitute-notices` | `GET me` y `PATCH :id/read` (suplente, servicio `ViewOwnSubstituteNotices`): avisos «Te asignaron grupos» y marcar como leído; `GET unread` (Administrador, `AssignJurors`): suplentes con el aviso sin leer, para el panel de seguimiento (HU-22, ARK-84). Contrato: `docs/frontend/HU-22-aviso-suplente.md` |
 | `/settings` | `GET|POST|PUT weights`, `GET weights/:editionId`, `GET|PATCH evaluations-status`, `show-ranking`, `show-evaluations`, `registrations` |
 | `/reports` | `GET videojuegoData`, `materiaData`, `NRCData`, `DatosGraficoMateria`, `JuradosData`, `exportExcel`, `exportJurados` |
 | `/historicals` | `GET historical-teams`, `historical-teams/:editionId`, `historical-members/:TeamId`, `historical-videogames/:editionId`, `historical-teams-with-scores/:editionId`; `POST create-historical-edition-dump/:editionId`; `PATCH update-historical-{team,member,videogame}/:id`; `DELETE remove-historical-{team,member,videogame}/:id` |

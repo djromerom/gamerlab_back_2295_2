@@ -26,6 +26,8 @@ maybe('Lista de jurados de la asignación por edición (BD real)', () => {
     {} as any,
     {} as any,
     {} as any,
+    // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+    { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
   );
 
   const tag = randomUUID().slice(0, 6);

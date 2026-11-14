@@ -34,6 +34,7 @@ import {
 import { AssignmentValidationService } from '../assignment-validation/assignment-validation.service';
 import { resolveListEdition } from '../../editions/list-edition';
 import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
+import { SubstituteNoticesService } from '../../substitute-notices/substitute-notices.service';
 import { ASSIGNABLE_TEAM } from '../../teams/team-status';
 import {
   findTeamNotConfirmedBlocker,
@@ -103,6 +104,8 @@ export class JurorAssignmentService implements OnModuleInit {
     private readonly assignmentValidation: AssignmentValidationService,
     // HU-37: se llama después de confirmar cada transacción; no espera ni puede fallar.
     private readonly pushNotifier: AssignmentPushNotifier,
+    // HU-22 (ARK-84): aviso al suplente dentro de la transacción; el correo, después.
+    private readonly substituteNotices: SubstituteNoticesService,
   ) {}
 
   async onModuleInit() {
@@ -340,6 +343,7 @@ export class JurorAssignmentService implements OnModuleInit {
         confirmWarnings,
       );
 
+      let substituteNoticeId: number | null = null;
       const updatedTeam = await this.prisma.$transaction(async (tx) => {
         await tx.team.update({
           where: { id: teamId },
@@ -350,6 +354,12 @@ export class JurorAssignmentService implements OnModuleInit {
               },
             },
           },
+        });
+
+        substituteNoticeId = await this.substituteNotices.recordAssignment(tx, {
+          jurorId,
+          teamIds: [teamId],
+          editionId: activeEdition.id,
         });
 
         await this.jurorAssignmentAuditService.create(
@@ -402,6 +412,7 @@ export class JurorAssignmentService implements OnModuleInit {
       }
 
       this.pushNotifier.notifyAssignmentChanged([jurorId]);
+      this.substituteNotices.sendEmailAfterCommit([substituteNoticeId]);
 
       return {
         message: 'Jurado asignado correctamente al equipo.',
@@ -472,6 +483,7 @@ export class JurorAssignmentService implements OnModuleInit {
         confirmWarnings,
       );
 
+      let substituteNoticeId: number | null = null;
       const updatedTeam = await this.prisma.$transaction(async (tx) => {
         await tx.team.update({
           where: { id: teamId },
@@ -493,6 +505,13 @@ export class JurorAssignmentService implements OnModuleInit {
               },
             },
           },
+        });
+
+        // HU-22: solo el que entra puede recibir aviso; al que sale no se le avisa por correo.
+        substituteNoticeId = await this.substituteNotices.recordAssignment(tx, {
+          jurorId: newJurorId,
+          teamIds: [teamId],
+          editionId: activeEdition.id,
         });
 
         await this.jurorAssignmentAuditService.create(
@@ -546,6 +565,7 @@ export class JurorAssignmentService implements OnModuleInit {
       }
 
       this.pushNotifier.notifyAssignmentChanged([currentJurorId, newJurorId]);
+      this.substituteNotices.sendEmailAfterCommit([substituteNoticeId]);
 
       return {
         message: 'Evaluador reasignado correctamente.',

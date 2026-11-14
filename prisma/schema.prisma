@@ -45,6 +45,7 @@ model Edition {
   evaluations        Evaluation[]
   externalPresenters ExternalPresenter[]
   jurorSurveyResponses JurorSurveyResponse[]
+  substituteNotices  SubstituteNotice[]
   evaluationDrafts   EvaluationDraft[]
   nrcs               NRC[]
   weighting          Weighting?
@@ -245,6 +246,7 @@ model User {
   pushSubscriptions    PushSubscription[]
   externalPresenterEditions ExternalPresenter[]
   jurorSurveyResponses JurorSurveyResponse[]
+  substituteNotices    SubstituteNotice[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -272,6 +274,7 @@ model Team {
   assignedJurors   User[]          @relation("JurorTeamAssignment")
   rankingResults   RankingResult[]
   verifications    TeamVerification[]
+  substituteNoticeTeams SubstituteNoticeTeam[]
 
   @@unique([teamCode, editionId])
   @@unique([verificationCode, editionId])
@@ -640,6 +643,55 @@ model PushSubscription {
 
   @@index([userId, isActive])
   @@map("suscripcion_push")
+}
+
+// HU-22 (ARK-84): estado del correo del aviso al suplente. SKIPPED = sin claves de ACS en desarrollo
+// (modo simulación, no salió ningún correo).
+enum SubstituteNoticeEmailStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// HU-22 (ARK-84): aviso "Te asignaron grupos" a un suplente (tipo BACKUP en la edición). Uno por
+// operación de asignación; queda activo hasta que el suplente lo marca como leído.
+model SubstituteNotice {
+  id          Int                         @id @default(autoincrement()) @map("id_aviso")
+  jurorId     String                      @map("id_jurado")
+  editionId   Int                         @map("id_edicion")
+  createdAt   DateTime                    @default(now()) @map("creado_en")
+  // Null = sin leer.
+  readAt      DateTime?                   @map("leido_en")
+  emailStatus SubstituteNoticeEmailStatus @default(PENDING) @map("estado_correo")
+  // Motivo corto del fallo del correo, sin datos personales.
+  emailError  String?                     @map("error_correo") @db.VarChar(200)
+  juror       User                        @relation(fields: [jurorId], references: [id])
+  edition     Edition                     @relation(fields: [editionId], references: [id])
+  teams       SubstituteNoticeTeam[]
+
+  @@index([jurorId, editionId, readAt])
+  @@index([editionId, readAt])
+  @@map("aviso_suplente")
+}
+
+// HU-22 (ARK-84): grupos de un aviso, con una foto del código, nombre, videojuego y nivel al
+// momento de asignar: el aviso se sigue leyendo igual aunque el equipo cambie o se elimine.
+model SubstituteNoticeTeam {
+  id            Int              @id @default(autoincrement()) @map("id_aviso_equipo")
+  noticeId      Int              @map("id_aviso")
+  teamId        Int?             @map("id_equipo")
+  teamCode      String           @map("codigo_equipo") @db.VarChar(12)
+  teamName      String           @map("nombre_equipo") @db.VarChar(50)
+  videogameName String?          @map("nombre_videojuego") @db.VarChar(30)
+  // 0 = colegios; null si el código no trae nivel.
+  level         Int?             @map("nivel")
+  notice        SubstituteNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  team          Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([noticeId, teamId])
+  @@index([teamId])
+  @@map("aviso_suplente_equipo")
 }
 
 model Subject {

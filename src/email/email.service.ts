@@ -531,6 +531,14 @@ export class EmailService {
   }
 
   /**
+   * HU-22 (ARK-84): true si hay claves de ACS. Sin ellas, en desarrollo `sendEmail` no envía nada
+   * (modo simulación) y quien registra el resultado del envío lo anota como omitido.
+   */
+  isConfigured(): boolean {
+    return this.emailClient !== null;
+  }
+
+  /**
    * MÉTODOLOGÍA: ACS + HANDLEBARS LOCAL
    */
   async sendEmail(

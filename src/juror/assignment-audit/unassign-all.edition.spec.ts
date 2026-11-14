@@ -41,6 +41,8 @@ describe('JurorAssignmentService: quitar todas solo en la edición activa (ARK-1
       audit as any,
       {} as any,
       { notifyAssignmentChanged: jest.fn() } as any,
+      // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+      { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
     );
     (service as any).professorRoleId = 3;
     (service as any).jurorRoleId = 4;

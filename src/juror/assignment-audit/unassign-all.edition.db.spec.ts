@@ -23,6 +23,8 @@ maybe('Quitar asignaciones solo en la edición activa (BD real)', () => {
     new JurorAssignmentAuditService(prisma),
     {} as any,
     { notifyAssignmentChanged: jest.fn() } as any,
+    // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+    { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
   );
 
   const tag = randomUUID().slice(0, 6);

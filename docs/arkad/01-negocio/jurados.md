@@ -33,6 +33,11 @@ Independientes del rol. Un suplente también es junior o senior (al reemplazar c
 6. **Jurado de último momento** (HU-24): lo da de alta solo el administrador; es **Junior y Suplente**, sin escarapela ni QR; la asignación automática elige un solo nivel (el de más faltantes), excluye colegios, tope 3 grupos y muestra la lista antes de asignar.
 7. **Cierre ~12:00:** nota final liberada por el administrador (HU-20); encuesta opcional al jurado (HU-17).
 
+## Aviso al suplente (HU-22)
+- Cuando el administrador asigna grupos a un **suplente** (tipo `BACKUP` confirmado en la edición; asignar o reasignar a mano), se registra el aviso «Te asignaron grupos» con los grupos y su nivel. A los oficiales y a los profesores no se les avisa; la asignación automática no carga a los suplentes. Quitar grupos no crea ni borra avisos.
+- El aviso queda en la plataforma hasta que el suplente lo marca como leído (el front consulta cada 10 s). También sale un correo por Azure ACS con su nombre, los grupos y a dónde ir, sin datos de otras personas. Si el correo falla, queda registrado y el aviso sigue activo; la asignación nunca falla por el correo.
+- El panel de seguimiento puede mostrar quién no ha leído el aviso (`GET /substitute-notices/unread`). El «Entendido» del texto explicativo lo guarda el front, no el backend.
+
 ## Calificar un grupo
 - El jurado debe digitar el **código de verificación** del grupo (lo ve el estudiante) para calificar; N0 no lo lleva (HU-19, P-25).
 - Quién puede calificar (decisión U1 del 30-oct): actor asignado al grupo, o Profesor dueño de un NRC del equipo en su edición; N0 exige además senior; el juego debe ser de la edición activa.
