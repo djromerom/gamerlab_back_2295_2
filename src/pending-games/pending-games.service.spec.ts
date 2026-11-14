@@ -1,8 +1,8 @@
 import { blobRefsPassthrough } from '../upload/blob-reference.mock';
-import { VideogamesService } from './pg.service';
+import { PendingGamesService } from './pending-games.service';
 
-describe('VideogamesService (pending-games)', () => {
-  let service: VideogamesService;
+describe('PendingGamesService (pending-games)', () => {
+  let service: PendingGamesService;
 
   const prismaMock = {
     eventConfiguration: { findFirst: jest.fn() },
@@ -29,7 +29,7 @@ describe('VideogamesService (pending-games)', () => {
     });
     prismaMock.videogame.findMany.mockResolvedValue([pendingVideogame]);
     prismaMock.videogame.count.mockResolvedValue(1);
-    service = new VideogamesService(prismaMock as never, blobRefsPassthrough());
+    service = new PendingGamesService(prismaMock as never, blobRefsPassthrough());
   });
 
   // El front necesita el teamId para llamar a /team-verification/verify y /status (HU-19).

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PendingGamesModule } from '../pending-games/pg.module';
+import { PendingGamesModule } from 'src/pending-games/pending-games.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AssignmentPushNotifier } from './assignment-push-notifier.service';
 import { PushNoticesService } from './push-notices.service';

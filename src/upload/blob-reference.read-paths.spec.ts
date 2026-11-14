@@ -1,8 +1,8 @@
 import { BlobReferenceService } from './blob-reference.service';
 import { VideogamesService } from '../videogames/videogames.service';
 import { HistoricalsService } from '../historicals/historicals.service';
-import { GradedGamesService } from '../graded-games/gg.service';
-import { VideogamesService as PendingGamesService } from '../pending-games/pg.service';
+import { GradedGamesService } from 'src/graded-games/graded-games.service';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
 import { ROLE_IDS } from '../auth/constants/roles';
 
 /** Task 28 — el resto de lecturas públicas firman al leer y los PATCH guardan la referencia. */

@@ -1,7 +1,7 @@
 import { EditionStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { GradedGamesService } from './gg.service';
+import { GradedGamesService } from './graded-games.service';
 import { ProfessorsService } from '../professors/professors.service';
 
 /**

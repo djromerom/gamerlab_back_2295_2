@@ -1,8 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { editionIdQuery } from './list-edition';
 import { TeamsService } from '../teams/services/teams.service';
-import { VideogamesService as PendingGamesService } from '../pending-games/pg.service';
-import { GradedGamesService } from '../graded-games/gg.service';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
+import { GradedGamesService } from 'src/graded-games/graded-games.service';
 import { ProfessorsService } from '../professors/professors.service';
 import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 

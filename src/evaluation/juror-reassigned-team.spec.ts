@@ -16,8 +16,8 @@ import { CacheService } from '../cache/cache.service';
 import { CriterionService } from '../criterion/criterion.service';
 import { JurorAssignmentAuditService } from '../juror/assignment-audit/juror-assignment-audit.service';
 import { JurorAssignmentService } from '../juror/assignment-audit/juror-assignment.service';
-import { VideogamesController } from '../pending-games/pg.controller';
-import { VideogamesService } from '../pending-games/pg.service';
+import { PendingGamesController } from 'src/pending-games/pending-games.controller';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamVerificationController } from '../team-verification/team-verification.controller';
 import { TeamVerificationService } from '../team-verification/team-verification.service';
@@ -298,12 +298,12 @@ describe('Jurado y equipo reasignado por HTTP (ARK-190)', () => {
       imports: [PassportModule],
       controllers: [
         EvaluationController,
-        VideogamesController,
+        PendingGamesController,
         TeamVerificationController,
       ],
       providers: [
         EvaluationService,
-        VideogamesService,
+        PendingGamesService,
         TeamVerificationService,
         RolePermissionGuard,
         { provide: PrismaService, useValue: db.prisma },

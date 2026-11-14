@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { VideogamesService } from './pg.service';
+import { PendingGamesService } from './pending-games.service';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -9,8 +9,8 @@ import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 
 @Controller('pending-games')
 @UseGuards(RolePermissionGuard)
-export class VideogamesController {
-  constructor(private readonly videogamesService: VideogamesService) { }
+export class PendingGamesController {
+  constructor(private readonly videogamesService: PendingGamesService) { }
 
   @Get()
   @RequiredService('PendingGamesService')
