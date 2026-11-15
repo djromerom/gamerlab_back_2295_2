@@ -4,6 +4,7 @@ import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { Upload } from '@prisma/client';
 import JSZip from 'jszip';
+import { pickZipEntry } from './zip-entry.logic';
 
 export const DEFAULT_SAS_TTL_SEC = 94_608_000; // 3 años (la URL se guarda en BD, ver Task 28)
 export const MAX_SAS_TTL_SEC = 94_608_000; // 3 años
@@ -58,23 +59,22 @@ export class AzureStorageService implements OnModuleInit {
   async uploadFile(file: Express.Multer.File): Promise<Upload> {
     //check for zipfile entrypoint (.html file to embed in frontend gameplayer)
     let entry: string = '';
-    if (file.originalname.includes(".zip")) {
-      const zip = await JSZip.loadAsync(file.buffer);
-
-      //filtrar una lista de posibles entrypoints dentro del zip
-      const htmlFiles = Object.keys(zip.files).filter(
-        name => {
-          return name.endsWith('.html')
-        }
-      );
-
-      //si existe algún html, preferir servir index.html. sino, el primero que haya salido
-      if (htmlFiles.length !== 0) {
-        entry = htmlFiles.find(f => f.endsWith('index.html')) ?? htmlFiles[0];
-      } else {
-        throw new BadRequestException('El archivo .zip no contiene ningún archivo .html. Sin esto, no puede ser servido.')
+    // SP-03 (ARK-38): sin distinguir mayúsculas (antes `JUEGO.ZIP` se guardaba sin entrada).
+    if (path.extname(file.originalname).toLowerCase() === '.zip') {
+      let zip: JSZip;
+      try {
+        zip = await JSZip.loadAsync(file.buffer);
+      } catch {
+        // Un zip dañado o cortado respondía 500 «Internal server error».
+        throw new BadRequestException(
+          'El archivo .zip está dañado o no se pudo leer. Vuelve a comprimir el juego e inténtalo de nuevo.',
+        );
       }
 
+      // Elige el index.html más cercano a la raíz e ignora la basura de macOS (zip-entry.logic.ts).
+      const picked = pickZipEntry(Object.keys(zip.files));
+      if (!picked.ok) throw new BadRequestException(picked.message);
+      entry = picked.entry;
     }
 
     //files need to be chunked so that Azure doesnt return a 401 (payload too large)

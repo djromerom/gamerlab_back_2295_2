@@ -68,7 +68,7 @@ Fuente: Jira, proyecto ARK (tipos estándar, sin subtareas). Las 9 épicas (ARK-
 | HU-09 suplentes en lote | ARK-29 | sin asignar |
 | HU-12 alerta temprana · HU-13 respuesta de profesores · HU-14 contingencia con suplentes | ARK-32, 33, 34 | sin asignar |
 | HU-17 encuesta a jurados · HU-18 borradores en servidor · HU-20 nota final · HU-22 aviso a suplentes · HU-23 jurados que se retiraron · HU-24 alta de jurado sin registro | ARK-37, 41, 72, 74, 75, 94 | sin asignar |
-| SP-03 juegos Pygame/Unity/Godot | ARK-38 | sin asignar |
+| SP-03 juegos Pygame/Unity/Godot | ARK-38 | Samuel (resultados en [juegos web por motor](../01-negocio/juegos-web-por-motor.md)) |
 | TA-06 pruebas del flujo consecutivo · TA-08 pipeline · TA-09 dumps · TA-11 pruebas de integración | ARK-42, 44, 45, 47 | sin asignar |
 | TA-13, TA-14, TA-15 (orden de repos, Épica VII) | ARK-49, 50, 51 | sin asignar |
 | TA-16 despliegue y ensayo antes de la feria | ARK-77 | sin asignar |

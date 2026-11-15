@@ -41,7 +41,7 @@ Tabla de SP-05 (ARK-166), aprobada por Allison el 7-nov y aplicada en el back po
 - Código: `src/teams/student-edit-policy.ts`.
 
 ## Videojuegos y multimedia
-Aprobación de juego: conserva video e imágenes (error de V3 corregido). Likes con tope según multimedia. Juegos de Pygame, Unity y Godot en navegador: SP-03 (spike); navegadores soportados sin definir (P-23). Archivos en Azure Blob (Azurite en local); URLs firmadas de lectura con vigencia por defecto y máxima de 3 años (se guardan en BD; ver [integraciones](../02-backend/integraciones.md)); zip máx. 100 MB, 3 por 10 min (I5, I6). Las fotos de ediciones pasadas no se veían por archivos no públicos (BG-24).
+Aprobación de juego: conserva video e imágenes (error de V3 corregido). Likes con tope según multimedia. Juegos de Pygame, Unity y Godot en navegador: qué funciona, límites del zip e instrucciones para los equipos en [juegos web por motor](juegos-web-por-motor.md) (SP-03). Archivos en Azure Blob (Azurite en local); URLs firmadas de lectura con vigencia por defecto y máxima de 3 años (se guardan en BD; ver [integraciones](../02-backend/integraciones.md)); zip máx. 100 MB, 3 por 10 min (I5, I6). Las fotos de ediciones pasadas no se veían por archivos no públicos (BG-24).
 
 ## Flujo de registro de un equipo (leído del código, 2026-11-05)
 1. `/registro-equipo` pasa por `RegistrationGate`: consulta `GET /settings/registrations` (pública) y muestra `TeamRegisterPage` si las inscripciones están abiertas, o `RegistrationClosedPage` si no.

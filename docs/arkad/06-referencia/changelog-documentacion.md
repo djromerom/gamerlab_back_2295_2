@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-15: juegos web por motor (SP-03, ARK-38)
+- [juegos web por motor](../01-negocio/juegos-web-por-motor.md): documento nuevo con la tabla de resultados por motor y navegador, R1–R6, instrucciones para los equipos (instructivo TA-23), mensajes de error de la subida, correcciones F1–F8, B1–B4, I1 y T1, y el límite de 100 MB.
+- [equipos y verificación](../01-negocio/equipos-y-verificacion.md), [deuda técnica del front](../03-frontend/deuda-tecnica.md) (las cabeceras de Vite solo aplican en desarrollo) y [backlog](../05-scrum-y-proceso/backlog-y-epicas.md) enlazan el documento.
+
 ## 2026-11-14: pruebas e2e (TA-06, ARK-42), integración en serie (TA-24, ARK-208) y borradores con reloj desfasado
 - [pruebas](../02-backend/pruebas.md): lista real de las 15 e2e y los 29 `*.db.spec.ts`, por qué corren en serie (`maxWorkers: 1`, `npm run test:db`), y estado de TA-24 y TA-06 (Hecho) y TA-11 (por hacer). Igual en la copia del front.
 - [pruebas-y-verificacion](../04-devops/pruebas-y-verificacion.md): fila nueva de las e2e del front (Playwright contra Arkad-test, workflow `E2E-Arkad-test`) y el CI del back con `test:e2e` / `test:db`.

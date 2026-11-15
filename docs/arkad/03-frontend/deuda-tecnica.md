@@ -24,4 +24,4 @@ Hay ≈52 pruebas Vitest en `origin/main` y el workflow `Test-front` ejecuta `np
 
 ## Cosas que NO son deuda pero sorprenden
 - `@/` es alias a `src/`; `RoutesConfiguration` exporta `routes` (la usa su test).
-- Los juegos web (Pygame/Unity/Godot) se cargan con `GamePlayerPage` + `useGameLoader`; el servidor Vite añade COOP/COEP `credentialless`; navegadores soportados sin definir (P-23, SP-03).
+- Los juegos web (Pygame/Unity/Godot) se cargan con `GamePlayerPage` + `useGameLoader`; las cabeceras COOP/COEP de `vite.config.ts` solo aplican a `npm run dev`: en Arkad-test y producción la página padre no está aislada y el SW sirve el iframe con COEP `require-corp`. Resultados y correcciones (F1–F8) en [juegos web por motor](../01-negocio/juegos-web-por-motor.md) (SP-03).
