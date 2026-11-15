@@ -28,6 +28,7 @@ const enrolledExample = {
   type: 'OFFICIAL',
   status: 'PENDING',
   source: 'ENROLLED',
+  walkIn: false,
   updatedAt: '2026-11-03T15:20:00.000Z',
 };
 

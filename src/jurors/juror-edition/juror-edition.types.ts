@@ -23,6 +23,8 @@ export interface EditionJurorItem {
   type: JurorType | null;
   status: JurorEditionListStatus;
   source: JurorEditionSource;
+  /** HU-24: el administrador lo dio de alta el día de la feria (llegó sin estar registrado). */
+  walkIn: boolean;
   updatedAt: Date | null;
 }
 

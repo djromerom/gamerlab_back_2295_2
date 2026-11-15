@@ -717,6 +717,14 @@
         "createdAt": "2026-11-13T06:00:00.000Z",
         "updatedAt": "2026-11-13T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 94,
+        "name": "MANAGE_WALK_IN_JURORS",
+        "description": "Permite dar de alta a un jurado que llegó a la feria sin estar registrado y asignarle grupos",
+        "createdAt": "2026-11-16T06:00:00.000Z",
+        "updatedAt": "2026-11-16T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1482,6 +1490,16 @@
         "createdAt": "2026-11-13T06:00:00.000Z",
         "updatedAt": "2026-11-13T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 94,
+        "name": "ManageWalkInJurors",
+        "description": "Dar de alta a un jurado de último momento, marcar su llegada y asignarle grupos (HU-24)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-16T06:00:00.000Z",
+        "updatedAt": "2026-11-16T06:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -2025,6 +2043,13 @@
         "permissionId": 93,
         "createdAt": "2026-11-13T06:00:00.000Z",
         "updatedAt": "2026-11-13T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 94,
+        "permissionId": 94,
+        "createdAt": "2026-11-16T06:00:00.000Z",
+        "updatedAt": "2026-11-16T06:00:00.000Z",
         "isActive": true
       }
     ]
