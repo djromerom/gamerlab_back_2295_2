@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-15: alta del jurado de último momento (HU-24, ARK-217)
+- [jurados](../01-negocio/jurados.md#jurado-de-último-momento-hu-24): sección nueva con quién lo hace, los valores fijos (Junior y Suplente), la llegada y qué pasa con el correo repetido y los nombres parecidos.
+- [endpoints](../02-backend/endpoints.md): prefijo `/walk-in-jurors` (`POST /`). [modelo-de-datos](../02-backend/modelo-de-datos.md): columna `jurado_edicion.alta_dia_feria`. [estructura](../02-backend/estructura-objetivo-y-convenciones.md): módulo `walk-in-juror` en `src/jurors/`.
+- La asignación automática de grupos de HU-24 va en un PR aparte y todavía no está documentada aquí.
+
 ## 2026-11-14: pruebas e2e (TA-06, ARK-42), integración en serie (TA-24, ARK-208) y borradores con reloj desfasado
 - [pruebas](../02-backend/pruebas.md): lista real de las 15 e2e y los 29 `*.db.spec.ts`, por qué corren en serie (`maxWorkers: 1`, `npm run test:db`), y estado de TA-24 y TA-06 (Hecho) y TA-11 (por hacer). Igual en la copia del front.
 - [pruebas-y-verificacion](../04-devops/pruebas-y-verificacion.md): fila nueva de las e2e del front (Playwright contra Arkad-test, workflow `E2E-Arkad-test`) y el CI del back con `test:e2e` / `test:db`.

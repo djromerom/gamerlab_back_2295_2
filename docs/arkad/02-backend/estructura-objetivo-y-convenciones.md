@@ -41,6 +41,7 @@ test/                              e2e (*.e2e-spec.ts)
 | `absent-juror-responses` | 6 (2) | Respuestas de jurados ausentes |
 | `juror-checkin` | 5 (1) | Check-in con QR |
 | `substitute-notices` | 7 (2) | Aviso al jurado suplente cuando le asignan grupos (HU-22, entró con #281) |
+| `walk-in-juror` | 9 (3) | Alta del jurado que llegó sin estar registrado (HU-24, ARK-217) |
 
 El resto de dominios queda como está: ninguno tiene hoy 3 o más módulos que lo justifiquen. Equipos (`teams`, `team-verification`, `students`, `videogames`, `pending-games`, `graded-games`, `highlighted-games`) es el siguiente candidato y se evalúa después de la feria.
 

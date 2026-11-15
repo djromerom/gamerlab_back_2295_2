@@ -46,6 +46,13 @@ Independientes del rol. Un suplente también es junior o senior (al reemplazar c
 - Se aplican las reglas de HU-08 a todos los pares nuevos juntos: un bloqueo (por ejemplo, suplente junior y un grupo de colegios) frena toda la operación; las advertencias (más de 3 grupos, niveles distintos, NRC) se muestran y piden confirmación antes de guardar.
 - Todo va en una transacción: cada par queda en la bitácora (acción `ASSIGN`, nota «Suplente en lote desde módulo admin (HU-09).» con los jurados cubiertos) y cada suplente recibe **un** aviso de HU-22 con todos sus grupos nuevos. Si algo falla a mitad, se revierte todo y ninguna asignación cambia. Contrato para el front: `docs/frontend/HU-09-suplentes-en-lote.md`.
 
+## Jurado de último momento (HU-24)
+Para quien llega a la feria sin estar registrado. Lo hace **solo el Administrador** (`POST /walk-in-jurors`); el Staff no tiene el permiso.
+- Pide nombre, apellido y correo. El jurado queda siempre **Junior y Suplente**, Confirmado en la edición activa, con la marca «alta el día de la feria» y con su **llegada registrada** a mano. No tiene escarapela ni QR.
+- Cuenta, inscripción y llegada se guardan juntas o no se guarda nada. El correo para crear la contraseña sale después; si falla, el jurado queda creado y se reenvía desde Personal → Jurados.
+- **Correo repetido:** no se crea nada y no se cambia a la persona que ya existe (conserva su tipo y sus grupos). Si es jurado de la edición se le marca la llegada por nombre (HU-11); si es profesor, no se crea como jurado.
+- **Nombre parecido** (sin tildes ni mayúsculas) entre jurados y profesores: el sistema muestra las coincidencias y el Administrador decide si usa la persona que existe o confirma el alta.
+
 ## Calificar un grupo
 - El jurado debe digitar el **código de verificación** del grupo (lo ve el estudiante) para calificar; N0 no lo lleva (HU-19, P-25).
 - Quién puede calificar (decisión U1 del 30-oct): actor asignado al grupo, o Profesor dueño de un NRC del equipo en su edición; N0 exige además senior; el juego debe ser de la edición activa.
