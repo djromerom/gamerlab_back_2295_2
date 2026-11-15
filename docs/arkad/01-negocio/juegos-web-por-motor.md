@@ -1,9 +1,9 @@
 # Juegos web por motor: qué funciona en ARKAD (SP-03)
 
-> **Audiencia:** todo el equipo, Scrum Master (instructivo TA-23) · **Actualizado:** 2026-11-15 · **Estado:** parcial (escritorio verificado; celulares pendientes de la prueba en Arkad-test) · **Fuente:** SP-03 (ARK-38, Samuel Tilano): código de `origin/dev` (back) y `origin/dev-deploy` (front) del 15-nov, builds reales probados con el `public/sw.js` real.
+> **Audiencia:** todo el equipo, Scrum Master (instructivo TA-23) · **Actualizado:** 2026-11-15 · **Estado:** escritorio y Arkad-test verificados (celular emulado); falta un celular real (audio de iPhone, memoria y PWA) · **Fuente:** SP-03 (ARK-38, Samuel Tilano): código de `origin/dev` (back) y `origin/dev-deploy` (front) del 15-nov, builds reales probados con el `public/sw.js` real.
 
 ## Cómo se juega un juego hoy
-1. **Subida:** el administrador sube un `.zip` en Gestión de equipos (`POST /upload/zip`). El back acepta hasta **100 MB**, revisa que sea un zip real y elige el archivo de entrada (`index.html`).
+1. **Subida:** el administrador sube un `.zip` en **Equipos Inscritos** → Editar → paso 3 «Archivo ZIP del proyecto» (`POST /upload/zip`). El back acepta hasta **100 MB**, revisa que sea un zip real y elige el archivo de entrada (`index.html`).
 2. **Reproducción:** la página `/play-game/:id` descarga el zip completo. El service worker del front (`src/sw.ts`, compilado en `public/sw.js`) lo descomprime con JSZip, guarda los archivos **en memoria** y los sirve en `/play-game/<id>/...` dentro de un iframe.
    - Descomprime `.gz` solo dentro de una carpeta `Build/`; los `.br` los entrega tal cual.
    - El iframe recibe `Cross-Origin-Embedder-Policy: require-corp`, pero la página padre no envía COOP ni COEP: **el juego nunca queda aislado** (`crossOriginIsolated = false`, sin `SharedArrayBuffer`).
@@ -26,7 +26,21 @@ Probado el 15-nov con builds reales y el `public/sw.js` real de `dev-deploy`, en
 - Lo que funciona tarda de 1,5 a 4 s en abrir (en local; en la red de la feria será más). El audio funciona en Chrome, Edge y Firefox; el WebKit de Playwright para Windows no trae audio, así que Safari queda por probar en el iPhone.
 - `crossOriginIsolated` es `false` en todos los casos: ningún motor puede usar hilos en ARKAD.
 - Builds: Godot 4.5-stable oficial (proyecto mínimo con escena, sonido OGG, imagen PNG y GDScript); Unity 6000.0.25f1 del proyecto de ejemplo [AspNetCore-Unity-WebGL](https://github.com/synboxdev/AspNetCore-Unity-WebGL) (MIT). Las variantes Unity Gzip y Brotli sin fallback se derivaron comprimiendo la versión sin compresión.
-- **Celulares (Chrome Android, Safari iPhone) y la PWA de jurado:** > PENDIENTE: prueba en Arkad-test con los mismos zips (memoria con juegos de 60 a 100 MB y audio en Safari).
+### En Arkad-test (15-nov, celular emulado)
+Zips subidos por el Administrador a equipos de prueba de Arkad-test y abiertos con «Jugar» (`/play-game/:id`), con sesión de Administrador. Los celulares son **emulados**: Chrome con el perfil de un Pixel 7 (pantalla táctil, viewport de celular) y WebKit con el perfil de un iPhone 14. Comprueban que el juego abre, cuánto tarda y que responde al toque, pero **no** reemplazan un teléfono real: no miden su memoria ni el audio de iOS, y no prueban la PWA instalada.
+
+| Juego (zip) | Chrome escritorio | Android emulado (Chrome) | iPhone emulado (WebKit) |
+|---|---|---|---|
+| Godot sin hilos (`godot-sin-hilos.zip`) | Abre en 4,8 s; responde; audio activo tras el clic | Abre en 4,7 s; responde al toque; audio activo | Abre en 7,9 s; responde al toque; audio sin comprobar |
+| Unity Gzip (`unity-u1-gzip.zip`) | Abre en 4,5 s; audio activo | Abre en 4,2 s; audio activo | Abre en 6,3 s; audio sin comprobar |
+| Unity sin compresión (`unity-u4-sin-compresion.zip`, 19 MB) | Abre en 5,4 s; audio activo | Abre en 5,3 s; audio activo | Abre en 6,9 s; audio sin comprobar |
+| Pygame (`pygbag-minijuego.zip`) | **No carga**: queda en «Loading, please wait…» (bloqueo por COEP) | **No carga** (igual) | **No carga** (bloqueo por CORP) |
+
+- Los tiempos van desde que se abre `/play-game/:id` hasta que el juego está listo, en la red de la casa; en el wifi de la feria serán mayores.
+- **2 minutos quieto** (Godot y Unity sin compresión en Android emulado; Unity Gzip en iPhone emulado): el juego sigue respondiendo al tocar de nuevo, aunque Chrome detiene el SW a los 30 s sin uso. Coincide con R4: el juego ya abierto no se cae.
+- En celular vertical, el juego de Godot se dibuja en la parte de arriba del iframe, en 16:9. Conviene que los equipos usen el *stretch mode* `canvas_items` con aspecto `expand`, y la pantalla completa (F7).
+- Errores del registro observados en Arkad-test al subir: zip dañado → «Error al guardar - Internal Server Error» (B1 lo corrige); zip de 101 MB → «Uno de los archivos es demasiado grande. El tamaño máximo permitido es **500MB**». Ese texto lo arma el front ante cualquier 413 y no muestra el mensaje del back (F8).
+- **Pendiente en un celular real:** audio en Safari de iPhone, memoria con un juego de 60 a 100 MB en un celular de gama media y la PWA de jurado instalada. Capturas de la prueba emulada: carpeta `SP-03-ARK-38\capturas\arkad-test\` de Samuel (no van en el repo).
 
 ## Riesgos R1–R6
 
@@ -35,7 +49,7 @@ Probado el 15-nov con builds reales y el `public/sw.js` real de `dev-deploy`, en
 | **R1** Unity con Brotli no carga | **Confirmado** solo sin «Decompression Fallback». Gzip, el fallback y sin compresión funcionan. | El SW entrega los `.br` sin descomprimir ni `Content-Encoding` (`sw.ts:126`); error «Unable to parse …framework.js.br» en los 4 navegadores. |
 | **R2** pygbag bloqueado por COEP | **Confirmado: hoy no carga en ningún navegador.** Con F1 carga en los 4. Necesita internet (21 MB del CDN por carga). | Chrome: `ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep`; Firefox y WebKit: bloqueo por CORP de `pygame-web.github.io`. |
 | **R3** Godot con hilos | **Confirmado: no funciona.** Godot sin hilos funciona en todos. | La página padre no envía COOP/COEP (`nginx.conf`; cabeceras de Arkad-test revisadas el 15-nov); Godot muestra «Cross-Origin Isolation – SharedArrayBuffer missing». |
-| **R4** Memoria y SW detenido | **Confirmado en parte.** Con el SW detenido, el juego abierto sigue respondiendo, pero cualquier archivo que pida después o una recarga reciben el `index.html` de ARKAD. La memoria en celular queda por medir. | Prueba con el SW detenido (Chrome y Edge, Godot y Unity); `sw.ts:114-117`. Correcciones F5 y F6. |
+| **R4** Memoria y SW detenido | **Confirmado en parte.** Con el SW detenido, el juego abierto sigue respondiendo, pero cualquier archivo que pida después o una recarga reciben el `index.html` de ARKAD. En Arkad-test, con celular emulado, el juego sigue respondiendo después de 2 minutos quieto. La memoria en un celular real queda por medir. | Prueba con el SW detenido (Chrome y Edge, Godot y Unity); `sw.ts:114-117`. Correcciones F5 y F6. |
 | **R5** Tipos de archivo | **Confirmado en parte.** Fallan `.svg` en `<img>`, `.mjs` y los nombres con espacios o tildes. wav, ttf, css, gif y webp funcionan. | Sonda de tipos en los 4 navegadores; `sw.ts:170-195`. Correcciones F2 y F3. |
 | **R6** Actualización de la PWA | **Descartado por el código:** una versión nueva del SW espera a que se cierren las pestañas (no hay `skipWaiting`). Riesgo residual: un juego exportado con PWA registraría su propio SW; las instrucciones lo prohíben. | `sw.ts` sin `install`/`skipWaiting`; `PwaUpdateNotice.tsx:70-74`. |
 
@@ -93,7 +107,7 @@ Tamaño: XS < 1 h, S ≈ medio día, M ≈ 1–2 días.
 | F5 | front `sw.ts:114-117` | Si el SW se detiene, el juego recibe el `index.html` de ARKAD: responder 404 o guardar en Cache Storage | Frontend | S / M | Después del 19 |
 | F6 | front `sw.ts:87` | Liberar de memoria los juegos anteriores | Frontend | XS | Después del 19 |
 | F7 | front `GamePlayerPage.tsx:55-58` | `allow="fullscreen; autoplay; gamepad"` en el iframe (pantalla completa) | Frontend | XS | Pendiente |
-| F8 | front `azureFile.ts:76`, `TeamWizardDialog.tsx:557-559` | Mostrar y validar el límite real de 100 MB (hoy dice 500 MB) | Frontend | XS | Pendiente |
+| F8 | front `azureFile.ts:37-39,76`, `TeamWizardDialog.tsx:557-559` | Mostrar y validar el límite real de 100 MB (hoy dice 500 MB) y, ante un 413, mostrar el `message` del back en vez del texto fijo (visto en Arkad-test el 15-nov) | Frontend | XS | Pendiente |
 | B1 | back `azure-storage.service.ts` | Zip dañado: 400 en español | Backend (Samuel) | XS | Hecho en `fix/ARK-38-zip-upload-errors` |
 | B2 | back `zip-entry.logic.ts` | Entrada: `index.html` más cercano a la raíz, ignorar `__MACOSX` y ocultos, mayúsculas | Backend (Samuel) | S | Hecho en `fix/ARK-38-zip-upload-errors` |
 | B3 | back `multer-exception.filter.ts` | 413 en español con el límite | Backend (Samuel) | XS | Hecho en `fix/ARK-38-zip-upload-errors` |
