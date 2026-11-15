@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-15: juegos web por motor (SP-03, ARK-38)
+- [juegos web por motor](../01-negocio/juegos-web-por-motor.md): documento nuevo con la tabla de resultados por motor y navegador, R1–R6, instrucciones para los equipos (instructivo TA-23), mensajes de error de la subida, correcciones F1–F8, B1–B4, I1 y T1, y el límite de 100 MB.
+- [equipos y verificación](../01-negocio/equipos-y-verificacion.md), [deuda técnica del front](../03-frontend/deuda-tecnica.md) (las cabeceras de Vite solo aplican en desarrollo) y [backlog](../05-scrum-y-proceso/backlog-y-epicas.md) enlazan el documento.
+
 ## 2026-11-15: alta del jurado de último momento (HU-24, ARK-217)
 - [jurados](../01-negocio/jurados.md#jurado-de-último-momento-hu-24): sección nueva con quién lo hace, los valores fijos (Junior y Suplente), la llegada y qué pasa con el correo repetido y los nombres parecidos.
 - [endpoints](../02-backend/endpoints.md): prefijo `/walk-in-jurors` (`POST /`, `GET :jurorId/team-suggestion`, `POST :jurorId/assignments`). [modelo-de-datos](../02-backend/modelo-de-datos.md): columna `jurado_edicion.alta_dia_feria`. [estructura](../02-backend/estructura-objetivo-y-convenciones.md): módulo `walk-in-juror` en `src/jurors/`.
