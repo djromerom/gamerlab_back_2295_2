@@ -7,5 +7,7 @@ import { JurorPresenceService } from './juror-presence.service';
   imports: [PrismaModule],
   controllers: [JurorPresenceController],
   providers: [JurorPresenceService],
+  // HU-14 (ARK-213): la contingencia usa la «posible salida» para el jurado que se retira.
+  exports: [JurorPresenceService],
 })
 export class JurorPresenceModule {}
