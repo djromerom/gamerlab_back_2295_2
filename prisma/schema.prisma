@@ -910,6 +910,8 @@ model JurorEdition {
   editionId   Int                @map("id_edicion")
   status      JurorEditionStatus @default(PENDING) @map("estado")
   type        JurorType          @default(OFFICIAL) @map("tipo")
+  // HU-24: el administrador lo dio de alta el día de la feria (llegó sin estar registrado).
+  walkIn      Boolean            @default(false) @map("alta_dia_feria")
   createdAt   DateTime           @default(now()) @map("creado_en")
   updatedAt   DateTime           @updatedAt @map("actualizado_en")
   // Id del administrador que hizo el último cambio (sin llave foránea, solo auditoría).

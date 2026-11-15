@@ -42,6 +42,7 @@ import { JurorSurveyModule } from './jurors/juror-survey/juror-survey.module';
 import { SubstituteNoticesModule } from './jurors/substitute-notices/substitute-notices.module';
 import { StaffModule } from './staff/staff.module';
 import { JurorEditionModule } from './jurors/juror-edition/juror-edition.module';
+import { WalkInJurorModule } from './jurors/walk-in-juror/walk-in-juror.module';
 import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
 import { TeamVerificationModule } from './team-verification/team-verification.module';
 import { RankingModule } from './ranking/ranking.module';
@@ -91,6 +92,7 @@ import { RankingModule } from './ranking/ranking.module';
     SubstituteNoticesModule,
     StaffModule,
     JurorEditionModule,
+    WalkInJurorModule,
     EvaluationTrackingModule,
   ],
   controllers: [AppController],
