@@ -54,6 +54,7 @@ type ListedJuror = Prisma.UserGetPayload<{ select: typeof listedJurorSelect }>;
 const enrolledRowSelect = {
   type: true,
   status: true,
+  walkIn: true,
   updatedAt: true,
   juror: { select: listedJurorSelect },
 } satisfies Prisma.JurorEditionSelect;
@@ -72,6 +73,7 @@ function toEnrolledItem(row: EnrolledRow): EditionJurorItem {
     type: row.type,
     status: row.status,
     source: 'ENROLLED',
+    walkIn: row.walkIn,
     updatedAt: row.updatedAt,
   };
 }
@@ -86,6 +88,7 @@ function toProfessorItem(professor: ListedJuror): EditionJurorItem {
     type: null,
     status: AUTOMATIC_STATUS,
     source: 'PROFESSOR_NRC',
+    walkIn: false,
     updatedAt: null,
   };
 }

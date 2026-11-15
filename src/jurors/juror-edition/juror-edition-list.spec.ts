@@ -15,6 +15,7 @@ const item = (
   type: status === 'AUTOMATIC' ? null : 'OFFICIAL',
   status,
   source: status === 'AUTOMATIC' ? 'PROFESSOR_NRC' : 'ENROLLED',
+  walkIn: false,
   updatedAt: null,
   ...extra,
 });

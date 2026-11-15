@@ -9,6 +9,7 @@ import {
   teamsWithoutLevel,
   validateOrder,
 } from './ranking.logic';
+import { buildExternalRanking } from './external-ranking.logic';
 
 const EDITION = 7;
 const profA = { id: 'pa', name: 'Ana Prof' };
@@ -163,8 +164,15 @@ describe('ranking.logic (HU-04)', () => {
     expect(missingOf(n1)).toEqual([
       [3, ['PROFESSOR', 'JUROR']],
       [4, ['PROFESSOR']],
-      [5, ['JUROR']],
     ]);
+    // HU-38: el externo N1 sale de su nivel y va al grupo Externos; ahí solo le falta la de jurados
+    const external = buildExternalRanking({
+      editionId: EDITION,
+      rows: [row(5, 'N1-A-5', null, { ...empty, isExternal: true })],
+      teams: new Map([[5, info(5)]]),
+      decisions: new Map(),
+    });
+    expect(external && missingOf(external)).toEqual([[5, ['JUROR']]]);
   });
 
   it('a un colegio (N0) no se le marcan evaluaciones de jurado faltantes', () => {
@@ -217,11 +225,10 @@ describe('ranking.logic (HU-04)', () => {
           juniorCounted: 3,
           seniorEvaluations: 0,
         }),
-        row(3, 'N1-A-3', 3, { isExternal: true, seniorEvaluations: 0 }),
       ],
-      { 1: info(1), 2: info(2), 3: info(3) },
+      { 1: info(1), 2: info(2) },
     );
-    const [t1, t2, t3] = level.teams;
+    const [t1, t2] = level.teams;
     expect(t1).toMatchObject({
       lessThanMinEvaluations: true,
       juniorNotCounted: 0,
@@ -232,8 +239,14 @@ describe('ranking.logic (HU-04)', () => {
       juniorNotCounted: 2,
       missingProfessorScore: true,
     });
-    // Los externos no llevan nota del profesor
-    expect(t3.missingProfessorScore).toBe(false);
+    // Los externos no llevan nota del profesor (HU-38: van en su propio grupo)
+    const external = buildExternalRanking({
+      editionId: EDITION,
+      rows: [row(3, 'N1-A-3', 3, { isExternal: true, seniorEvaluations: 0 })],
+      teams: new Map([[3, info(3)]]),
+      decisions: new Map(),
+    });
+    expect(external?.teams[0].missingProfessorScore).toBe(false);
   });
 
   describe('empates (P-05)', () => {

@@ -27,5 +27,7 @@ import { SubstituteAssignmentService } from './substitute-assignment/substitute-
     AutomaticAssignmentService,
     SubstituteAssignmentService,
   ],
+  // HU-24: el suplente de último momento usa las mismas reglas (HU-08) y la misma bitácora.
+  exports: [AssignmentValidationService, JurorAssignmentAuditService],
 })
 export class JurorModule {}
