@@ -79,6 +79,9 @@ model EventConfiguration {
   presencePromptMinutes   Int @default(60) @map("presencia_pregunta_min")
   presenceResponseMinutes Int @default(15) @map("presencia_respuesta_min")
   inactivityMinutes       Int @default(45) @map("presencia_inactividad_min")
+  // HU-14 (ARK-213): mínimo de evaluaciones por grupo para la contingencia (grupos en riesgo y
+  // cuántos suplentes sugerir). No cambia que solo cuenten las 3 primeras en la nota (P-10).
+  minEvaluationsPerTeam   Int @default(3) @map("minimo_evaluaciones")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -889,6 +892,22 @@ enum ManualJurorAssignmentAction {
 // Suplente. Los profesores no tienen fila: son jurados de la edición si tienen un NRC activo en ella.
 // Sin isActive: Declinó cumple esa función y hay una sola fila por jurado y edición.
 /// HU-12: cronograma del día de la feria, uno por edición. Horas "HH:mm" en hora de Bogotá.
+// HU-14 (ARK-213): el administrador rechazó una sugerencia de suplente (quién, cuándo y por qué).
+// Sin llaves foráneas: es un registro de auditoría, como `cronograma_feria.actualizado_por`.
+model SubstituteSuggestionRejection {
+  id           Int      @id @default(autoincrement()) @map("id_rechazo")
+  editionId    Int      @map("id_edicion")
+  teamId       Int      @map("id_equipo")
+  // Suplente rechazado; null = se rechazó toda la sugerencia del grupo.
+  substituteId String?  @map("id_suplente")
+  reason       String?  @map("motivo") @db.VarChar(500)
+  rejectedById String   @map("rechazado_por")
+  createdAt    DateTime @default(now()) @map("creado_en")
+
+  @@index([editionId, teamId])
+  @@map("rechazo_sugerencia_suplente")
+}
+
 model FairSchedule {
   id          Int      @id @default(autoincrement()) @map("id_cronograma")
   editionId   Int      @unique @map("id_edicion")
