@@ -1,7 +1,7 @@
 # Contrato de API · HU-24 · Alta de jurado de último momento y asignación automática de grupos
 
 **Para:** Camilo Acevedo (Frontend) · **De:** Samuel Tilano (Backend)
-**Ticket:** ARK-217 (backend) / ARK-218 (frontend) · **Rama backend:** `feat/ARK-217-walk-in-juror` · **Estado:** el **alta** (`POST /walk-in-jurors`) está implementada y probada en local (unitarias, Postgres real y e2e por HTTP), pendiente de PR a `dev` y de la migración en `Arkad-test`. La **sugerencia y asignación de grupos** va en un segundo PR: su contrato está al final, ya acordado, para que se pueda maquetar.
+**Ticket:** ARK-217 (backend) / ARK-218 (frontend) · **Rama backend:** `feat/ARK-217-walk-in-juror` · **Estado:** las tres rutas (alta, propuesta y asignación de grupos) están implementadas y probadas en local (unitarias, Postgres real y e2e por HTTP), en un solo PR a `dev`; pendiente la migración en `Arkad-test`.
 Swagger local: `http://localhost:3000/api` (sección *Walk-in jurors*)
 
 ## Qué hace
@@ -135,7 +135,7 @@ Body:
 
 | Código | Cuándo | Qué mostrar |
 |---|---|---|
-| 201 | Se creó el jurado, quedó inscrito y con llegada | Confirmación con el nombre y la hora de llegada, y el botón «Asignar grupos automáticamente» (segundo PR) |
+| 201 | Se creó el jurado, quedó inscrito y con llegada | Confirmación con el nombre y la hora de llegada, y el botón «Asignar grupos automáticamente» |
 | 400 | Nombre o apellido vacío o con números, correo inválido | Los textos de `message` junto a cada campo |
 | 401 | Sin sesión | Flujo normal de sesión vencida |
 | 403 | No es Administrador | «No tienes permiso» (la pantalla no debería verse con otro rol) |
@@ -163,7 +163,7 @@ Cada elemento de `data` trae un campo nuevo, `walkIn: boolean`: `true` para quie
 - El jurado entra con Microsoft si su correo es de Uninorte; con correo externo usa el enlace que le llega. Para reenviarlo: `POST /juror/resend-confirmation` (ya existe en Personal → Jurados).
 - El nombre parecido se compara por palabras completas sin tildes ni mayúsculas: «Ana Pérez» coincide con «Ana María Pérez Gómez». Un error de tecleo («Peres») no se detecta.
 
-## Segundo PR (todavía no está en la rama): sugerencia y asignación de grupos
+## Botón «Asignar grupos automáticamente»: propuesta y asignación
 Mismo servicio (`ManageWalkInJurors`, solo Administrador). Aplica a cualquier **Suplente Junior confirmado** de la edición activa, no solo a los dados de alta ese día.
 
 ### `GET /walk-in-jurors/:jurorId/team-suggestion?maxTeams=3`

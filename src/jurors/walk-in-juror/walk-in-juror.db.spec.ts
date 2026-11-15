@@ -37,9 +37,9 @@ maybe('HU-24: alta de jurado de último momento (BD real)', () => {
       });
       return { user, verificationToken: `token-${tag}` };
     },
-    sendVerificationEmail: async (email: string) => {
+    sendVerificationEmail: (email: string) => {
       sentEmails.push(email);
-      return { message: 'ok' };
+      return Promise.resolve({ message: 'ok' });
     },
   };
   const service = new WalkInJurorService(

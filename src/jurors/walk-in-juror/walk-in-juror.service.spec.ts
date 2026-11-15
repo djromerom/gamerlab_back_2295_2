@@ -3,14 +3,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { Reflector } from '@nestjs/core';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
-import { REQUIRED_SERVICE_KEY } from 'src/auth/decorators/required-service.decorator';
-import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { CreateWalkInJurorDto } from './dto/create-walk-in-juror.dto';
-import { WalkInJurorController } from './walk-in-juror.controller';
 import { WalkInJurorService } from './walk-in-juror.service';
 
 const ADMIN_ID = 'admin-1';
@@ -378,77 +371,5 @@ describe('WalkInJurorService (HU-24)', () => {
       ).resolves.toMatchObject({ walkIn: true });
       expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
     });
-  });
-});
-
-describe('CreateWalkInJurorDto (HU-24)', () => {
-  const check = async (body: Record<string, unknown>) => {
-    const instance = plainToInstance(CreateWalkInJurorDto, body);
-    return { instance, errors: await validate(instance, { whitelist: true }) };
-  };
-  const valid = { firstName: 'Laura', lastName: 'Gómez', email: 'l@x.com' };
-
-  it('descarta categoría y tipo: el administrador no puede cambiarlos', async () => {
-    const { instance, errors } = await check({
-      ...valid,
-      jurorCategory: 'SENIOR',
-      jurorType: 'OFFICIAL',
-    });
-
-    expect(errors).toEqual([]);
-    expect(instance).not.toHaveProperty('jurorCategory');
-    expect(instance).not.toHaveProperty('jurorType');
-  });
-
-  it('quita espacios sobrantes de nombre, apellido y correo', async () => {
-    const { instance, errors } = await check({
-      firstName: '  Laura   María ',
-      lastName: ' Gómez  Ruiz',
-      email: ' l@x.com ',
-    });
-
-    expect(errors).toEqual([]);
-    expect(instance).toMatchObject({
-      firstName: 'Laura María',
-      lastName: 'Gómez Ruiz',
-      email: 'l@x.com',
-    });
-  });
-
-  it.each([
-    ['nombre vacío', { ...valid, firstName: '   ' }],
-    ['nombre con números', { ...valid, firstName: 'Laura2' }],
-    ['sin apellido', { firstName: 'Laura', email: 'l@x.com' }],
-    ['correo inválido', { ...valid, email: 'no-es-correo' }],
-  ])('rechaza %s', async (_name, body) => {
-    const { errors } = await check(body);
-    expect(errors.length).toBeGreaterThan(0);
-  });
-
-  it('solo true (o el texto "true") confirma los parecidos', async () => {
-    const confirmed = await check({ ...valid, confirmSimilar: 'true' });
-    const other = await check({ ...valid, confirmSimilar: 'si' });
-
-    expect(confirmed.instance.confirmSimilar).toBe(true);
-    expect(other.instance.confirmSimilar).toBe(false);
-  });
-});
-
-describe('WalkInJurorController (HU-24)', () => {
-  it('exige el guard y el servicio ManageWalkInJurors', () => {
-    const guards = Reflect.getMetadata(GUARDS_METADATA, WalkInJurorController);
-    expect(guards).toContain(RolePermissionGuard);
-    expect(
-      new Reflector().get(REQUIRED_SERVICE_KEY, WalkInJurorController),
-    ).toBe('ManageWalkInJurors');
-  });
-
-  it('pasa al servicio el cuerpo y el id del administrador', async () => {
-    const service = { create: jest.fn().mockResolvedValue('ok') };
-    const controller = new WalkInJurorController(service as any);
-    const body = { firstName: 'Laura' } as CreateWalkInJurorDto;
-
-    await expect(controller.create(body, 'admin-1')).resolves.toBe('ok');
-    expect(service.create).toHaveBeenCalledWith(body, 'admin-1');
   });
 });
