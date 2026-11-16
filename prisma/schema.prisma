@@ -434,6 +434,8 @@ model HistoricalVideogame {
   likes            Int            @default(0) @map("likes")
   finalScore       Float?         @map("puntaje_final")
 
+  highlightedGames HighlightedGame[]
+
   @@map("videojuegos_historico")
 }
 
@@ -449,16 +451,22 @@ model VideogameLike {
   @@map("videogame_likes")
 }
 
+// HU-41 (ARK-229): un destacado apunta a un videojuego en vivo O a uno histórico, nunca a los dos.
+// La regla «exactamente uno» es el CHECK "juego_destacado_un_videojuego_check" de la migración
+// 20261118000000_add_historical_highlighted_games (Prisma no expresa CHECK).
 model HighlightedGame {
-  id          Int       @id @default(autoincrement()) @map("id_juego_destacado")
-  editionId   Int       @map("id_edicion")
-  videogameId Int       @map("id_videojuego")
-  createdAt   DateTime  @default(now()) @map("creado_en")
-  updatedAt   DateTime  @updatedAt @map("actualizado_en")
-  edition     Edition   @relation(fields: [editionId], references: [id])
-  videogame   Videogame @relation(fields: [videogameId], references: [id])
+  id                    Int                  @id @default(autoincrement()) @map("id_juego_destacado")
+  editionId             Int                  @map("id_edicion")
+  videogameId           Int?                 @map("id_videojuego")
+  historicalVideogameId Int?                 @map("id_videojuego_historico")
+  createdAt             DateTime             @default(now()) @map("creado_en")
+  updatedAt             DateTime             @updatedAt @map("actualizado_en")
+  edition               Edition              @relation(fields: [editionId], references: [id])
+  videogame             Videogame?           @relation(fields: [videogameId], references: [id], onDelete: Restrict)
+  historicalVideogame   HistoricalVideogame? @relation(fields: [historicalVideogameId], references: [id], onDelete: Cascade)
 
   @@unique([editionId, videogameId])
+  @@unique([editionId, historicalVideogameId])
   @@map("juego_destacado")
 }
 
