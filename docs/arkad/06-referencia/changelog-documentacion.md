@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-15: contingencia con suplentes (HU-14, ARK-213)
+- Contrato para el front en `docs/frontend/HU-14-contingencia-suplentes.md` (ARK-214): `GET /juror/contingency/groups-at-risk`, `GET suggestions`, `POST suggestions/accept`, `POST suggestions/reject` y `GET/PUT settings`, con ejemplos, códigos de error y qué cuenta como presente, tardío y retirado. Pide que el front envíe siempre los `substituteIds` que mostró al rechazar.
+- `prisma/schema.prisma`: el modelo `SubstituteSuggestionRejection` (#292) quedó entre el comentario `///` de `FairSchedule` y su modelo; se mueve antes para que el comentario vuelva a documentar a `FairSchedule`. Solo comentarios: no cambia la base de datos.
+
 ## 2026-11-15: juegos web por motor (SP-03, ARK-38)
 - [juegos web por motor](../01-negocio/juegos-web-por-motor.md): documento nuevo con la tabla de resultados por motor y navegador, R1–R6, instrucciones para los equipos (instructivo TA-23), mensajes de error de la subida, correcciones F1–F8, B1–B4, I1 y T1, y el límite de 100 MB.
 - [equipos y verificación](../01-negocio/equipos-y-verificacion.md), [deuda técnica del front](../03-frontend/deuda-tecnica.md) (las cabeceras de Vite solo aplican en desarrollo) y [backlog](../05-scrum-y-proceso/backlog-y-epicas.md) enlazan el documento.

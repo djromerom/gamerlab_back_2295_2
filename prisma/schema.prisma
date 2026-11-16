@@ -887,11 +887,6 @@ enum ManualJurorAssignmentAction {
   UNASSIGN_ALL_FROM_EVALUATOR
 }
 
-// HU-25: participación de un jurado (rol Jurado) en una edición. La cuenta se conserva entre
-// ediciones; aquí se guarda si viene a esta (Pendiente, Confirmado, Declinó) y si es Oficial o
-// Suplente. Los profesores no tienen fila: son jurados de la edición si tienen un NRC activo en ella.
-// Sin isActive: Declinó cumple esa función y hay una sola fila por jurado y edición.
-/// HU-12: cronograma del día de la feria, uno por edición. Horas "HH:mm" en hora de Bogotá.
 // HU-14 (ARK-213): el administrador rechazó una sugerencia de suplente (quién, cuándo y por qué).
 // Sin llaves foráneas: es un registro de auditoría, como `cronograma_feria.actualizado_por`.
 model SubstituteSuggestionRejection {
@@ -908,6 +903,11 @@ model SubstituteSuggestionRejection {
   @@map("rechazo_sugerencia_suplente")
 }
 
+// HU-25: participación de un jurado (rol Jurado) en una edición. La cuenta se conserva entre
+// ediciones; aquí se guarda si viene a esta (Pendiente, Confirmado, Declinó) y si es Oficial o
+// Suplente. Los profesores no tienen fila: son jurados de la edición si tienen un NRC activo en ella.
+// Sin isActive: Declinó cumple esa función y hay una sola fila por jurado y edición.
+/// HU-12: cronograma del día de la feria, uno por edición. Horas "HH:mm" en hora de Bogotá.
 model FairSchedule {
   id          Int      @id @default(autoincrement()) @map("id_cronograma")
   editionId   Int      @unique @map("id_edicion")
