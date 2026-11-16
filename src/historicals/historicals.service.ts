@@ -97,6 +97,38 @@ export class HistoricalsService {
   }
 
   /**
+   * HU-40 (ARK-226): archivo jugable de un juego histórico, con la misma forma que `GET /videogames/:id`
+   * para que `/play-game` use el mismo cargador. Lo piden la página de ediciones pasadas y los
+   * destacados de HU-41 (`play: { type: 'historical', id }`).
+   * - La URL sale firmada por 1 h (`BlobReferenceService.resolve`); la BD guarda la referencia.
+   * - Sin zip: `gameFileURL` y `entry` vacíos, igual que los juegos en vivo (el front muestra su error).
+   * - Sin integrantes ni datos personales: es una ruta pública.
+   */
+  async getHistoricalGameFile(historicalVideogameId: number) {
+    const game = await this.prisma.historicalVideogame.findUnique({
+      where: { id: historicalVideogameId },
+      select: {
+        id: true,
+        name: true,
+        gameFileUrl: true,
+        entry: true,
+        historicalTeam: { select: { teamName: true, editionId: true } },
+      },
+    });
+    if (!game) {
+      throw new NotFoundException(`No existe el videojuego histórico ${historicalVideogameId}`);
+    }
+    return {
+      id: game.id,
+      name: game.name,
+      teamName: game.historicalTeam.teamName,
+      editionId: game.historicalTeam.editionId,
+      gameFileURL: (await this.blobRefs.resolve(game.gameFileUrl)) || '',
+      entry: game.entry || '',
+    };
+  }
+
+  /**
    * `POST /historicals/create-historical-edition-dump/:editionId`: volcado suelto, sin archivar.
    *
    * ARK-137 (TA-17): solo sirve para recuperar el volcado de una edición que ya está ARCHIVED y no

@@ -83,7 +83,7 @@ export const ROUTE_NOTES: Record<string, string> = {
   'POST /upload':
     'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':
-    'Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 100 MB, 3 por 10 min y verificación del tipo de archivo (I6).',
+    'Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 200 MB, 3 por 10 min y verificación del tipo de archivo (I6).',
   'GET /reports/videojuegoData':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
   'GET /reports/materiaData':

@@ -9,6 +9,7 @@ import { RecaptchaService } from '../teams/services/recaptcha.service';
 import { AzureStorageService } from './azure-storage.service';
 import { isZipUploadType, UploadController } from './upload.controller';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
+import { MAX_ZIP_SIZE_BYTES } from './zip-entry.logic';
 
 process.env.AZURE_CONTAINER = process.env.AZURE_CONTAINER || 'test';
 process.env.AZURE_ACCOUNT_NAME =
@@ -106,16 +107,14 @@ describe('Subida del .zip de un juego: errores y entrada (SP-03)', () => {
     expect(prisma.upload.create).not.toHaveBeenCalled();
   });
 
-  it('más de 100 MB responde 413 en español con el límite (antes «File too large»)', async () => {
-    const big = Buffer.concat([
-      Buffer.from('PK'),
-      Buffer.alloc(101 * 1024 * 1024),
-    ]);
+  it('más de 200 MB responde 413 en español con el límite (antes «File too large»)', async () => {
+    // Un byte por encima del máximo basta para el 413.
+    const big = Buffer.concat([Buffer.from('PK'), Buffer.alloc(MAX_ZIP_SIZE_BYTES)]);
 
     const res = await upload(big);
 
     expect(res.status).toBe(413);
-    expect(res.body.message).toBe('El archivo supera el máximo de 100 MB.');
+    expect(res.body.message).toBe('El archivo supera el máximo de 200 MB.');
   }, 60000);
 
   it('guarda como entrada el index.html e ignora la basura de macOS (antes __MACOSX/._index.html)', async () => {

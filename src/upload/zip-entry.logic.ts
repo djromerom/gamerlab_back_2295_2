@@ -10,8 +10,11 @@
  * - Sin `index.html` y con varios `.html` no se adivina: el equipo debe decir cuál abre el juego.
  */
 
-/** Peso máximo del .zip de un juego, igual en el back, el registro y las instrucciones (SP-03). */
-export const MAX_ZIP_SIZE_MB = 100;
+/**
+ * Peso máximo del .zip de un juego, igual en el back, el registro y las instrucciones (SP-03).
+ * HU-40 (ARK-226): sube de 100 a 200 MB; el nginx del API acepta 210m (ARK-227).
+ */
+export const MAX_ZIP_SIZE_MB = 200;
 export const MAX_ZIP_SIZE_BYTES = MAX_ZIP_SIZE_MB * 1024 * 1024;
 
 /** Cuántos nombres de .html se muestran en el mensaje de error. */
