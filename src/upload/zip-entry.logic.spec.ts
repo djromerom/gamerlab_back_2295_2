@@ -47,6 +47,18 @@ describe('SP-03: entrada del juego dentro del .zip', () => {
     expect(isIgnoredZipPath('web/index.html')).toBe(false);
   });
 
+  it('acepta rutas que empiezan con ./ (revisión de #293: antes daba «no tiene un index.html»)', () => {
+    expect(entry(['./index.html', './Build/game.js'])).toBe('./index.html');
+    expect(entry(['./web/index.html', 'otro/sub/index.html'])).toBe(
+      './web/index.html',
+    );
+    expect(isIgnoredZipPath('./index.html')).toBe(false);
+    expect(isIgnoredZipPath('./web/./index.html')).toBe(false);
+    expect(isIgnoredZipPath('./.DS_Store')).toBe(true);
+    expect(isIgnoredZipPath('./__MACOSX/._index.html')).toBe(true);
+    expect(isIgnoredZipPath('../index.html')).toBe(true);
+  });
+
   it('sin index.html usa el único .html (exportación de Godot con otro nombre)', () => {
     expect(entry(['MiJuego.html', 'MiJuego.wasm', 'MiJuego.pck'])).toBe(
       'MiJuego.html',
