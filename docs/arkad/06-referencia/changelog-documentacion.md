@@ -5,6 +5,7 @@
 ## 2026-11-15: juegos web por motor (SP-03, ARK-38)
 - [juegos web por motor](../01-negocio/juegos-web-por-motor.md): documento nuevo con la tabla de resultados por motor y navegador, R1–R6, instrucciones para los equipos (instructivo TA-23), mensajes de error de la subida, correcciones F1–F8, B1–B4, I1 y T1, y el límite de 100 MB.
 - [equipos y verificación](../01-negocio/equipos-y-verificacion.md), [deuda técnica del front](../03-frontend/deuda-tecnica.md) (las cabeceras de Vite solo aplican en desarrollo) y [backlog](../05-scrum-y-proceso/backlog-y-epicas.md) enlazan el documento.
+- Después del merge de #293: el documento aclara que SP-03 es un spike de investigación. Las correcciones pasan a «recomendadas» con área sugerida y estado «Por decidir», el límite de 100 MB queda como recomendación y hay una sección nueva «Decisiones pendientes (Scrum Master)». Agrega que en un iPhone real el audio no suena.
 
 ## 2026-11-15: alta del jurado de último momento (HU-24, ARK-217)
 - [jurados](../01-negocio/jurados.md#jurado-de-último-momento-hu-24): sección nueva con quién lo hace, los valores fijos (Junior y Suplente), la llegada y qué pasa con el correo repetido y los nombres parecidos.
