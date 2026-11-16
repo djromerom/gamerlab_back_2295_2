@@ -23,7 +23,7 @@ ARKAD es la plataforma de la feria de videojuegos de Uninorte (próxima feria: *
 | Carpeta | Contenido | Estado |
 |---|---|---|
 | [00-inicio-rapido](00-inicio-rapido/) | Qué es ARKAD, onboarding por rol, arquitectura, estado actual | completo (estado: parcial) |
-| [01-negocio](01-negocio/) | Reglas de negocio, jurados, ediciones, roles, decisiones | completo (roles y equipos: parcial) |
+| [01-negocio](01-negocio/) | Reglas de negocio, jurados, ediciones, roles, decisiones, juegos web por motor y montaje de los videojuegos | completo (roles y equipos: parcial) |
 | [02-backend](02-backend/) | NestJS, Prisma, auth, endpoints, integraciones | completo (contrastado con producción) |
 | [03-frontend](03-frontend/) | React, rutas, estado, deuda técnica | completo en lo verificable (leído de `origin/main`) |
 | [04-devops](04-devops/) | Pipeline, servidor, variables, BD, runbooks, riesgos | completo (base de Santiago) |
