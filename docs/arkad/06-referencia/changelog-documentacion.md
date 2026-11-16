@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-16: juegos destacados de cualquier edición (HU-41, ARK-229)
+- [endpoints](../02-backend/endpoints.md): `GET /highlighted-games?editionId=` pública (en vivo e históricos, con `play` y `hasGameFile`), `POST /editions/:editionId/highlighted-games` acepta `historicalVideogameId` (409 si ya está destacado) y `DELETE /editions/:editionId/highlighted-games/historical/:historicalVideogameId`. `GET /editions/:editionId/highlighted-games` sigue igual y solo devuelve juegos en vivo.
+- [modelo-de-datos](../02-backend/modelo-de-datos.md): `juego_destacado` con `id_videojuego` opcional, `id_videojuego_historico` nuevo y el CHECK «exactamente uno» (migración `20261118000000_add_historical_highlighted_games`, solo agrega columnas y restricciones).
+- [inventario-de-rutas](../02-backend/inventario-de-rutas.md): se agregan a mano las dos rutas nuevas (`PublicHighlightedGamesController` y el `DELETE historical/...`); el resto sigue siendo la foto de `origin/main`.
+
 ## 2026-11-15: contingencia con suplentes (HU-14, ARK-213)
 - Contrato para el front en `docs/frontend/HU-14-contingencia-suplentes.md` (ARK-214): `GET /juror/contingency/groups-at-risk`, `GET suggestions`, `POST suggestions/accept`, `POST suggestions/reject` y `GET/PUT settings`, con ejemplos, códigos de error y qué cuenta como presente, tardío y retirado. Pide que el front envíe siempre los `substituteIds` que mostró al rechazar.
 - `prisma/schema.prisma`: el modelo `SubstituteSuggestionRejection` (#292) quedó entre el comentario `///` de `FairSchedule` y su modelo; se mueve antes para que el comentario vuelva a documentar a `FairSchedule`. Solo comentarios: no cambia la base de datos.

@@ -126,6 +126,7 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | DELETE | `/editions/:editionId/highlighted-games/:videogameId` | Permiso `ManageHighlightedGames` | Administrador |  |
+| DELETE | `/editions/:editionId/highlighted-games/historical/:historicalVideogameId` | Permiso `ManageHighlightedGames` | Administrador |  |
 | GET | `/editions/:editionId/highlighted-games` | Pública | Cualquiera (sin sesión) |  |
 | POST | `/editions/:editionId/highlighted-games` | Permiso `ManageHighlightedGames` | Administrador |  |
 
@@ -241,6 +242,12 @@
 | POST | `/professors` | Permiso `CreateProfessor` | Administrador |  |
 | POST | `/professors/team-evaluation` | Permiso `UploadSeniorGrades` | Administrador, Profesor |  |
 | POST | `/professors/team-evaluation/batch` | Permiso `UploadSeniorGrades` | Administrador, Profesor |  |
+
+## PublicHighlightedGamesController
+
+| Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
+|---|---|---|---|---|
+| GET | `/highlighted-games` | Pública | Cualquiera (sin sesión) |  |
 
 ## RankingController
 
