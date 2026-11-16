@@ -134,6 +134,20 @@ describe('Subida del .zip de un juego: errores y entrada (SP-03)', () => {
     expect(blob.commitBlockList).toHaveBeenCalled();
   });
 
+  it('acepta un zip con rutas ./ (revisión de #293); JSZip ya las normaliza al leer', async () => {
+    const zip = await zipOf({
+      './index.html': '<h1>juego</h1>',
+      './Build/game.js': '//',
+    });
+
+    const res = await upload(zip);
+
+    expect(res.status).toBe(201);
+    expect(prisma.upload.create.mock.calls[0][0].data).toMatchObject({
+      entry: 'index.html',
+    });
+  });
+
   it('con el nombre en mayúsculas (JUEGO.ZIP) también revisa el zip (antes quedaba sin entrada)', async () => {
     const res = await upload(await zipOf({ 'Build/a.js': '//' }), 'JUEGO.ZIP');
 

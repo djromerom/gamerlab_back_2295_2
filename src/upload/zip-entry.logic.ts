@@ -21,13 +21,19 @@ export type ZipEntryResult =
   | { ok: true; entry: string }
   | { ok: false; message: string };
 
+/**
+ * Partes de la ruta sin los segmentos `.` ni vacíos: `./index.html` y `web//./index.html` cuentan
+ * como `index.html` y `web/index.html` (revisión de Santiago en #293: el `.` se tomaba como oculto).
+ */
+const segments = (name: string) =>
+  name.split('/').filter((part) => part !== '' && part !== '.');
 const baseName = (name: string) => name.split('/').pop() ?? name;
-const depth = (name: string) => name.split('/').length - 1;
+const depth = (name: string) => segments(name).length - 1;
 
 /** Archivos que no son del juego: carpetas, basura de macOS y ocultos. */
 export function isIgnoredZipPath(name: string): boolean {
   if (name.endsWith('/')) return true;
-  const parts = name.split('/');
+  const parts = segments(name);
   if (parts.includes('__MACOSX')) return true;
   return parts.some((part) => part.startsWith('.'));
 }
