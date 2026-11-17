@@ -41,7 +41,7 @@ El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada
 - Casi todo listado acepta `?editionId=`; sin él usa la edición **activa**. Escribir sobre una edición que no es la activa devuelve **400** `EDITION_READ_ONLY`; sin edición activa, **404** `NO_ACTIVE_EDITION` (o `WEIGHTS_NOT_CONFIGURED`). Ver `docs/editions.md`.
 - Descargas Excel/PDF exponen `Content-Disposition`.
 - Lote de evaluaciones: `POST /evaluation/batch` (1 a 50 filas, validación en memoria, todo o nada; idempotente por clave). Calificar exige código de verificación (salvo N0) y que el juego sea de la edición activa.
-- `GET /teams` sin parámetro devuelve solo la edición activa.
+- `GET /teams` sin parámetro devuelve solo la edición activa. Acepta además `search` (sin tildes ni mayúsculas; cada palabra debe estar en el nombre del equipo, el del juego o el código del equipo) y `origin` (`uninorte` o `externo`, según `isExternal`; otro valor responde 400), filtrados en la consulta y combinables con `page`, `limit`, `editionId` y `sortByLikes`: `metaData.totalItems` y `totalPages` ya son los filtrados (BG-53, ARK-253).
 
 ## Rutas nuevas en producción (no están en la rama local de lectura)
 | Prefijo | Rutas | Permiso |
