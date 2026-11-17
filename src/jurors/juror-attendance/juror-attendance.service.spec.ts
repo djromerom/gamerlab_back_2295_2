@@ -29,6 +29,7 @@ const presentProfessor = {
   jurorBadges: [{ id: 10 }],
   attendances: [
     {
+      id: 31,
       checkedInAt: ARRIVAL,
       method: 'QR',
       checkedInBy: { id: 'staff-1', firstName: 'Staff', lastName: 'Mesa 1' },
@@ -94,6 +95,7 @@ describe('JurorAttendanceService', () => {
     expect(result.data).toEqual([
       {
         jurorId: 'juror-1',
+        attendanceId: null,
         name: 'Luis Gómez',
         category: 'Junior',
         isProfessor: false,
@@ -105,6 +107,7 @@ describe('JurorAttendanceService', () => {
       },
       {
         jurorId: 'prof-1',
+        attendanceId: 31,
         name: 'Ana Pérez',
         category: 'Senior',
         isProfessor: true,

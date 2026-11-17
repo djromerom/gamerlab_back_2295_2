@@ -153,6 +153,7 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | GET | `/juror-attendance` | Permiso `ViewJurorAttendance` | Administrador, Staff |  |
+| PATCH | `/juror-attendance/:attendanceId/annul` | Permiso `AnnulJurorArrival` | Administrador | Agregada a mano (BG-49, ARK-251) |
 
 ## JurorBadgesController
 

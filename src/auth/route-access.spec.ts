@@ -83,6 +83,8 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   ViewOwnSubstituteNotices: ['Jurado'],
   // HU-24 (ARK-217): el alta del jurado de último momento es solo del Administrador (ni Staff)
   ManageWalkInJurors: [],
+  // BG-49 (ARK-251): anular una llegada es solo del Administrador; el Staff la registra pero no la anula
+  AnnulJurorArrival: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],

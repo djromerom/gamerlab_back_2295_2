@@ -12,6 +12,13 @@
 - [endpoints](../02-backend/endpoints.md): `GET /teams` acepta `search` (nombre del equipo, nombre del juego y código del equipo, sin tildes ni mayúsculas; cada palabra debe aparecer) y `origin` (`uninorte` o `externo`, mapeado a `isExternal`; otro valor responde 400). Se filtran en la consulta, con y sin `limit`, así que buscar un equipo de otra página lo encuentra y `metaData.totalItems` es el total filtrado. Sin `search` ni `origin` la respuesta no cambia. No busca por correos, integrantes ni código de verificación.
 - La búsqueda reusa `src/common/utils/search-text.ts` (BG-60) en `src/teams/repositories/team-list-filter.ts`: trae solo id, nombre, código y juego de la edición, filtra en memoria y pagina en la BD por esos ids; sin `unaccent` ni migraciones. El front (debounce, volver a la página 1, «Filas: Todos») va en ARK-254.
 
+## 2026-11-17: anular una llegada de jurado (BG-49, ARK-251)
+- [endpoints](../02-backend/endpoints.md): `PATCH /juror-attendance/:attendanceId/annul` (servicio `AnnulJurorArrival`, solo Administrador) y `attendanceId` en cada fila de `GET /juror-attendance`.
+- [modelo-de-datos](../02-backend/modelo-de-datos.md): columnas `anulado_en`, `anulado_por` y `motivo_anulacion` en `asistencia_jurado` (migración `20261119000000_add_juror_arrival_annulment`, solo agrega columnas e inserta el servicio).
+- [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): quién anula una llegada y qué cambia.
+- [inventario-de-rutas](../02-backend/inventario-de-rutas.md): se agrega a mano la ruta nueva; el resto sigue siendo la foto de `origin/main`.
+- Contrato para el front en `docs/frontend/BG-49-anular-llegada.md` (Camilo).
+
 ## 2026-11-16: procedimiento para montar los videojuegos (TA-28, ARK-234)
 - [montaje de los videojuegos](../01-negocio/montaje-de-videojuegos.md): documento nuevo para la administradora. Explica cómo se recibe el enlace, se revisa el zip (lista y cómo reconocer el motor por los archivos), se sube y se prueba «Jugar»; incluye los mensajes para los equipos, la prueba de los 6 juegos con zip en producción (los 6 abren en Chrome, Edge y Firefox) y la prueba del procedimiento en Arkad-test. Producción acepta 100 MB hasta el despliegue del 24-nov, cuando HU-40 pasa a `main` con el resto del sprint (decisión de la Scrum Master del 16-nov); los zips de más de 100 MB se suben después de esa fecha.
 - [juegos web por motor](../01-negocio/juegos-web-por-motor.md): «Instrucciones para los equipos» pasa de borrador a texto para el instructivo TA-23. Cambios: entrega por enlace de OneDrive o Drive, 200 MB como máximo (ideal 50 MB o menos), solo en computador, Godot con hilos y Unity con Brotli sin fallback no soportados, y Pygame cuando esté F1.

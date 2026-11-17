@@ -725,6 +725,14 @@
         "createdAt": "2026-11-16T06:00:00.000Z",
         "updatedAt": "2026-11-16T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 95,
+        "name": "ANNUL_JUROR_ARRIVAL",
+        "description": "Permite anular la llegada de un jurado registrada por error",
+        "createdAt": "2026-11-16T07:00:00.000Z",
+        "updatedAt": "2026-11-16T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -1500,6 +1508,16 @@
         "createdAt": "2026-11-16T06:00:00.000Z",
         "updatedAt": "2026-11-16T06:00:00.000Z",
         "isActive": true
+      },
+      {
+        "id": 95,
+        "name": "AnnulJurorArrival",
+        "description": "Anular la llegada de un jurado registrada por error; queda registro de quién y cuándo (BG-49)",
+        "url": null,
+        "method": null,
+        "createdAt": "2026-11-16T07:00:00.000Z",
+        "updatedAt": "2026-11-16T07:00:00.000Z",
+        "isActive": true
       }
     ]
   },
@@ -2050,6 +2068,13 @@
         "permissionId": 94,
         "createdAt": "2026-11-16T06:00:00.000Z",
         "updatedAt": "2026-11-16T06:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "serviceId": 95,
+        "permissionId": 95,
+        "createdAt": "2026-11-16T07:00:00.000Z",
+        "updatedAt": "2026-11-16T07:00:00.000Z",
         "isActive": true
       }
     ]
