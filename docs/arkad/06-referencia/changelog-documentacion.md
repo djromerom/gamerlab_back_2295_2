@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-16: procedimiento para montar los videojuegos (TA-28, ARK-234)
+- [montaje de los videojuegos](../01-negocio/montaje-de-videojuegos.md): documento nuevo para la administradora. Explica cómo se recibe el enlace, se revisa el zip (lista y cómo reconocer el motor por los archivos), se sube y se prueba «Jugar»; incluye los mensajes para los equipos, la prueba de los 6 juegos con zip en producción (los 6 abren en Chrome, Edge y Firefox) y la prueba del procedimiento en Arkad-test. Producción acepta 100 MB hasta el despliegue del 24-nov, cuando HU-40 pasa a `main` con el resto del sprint (decisión de la Scrum Master del 16-nov); los zips de más de 100 MB se suben después de esa fecha.
+- [juegos web por motor](../01-negocio/juegos-web-por-motor.md): «Instrucciones para los equipos» pasa de borrador a texto para el instructivo TA-23. Cambios: entrega por enlace de OneDrive o Drive, 200 MB como máximo (ideal 50 MB o menos), solo en computador, Godot con hilos y Unity con Brotli sin fallback no soportados, y Pygame cuando esté F1.
+- [equipos y verificación](../01-negocio/equipos-y-verificacion.md): el zip pasa a 200 MB (HU-40) y se enlaza el procedimiento.
+- [README](../README.md): el mapa de `01-negocio` menciona los dos documentos de juegos.
+
 ## 2026-11-17: búsqueda sin tildes en check-in, Pendientes y Calificados (BG-60, ARK-260)
 - `GET /juror-checkin/search`, `GET /pending-games/search` y `GET /graded-games/search` ignoran tildes y mayúsculas («oscar» encuentra a Óscar, «operacion» a «Operación Segura»). Pendientes y Calificados buscan también por código de equipo («202» o «N2-AYP-202»), además de juego, equipo, integrantes, NRC y materia (código y nombre). La forma de las respuestas, el orden y los límites (20 y 100) no cambian; `search/quick` no se toca.
 - Se filtra en memoria con `src/common/utils/search-text.ts` (`normalizeSearchText`, `matchesAllWords`) y `src/pending-games/videogame-search.ts`, sin la extensión `unaccent` ni migraciones. [endpoints](../02-backend/endpoints.md) no describe los campos de búsqueda, así que no cambia.

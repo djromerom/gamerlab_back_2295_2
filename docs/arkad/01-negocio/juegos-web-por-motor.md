@@ -54,30 +54,38 @@ Zips subidos por el Administrador a equipos de prueba de Arkad-test y abiertos c
 | **R5** Tipos de archivo | **Confirmado en parte.** Fallan `.svg` en `<img>`, `.mjs` y los nombres con espacios o tildes. wav, ttf, css, gif y webp funcionan. | Sonda de tipos en los 4 navegadores; `sw.ts:170-195`. Correcciones F2 y F3. |
 | **R6** Actualización de la PWA | **Descartado por el código:** una versión nueva del SW espera a que se cierren las pestañas (no hay `skipWaiting`). Riesgo residual: un juego exportado con PWA registraría su propio SW; las instrucciones lo prohíben. | `sw.ts` sin `install`/`skipWaiting`; `PwaUpdateNotice.tsx:70-74`. |
 
-## Instrucciones para los equipos (borrador para el instructivo TA-23)
+## Instrucciones para los equipos (para el instructivo TA-23)
 
-Escritas según las recomendaciones; se ajustan con lo que decida la Scrum Master.
+Actualizadas con las decisiones de la Scrum Master del 15 y 16-nov (TA-28, ARK-234). El texto de abajo está listo para copiar al instructivo. Cómo monta la administradora cada juego: [montaje de los videojuegos](montaje-de-videojuegos.md).
+
+**Cómo se entrega**
+- **No subes el zip a ARKAD.** Súbelo a tu OneDrive o Google Drive, compártelo como «Cualquier persona con el vínculo puede ver» y pega el enlace en el formulario, junto con el nombre del equipo y el motor. La administración lo descarga, lo monta y te avisa si hay que corregir algo.
+- Tu juego se jugará **solo en computador** (Chrome, Edge o Firefox). En el celular, ARKAD muestra un aviso en lugar del juego.
 
 **Para todos**
-- Entrega **un solo .zip** de **máximo 100 MB**. Recomendado: **menos de 50 MB**, porque los jurados pueden jugar en celular.
+- Entrega **un solo .zip** de **máximo 200 MB**. Mientras más liviano mejor: lo ideal es **50 MB o menos**, porque carga más rápido.
 - El zip debe tener `index.html` **en la raíz**: comprime el **contenido** de la carpeta exportada, no la carpeta. Si tu exportación genera otro nombre (`MiJuego.html`), cámbialo a `index.html`.
 - Nombres de archivos y carpetas **sin espacios, tildes ni ñ** (`musica_fondo.ogg`, no `Música Fondo.ogg`). Respeta mayúsculas y minúsculas.
 - En Mac, borra la carpeta `__MACOSX` o comprime desde la terminal: `cd build && zip -r ../juego.zip . -x "__MACOSX/*" -x "*.DS_Store"`.
 - **No** actives opciones de PWA, service worker ni «offline» en la exportación.
 - Imágenes en PNG, JPG, GIF o WEBP; **no uses SVG** ni scripts `.mjs` hasta que se corrija F3.
 
+**No están soportados en esta feria**
+- **Godot con hilos** (*Thread Support* activado).
+- **Unity con Brotli sin *Decompression Fallback***.
+
 **Unity (WebGL / Web)**
-- Player Settings → Publishing Settings → **Compression Format: Gzip** (o *Disabled*). Si usas Brotli, activa **Decompression Fallback**.
+- Player Settings → Publishing Settings → **Compression Format: Gzip** (o *Disabled*). Si usas Brotli, activa **Decompression Fallback**; sin eso el juego no abre.
 - No cambies el nombre de la carpeta `Build/`.
 - Deja desactivado el multihilo (Unity 6: *Native C/C++ Multithreading*).
 - Sube el **contenido** de la carpeta de salida: `index.html`, `Build/`, `TemplateData/` y `StreamingAssets/` si existe.
 
 **Godot 4 (4.3 o superior)**
-- Exporta con la plantilla Web y **Thread Support desactivado** (el valor por defecto desde 4.3). **No** actives *Progressive Web App*.
+- Exporta con la plantilla Web y **Thread Support desactivado** (el valor por defecto desde 4.3); con hilos el juego no abre. **No** actives *Progressive Web App*.
 - Exporta con el nombre `index.html` (o renómbralo).
 - Los proyectos en **C#** no se pueden exportar a web con Godot 4: usa GDScript.
 
-**Pygame (pygbag)** — *solo después de que se despliegue la corrección F1; antes no carga.*
+**Pygame (pygbag)**: soportado cuando esté desplegada la corrección F1 del front (HU-40); antes no carga. Necesita internet.
 - Archivo principal `main.py` con bucle `async` y `await asyncio.sleep(0)` en cada vuelta.
 - Audio en **OGG**; imágenes en PNG, WEBP o JPG.
 - Ejecuta `pygbag --build <carpeta>` y sube el contenido de `build/web/` (`index.html`, `<nombre>.apk`, `favicon.png`).
@@ -125,7 +133,7 @@ Tamaño: XS < 1 h, S ≈ medio día, M ≈ 1–2 días. «Área» es una sugeren
 - El zip se recibe en memoria: una subida de 200 MB ocupa unos 200 MB de RAM del back mientras dura. No se cambia antes de la feria.
 
 ## Quién sube el zip
-Solo el **Administrador** sube zips (Equipos Inscritos → Editar → paso 3, `TeamWizardDialog`); el registro de estudiantes no tiene ese paso. Los equipos comparten un enlace de su OneDrive o Drive y la admin lo descarga y lo sube (decisión del 15-nov; procedimiento en TA-28, ARK-232).
+Solo el **Administrador** sube zips (Equipos Inscritos → Editar → paso 3, `TeamWizardDialog`); el registro de estudiantes no tiene ese paso. Los equipos comparten un enlace de su OneDrive o Drive y la admin lo descarga y lo sube (decisión del 15-nov; procedimiento en [montaje de los videojuegos](montaje-de-videojuegos.md), TA-28, ARK-232).
 
 ## Juegos de ediciones pasadas
 «Jugar» en un juego histórico (página de ediciones pasadas o destacados de HU-41) usa `GET /historicals/videogames/:historicalVideogameId/game-file` (HU-40, pública): devuelve la URL firmada del zip por 1 h y el `entry`, con la misma forma que `GET /videogames/:id`. Si el juego no tiene zip, `gameFileURL` y `entry` vienen vacíos. Al 15-nov ningún juego de las ediciones archivadas tiene zip.
