@@ -16,6 +16,11 @@ import {
 } from './professor-panel-query.service';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { isCollegeTeamCode } from '../team-verification/verification-code.util';
+import {
+  historicalNrcIdFilter,
+  inHistoricalScope,
+  ownedNrcIds,
+} from './historical-scope';
 
 /** Fila de `GET /professors/grading-games` (mismo formato que antes de HU-03). */
 export interface GradingGameRow {
@@ -73,9 +78,10 @@ interface ListedTeam {
  * orden. Aquí solo se une cada equipo en una fila (aunque esté en varios NRC),
  * se pagina y se agregan las notas.
  *
- * Con `includeHistorical=true` se agrega al final la vista histórica global de
- * solo lectura (decisión del 2026-10-29: equipos archivados de cualquier
- * profesor; solo nombres, metadatos del equipo y nota final de feria).
+ * Con `includeHistorical=true` se agrega al final la vista histórica de solo
+ * lectura (solo nombres, metadatos del equipo y nota final de feria). BG-63
+ * (ARK-263, decisión del 2026-11-17, revierte la del 2026-10-29): el profesor
+ * solo ve los equipos archivados de sus NRC; el Administrador, todos.
  */
 @Injectable()
 export class GradingGamesService {
@@ -116,7 +122,10 @@ export class GradingGamesService {
     ).map((t) => current.get(t.teamId)!);
 
     const historical = query.includeHistorical
-      ? await this.findHistoricalRows(filters)
+      ? await this.findHistoricalRows(
+          filters,
+          await ownedNrcIds(this.prisma, professorId, roleId),
+        )
       : [];
 
     const totalItems = sorted.length + historical.length;
@@ -268,24 +277,29 @@ export class GradingGamesService {
   }
 
   /**
-   * Vista histórica global de solo lectura (no filtra por profesor). La
-   * identidad y el código del NRC vienen del snapshot copiado al archivar.
-   * Misma búsqueda y orden que los equipos actuales.
+   * Vista histórica de solo lectura. BG-63: con `owned` (ids de los NRC del
+   * profesor) solo los equipos con algún integrante en esos NRC; `null`
+   * (Administrador), todos. La identidad y el código del NRC vienen del
+   * snapshot copiado al archivar. Misma búsqueda y orden que los actuales.
    */
-  private async findHistoricalRows(filters: {
-    editionId?: number;
-    nrcId?: number;
-    search?: string;
-    sortBy: GradingGamesQueryDto['sortBy'];
-    sortOrder: GradingGamesQueryDto['sortOrder'];
-  }): Promise<GradingGameRow[]> {
+  private async findHistoricalRows(
+    filters: {
+      editionId?: number;
+      nrcId?: number;
+      search?: string;
+      sortBy: GradingGamesQueryDto['sortBy'];
+      sortOrder: GradingGamesQueryDto['sortOrder'];
+    },
+    owned: number[] | null,
+  ): Promise<GradingGameRow[]> {
     const { editionId, nrcId, search, sortBy, sortOrder } = filters;
+    const nrcFilter = historicalNrcIdFilter(owned, nrcId);
     const historical = await this.prisma.historicalTeam.findMany({
       where: {
         ...(editionId === undefined ? {} : { editionId }),
-        ...(nrcId === undefined
+        ...(nrcFilter === undefined
           ? {}
-          : { members: { some: { nrcs: { some: { nrcId } } } } }),
+          : { members: { some: { nrcs: { some: { nrcId: nrcFilter } } } } }),
       },
       include: { members: { include: { nrcs: true } }, videogame: true },
       // Desempate estable para la paginación (el orden por nombre va después)
@@ -322,8 +336,9 @@ export class GradingGamesService {
       for (const m of t.members) {
         for (const n of m.nrcs) nrcs.set(n.nrcId, n.code);
       }
-      const matching = [...nrcs.entries()].filter(
-        ([id]) => nrcId === undefined || id === nrcId,
+      // Como en los actuales: solo los NRC del alcance consultado
+      const matching = [...nrcs.entries()].filter(([id]) =>
+        inHistoricalScope(id, owned, nrcId),
       );
       return {
         source: 'historical' as const,

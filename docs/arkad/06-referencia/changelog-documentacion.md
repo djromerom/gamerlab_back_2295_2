@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-17: Históricos del profesor solo con sus NRC y semestre legible (BG-63, ARK-263)
+- [decisiones abiertas](../01-negocio/decisiones-abiertas.md): se cierra «¿Históricos muestra solo sus NRC o todos?» con la decisión de kary del 17-nov (solo sus NRC; el Administrador, todos), que revierte la vista histórica global del 2026-10-29.
+- [ediciones](../01-negocio/ediciones.md#históricos) y [equipos y verificación](../01-negocio/equipos-y-verificacion.md): `GET /professors/grading-games?includeHistorical=true` y `grading-games/filter-options` filtran los equipos y NRC históricos por los NRC del profesor (`integrante_historico_nrc.id_nrc`); los equipos sin NRC solo los ve el Administrador; `metadata.totalItems` es el total real.
+- [reglas de negocio](../01-negocio/reglas-de-negocio.md): etiqueta de semestre única (`src/editions/semester-label.ts`): «2026 - 1», «2026 - Intersemestral», «2026 - 2»; en el nombre del Excel `2026-1`, `2026-intersemestral`, `2026-2`. El Excel de calificaciones marca los equipos rechazados con «(rechazado)» en la columna Equipo.
+- [checklist de traspaso](../05-scrum-y-proceso/checklist-traspaso-v5.md): «histórico del profesor» ya no es una decisión abierta.
+
 ## 2026-11-17: búsqueda y origen en GET /teams (BG-53, ARK-253)
 - [endpoints](../02-backend/endpoints.md): `GET /teams` acepta `search` (nombre del equipo, nombre del juego y código del equipo, sin tildes ni mayúsculas; cada palabra debe aparecer) y `origin` (`uninorte` o `externo`, mapeado a `isExternal`; otro valor responde 400). Se filtran en la consulta, con y sin `limit`, así que buscar un equipo de otra página lo encuentra y `metaData.totalItems` es el total filtrado. Sin `search` ni `origin` la respuesta no cambia. No busca por correos, integrantes ni código de verificación.
 - La búsqueda reusa `src/common/utils/search-text.ts` (BG-60) en `src/teams/repositories/team-list-filter.ts`: trae solo id, nombre, código y juego de la edición, filtra en memoria y pagina en la BD por esos ids; sin `unaccent` ni migraciones. El front (debounce, volver a la página 1, «Filas: Todos») va en ARK-254.

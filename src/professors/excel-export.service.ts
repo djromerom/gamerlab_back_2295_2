@@ -43,7 +43,12 @@ export interface GroupRow {
   members:       Set<string>;
   grade:         number | null;
   hasNRC:        boolean;
+  // BG-63: inscripción rechazada (BG-43); el nombre del equipo sale con «(rechazado)»
+  rejected?:     boolean;
 }
+
+/** BG-63: marca de los equipos rechazados en la columna «Equipo». */
+export const REJECTED_TEAM_SUFFIX = ' (rechazado)';
 
 export interface NrcSheetData {
   sheetName:   string;
@@ -241,7 +246,7 @@ export class ExcelExportService {
         subject:   sheet.subjectName,
         nrc:       sheet.nrcCode,
         edition:   sheet.editionLabel ?? '',
-        team:      g.teamName,
+        team:      g.rejected ? `${g.teamName}${REJECTED_TEAM_SUFFIX}` : g.teamName,
         members:   Array.from(g.members).join('\n'),
         videogame: g.videogameName,
       };
