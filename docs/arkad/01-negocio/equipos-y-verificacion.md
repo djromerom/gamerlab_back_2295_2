@@ -19,7 +19,7 @@ Flujo en pasos del frontend: datos del equipo, integrantes (paso 2), juego (paso
 Código propio de cada equipo, visible en el **panel del estudiante**; el estudiante se lo da al jurado, que debe **digitarlo** para calificar ese grupo. **N0 (colegios) no tiene código** (P-25). Hay único `(codigo_verificacion, id_edicion)` y se generó para equipos existentes (migración `...add_team_verification_code`).
 
 ## NRC y profesores
-- Cada NRC pertenece a una edición y a un profesor; el panel del profesor muestra solo la feria activa y sus NRC; el histórico global es una pestaña aparte (decisión 16, el Administrador exporta todos los NRC de la feria activa).
+- Cada NRC pertenece a una edición y a un profesor; el panel del profesor muestra solo la feria activa y sus NRC (decisión 16, el Administrador exporta todos los NRC de la feria activa). La pestaña «Históricos» muestra los equipos archivados de **sus** NRC; el Administrador ve todos (decisión del 2026-11-17, BG-63).
 - Hay un único parcial `(codigo, id_edicion) WHERE activo` (decisión D).
 - Bugs conocidos de la revisión del 30-oct (NRC sin filtrar por edición, filtros duplicados, listado vs exportación, falta único) → revisión de filtros.
 - Borrado de profesor/jurado: **borrado lógico** (`isActive=false`); el correo queda reservado. Nunca `onDelete: Cascade`.

@@ -38,6 +38,7 @@ import { RankingService } from '../../ranking/ranking.service';
 import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
 import { ReleasedJuror, rejectionNotice } from '../team-status';
 import { resolveListEdition } from '../../editions/list-edition';
+import { TeamListFilters } from '../repositories/team-list-filter';
 import { assertTeamWritable, findActiveEdition } from '../../editions/active-edition';
 import {
   assertAdminOnly,
@@ -452,11 +453,11 @@ export class TeamsService {
    * ARK-129 (HU-26): solo la edición pedida o, por defecto, la activa. Sin edición activa la
    * lista sale vacía (no se mezclan ediciones). 404 si `editionId` no existe.
    */
-  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number) {
+  async findAll(sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number, filters: TeamListFilters = {}) {
     const edition = await resolveListEdition(this.prisma, editionId);
     if (!edition) return [];
     const teams = await this.withSignedBlobs(
-      await this.teamRepository.findAll(sortByLikes, edition.id),
+      await this.teamRepository.findAll(sortByLikes, edition.id, filters),
     );
     const visible = includePersonalData ? teams : stripPersonalData(teams);
     return await this.markOwnTeams(visible, currentUserId);
@@ -752,7 +753,7 @@ export class TeamsService {
   }
 
   /** Igual que `findAll`, paginado; incluye `edition` (con `readOnly`) para el selector del admin. */
-  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number) {
+  async findPaged(page: number, limit: number, sortByLikes: boolean, includePersonalData = false, currentUserId?: string, editionId?: number, filters: TeamListFilters = {}) {
     const edition = await resolveListEdition(this.prisma, editionId);
     if (!edition) {
       return {
@@ -769,7 +770,7 @@ export class TeamsService {
         edition: null,
       };
     }
-    const result = await this.teamRepository.findPaged(page, limit, sortByLikes, edition.id);
+    const result = await this.teamRepository.findPaged(page, limit, sortByLikes, edition.id, filters);
     result.data = await this.withSignedBlobs(result.data);
     const visible = includePersonalData ? result : stripPersonalData(result);
     return { ...visible, data: await this.markOwnTeams(visible.data, currentUserId), edition };

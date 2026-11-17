@@ -61,7 +61,7 @@
 Detalle: [jurados](jurados.md).
 
 ## 6. Edición (feria) y datos
-- Cada edición tiene estado activa / inactiva / archivada. Semestre se guarda como número: 10 primer semestre, 20 intersemestral, 30 segundo.
+- Cada edición tiene estado activa / inactiva / archivada. Semestre se guarda como número: 10 primer semestre, 20 intersemestral, 30 segundo. En pantallas y Excel se muestra «2026 - 1», «2026 - Intersemestral» o «2026 - 2» y en nombres de archivo `2026-1`, `2026-intersemestral` o `2026-2`, nunca el código crudo (`src/editions/semester-label.ts`, BG-63).
 - La edición de trabajo es siempre la `ACTIVE` y **la decide el servidor**. Solo se escribe sobre la activa; las anteriores son historial de solo lectura. Ver [ediciones](ediciones.md).
 
 ## 7. Otras reglas vigentes
