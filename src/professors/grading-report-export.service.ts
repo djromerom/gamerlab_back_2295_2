@@ -13,15 +13,22 @@ import {
   ProfessorPanelQueryService,
   seesAllProfessors,
 } from './professor-panel-query.service';
+import {
+  editionPeriodLabel,
+  editionPeriodSlug,
+} from '../editions/semester-label';
 
 export const NO_DATA_TO_EXPORT_MESSAGE = 'No hay datos para exportar';
 
 const docenteKey = (jurorId: string, videogameId: number) =>
   `${jurorId}:${videogameId}`;
 
-/** Etiqueta de feria para archivo y hojas, p. ej. `2026-30`. */
-export function editionPeriod(edition: PanelEdition): string {
-  return `${edition.year}-${edition.semester}`;
+/**
+ * BG-63: etiqueta de feria del encabezado y la columna «Feria», con el semestre
+ * legible: «Feria 2026-2 (2026 - 2)», nunca el código crudo «2026-30».
+ */
+export function editionLabelOf(edition: PanelEdition): string {
+  return `${edition.title} (${editionPeriodLabel(edition)})`;
 }
 
 /**
@@ -36,7 +43,7 @@ export function buildGradingReportFileName(
   const editions = new Map(groups.map((g) => [g.edition.id, g.edition]));
   const feria =
     (filters.editionId || filters.nrcId) && editions.size === 1
-      ? editionPeriod([...editions.values()][0])
+      ? editionPeriodSlug([...editions.values()][0])
       : 'todas-las-ferias';
   const nrc =
     filters.nrcId && groups.length === 1
@@ -115,6 +122,7 @@ export class GradingReportExportService {
           members: new Set(team.members.map((m) => m.fullName)),
           grade: null,
           hasNRC: true,
+          rejected: team.rejected === true,
         });
       }
       return {
@@ -126,7 +134,7 @@ export class GradingReportExportService {
         subjectName: group.subjectName,
         nrcCode: String(group.nrcCode),
         professorId: group.professorId,
-        editionLabel: `${group.edition.title} (${editionPeriod(group.edition)})`,
+        editionLabel: editionLabelOf(group.edition),
         groups: rows,
       };
     });

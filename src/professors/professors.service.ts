@@ -19,6 +19,7 @@ import { SelectOption } from './types/select-option.type';
 import { Response } from 'express';
 import { ExcelExportService, NrcSheetData } from './excel-export.service';
 import { seesAllProfessors } from './professor-panel-query.service';
+import { historicalNrcIdFilter, ownedNrcIds } from './historical-scope';
 import { findActiveEdition, ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { ListEdition, resolveListEdition } from '../editions/list-edition';
 import { PROFESSOR_JUROR_PROFILE } from './professor-juror-profile';
@@ -1242,12 +1243,12 @@ export class ProfessorsService {
   // Coherente con `GradingGamesService.list`: por defecto solo los NRC activos de
   // la feria activa (los del profesor; el Administrador, todos). Con
   // `includeHistorical`, también las ferias de los NRC del profesor y sus NRC históricos.
+  // BG-63 (decisión del 2026-11-17): los NRC históricos también son solo los del
+  // profesor (el Administrador, todos), igual que los equipos del listado.
   async getGradingFilterOptions(
     professorId: string,
     scope: { roleId?: number; includeHistorical?: boolean } = {},
   ) {
-    // Historical NRC options are intentionally not filtered by professor:
-    // each professor can browse the global, read-only historical teams view.
     type GradingNrcOption = { id: number; code: number; editionId: number; source: 'current' | 'historical' };
     const owner = seesAllProfessors(scope.roleId) ? {} : { professorId };
     const nrcs = await this.prisma.nRC.findMany({
@@ -1270,8 +1271,9 @@ export class ProfessorsService {
         select: { editionId: true },
       });
       editionIds = [...new Set(owned.map((n) => n.editionId))];
+      const nrcId = historicalNrcIdFilter(await ownedNrcIds(this.prisma, professorId, scope.roleId));
       historical = await this.prisma.historicalMemberNrc.findMany({
-        where: { member: { team: { editionId: { in: editionIds } } } },
+        where: { ...(nrcId === undefined ? {} : { nrcId }), member: { team: { editionId: { in: editionIds } } } },
         select: {
           nrcId: true,
           code: true,
