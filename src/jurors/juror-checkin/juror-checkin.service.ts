@@ -10,6 +10,7 @@ import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { findActiveEdition } from 'src/editions/active-edition';
 import { ASSIGNABLE_TEAM } from 'src/teams/team-status';
+import { matchesAllWords } from 'src/common/utils/search-text';
 
 const SEARCH_LIMIT = 20;
 
@@ -99,21 +100,16 @@ export class JurorCheckinService {
     );
   }
 
-  /** Busca jurados de la edición activa por nombre o apellido (cada palabra debe coincidir). */
+  /**
+   * Busca jurados de la edición activa por nombre o apellido (cada palabra debe coincidir).
+   * BG-60 (ARK-260): sin tildes ni mayúsculas («oscar» encuentra a «Óscar»); se filtra en
+   * memoria porque son solo los jurados de la edición activa.
+   */
   async search(query: string): Promise<JurorSearchItem[]> {
     const editionId = await this.getActiveEditionId();
-    const words = query.trim().split(/\s+/).filter(Boolean);
 
-    const jurors = await this.prisma.user.findMany({
-      where: {
-        ...jurorsOfEdition(editionId),
-        AND: words.map((word) => ({
-          OR: [
-            { firstName: { contains: word, mode: 'insensitive' } },
-            { lastName: { contains: word, mode: 'insensitive' } },
-          ],
-        })),
-      },
+    const candidates = await this.prisma.user.findMany({
+      where: jurorsOfEdition(editionId),
       select: {
         ...jurorSelect,
         jurorBadges: {
@@ -128,8 +124,12 @@ export class JurorCheckinService {
         },
       },
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      take: SEARCH_LIMIT,
     });
+    const jurors = candidates
+      .filter((juror) =>
+        matchesAllWords(`${juror.firstName} ${juror.lastName}`, query),
+      )
+      .slice(0, SEARCH_LIMIT);
 
     return jurors.map((juror) => ({
       id: juror.id,
