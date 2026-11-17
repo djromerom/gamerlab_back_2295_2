@@ -278,20 +278,77 @@ describe('JurorCheckinService', () => {
       ]);
     });
 
-    it('cada palabra debe coincidir con el nombre o el apellido; máximo 20 resultados', async () => {
+    it('consulta los jurados de la edición activa sin filtrar por palabra en la BD', async () => {
       prisma.user.findMany.mockResolvedValue([]);
 
       await service.search('  ana   pérez ');
 
       const query = callArg<{
-        where: { AND: unknown[]; isActive: boolean };
-        take: number;
+        where: Record<string, unknown>;
+        take?: number;
         select: Record<string, unknown>;
+        orderBy: unknown;
       }>(prisma.user.findMany);
-      expect(query.where.AND).toHaveLength(2);
-      expect(query.where).toMatchObject(jurorsOfEdition(3));
-      expect(query.take).toBe(20);
+      expect(query.where).toEqual(jurorsOfEdition(3));
+      expect(query.take).toBeUndefined();
+      expect(query.orderBy).toEqual([
+        { firstName: 'asc' },
+        { lastName: 'asc' },
+      ]);
       expect(query.select).not.toHaveProperty('email');
+    });
+
+    describe('BG-60: sin tildes ni mayúsculas', () => {
+      const juror = (id: string, firstName: string, lastName: string) => ({
+        id,
+        firstName,
+        lastName,
+        jurorCategory: 'SENIOR',
+        role: { name: 'Jurado' },
+        jurorBadges: [],
+        attendances: [],
+      });
+      const jurors = [
+        juror('ana', 'Ana', 'Pérez'),
+        juror('ivan', 'Iván', 'Cárdenas'),
+        juror('oscar', 'Óscar', 'Pardo'),
+      ];
+      const ids = async (query: string) =>
+        (await service.search(query)).map((j) => j.id);
+
+      beforeEach(() => prisma.user.findMany.mockResolvedValue(jurors));
+
+      it('«oscar» encuentra a Óscar Pardo', async () => {
+        expect(await ids('oscar')).toEqual(['oscar']);
+        expect((await service.search('oscar'))[0].name).toBe('Óscar Pardo');
+      });
+
+      it('«cardenas» e «IVAN» encuentran a Iván Cárdenas', async () => {
+        expect(await ids('cardenas')).toEqual(['ivan']);
+        expect(await ids('IVAN')).toEqual(['ivan']);
+      });
+
+      it('con tilde sigue funcionando y cada palabra debe coincidir', async () => {
+        expect(await ids('Óscar')).toEqual(['oscar']);
+        expect(await ids('  ana   perez ')).toEqual(['ana']);
+        expect(await ids('ana cardenas')).toEqual([]);
+      });
+
+      it('una búsqueda que no coincide no devuelve nada', async () => {
+        expect(await ids('zz')).toEqual([]);
+      });
+
+      it('conserva el orden y devuelve máximo 20 después de filtrar', async () => {
+        const many = Array.from({ length: 25 }, (_, i) =>
+          juror(`j${i}`, 'Óscar', `Pardo ${i}`),
+        );
+        prisma.user.findMany.mockResolvedValue([
+          juror('ana', 'Ana', 'Pérez'),
+          ...many,
+        ]);
+
+        expect(await ids('oscar')).toEqual(many.slice(0, 20).map((j) => j.id));
+      });
     });
 
     it('sin resultados devuelve una lista vacía', async () => {
