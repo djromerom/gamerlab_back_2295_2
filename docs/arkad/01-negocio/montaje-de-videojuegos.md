@@ -6,7 +6,7 @@ Los equipos **no suben el zip**. Lo comparten como un enlace de su OneDrive o Dr
 
 ## Antes de empezar
 - **Límite:** 200 MB por zip; se recomienda 50 MB o menos, porque carga más rápido. Lo acepta el back desde HU-40 (ARK-226) y el nginx del API (210m, ARK-227).
-- > **A CONFIRMAR con la Scrum Master:** producción acepta **100 MB** mientras HU-40 no esté en `main` (al 16-nov estaba planeado para el 24-nov). Hasta entonces, los zips de más de 100 MB se suben después de ese despliegue.
+- **Producción acepta 100 MB hasta el despliegue del 24-nov.** HU-40 se mezcla en `dev` y pasa a producción con el resto de las tareas del sprint, no antes (decisión de la Scrum Master, 16-nov). Hasta ese despliegue, los zips de más de 100 MB se revisan y se dejan listos, pero se suben en producción después del 24-nov. Los de 100 MB o menos se pueden subir antes.
 - **Quién:** solo el rol Administrador sube zips. El registro de estudiantes no tiene ese paso.
 - **Límite de subidas:** 3 zips cada 10 minutos por persona. Para montar muchos juegos, intercala la revisión (paso 2) con las subidas.
 
@@ -92,7 +92,7 @@ Abiertos con «Jugar» en `https://arkad.openlab.uninorte.edu.co`, sin sesión, 
 
 - Los tiempos van desde abrir `/play-game/<id>` hasta ver el juego, en la red de la casa. En el wifi de la feria serán mayores.
 - Los errores 401 y de WebSocket en la consola son normales sin sesión.
-- **Tres juegos pasan de 100 MB.** Si alguno se vuelve a subir en producción antes de HU-40, el back lo rechaza (ver «Antes de empezar»).
+- **Tres juegos pasan de 100 MB.** Si alguno se vuelve a subir en producción antes del despliegue del 24-nov, el back lo rechaza (ver «Antes de empezar»).
 
 ## Prueba del procedimiento en Arkad-test (16-nov)
 Con `godot-sin-hilos.zip` (material de SP-03) en el equipo «QA-Samuel Equipo 1»:
