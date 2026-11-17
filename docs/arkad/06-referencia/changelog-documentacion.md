@@ -2,6 +2,13 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-16: anular una llegada de jurado (BG-49, ARK-251)
+- [endpoints](../02-backend/endpoints.md): `PATCH /juror-attendance/:attendanceId/annul` (servicio `AnnulJurorArrival`, solo Administrador) y `attendanceId` en cada fila de `GET /juror-attendance`.
+- [modelo-de-datos](../02-backend/modelo-de-datos.md): columnas `anulado_en`, `anulado_por` y `motivo_anulacion` en `asistencia_jurado` (migración `20261119000000_add_juror_arrival_annulment`, solo agrega columnas e inserta el servicio).
+- [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): quién anula una llegada y qué cambia.
+- [inventario-de-rutas](../02-backend/inventario-de-rutas.md): se agrega a mano la ruta nueva; el resto sigue siendo la foto de `origin/main`.
+- Contrato para el front en `docs/frontend/BG-49-anular-llegada.md` (Camilo).
+
 ## 2026-11-16: zip de 200 MB y «Jugar» en juegos históricos (HU-40, ARK-226)
 - [juegos web por motor](../01-negocio/juegos-web-por-motor.md): el back acepta zips de hasta 200 MB (antes 100 MB) y responde 413 «El archivo supera el máximo de 200 MB.». «Decisiones pendientes» pasa a «Decisiones» con lo que Allison decidió el 15 y 16-nov (200 MB, solo computador, F1–F8 en HU-40, I1 hecho, sin hilos). Sección nueva sobre los juegos de ediciones pasadas. Las instrucciones para los equipos se actualizan en TA-28 (ARK-234).
 - [endpoints](../02-backend/endpoints.md): `GET /historicals/videogames/:historicalVideogameId/game-file`, pública, con la misma forma que `GET /videogames/:id` (`gameFileURL` firmada por 1 h y `entry`; vacíos si no hay zip; 404 si no existe).

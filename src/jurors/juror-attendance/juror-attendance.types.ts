@@ -7,6 +7,8 @@ export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 /** Una fila de la tabla de asistencia. Sin correos ni códigos. */
 export interface JurorAttendanceItem {
   jurorId: string;
+  /** Id de la llegada activa (para anularla, BG-49); null si el jurado no ha llegado. */
+  attendanceId: number | null;
   name: string;
   category: string;
   isProfessor: boolean;
@@ -28,4 +30,25 @@ export interface AttendanceRow {
   item: JurorAttendanceItem;
   firstName: string;
   lastName: string;
+}
+
+/** Una persona en la respuesta, sin correo. */
+export interface PersonRef {
+  id: string;
+  name: string;
+}
+
+/** BG-49: la llegada anulada, con quién la registró y quién la anuló. */
+export interface AnnulledArrival {
+  attendanceId: number;
+  edition: { id: number; title: string };
+  juror: PersonRef;
+  checkedInAt: Date;
+  method: CheckInMethod;
+  checkedInBy: PersonRef;
+  annulledAt: Date;
+  annulledBy: PersonRef;
+  annulmentReason: string | null;
+  /** Estado del jurado después de anular: vuelve a «Sin check-in». */
+  jurorStatus: 'MISSING';
 }

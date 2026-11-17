@@ -240,6 +240,7 @@ model User {
   jurorBadges          JurorBadge[]
   attendances          JurorAttendance[]  @relation("JurorAttendance")
   recordedAttendances  JurorAttendance[]  @relation("AttendanceRecorder")
+  annulledAttendances  JurorAttendance[]  @relation("AttendanceAnnuller")
   teamVerifications    TeamVerification[]
   jurorEditions        JurorEdition[]
   refreshTokens        RefreshToken[]
@@ -630,8 +631,14 @@ model JurorAttendance {
   isActive      Boolean       @default(true) @map("activo")
   // HU-23: último "Sigo aquí" del jurado. Null = no ha respondido desde su llegada.
   lastPresenceConfirmedAt DateTime? @map("ultima_confirmacion_presencia")
+  // BG-49 (ARK-251): anulación de una llegada registrada por error. La fila queda con
+  // activo = false y estos datos; el jurado vuelve a «Sin check-in» y puede registrarse de nuevo.
+  annulledAt      DateTime? @map("anulado_en")
+  annulledById    String?   @map("anulado_por")
+  annulmentReason String?   @map("motivo_anulacion") @db.VarChar(500)
   juror         User          @relation("JurorAttendance", fields: [jurorId], references: [id])
   checkedInBy   User          @relation("AttendanceRecorder", fields: [checkedInById], references: [id])
+  annulledBy    User?         @relation("AttendanceAnnuller", fields: [annulledById], references: [id])
   edition       Edition       @relation(fields: [editionId], references: [id])
   badge         JurorBadge?   @relation(fields: [badgeId], references: [id])
 

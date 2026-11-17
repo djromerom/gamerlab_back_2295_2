@@ -33,6 +33,7 @@ const row = (
   lastName,
   item: {
     jurorId,
+    attendanceId: checkedInAt ? 1 : null,
     name: `Nombre ${lastName}`,
     category: isProfessor ? 'Senior' : 'Junior',
     isProfessor,

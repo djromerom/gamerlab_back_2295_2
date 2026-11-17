@@ -45,6 +45,7 @@ export class JurorAttendanceService {
         attendances: {
           where: { editionId, isActive: true },
           select: {
+            id: true,
             checkedInAt: true,
             method: true,
             checkedInBy: {
@@ -63,6 +64,7 @@ export class JurorAttendanceService {
         lastName: juror.lastName ?? '',
         item: {
           jurorId: juror.id,
+          attendanceId: attendance?.id ?? null,
           name: jurorFullName(juror),
           category: jurorCategoryLabel(juror),
           isProfessor: juror.role.name === PROFESSOR_ROLE_NAME,

@@ -47,7 +47,8 @@ El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada
 | Prefijo | Rutas | Permiso |
 |---|---|---|
 | `/juror/automatic-assignment` | `POST preview` (calcula el plan sin guardar), `POST confirm` (guarda el plan) | `AssignJurors` |
-| `/juror-attendance` | `GET /` (tabla de asistencia de la edición: presentes y faltantes, con paginación y búsqueda) | `ViewJurorAttendance` |
+| `/juror-attendance` | `GET /` (tabla de asistencia de la edición: presentes y faltantes, con paginación y búsqueda; cada fila trae `attendanceId` de la llegada activa o `null`) | `ViewJurorAttendance` |
+| `/juror-attendance` | `PATCH :attendanceId/annul` (BG-49, ARK-251): anula una llegada registrada por error. Body opcional `{ reason }` (máx. 500). Borrado lógico con quién, cuándo y el motivo; el jurado vuelve a `MISSING` en asistencia, alerta de inasistencia y presencia, y se puede registrar de nuevo. 404 `ATTENDANCE_NOT_FOUND`, 409 `ARRIVAL_ALREADY_ANNULLED`, 400 `EDITION_READ_ONLY`. Contrato: `docs/frontend/BG-49-anular-llegada.md` | `AnnulJurorArrival` (solo Administrador; Staff no) |
 
 ## Acceso por ruta
 Inventario completo y verificado: [inventario-de-rutas](inventario-de-rutas.md), generado con `npm run routes:inventory` sobre `origin/main` (`bcfe237`): **203 rutas** = 145 con permiso por servicio, 48 públicas, 10 solo con sesión, 0 sin decidir. Hay una prueba (`route-access.spec.ts`) que falla si una ruta queda sin decidir.

@@ -79,7 +79,8 @@ export type EditionScopedEntity =
   | 'el integrante'
   | 'el videojuego'
   | 'los jurados del equipo'
-  | 'los ponderados';
+  | 'los ponderados'
+  | 'la llegada del jurado';
 
 /**
  * 400 `EDITION_READ_ONLY` si `edition` no es la activa. Las ediciones anteriores son historial:
