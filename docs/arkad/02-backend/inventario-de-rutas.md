@@ -168,6 +168,7 @@
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
+| GET | `/juror-checkin/badge` | Permiso `JurorCheckIn` | Administrador, Staff | BG-49: de quién es un QR, sin registrar la llegada |
 | GET | `/juror-checkin/search` | Permiso `JurorCheckIn` | Administrador, Staff |  |
 | POST | `/juror-checkin/manual` | Permiso `JurorCheckIn` | Administrador, Staff |  |
 | POST | `/juror-checkin/scan` | Permiso `JurorCheckIn` | Administrador, Staff |  |

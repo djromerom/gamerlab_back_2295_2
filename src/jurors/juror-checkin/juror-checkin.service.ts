@@ -28,6 +28,12 @@ export interface CheckInResult {
   };
 }
 
+/** BG-49 (ARK-252): de quién es un QR antes de registrar la llegada. */
+export interface BadgePreview {
+  juror: CheckInResult['juror'];
+  checkedInAt: Date | null;
+}
+
 export interface JurorSearchItem {
   id: string;
   name: string;
@@ -66,6 +72,19 @@ export class JurorCheckinService {
       CheckInMethod.QR,
       badge.badgeId,
     );
+  }
+
+  /**
+   * Vista previa del QR (BG-49): misma validación que el check-in, pero no
+   * crea ni cambia la asistencia. Una llegada anulada no cuenta (null).
+   */
+  async previewBadge(token: string): Promise<BadgePreview> {
+    const badge = await this.badges.validateToken(token);
+    const [juror, attendance] = await Promise.all([
+      this.loadJuror(badge.jurorId, badge.editionId),
+      this.findAttendance(badge.jurorId, badge.editionId),
+    ]);
+    return { juror, checkedInAt: attendance?.checkedInAt ?? null };
   }
 
   /**
@@ -191,6 +210,19 @@ export class JurorCheckinService {
     jurorId: string,
     editionId: number,
   ): Promise<CheckInResult> {
+    return {
+      status,
+      checkedInAt: attendance.checkedInAt,
+      method: attendance.method,
+      juror: await this.loadJuror(jurorId, editionId),
+    };
+  }
+
+  /** Nombre, categoría y grupos activos de la edición; sin correo. */
+  private async loadJuror(
+    jurorId: string,
+    editionId: number,
+  ): Promise<CheckInResult['juror']> {
     const juror = await this.prisma.user.findUniqueOrThrow({
       where: { id: jurorId },
       select: {
@@ -204,18 +236,13 @@ export class JurorCheckinService {
     });
 
     return {
-      status,
-      checkedInAt: attendance.checkedInAt,
-      method: attendance.method,
-      juror: {
-        id: juror.id,
-        name: jurorFullName(juror),
-        category: jurorCategoryLabel(juror),
-        teams: juror.teamsToEvaluate.map((t) => ({
-          id: t.id,
-          name: t.teamName,
-        })),
-      },
+      id: juror.id,
+      name: jurorFullName(juror),
+      category: jurorCategoryLabel(juror),
+      teams: juror.teamsToEvaluate.map((t) => ({
+        id: t.id,
+        name: t.teamName,
+      })),
     };
   }
 }

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, RequestMethod } from '@nestjs/common';
 import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
@@ -6,6 +6,9 @@ import { REQUIRED_SERVICE_KEY } from 'src/auth/decorators/required-service.decor
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { JurorBadgesService } from 'src/jurors/juror-badges/juror-badges.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { ScanBadgeDto } from './dto/juror-checkin.dto';
 import { JurorCheckinController } from './juror-checkin.controller';
 import { JurorCheckinService } from './juror-checkin.service';
 
@@ -165,6 +168,60 @@ describe('JurorCheckinService', () => {
         service.checkInByToken('viejo', STAFF_ID),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.jurorAttendance.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('previewBadge (BG-49)', () => {
+    it('devuelve nombre, categoría y grupos sin registrar la llegada', async () => {
+      prisma.jurorAttendance.findFirst.mockResolvedValue(null);
+
+      const result = await service.previewBadge('token-ok');
+
+      expect(badges.validateToken).toHaveBeenCalledWith('token-ok');
+      expect(result).toEqual({
+        juror: {
+          id: JUROR_ID,
+          name: 'Ana Pérez',
+          category: 'Senior',
+          teams: [{ id: 4, name: 'Pixel Pioneers' }],
+        },
+        checkedInAt: null,
+      });
+      expect(JSON.stringify(result)).not.toContain('@');
+      expect(prisma.jurorAttendance.create).not.toHaveBeenCalled();
+    });
+
+    it('con llegada activa devuelve su hora', async () => {
+      prisma.jurorAttendance.findFirst.mockResolvedValue({
+        checkedInAt: FIRST_ARRIVAL,
+        method: 'QR',
+      });
+
+      const result = await service.previewBadge('token-ok');
+
+      expect(result.checkedInAt).toBe(FIRST_ARRIVAL);
+      expect(prisma.jurorAttendance.create).not.toHaveBeenCalled();
+    });
+
+    it('solo mira la llegada activa de la edición del QR (una anulada no cuenta)', async () => {
+      prisma.jurorAttendance.findFirst.mockResolvedValue(null);
+
+      await service.previewBadge('token-ok');
+
+      expect(
+        callArg<{ where: unknown }>(prisma.jurorAttendance.findFirst).where,
+      ).toEqual({ jurorId: JUROR_ID, editionId: 3, isActive: true });
+    });
+
+    it('un QR inválido o de otra edición responde 404', async () => {
+      badges.validateToken.mockRejectedValue(
+        new NotFoundException('Código QR no válido o de otra edición'),
+      );
+
+      await expect(service.previewBadge('viejo')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
     });
   });
 
@@ -369,5 +426,21 @@ describe('JurorCheckinController (permisos)', () => {
     expect(
       Reflect.getMetadata(REQUIRED_SERVICE_KEY, JurorCheckinController),
     ).toBe('JurorCheckIn');
+  });
+
+  it('GET badge valida el token como POST scan (400 si falta o está vacío)', async () => {
+    for (const token of [undefined, '']) {
+      const errors = await validate(plainToInstance(ScanBadgeDto, { token }));
+      expect(errors).toHaveLength(1);
+    }
+    expect(
+      await validate(plainToInstance(ScanBadgeDto, { token: 'abc' })),
+    ).toHaveLength(0);
+    const handler = Object.getOwnPropertyDescriptor(
+      JurorCheckinController.prototype,
+      'previewBadge',
+    )?.value as object;
+    expect(Reflect.getMetadata('path', handler)).toBe('badge');
+    expect(Reflect.getMetadata('method', handler)).toBe(RequestMethod.GET);
   });
 });
