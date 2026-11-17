@@ -133,7 +133,7 @@ Tamaño: XS < 1 h, S ≈ medio día, M ≈ 1–2 días. «Área» es una sugeren
 - El zip se recibe en memoria: una subida de 200 MB ocupa unos 200 MB de RAM del back mientras dura. No se cambia antes de la feria.
 
 ## Quién sube el zip
-Solo el **Administrador** sube zips (Equipos Inscritos → Editar → paso 3, `TeamWizardDialog`); el registro de estudiantes no tiene ese paso. Los equipos comparten un enlace de su OneDrive o Drive y la admin lo descarga y lo sube (decisión del 15-nov; procedimiento en TA-28, ARK-232).
+Solo el **Administrador** sube zips (Equipos Inscritos → Editar → paso 3, `TeamWizardDialog`); el registro de estudiantes no tiene ese paso. Los equipos comparten un enlace de su OneDrive o Drive y la admin lo descarga y lo sube (decisión del 15-nov; procedimiento en [montaje de los videojuegos](montaje-de-videojuegos.md), TA-28, ARK-232).
 
 ## Juegos de ediciones pasadas
 «Jugar» en un juego histórico (página de ediciones pasadas o destacados de HU-41) usa `GET /historicals/videogames/:historicalVideogameId/game-file` (HU-40, pública): devuelve la URL firmada del zip por 1 h y el `entry`, con la misma forma que `GET /videogames/:id`. Si el juego no tiene zip, `gameFileURL` y `entry` vienen vacíos. Al 15-nov ningún juego de las ediciones archivadas tiene zip.
