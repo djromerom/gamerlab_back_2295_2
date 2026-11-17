@@ -85,11 +85,11 @@ export const ROUTE_NOTES: Record<string, string> = {
   'POST /upload/zip':
     'Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 200 MB, 3 por 10 min y verificación del tipo de archivo (I6).',
   'GET /reports/videojuegoData':
-    '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
+    'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
   'GET /reports/materiaData':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
   'GET /reports/NRCData':
-    '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
+    'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
   'GET /reports/JuradosData':
     'Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol.',
   'POST /ranking/ties/decision':
@@ -105,7 +105,7 @@ export const ROUTE_NOTES: Record<string, string> = {
   'POST /juror/assignments/substitutes/bulk':
     'Solo Administrador (AssignJurors): suma suplentes a los grupos de uno o varios jurados sin quitar a nadie, en una sola transacción (HU-09, ARK-215).',
   'GET /reports/DatosGraficoMateria':
-    '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
+    'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
 };
 
 export type RouteAccess =

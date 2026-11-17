@@ -83,7 +83,7 @@ export class FinalGradeController {
     summary:
       'Liberar u ocultar la nota final a los estudiantes (solo Administrador)',
     description:
-      'Liberar solo se puede desde la hora de cierre del día de la feria (hora de Colombia): la del cronograma de la edición (HU-12) o, si no está configurado, las 12:00 del día en que inicia la edición. Ocultar se puede siempre. Responde el mismo estado que GET /final-grade/release.',
+      'Liberar solo se puede desde la hora de cierre del día de la feria (hora de Colombia): la del cronograma de la edición (HU-12) o, si no está configurado, las 12:00 del día en que inicia la edición. Ocultar se puede siempre y también oculta el ranking público (BG-67). Responde el mismo estado que GET /final-grade/release.',
   })
   @ApiBody({ type: UpdateFinalGradeReleaseDto })
   @ApiOkResponse({
