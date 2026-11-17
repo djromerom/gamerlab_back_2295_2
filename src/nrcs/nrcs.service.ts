@@ -13,6 +13,18 @@ import { SelectOption } from './types/select-option.type';
 import { CreateNrcDto } from './dto/create-nrc.dto';
 import { UpdateNrcDto } from './dto/update-nrc.dto';
 
+/**
+ * ARK-236 (BG-46): datos del profesor que devuelven `GET /nrcs`, `GET /nrcs/:id`, `POST /nrcs` y
+ * `PATCH /nrcs/:id`. Antes se incluía el usuario completo, con `password` (hash bcrypt). El front
+ * solo muestra el nombre del profesor; `id` y `email` se conservan para identificarlo.
+ */
+export const NRC_PROFESSOR_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+} satisfies Prisma.UserSelect;
+
 @Injectable()
 export class NrcsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -56,7 +68,7 @@ export class NrcsService {
         take: limit,
         include: {
           subject: true,
-          professor: true,
+          professor: { select: NRC_PROFESSOR_SELECT },
           members: true,
         },
       }),
@@ -153,7 +165,7 @@ export class NrcsService {
       where: { id },
       include: {
         subject: true,
-        professor: true,
+        professor: { select: NRC_PROFESSOR_SELECT },
         members: true,
       },
     });
@@ -201,7 +213,11 @@ export class NrcsService {
           professor: { connect: { id: professorId } },
           ...(isActive !== undefined && { isActive }),
         },
-        include: { subject: true, professor: true, edition: true },
+        include: {
+          subject: true,
+          professor: { select: NRC_PROFESSOR_SELECT },
+          edition: true,
+        },
       });
     } catch (error) {
       this.rethrowDuplicateNrc(error, code);
@@ -254,7 +270,7 @@ export class NrcsService {
         },
         include: {
           subject: true,
-          professor: true,
+          professor: { select: NRC_PROFESSOR_SELECT },
           edition: true,
         },
       });

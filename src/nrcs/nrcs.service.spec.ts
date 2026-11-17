@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { NrcsService } from './nrcs.service';
+import { NRC_PROFESSOR_SELECT, NrcsService } from './nrcs.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('NrcsService', () => {
@@ -13,9 +13,11 @@ describe('NrcsService', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -139,6 +141,121 @@ describe('NrcsService', () => {
       const args = mockPrismaService.nRC.findMany.mock.calls[0][0];
       expect(args.select.subject).toBeUndefined();
       expect(args.select.professor).toBeUndefined();
+    });
+  });
+
+  describe('ARK-236 (BG-46): el profesor de /nrcs sin password', () => {
+    const fullProfessor = {
+      id: 'p1',
+      email: 'ana@uninorte.edu.co',
+      firstName: 'Ana',
+      lastName: 'Pérez',
+      password: '$2b$10$hashdeprueba',
+      roleId: 3,
+      microsoftOid: null,
+    };
+    const publicProfessor = {
+      id: 'p1',
+      email: 'ana@uninorte.edu.co',
+      firstName: 'Ana',
+      lastName: 'Pérez',
+    };
+
+    type NrcArgs = { include?: { professor?: unknown } };
+    const firstCallArgs = (fn: jest.Mock) => (fn.mock.calls as NrcArgs[][])[0][0];
+
+    // Imita a Prisma: con `select` devuelve solo esos campos; con `professor: true`, el usuario completo.
+    const nrcWithProfessor = (args: NrcArgs) => {
+      const relation = args.include?.professor as
+        | true
+        | { select: Record<string, boolean> }
+        | undefined;
+      const professor =
+        relation === true
+          ? fullProfessor
+          : Object.fromEntries(
+              Object.keys(relation?.select ?? {}).map((key) => [
+                key,
+                fullProfessor[key as keyof typeof fullProfessor],
+              ]),
+            );
+      return { id: 5, code: 2501, editionId: 1, isActive: true, professor };
+    };
+
+    const expectSafeProfessor = (args: NrcArgs, nrc: unknown) => {
+      expect(args.include?.professor).toEqual({ select: NRC_PROFESSOR_SELECT });
+      expect(JSON.stringify(nrc)).not.toContain('password');
+      expect((nrc as { professor: unknown }).professor).toEqual(publicProfessor);
+    };
+
+    it('el select del profesor no incluye password', () => {
+      expect(NRC_PROFESSOR_SELECT).toEqual({
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      });
+      expect(NRC_PROFESSOR_SELECT).not.toHaveProperty('password');
+    });
+
+    it('findAll (GET /nrcs)', async () => {
+      mockPrismaService.edition.findFirst.mockResolvedValue({
+        id: 1,
+        title: 'Edición 1',
+        status: 'ACTIVE',
+      });
+      mockPrismaService.nRC.findMany.mockImplementation((args: NrcArgs) =>
+        Promise.resolve([nrcWithProfessor(args)]),
+      );
+      mockPrismaService.nRC.count.mockResolvedValue(1);
+      mockPrismaService.$transaction.mockImplementation(
+        (ops: Promise<unknown>[]) => Promise.all(ops),
+      );
+
+      const result = await service.findAll(false, 10, 1);
+
+      expect(result.data).toHaveLength(1);
+      expectSafeProfessor(firstCallArgs(mockPrismaService.nRC.findMany), result.data[0]);
+    });
+
+    it('findOne (GET /nrcs/:id)', async () => {
+      mockPrismaService.nRC.findUnique.mockImplementation((args: NrcArgs) =>
+        Promise.resolve(nrcWithProfessor(args)),
+      );
+
+      const nrc = await service.findOne(5);
+
+      expectSafeProfessor(firstCallArgs(mockPrismaService.nRC.findUnique), nrc);
+    });
+
+    it('create (POST /nrcs)', async () => {
+      mockPrismaService.edition.findFirst.mockResolvedValue({ id: 1 });
+      mockPrismaService.nRC.findFirst.mockResolvedValue(null);
+      mockPrismaService.nRC.create.mockImplementation((args: NrcArgs) =>
+        Promise.resolve(nrcWithProfessor(args)),
+      );
+
+      const nrc = await service.create({ code: 2501, subjectId: 1, professorId: 'p1' });
+
+      expectSafeProfessor(firstCallArgs(mockPrismaService.nRC.create), nrc);
+    });
+
+    it('update (PATCH /nrcs/:id)', async () => {
+      mockPrismaService.nRC.findUnique.mockResolvedValue({
+        id: 5,
+        code: 2501,
+        editionId: 1,
+        isActive: true,
+        edition: { status: 'ACTIVE', title: 'Edición 1' },
+      });
+      mockPrismaService.nRC.findFirst.mockResolvedValue(null);
+      mockPrismaService.nRC.update.mockImplementation((args: NrcArgs) =>
+        Promise.resolve(nrcWithProfessor(args)),
+      );
+
+      const nrc = await service.update(5, { code: 2502, professorId: 'p1' });
+
+      expectSafeProfessor(firstCallArgs(mockPrismaService.nRC.update), nrc);
     });
   });
 });
