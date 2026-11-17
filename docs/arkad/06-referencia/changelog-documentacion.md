@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
+- [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
+- [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.
+- [inventario-de-rutas](../02-backend/inventario-de-rutas.md): se agrega a mano la ruta nueva.
+- Contrato `docs/frontend/BG-49-anular-llegada.md`: sección nueva de la vista previa del QR. Sin migración ni permiso nuevo.
+
 ## 2026-11-16: notas solo con el ranking publicado y /reports solo para el Administrador (BG-67, ARK-268)
 - [evaluación y ranking](../02-backend/evaluacion-y-ranking.md): una sola regla de «notas publicadas» (`showRanking` y `showFinalGrade`). `PATCH /settings/show-ranking` responde 400 `RANKING_REQUIRES_FINAL_GRADE` sin la nota final liberada, y ocultar la nota final también oculta el ranking. Las tres rutas de notas de `/reports` pasan a ser solo del Administrador.
 - [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `GET /reports/videojuegoData`, `/NRCData` y `/DatosGraficoMateria` pasan de «Pública» a permiso `ExportAdminReports`; notas nuevas en `GET`/`PATCH /settings/show-ranking`. Se edita a mano; el resto sigue siendo la foto de `origin/main`.

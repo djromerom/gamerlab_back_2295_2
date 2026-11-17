@@ -46,6 +46,27 @@ export class JurorCheckinController {
     return this.checkinService.checkInByToken(dto.token, staffId);
   }
 
+  @Get('badge')
+  @ApiOperation({
+    summary: 'Muestra de quién es un QR sin registrar la llegada (BG-49)',
+    description:
+      'Misma validación que `POST scan`, pero no crea ni cambia la asistencia. `checkedInAt` es la llegada activa (una anulada no cuenta) o `null`. Después de confirmar, el front llama a `POST scan` con el mismo token. No devuelve correos.',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: { juror: checkInExample.juror, checkedInAt: null },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Falta el token o está vacío' })
+  @ApiResponse({
+    status: 404,
+    description: 'QR no válido, de otra edición o sin edición activa',
+  })
+  previewBadge(@Query() query: ScanBadgeDto) {
+    return this.checkinService.previewBadge(query.token);
+  }
+
   @Get('search')
   @ApiOperation({
     summary: 'Busca jurados por nombre para registrar su llegada a mano',

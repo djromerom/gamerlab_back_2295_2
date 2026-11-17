@@ -26,7 +26,7 @@ El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada
 | `/juror` | `POST /`, `GET /`, `GET :id`, `PATCH :id`, `DELETE :id`, `GET evaluators`, `GET evaluations-assignment`, `POST resend-confirmation`, `POST assignments`, `POST assignments/substitutes/bulk` (suplentes en lote, HU-09, ARK-215; contrato: `docs/frontend/HU-09-suplentes-en-lote.md`), `PATCH assignments/reassign`, `DELETE assignments`, `DELETE assignments/all`, `DELETE :id/assignments`, `GET assignments/audit`, `GET evaluation-tracking`, `GET :id/teams`, `GET teams/:teamId/evaluation-stats`, `GET teams/:teamId/jurors-status` |
 | `/juror-edition` | `GET /`, `POST import-previous`, `PATCH status`, `POST enroll` |
 | `/juror-badges` | `POST generate`, `GET /`, `GET pdf`, `POST :jurorId/regenerate` |
-| `/juror-checkin` | `POST scan`, `GET search`, `POST manual` |
+| `/juror-checkin` | `GET badge` (vista previa del QR sin registrar, BG-49), `POST scan`, `GET search`, `POST manual` |
 | `/staff` | `POST /` (alta de cuentas Staff) |
 | `/evaluation-tracking` | `GET /` (seguimiento por hora) |
 | `/substitute-notices` | `GET me` y `PATCH :id/read` (suplente, servicio `ViewOwnSubstituteNotices`): avisos «Te asignaron grupos» y marcar como leído; `GET unread` (Administrador, `AssignJurors`): suplentes con el aviso sin leer, para el panel de seguimiento (HU-22, ARK-84). Contrato: `docs/frontend/HU-22-aviso-suplente.md` |

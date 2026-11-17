@@ -107,5 +107,47 @@ interface AnnulledArrival {
 - Deshabilitar el botón mientras la petición está en curso (evita el 409 por doble clic).
 - Tras el 200, la fila cambia a Falta en la siguiente consulta (la tabla ya se refresca cada 10 s; conviene pedirla de inmediato).
 - Si el jurado sí está en la feria, la mesa registra la llegada correcta después (por QR o por nombre) y queda como una llegada nueva, con hora nueva.
-- La parte de **confirmar antes de registrar** en `/check-in-jurados` es solo del front: el back no cambia `POST /juror-checkin/scan` ni `/manual`.
+- **Confirmar antes de registrar** en `/check-in-jurados`: en la búsqueda por nombre es solo del front; para el QR se usa la ruta de vista previa (sección siguiente). `POST /juror-checkin/scan` y `/manual` no cambian.
 - Hoy no hay una ruta para ver el historial de llegadas anuladas: queda guardado en la base de datos. Si lo necesitan en pantalla, avisar y se agrega.
+
+## Ruta: `GET /juror-checkin/badge?token=<token>` (vista previa del QR, ARK-252)
+Pedido de Camilo del 16-nov. Rama backend: `fix/ARK-251-badge-preview`.
+
+- **Permiso:** `JurorCheckIn` (Staff y Administrador), el mismo de `POST scan`. Estudiante, Profesor, Jurado y Presentador externo: 403; sin sesión: 401.
+- **Sin efectos:** no crea ni cambia la asistencia; solo dice de quién es la escarapela.
+- **Misma validación de token que `POST scan`:** escarapela activa, de la edición activa y de un jurado de esa edición.
+
+```ts
+interface BadgePreview {
+  juror: {
+    id: string;
+    name: string;                                  // "Nombre Apellido"
+    category: 'Junior' | 'Senior' | 'Sin categoría';
+    teams: { id: number; name: string }[];         // igual que en la respuesta de POST scan
+  };
+  checkedInAt: string | null; // ISO UTC de la llegada activa; null si no ha llegado o si la llegada se anuló
+}
+```
+
+```json
+// GET /juror-checkin/badge?token=3f9a…  → 200
+{
+  "juror": {
+    "id": "5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01",
+    "name": "Ana Pérez",
+    "category": "Senior",
+    "teams": [{ "id": 4, "name": "Pixel Pioneers" }]
+  },
+  "checkedInAt": null
+}
+```
+
+| Código | Cuándo | Qué mostrar |
+|---|---|---|
+| 200 | El QR es de una escarapela activa de la edición activa | La confirmación con el nombre, los grupos y «Ya llegó: …» si `checkedInAt` viene |
+| 400 | Falta `token`, está vacío o pasa de 64 caracteres | El `message`, que llega como **lista** (`["El código QR es obligatorio"]`) |
+| 401 / 403 | Sin sesión / rol sin `JurorCheckIn` | Lo de siempre |
+| 404 | Token que no existe, escarapela inactiva, jurado que no es de la edición o sin edición activa | El `message`: «Código QR no válido o de otra edición» (o «No hay una edición activa configurada») |
+
+- Tras «Confirmar», llamar a `POST /juror-checkin/scan` con el mismo token. Si entre la vista previa y la confirmación otra persona registró la llegada, `scan` responde 201 con `status: "ALREADY_CHECKED_IN"` y la hora original: mostrarlo como aviso, no como error.
+- «Cancelar» no llama a nada: no queda rastro de la lectura.
