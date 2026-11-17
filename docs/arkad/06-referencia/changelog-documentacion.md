@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-17: búsqueda sin tildes en check-in, Pendientes y Calificados (BG-60, ARK-260)
+- `GET /juror-checkin/search`, `GET /pending-games/search` y `GET /graded-games/search` ignoran tildes y mayúsculas («oscar» encuentra a Óscar, «operacion» a «Operación Segura»). Pendientes y Calificados buscan también por código de equipo («202» o «N2-AYP-202»), además de juego, equipo, integrantes, NRC y materia (código y nombre). La forma de las respuestas, el orden y los límites (20 y 100) no cambian; `search/quick` no se toca.
+- Se filtra en memoria con `src/common/utils/search-text.ts` (`normalizeSearchText`, `matchesAllWords`) y `src/pending-games/videogame-search.ts`, sin la extensión `unaccent` ni migraciones. [endpoints](../02-backend/endpoints.md) no describe los campos de búsqueda, así que no cambia.
+
 ## 2026-11-17: /nrcs sin la contraseña del profesor (BG-46, ARK-236)
 - `GET /nrcs`, `GET /nrcs/:id`, `POST /nrcs` y `PATCH /nrcs/:id` devolvían el usuario `professor` completo, con `password` (hash bcrypt). Ahora traen solo `id`, `firstName`, `lastName` y `email` (constante `NRC_PROFESSOR_SELECT` en `src/nrcs/nrcs.service.ts`). El front sigue mostrando el nombre del profesor. Sin cambios de rutas, permisos ni migraciones.
 - Pruebas: `nrcs.service.spec.ts` (las cuatro operaciones usan el select) y `nrcs.edition.db.spec.ts` (con un profesor con contraseña, ninguna respuesta trae `password`).

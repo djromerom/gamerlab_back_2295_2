@@ -8,6 +8,11 @@ import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { jurorEvaluationsOf } from '../evaluation/juror-evaluation';
 import { GRADABLE_TEAM } from '../teams/team-status';
+import {
+  SEARCHABLE_MEMBER_SELECT,
+  filterVideogamesBySearch,
+  firstNrcOnly,
+} from 'src/pending-games/videogame-search';
 
 /**
  * ARK-132 (BG-19): el jurado solo ve lo que calificó en la edición activa (por el equipo del
@@ -37,9 +42,6 @@ export class GradedGamesService {
   // Búsqueda flexible de juegos calificados
   async searchGradedGames(jurorId: string, search: string) {
     await this.checkEvaluationsOpen();
-    const normalizedSearch = search.trim();
-    const isNumeric = /^\d+$/.test(normalizedSearch);
-    const numericSearch = isNumeric ? parseInt(normalizedSearch, 10) : null;
 
     // Obtener evaluaciones del jurado
     const evaluations = await this.prisma.evaluation.findMany({
@@ -55,30 +57,10 @@ export class GradedGamesService {
     const scoresMap = new Map(evaluations.map((e) => [e.videogameId, e.totalScore]));
     const commentsMap = new Map(evaluations.map((e) => [e.videogameId, e.comments]));
 
-    // Filtros de búsqueda
-    const searchConditions: Prisma.VideogameWhereInput['OR'] = [
-      { name: { contains: normalizedSearch, mode: 'insensitive' } },
-      { team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } } },
-      { team: { members: { some: {
-        OR: [
-          { firstName: { contains: normalizedSearch, mode: 'insensitive' } },
-          { lastName: { contains: normalizedSearch, mode: 'insensitive' } }
-        ]
-      }}}},
-      { team: { members: { some: { nrcs: { some: { subject: { name: { contains: normalizedSearch, mode: 'insensitive' } } } } } } } }
-    ];
-
-    if (numericSearch !== null) {
-      searchConditions.push(
-        { team: { members: { some: { nrcs: { some: { code: numericSearch } } } } } }
-      );
-    }
-
-    const videogames = await this.prisma.videogame.findMany({
-      where: {
-        id: { in: evaluatedIds },
-        OR: searchConditions,
-      },
+    // BG-60 (ARK-260): se traen los juegos que calificó y se filtran en memoria para ignorar
+    // tildes y buscar también por código de equipo (ver videogame-search.ts).
+    const candidates = await this.prisma.videogame.findMany({
+      where: { id: { in: evaluatedIds } },
       select: {
         id: true,
         name: true,
@@ -88,31 +70,19 @@ export class GradedGamesService {
           select: {
             teamName: true,
             teamCode: true,
-            members: {
-              select: {
-                firstName: true,
-                lastName: true,
-                nrcs: {
-                  select: {
-                    code: true,
-                    subject: { select: { name: true } },
-                  },
-                  take: 1,
-                },
-              },
-            },
+            members: { select: SEARCHABLE_MEMBER_SELECT },
           },
         },
       },
-      take: 100,
     });
+    const videogames = filterVideogamesBySearch(candidates, search).slice(0, 100);
 
     await this.blobRefs.resolveInPlace(videogames as any[]);
     const data = videogames.map((videogame) => {
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
 
-      videogame.team?.members?.forEach(member => {
+      firstNrcOnly(videogame.team?.members).forEach(member => {
         member.nrcs?.forEach(nrc => {
           nrcCodes.add(nrc.code);
           if (firstSubject === 'Sin materia' && nrc.subject?.name) {
