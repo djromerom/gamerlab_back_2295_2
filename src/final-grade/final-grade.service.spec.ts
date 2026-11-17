@@ -150,14 +150,14 @@ describe('FinalGradeService', () => {
       });
     });
 
-    it('ocultar se puede siempre, incluso antes de las 12:00', async () => {
+    it('ocultar se puede siempre, incluso antes de las 12:00, y oculta el ranking (BG-67)', async () => {
       activeEdition(
         config({ showFinalGrade: true, finalGradeReleasedAt: AT_NOON }),
       );
       await service.setRelease(false, BEFORE_NOON);
       expect(prisma.eventConfiguration.update).toHaveBeenCalledWith({
         where: { id: 7 },
-        data: { showFinalGrade: false, finalGradeReleasedAt: null },
+        data: { showFinalGrade: false, finalGradeReleasedAt: null, showRanking: false },
       });
     });
 

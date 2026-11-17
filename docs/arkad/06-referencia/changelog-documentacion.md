@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-16: notas solo con el ranking publicado y /reports solo para el Administrador (BG-67, ARK-268)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md): una sola regla de «notas publicadas» (`showRanking` y `showFinalGrade`). `PATCH /settings/show-ranking` responde 400 `RANKING_REQUIRES_FINAL_GRADE` sin la nota final liberada, y ocultar la nota final también oculta el ranking. Las tres rutas de notas de `/reports` pasan a ser solo del Administrador.
+- [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `GET /reports/videojuegoData`, `/NRCData` y `/DatosGraficoMateria` pasan de «Pública» a permiso `ExportAdminReports`; notas nuevas en `GET`/`PATCH /settings/show-ranking`. Se edita a mano; el resto sigue siendo la foto de `origin/main`.
+- Contrato para el front en `docs/frontend/BG-67-notas-solo-publicadas.md` (Camilo, ARK-267). Sin migración.
+
 ## 2026-11-17: Históricos del profesor solo con sus NRC y semestre legible (BG-63, ARK-263)
 - [decisiones abiertas](../01-negocio/decisiones-abiertas.md): se cierra «¿Históricos muestra solo sus NRC o todos?» con la decisión de kary del 17-nov (solo sus NRC; el Administrador, todos), que revierte la vista histórica global del 2026-10-29.
 - [ediciones](../01-negocio/ediciones.md#históricos) y [equipos y verificación](../01-negocio/equipos-y-verificacion.md): `GET /professors/grading-games?includeHistorical=true` y `grading-games/filter-options` filtran los equipos y NRC históricos por los NRC del profesor (`integrante_historico_nrc.id_nrc`); los equipos sin NRC solo los ve el Administrador; `metadata.totalItems` es el total real.

@@ -115,7 +115,6 @@ describe('Reportes por edición (ARK-135)', () => {
   });
 
   describe('controlador', () => {
-    const cache = { get: jest.fn(), set: jest.fn() };
     const reports = {
       getVideogamesData: jest.fn().mockResolvedValue([]),
       getNrcWithSubjectNameAndAverage: jest.fn().mockResolvedValue([]),
@@ -123,33 +122,25 @@ describe('Reportes por edición (ARK-135)', () => {
       getJuradosData: jest.fn().mockResolvedValue([]),
       getJuradosDataForTeamLeader: jest.fn().mockResolvedValue([]),
     };
-    const controller = new ReportsController(
-      reports as any,
-      { isRankingVisible: () => Promise.resolve(true) } as any,
-      cache as any,
-    );
-
-    beforeEach(() => cache.get.mockResolvedValue(undefined));
+    const controller = new ReportsController(reports as any);
 
     it('un editionId que no es entero positivo responde 400', async () => {
-      await expect(controller.getWithMateriaYNRC(undefined, 'abc')).rejects.toBeInstanceOf(
+      await expect(controller.getWithMateriaYNRC(admin, 'abc')).rejects.toBeInstanceOf(
         BadRequestException,
       );
       await expect(
-        controller.getNrcWithSubjectNameAndAverage(undefined, '0'),
+        controller.getNrcWithSubjectNameAndAverage(admin, '0'),
       ).rejects.toBeInstanceOf(BadRequestException);
       await expect(controller.getJuradosData(true, 'admin', '-1')).rejects.toBeInstanceOf(
         BadRequestException,
       );
     });
 
-    it('la caché pública de videojuegoData separa cada edición', async () => {
-      await controller.getWithMateriaYNRC(undefined);
-      await controller.getWithMateriaYNRC(undefined, '4');
-      const [k1, k2] = cache.get.mock.calls.map((c) => c[0]);
-      expect(k1).toContain('edition=active');
-      expect(k2).toContain('edition=4');
-      expect(reports.getVideogamesData).toHaveBeenLastCalledWith(undefined, 4);
+    it('videojuegoData pasa la edición pedida o, sin ella, la activa (BG-67: sin caché pública)', async () => {
+      await controller.getWithMateriaYNRC(admin);
+      expect(reports.getVideogamesData).toHaveBeenLastCalledWith(admin, undefined);
+      await controller.getWithMateriaYNRC(admin, '4');
+      expect(reports.getVideogamesData).toHaveBeenLastCalledWith(admin, 4);
     });
 
     it('JuradosData: el admin pasa la edición; el líder siempre ve su equipo de la activa', async () => {

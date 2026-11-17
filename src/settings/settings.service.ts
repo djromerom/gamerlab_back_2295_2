@@ -8,6 +8,12 @@ import {
   EVENT_CONFIGURATION_NOT_FOUND,
   findActiveEditionConfig,
 } from './active-edition-config';
+import {
+  canPublishRanking,
+  isRankingPublished,
+  RANKING_REQUIRES_FINAL_GRADE,
+  RANKING_REQUIRES_FINAL_GRADE_MESSAGE,
+} from './ranking-publication.logic';
 
 /** Código del 404 cuando la edición aún no tiene ponderados. */
 export const WEIGHTS_NOT_CONFIGURED = 'WEIGHTS_NOT_CONFIGURED';
@@ -100,28 +106,40 @@ export class SettingsService {
     return updated;
   }
 
+  /** BG-67 (ARK-268): `true` solo si el ranking está publicado y la nota final liberada. */
   async getShowRanking(): Promise<{ showRanking: boolean }> {
     const activeCnfg = await this.getActiveConfig();
-    return { showRanking: activeCnfg.showRanking };
+    return { showRanking: isRankingPublished(activeCnfg) };
   }
 
   /**
-   * Regla de visibilidad pública del ranking: sin configuración de edición ACTIVE
-   * (periodo entre ediciones) se considera oculto, en lugar de lanzar 404.
-   * `getShowRanking` conserva su contrato.
+   * Regla de visibilidad pública del ranking (BG-67: `showRanking` y `showFinalGrade`): sin
+   * configuración de edición ACTIVE (periodo entre ediciones) se considera oculto, en lugar de
+   * lanzar 404. `getShowRanking` conserva su contrato.
    */
   async isRankingVisible(): Promise<boolean> {
     const cfg = await this.prisma.eventConfiguration.findFirst({
       where: ACTIVE_EDITION_CONFIG_WHERE,
-      select: { showRanking: true },
+      select: { showRanking: true, showFinalGrade: true },
     });
-    return cfg?.showRanking === true;
+    return isRankingPublished(cfg);
   }
 
+  /**
+   * BG-67 (ARK-268): publicar el ranking exige la nota final liberada (400
+   * `RANKING_REQUIRES_FINAL_GRADE`); ocultarlo se puede siempre.
+   */
   async setShowRanking(show: boolean): Promise<{ showRanking: boolean }> {
     if (show === undefined || show === null)
       throw new BadRequestException("Missing 'show' parameter");
     const activeCnfg = await this.getActiveConfig();
+    if (!canPublishRanking(show, activeCnfg)) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: RANKING_REQUIRES_FINAL_GRADE,
+        message: RANKING_REQUIRES_FINAL_GRADE_MESSAGE,
+      });
+    }
 
     const updated = await this.prisma.eventConfiguration.update({
       where: { id: activeCnfg.id },

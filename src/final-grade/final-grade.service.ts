@@ -139,7 +139,8 @@ export class FinalGradeService {
 
   /**
    * Libera (`show=true`) u oculta (`show=false`) la nota final. Liberar antes de la hora de
-   * cierre del día de la feria responde 400 con la hora; ocultar se puede siempre.
+   * cierre del día de la feria responde 400 con la hora; ocultar se puede siempre y también oculta
+   * el ranking público (BG-67: el ranking no se ve sin la nota final liberada).
    */
   async setRelease(
     show: boolean,
@@ -167,7 +168,10 @@ export class FinalGradeService {
     if (config.showFinalGrade !== show) {
       await this.prisma.eventConfiguration.update({
         where: { id: config.id },
-        data: { showFinalGrade: show, finalGradeReleasedAt: show ? now : null },
+        // BG-67 (ARK-268): ocultar la nota final también oculta el ranking público
+        data: show
+          ? { showFinalGrade: true, finalGradeReleasedAt: now }
+          : { showFinalGrade: false, finalGradeReleasedAt: null, showRanking: false },
       });
     }
     return this.getReleaseStatus(now);

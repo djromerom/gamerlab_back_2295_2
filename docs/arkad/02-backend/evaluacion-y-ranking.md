@@ -29,10 +29,10 @@ Vista SQL `vw_team_final_scores` (`TeamFinalScore`): `avgJunior`, `avgSenior`, `
 - **«Nota en proceso»:** el grupo al que le falta la nota de los profesores o la de los jurados junior (o sin nota en la vista) no muestra una nota parcial. Partes que cuentan, igual que el ranking: colegio (N0) solo profesores y seniors; equipo con marca de externo solo jurados junior. Menos de 3 evaluaciones de jurados es solo un aviso.
 - Rutas:
   - `GET /final-grade/release` (Administrador): estado, `fairDate`, `releaseTime`, `scheduleConfigured`, `releaseAllowedFrom`, `canReleaseNow`, resumen y `incompleteTeams` (con `reasons`: `MISSING_PROFESSOR_SCORE`, `MISSING_JUNIOR_SCORE`, `LESS_THAN_MIN_EVALUATIONS`; `inProcess` dice si el estudiante verá «Nota en proceso»).
-  - `PATCH /final-grade/release` `{ show: boolean }` (Administrador): libera u oculta; responde el mismo estado.
+  - `PATCH /final-grade/release` `{ show: boolean }` (Administrador): libera u oculta; responde el mismo estado. Ocultar también oculta el ranking público (`showRanking=false`, BG-67).
   - `GET /final-grade/me` (permiso `MyGeneralGrade`, Estudiante): `status` `NOT_RELEASED` | `IN_PROCESS` | `AVAILABLE` y `finalGrade` (2 decimales) solo con `AVAILABLE`. Sin desglose.
   - `GET /students/grades` se conserva por compatibilidad: `{ grade }` con la misma nota o `null`. Antes se veía en cualquier momento, sin esperar la liberación.
-- Las rutas públicas `GET /teams/final-score/*` siguen sujetas a `showRanking` (HU-30): si el administrador publica el ranking, la nota de cada equipo se ve ahí aunque no haya liberado la nota final.
+- **Una sola regla de «notas publicadas» (BG-67, ARK-268):** las notas se ven sin permiso solo si `showRanking` **y** `showFinalGrade` están encendidos en la edición activa (`src/settings/ranking-publication.logic.ts`). La aplican `isRankingVisible()` (rutas `GET /teams/final-score/*`) y `GET /settings/show-ranking`. `PATCH /settings/show-ranking {show:true}` responde **400** `RANKING_REQUIRES_FINAL_GRADE` si la nota final no está liberada, así que el ranking público no se puede publicar antes de la hora de cierre de la feria. Con el ranking publicado, «Mis Calificaciones» y `/ranking` muestran la misma nota.
 
 ## Progreso
 `GET /evaluation/progress` → `{ completed, assigned }`: evaluaciones activas con puntaje de jurados **actualmente asignados y activos** ÷ asignaciones vigentes de la edición (fuente única para Estadísticas, Estado de evaluación y Asignación).
@@ -44,7 +44,7 @@ Vista SQL `vw_team_final_scores` (`TeamFinalScore`): `avgJunior`, `avgSenior`, `
 - Endpoints: `GET /ranking`, `GET /ranking/winners`, `GET /ranking/ties`, `GET /ranking/decisions`, `GET /ranking/my-ties` (empates del profesor), `POST /ranking/ties/decision`, `POST /ranking/finalize`.
 - `TieBreakDecision`: `tieKey` único (edición, nivel, nota y equipos): **si cambian las notas, el empate es otro y la decisión deja de aplicar**. `method`: `PROFESSOR | REGISTRATION | ADMIN`; guarda `orderedTeamIds`, motivo y quién decidió.
 - `RankingResult` guarda la posición final por nivel cuando se finaliza.
-- Visibilidad: el administrador controla `showRanking` (`/settings/show-ranking`) y `showEvaluations`; con el ranking oculto los promedios públicos devuelven `null` salvo para el admin; histórico con notas es público (ediciones archivadas).
+- Visibilidad: el administrador controla `showRanking` (`/settings/show-ranking`, que exige la nota final liberada: BG-67) y `showEvaluations`. `GET /reports/videojuegoData`, `/reports/NRCData` y `/reports/DatosGraficoMateria` (integrantes, notas, promedios junior/senior y promedio por NRC) son solo del Administrador (`ExportAdminReports`, BG-67) y las usa `/estadisticas`; `GET /reports/materiaData` sigue pública. Histórico con notas es público (ediciones archivadas).
 
 ## Pendiente
 ### `POST /ranking/finalize` (leído de `ranking.service.ts`)

@@ -267,13 +267,13 @@
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
-| GET | `/reports/DatosGraficoMateria` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
+| GET | `/reports/DatosGraficoMateria` | Permiso `ExportAdminReports` | Administrador | Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268). |
 | GET | `/reports/exportExcel` | Permiso `ExportAdminReports` | Administrador |  |
 | GET | `/reports/exportJurados` | Permiso `ExportAdminReports` | Administrador |  |
 | GET | `/reports/JuradosData` | Solo sesión | Cualquier usuario con sesión | La usa la página "Mis jurados": el administrador ve todos los jurados y cualquier otro usuario solo los de su propio equipo (OptionalAdminRoleGuard, BG-02). Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol. |
 | GET | `/reports/materiaData` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
-| GET | `/reports/NRCData` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
-| GET | `/reports/videojuegoData` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
+| GET | `/reports/NRCData` | Permiso `ExportAdminReports` | Administrador | Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268). |
+| GET | `/reports/videojuegoData` | Permiso `ExportAdminReports` | Administrador | Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268). |
 
 ## SettingsController
 
@@ -282,13 +282,13 @@
 | GET | `/settings/evaluations-status` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/registrations` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/show-evaluations` | Pública | Cualquiera (sin sesión) |  |
-| GET | `/settings/show-ranking` | Pública | Cualquiera (sin sesión) |  |
+| GET | `/settings/show-ranking` | Pública | Cualquiera (sin sesión) | `true` solo con el ranking publicado y la nota final liberada (BG-67). |
 | GET | `/settings/weights` | Permiso `GetWeight` | Administrador |  |
 | GET | `/settings/weights/:editionId` | Permiso `GetWeight` | Administrador |  |
 | PATCH | `/settings/evaluations-status` | Permiso `UpdateSettings` | Administrador |  |
 | PATCH | `/settings/registrations` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): abre o cierra las inscripciones. |
 | PATCH | `/settings/show-evaluations` | Permiso `UpdateSettings` | Administrador |  |
-| PATCH | `/settings/show-ranking` | Permiso `UpdateSettings` | Administrador |  |
+| PATCH | `/settings/show-ranking` | Permiso `UpdateSettings` | Administrador | 400 `RANKING_REQUIRES_FINAL_GRADE` si se publica sin la nota final liberada (BG-67). |
 | POST | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 | PUT | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 

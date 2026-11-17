@@ -1,12 +1,7 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, Inject, HttpException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, Res, UseGuards, HttpException } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { Response } from 'express';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { SettingsService } from '../settings/settings.service';
-import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { AppUser } from '../auth/jwt.strategy';
-import { ROLE_IDS } from '../auth/constants/roles';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
@@ -28,33 +23,21 @@ const EDITION_QUERY_DESCRIPTION =
 export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
-    private readonly settingsService: SettingsService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) { }
 
-  // Caché de 10 min con el estado de showRanking en la clave: al ocultar el ranking no se
-  // sirven notas viejas. El administrador con el ranking oculto ve las notas y no usa la caché pública.
-  @Public()
-  @UseGuards(OptionalJwtAuthGuard)
+  // BG-67 (ARK-268): videojuegoData, NRCData y DatosGraficoMateria traen integrantes, notas,
+  // promedios junior/senior y el promedio por NRC. Solo las usa /estadisticas (Administrador):
+  // requieren sesión y ExportAdminReports. Sin sesión 401; con otro rol 403.
   @Get('videojuegoData')
-  @ApiOperation({ summary: 'Get videogames with subject and NRC' })
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
+  @ApiOperation({ summary: 'Get videogames with subject and NRC (administrador)' })
   @ApiQuery({ name: 'editionId', required: false, type: Number, description: EDITION_QUERY_DESCRIPTION })
   async getWithMateriaYNRC(
-    @GetUser() user?: AppUser,
+    @GetUser() user: AppUser,
     @Query('editionId') editionIdParam?: string,
   ) {
-    const editionId = editionIdQuery(editionIdParam);
-    const showRanking = await this.settingsService.isRankingVisible();
-    if (!showRanking && user?.roleId === ROLE_IDS.ADMIN) {
-      return this.reportsService.getVideogamesData(user, editionId);
-    }
-    // ARK-135: la edición va en la clave; sin editionId es la activa del momento
-    const key = `reports:videojuegoData:showRanking=${showRanking}:edition=${editionId ?? 'active'}`;
-    const cached = await this.cacheManager.get(key);
-    if (cached !== undefined && cached !== null) return cached;
-    const data = await this.reportsService.getVideogamesData(user, editionId);
-    await this.cacheManager.set(key, data, 600000);
-    return data;
+    return this.reportsService.getVideogamesData(user, editionIdQuery(editionIdParam));
   }
 
   @Public()
@@ -64,14 +47,13 @@ export class ReportsController {
     return this.reportsService.getSubjects();
   }
 
-  // Sin caché. Con el ranking oculto el promedio va en null salvo para el administrador (ARK-SP1 T29).
-  @Public()
-  @UseGuards(OptionalJwtAuthGuard)
   @Get('NRCData')
-  @ApiOperation({ summary: 'Get NRCs with average per NRC' })
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
+  @ApiOperation({ summary: 'Get NRCs with average per NRC (administrador)' })
   @ApiQuery({ name: 'editionId', required: false, type: Number, description: EDITION_QUERY_DESCRIPTION })
   async getNrcWithSubjectNameAndAverage(
-    @GetUser() user?: AppUser,
+    @GetUser() user: AppUser,
     @Query('editionId') editionIdParam?: string,
   ) {
     return this.reportsService.getNrcWithSubjectNameAndAverage(
@@ -80,13 +62,13 @@ export class ReportsController {
     );
   }
 
-  @Public()
-  @UseGuards(OptionalJwtAuthGuard)
   @Get('DatosGraficoMateria')
-  @ApiOperation({ summary: 'Get average score per subject (for charts)' })
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('ExportAdminReports')
+  @ApiOperation({ summary: 'Get average score per subject, for charts (administrador)' })
   @ApiQuery({ name: 'editionId', required: false, type: Number, description: EDITION_QUERY_DESCRIPTION })
   async getAverageScorePerSubject(
-    @GetUser() user?: AppUser,
+    @GetUser() user: AppUser,
     @Query('editionId') editionIdParam?: string,
   ) {
     return this.reportsService.getSubjectAverageScores(

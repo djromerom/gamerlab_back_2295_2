@@ -1,5 +1,4 @@
 import { INestApplication, Injectable } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { JwtService } from '@nestjs/jwt';
 import { PassportModule, PassportStrategy } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
@@ -9,8 +8,6 @@ import request from 'supertest';
 import { OptionalAdminRoleGuard } from '../auth/guards/admin-role.guard';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { ROLE_IDS } from '../auth/constants/roles';
-import { ReportsController } from '../reports/reports.controller';
-import { ReportsService } from '../reports/reports.service';
 import { SettingsService } from '../settings/settings.service';
 import { RegistrationsOpenGuard } from '../settings/registrations-open.guard';
 import { TeamsController } from './controllers/teams.controller';
@@ -50,8 +47,6 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
     edition: { findFirst: jest.fn() },
   };
   const settings = { isRankingVisible: jest.fn() };
-  const reports = { getVideogamesData: jest.fn() };
-  const cache = { get: jest.fn(), set: jest.fn() };
 
   beforeAll(async () => {
     const jwt = new JwtService({ secret: SECRET });
@@ -60,7 +55,7 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule, ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }])],
-      controllers: [TeamsController, ReportsController],
+      controllers: [TeamsController],
       providers: [
         TestJwtStrategy,
         {
@@ -75,9 +70,7 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
             { orderRows: async (rows: any[]) => rows } as any, // RankingService (HU-04)
           ),
         },
-        { provide: ReportsService, useValue: reports },
         { provide: SettingsService, useValue: settings },
-        { provide: CACHE_MANAGER, useValue: cache },
       ],
     })
       .overrideGuard(RolePermissionGuard)
@@ -102,8 +95,6 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
     settings.isRankingVisible.mockResolvedValue(false);
     prisma.teamFinalScore.findMany.mockResolvedValue(rows);
     prisma.edition.findFirst.mockResolvedValue({ id: 3 });
-    cache.get.mockResolvedValue(undefined);
-    reports.getVideogamesData.mockResolvedValue([]);
   });
 
   const get = (url: string, token?: string) => {
@@ -135,20 +126,5 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
     const res = await get('/teams/final-score/by-n/N1', adminToken);
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
-  });
-
-  it('reports/videojuegoData: el administrador con sesión llega al servicio con su usuario', async () => {
-    await get('/reports/videojuegoData', adminToken);
-    expect(reports.getVideogamesData).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'admin', roleId: ROLE_IDS.ADMIN }),
-      undefined, // ARK-135: sin ?editionId= (la edición activa)
-    );
-    expect(cache.get).not.toHaveBeenCalled();
-  });
-
-  it('reports/videojuegoData: el anónimo pasa por la caché pública', async () => {
-    const res = await get('/reports/videojuegoData');
-    expect(res.status).toBe(200);
-    expect(cache.get).toHaveBeenCalled();
   });
 });
