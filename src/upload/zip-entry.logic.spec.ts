@@ -92,7 +92,7 @@ describe('SP-03: entrada del juego dentro del .zip', () => {
     }
   });
 
-  it('el límite es de 100 MB', () => {
-    expect(MAX_ZIP_SIZE_BYTES).toBe(100 * 1024 * 1024);
+  it('el límite es de 200 MB (HU-40)', () => {
+    expect(MAX_ZIP_SIZE_BYTES).toBe(200 * 1024 * 1024);
   });
 });

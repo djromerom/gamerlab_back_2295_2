@@ -1,9 +1,9 @@
 # Juegos web por motor: qué funciona en ARKAD (SP-03)
 
-> **Audiencia:** todo el equipo, Scrum Master (instructivo TA-23) · **Actualizado:** 2026-11-15 · **Estado:** escritorio y Arkad-test verificados (celular emulado); falta un celular real (audio de iPhone, memoria y PWA) · **Naturaleza:** spike de investigación. Aquí van hallazgos y recomendaciones; las decisiones y la asignación de tareas son de la Scrum Master (ver «Decisiones pendientes»). · **Fuente:** SP-03 (ARK-38, Samuel Tilano): código de `origin/dev` (back) y `origin/dev-deploy` (front) del 15-nov, builds reales probados con el `public/sw.js` real.
+> **Audiencia:** todo el equipo, Scrum Master (instructivo TA-23) · **Actualizado:** 2026-11-16 (decisiones de HU-40) · **Estado:** escritorio y Arkad-test verificados (celular emulado); falta un celular real (audio de iPhone, memoria y PWA) · **Naturaleza:** spike de investigación. Aquí van hallazgos y recomendaciones; las decisiones y la asignación de tareas son de la Scrum Master (ver «Decisiones», 15 y 16-nov). · **Fuente:** SP-03 (ARK-38, Samuel Tilano): código de `origin/dev` (back) y `origin/dev-deploy` (front) del 15-nov, builds reales probados con el `public/sw.js` real.
 
 ## Cómo se juega un juego hoy
-1. **Subida:** el administrador sube un `.zip` en **Equipos Inscritos** → Editar → paso 3 «Archivo ZIP del proyecto» (`POST /upload/zip`). El back acepta hasta **100 MB**, revisa que sea un zip real y elige el archivo de entrada (`index.html`).
+1. **Subida:** el administrador sube un `.zip` en **Equipos Inscritos** → Editar → paso 3 «Archivo ZIP del proyecto» (`POST /upload/zip`). El back acepta hasta **200 MB** (HU-40; antes 100 MB), revisa que sea un zip real y elige el archivo de entrada (`index.html`).
 2. **Reproducción:** la página `/play-game/:id` descarga el zip completo. El service worker del front (`src/sw.ts`, compilado en `public/sw.js`) lo descomprime con JSZip, guarda los archivos **en memoria** y los sirve en `/play-game/<id>/...` dentro de un iframe.
    - Descomprime `.gz` solo dentro de una carpeta `Build/`; los `.br` los entrega tal cual.
    - El iframe recibe `Cross-Origin-Embedder-Policy: require-corp`, pero la página padre no envía COOP ni COEP: **el juego nunca queda aislado** (`crossOriginIsolated = false`, sin `SharedArrayBuffer`).
@@ -90,7 +90,7 @@ Escritas según las recomendaciones; se ajustan con lo que decida la Scrum Maste
 | Caso | Respuesta |
 |---|---|
 | Zip dañado o cortado | 400 «El archivo .zip está dañado o no se pudo leer. Vuelve a comprimir el juego e inténtalo de nuevo.» (antes: 500 «Internal server error») |
-| Más de 100 MB | 413 «El archivo supera el máximo de 100 MB.» (antes: «File too large») |
+| Más de 200 MB | 413 «El archivo supera el máximo de 200 MB.» (antes: «File too large»; hasta HU-40 el máximo era 100 MB) |
 | Sin ningún `.html` | 400 «El archivo .zip no tiene un index.html. Comprime el contenido de la carpeta exportada del juego, con index.html en la raíz.» |
 | Varios `.html` y ninguno `index.html` | 400 que lista los `.html` encontrados y pide renombrar el que abre el juego |
 | `index.html` en una subcarpeta | Se acepta: se usa el `index.html` más cercano a la raíz |
@@ -99,41 +99,41 @@ Escritas según las recomendaciones; se ajustan con lo que decida la Scrum Maste
 | Archivo que no es zip | 400 «El contenido del archivo no corresponde a un .zip» |
 
 ## Correcciones recomendadas
-Tamaño: XS < 1 h, S ≈ medio día, M ≈ 1–2 días. «Área» es una sugerencia; quién la toma y cuándo lo decide la Scrum Master. Solo B1–B4 ya están hechos (bugs del back encontrados en el spike).
+Tamaño: XS < 1 h, S ≈ medio día, M ≈ 1–2 días. «Área» es una sugerencia; quién la toma y cuándo lo decide la Scrum Master. B1–B4 se hicieron en el spike. Allison decidió el resto el 15-nov: F1–F8 entran en HU-40 (ARK-225, Camilo), I1 en ARK-227 (Santiago) y T1 queda para después de la feria.
 
 | # | Dónde | Cambio | Área sugerida | Tamaño | Estado / sugerencia |
 |---|---|---|---|---|---|
-| **F1** | front `src/sw.ts:152` (+ recompilar `public/sw.js`) | COEP del iframe: `require-corp` → `credentialless`. Sin esto **pygbag no carga** (el CDN de pygbag no envía `Cross-Origin-Resource-Policy`). Hoy no aporta nada, porque la página padre no está aislada. | Frontend | XS | Por decidir (sugerido antes de la mini feria del 19) |
-| F2 | front `sw.ts:109-112` | `decodeURIComponent` de la ruta: archivos con espacios o tildes dan 404 | Frontend | XS | Por decidir |
-| F3 | front `sw.ts:175-184` | Tabla de tipos MIME: svg, mjs, gif, webp, mp3, ogg, wav, woff2, ttf… (`.svg` en `<img>` y `.mjs` fallan) | Frontend | XS | Por decidir |
-| F4 | front `sw.ts:68-90`, `useGameLoader.ts` | Error visible si el zip no se puede abrir (hoy queda «Cargando archivos del juego...» para siempre) | Frontend | S | Por decidir (sugerido después del 19) |
-| F5 | front `sw.ts:114-117` | Si el SW se detiene, el juego recibe el `index.html` de ARKAD: responder 404 o guardar en Cache Storage | Frontend | S / M | Por decidir (sugerido después del 19) |
-| F6 | front `sw.ts:87` | Liberar de memoria los juegos anteriores | Frontend | XS | Por decidir (sugerido después del 19) |
-| F7 | front `GamePlayerPage.tsx:55-58` | `allow="fullscreen; autoplay; gamepad"` en el iframe (pantalla completa y audio). Después, repetir la prueba de audio en un iPhone real, que hoy no suena | Frontend | XS | Por decidir |
-| F8 | front `azureFile.ts:37-39,76`, `TeamWizardDialog.tsx:557-559` | Mostrar y validar el límite real de 100 MB (hoy dice 500 MB) y, ante un 413, mostrar el `message` del back en vez del texto fijo (visto en Arkad-test el 15-nov) | Frontend | XS | Por decidir |
+| **F1** | front `src/sw.ts:152` (+ recompilar `public/sw.js`) | COEP del iframe: `require-corp` → `credentialless`. Sin esto **pygbag no carga** (el CDN de pygbag no envía `Cross-Origin-Resource-Policy`). Hoy no aporta nada, porque la página padre no está aislada. | Frontend | XS | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
+| F2 | front `sw.ts:109-112` | `decodeURIComponent` de la ruta: archivos con espacios o tildes dan 404 | Frontend | XS | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
+| F3 | front `sw.ts:175-184` | Tabla de tipos MIME: svg, mjs, gif, webp, mp3, ogg, wav, woff2, ttf… (`.svg` en `<img>` y `.mjs` fallan) | Frontend | XS | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
+| F4 | front `sw.ts:68-90`, `useGameLoader.ts` | Error visible si el zip no se puede abrir (hoy queda «Cargando archivos del juego...» para siempre) | Frontend | S | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
+| F5 | front `sw.ts:114-117` | Si el SW se detiene, el juego recibe el `index.html` de ARKAD: responder 404 o guardar en Cache Storage | Frontend | S / M | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
+| F6 | front `sw.ts:87` | Liberar de memoria los juegos anteriores | Frontend | XS | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
+| F7 | front `GamePlayerPage.tsx:55-58` | `allow="fullscreen; autoplay; gamepad"` en el iframe (pantalla completa y audio). Después, repetir la prueba de audio en un iPhone real, que hoy no suena | Frontend | XS | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
+| F8 | front `azureFile.ts:37-39,76`, `TeamWizardDialog.tsx:557-559` | Mostrar y validar el límite real de 200 MB (hoy dice 500 MB) y, ante un 413, mostrar el `message` del back en vez del texto fijo (visto en Arkad-test el 15-nov) | Frontend | XS | HU-40 (ARK-225, Camilo), mezclado a más tardar el 18-nov |
 | B1 | back `azure-storage.service.ts` | Zip dañado: 400 en español | Backend (Samuel) | XS | Hecho en `fix/ARK-38-zip-upload-errors` |
 | B2 | back `zip-entry.logic.ts` | Entrada: `index.html` más cercano a la raíz, ignorar `__MACOSX` y ocultos, mayúsculas | Backend (Samuel) | S | Hecho en `fix/ARK-38-zip-upload-errors` |
 | B3 | back `multer-exception.filter.ts` | 413 en español con el límite | Backend (Samuel) | XS | Hecho en `fix/ARK-38-zip-upload-errors` |
 | B4 | back `upload.controller.ts` | Aceptar `.zip` enviado como `application/octet-stream` | Backend (Samuel) | XS | Hecho en `fix/ARK-38-zip-upload-errors` |
-| I1 | infra | Confirmar `client_max_body_size` del nginx del API (test y producción) ≥ 100 MB | DevOps | XS | Por decidir |
-| T1 | front `nginx.conf` | Hilos (Godot o Unity con hilos): COOP/COEP en la página padre. Afecta popups e inicio de sesión. | Frontend + DevOps | M | Por decidir (sugerido: no antes de la feria) |
+| I1 | infra | `client_max_body_size` del nginx del API en 210m (test y producción) | DevOps (Santiago) | XS | Hecho (ARK-227) |
+| T1 | front `nginx.conf` | Hilos (Godot o Unity con hilos): COOP/COEP en la página padre. Afecta popups e inicio de sesión. | Frontend + DevOps | M | No antes de la feria (decisión del 15-nov): se avisa que no está soportado |
 
 ## Límite de tamaño
-**Recomendación (la decide la Scrum Master): 100 MB como máximo y pedir 50 MB o menos.** Es lo que el back acepta hoy, sin cambios. Falta que el registro lo muestre igual (F8) y que el nginx del API lo permita (I1).
+**Decidido (Allison, 15-nov; ajustado el 16-nov): 200 MB como máximo, el mismo para el back y para los equipos, y se recomienda 50 MB o menos** porque carga más rápido. El back lo aplica desde HU-40 (`MAX_ZIP_SIZE_MB` en `src/upload/zip-entry.logic.ts`); el nginx del API acepta 210m (I1) y el registro lo mostrará con F8.
 
-| Opción | A favor | En contra |
-|---|---|---|
-| **100 MB máximo, recomendar ≤ 50 MB** (recomendada) | Sin cambios de infraestructura; alcanza para Godot, pygbag y la mayoría de Unity con Gzip | Un juego de 100 MB puede no abrir en un celular de gama media |
-| Bajar a 50 MB | Menos riesgo de memoria | Puede excluir juegos de Unity a una semana del cierre de inscripciones |
-| Subir a 200–500 MB | Nadie queda por fuera | RAM del back en cada subida, nginx, celulares y wifi de la feria: no recomendado |
+- Producción ya tenía zips de más de 100 MB (Break the Cycle, 173 MB), subidos antes de SP-03.
+- El zip se recibe en memoria: una subida de 200 MB ocupa unos 200 MB de RAM del back mientras dura. No se cambia antes de la feria.
 
 ## Quién sube el zip
-Hoy solo el **Administrador** sube zips (Equipos Inscritos → Editar → paso 3, `TeamWizardDialog`); el registro de estudiantes no tiene ese paso. Cómo entregan los equipos su zip lo decide la Scrum Master (ver abajo).
+Solo el **Administrador** sube zips (Equipos Inscritos → Editar → paso 3, `TeamWizardDialog`); el registro de estudiantes no tiene ese paso. Los equipos comparten un enlace de su OneDrive o Drive y la admin lo descarga y lo sube (decisión del 15-nov; procedimiento en TA-28, ARK-232).
 
-## Decisiones pendientes (Scrum Master)
-1. **Límite del zip:** 100 MB (sin cambios), 50 MB o más de 100 MB (requiere infraestructura). Recomendado: 100 MB y pedir 50 MB o menos.
-2. **Pygame en la feria:** hacer F1 antes de la mini feria del 19, o avisar que no está soportado.
-3. **Hilos (T1):** recomendado no hacerlo antes de la feria y avisar que no está soportado.
-4. **Audio en iPhone:** investigar después de F7, o avisar a jurados y equipos que en iPhone puede no sonar.
-5. **Qué correcciones F1–F8 e I1 entran antes del 19 y quién las toma.**
-6. **Cómo entregan los equipos su zip:** hoy solo el Administrador puede subirlo.
+## Juegos de ediciones pasadas
+«Jugar» en un juego histórico (página de ediciones pasadas o destacados de HU-41) usa `GET /historicals/videogames/:historicalVideogameId/game-file` (HU-40, pública): devuelve la URL firmada del zip por 1 h y el `entry`, con la misma forma que `GET /videogames/:id`. Si el juego no tiene zip, `gameFileURL` y `entry` vienen vacíos. Al 15-nov ningún juego de las ediciones archivadas tiene zip.
+
+## Decisiones (Scrum Master, 15 y 16-nov)
+1. **Límite del zip:** 200 MB en el back y para los equipos; se recomienda 50 MB o menos.
+2. **Pygame en la feria:** se hace F1; funciona con internet.
+3. **Hilos (T1):** no antes de la feria; se avisa que no están soportados.
+4. **Celular:** los juegos de los equipos se juegan **solo en computador** (Chrome, Edge y Firefox); en el celular se muestra un aviso. El audio de iPhone deja de ser bloqueante.
+5. **Correcciones:** F1–F8 en HU-40 (Camilo) e I1 en ARK-227 (Santiago).
+6. **Entrega de los zips:** enlace de OneDrive o Drive en un formulario; la admin lo descarga y lo sube (TA-28).

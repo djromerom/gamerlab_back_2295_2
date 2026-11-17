@@ -10,6 +10,7 @@ import { UploadController } from './upload.controller';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
 import { RegistrationsOpenOrSessionGuard } from '../settings/registrations-open.guard';
 import { PUBLIC_LIMITS } from '../common/throttle/public-throttle';
+import { MAX_ZIP_SIZE_BYTES } from './zip-entry.logic';
 
 process.env.AZURE_CONTAINER = process.env.AZURE_CONTAINER || 'test';
 process.env.AZURE_ACCOUNT_NAME = process.env.AZURE_ACCOUNT_NAME || 'devstoreaccount1';
@@ -169,10 +170,11 @@ describe('límites del zip', () => {
     expect(PUBLIC_LIMITS.zipUpload).toEqual({ limit: 3, ttl: 10 * 60_000 });
   });
 
-  it('el interceptor del zip rechaza con 413 un cuerpo mayor a 100 MB', async () => {
+  it('el interceptor del zip rechaza con 413 un cuerpo mayor a 200 MB', async () => {
     const app = await NestFactory_create();
     try {
-      const big = Buffer.concat([Buffer.from('PK'), Buffer.alloc(101 * 1024 * 1024)]);
+      // Un byte por encima del máximo basta para el 413.
+      const big = Buffer.concat([Buffer.from('PK'), Buffer.alloc(MAX_ZIP_SIZE_BYTES)]);
       const res = await request(app.getHttpServer())
         .post('/upload/zip')
         .set('x-recaptcha-token', 'ok')

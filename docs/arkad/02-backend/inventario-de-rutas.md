@@ -142,6 +142,7 @@
 | GET | `/historicals/historical-teams-with-scores/:editionId` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/historicals/historical-teams/:editionId` | Permiso `ManageHistoricals` | Administrador |  |
 | GET | `/historicals/historical-videogames/:editionId` | Pública | Cualquiera (sin sesión) |  |
+| GET | `/historicals/videogames/:historicalVideogameId/game-file` | Pública | Cualquiera (sin sesión) |  |
 | PATCH | `/historicals/update-historical-member/:historicalMemberId` | Permiso `ManageHistoricals` | Administrador |  |
 | PATCH | `/historicals/update-historical-team/:historicalTeamId` | Permiso `ManageHistoricals` | Administrador |  |
 | PATCH | `/historicals/update-historical-videogame/:historicalVideogameId` | Permiso `ManageHistoricals` | Administrador |  |
@@ -371,7 +372,7 @@
 | GET | `/upload/:id/url` | Pública | Cualquiera (sin sesión) |  |
 | POST | `/upload` | Pública | Cualquiera (sin sesión) | Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02). |
 | POST | `/upload/:id/public` | Permiso `ManageUploads` | Administrador |  |
-| POST | `/upload/zip` | Pública | Cualquiera (sin sesión) | Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 100 MB, 3 por 10 min y verificación del tipo de archivo (I6). |
+| POST | `/upload/zip` | Pública | Cualquiera (sin sesión) | Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 200 MB, 3 por 10 min y verificación del tipo de archivo (I6). |
 
 ## VideogamesController
 

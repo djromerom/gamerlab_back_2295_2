@@ -58,6 +58,29 @@ export class HistoricalsController {
     return this.historicalsService.getHistoricalVideogamesByEdition(editionId);
   }
 
+  // HU-40 (ARK-226): pública para «Jugar» en ediciones pasadas y destacados; solo nombre, equipo y archivo.
+  @Public()
+  @Get('videogames/:historicalVideogameId/game-file')
+  @ApiOperation({ summary: 'Archivo jugable (URL firmada por 1 h y entry) de un videojuego histórico' })
+  @ApiOkResponse({
+    description: 'gameFileURL y entry vacíos si el juego no tiene zip',
+    schema: {
+      example: {
+        id: 12,
+        name: 'Ecos del Aula',
+        teamName: 'Los Pixel',
+        editionId: 3,
+        gameFileURL: 'https://…/blob.zip?sv=…&sig=…',
+        entry: 'index.html',
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'No existe el videojuego histórico' })
+  @ApiBadRequestResponse({ description: 'El identificador debe ser un número entero' })
+  getHistoricalGameFile(@Param('historicalVideogameId', ID_PIPE) historicalVideogameId: number) {
+    return this.historicalsService.getHistoricalGameFile(historicalVideogameId);
+  }
+
   // Público: lo usa la página de ediciones pasadas. Sale sin correos ni códigos de los integrantes (BG-02)
   @Public()
   @Get('historical-teams-with-scores/:editionId')
