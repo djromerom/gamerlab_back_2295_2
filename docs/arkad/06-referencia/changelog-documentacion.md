@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-17: búsqueda sin tildes en check-in, Pendientes y Calificados (BG-60, ARK-260)
+- `GET /juror-checkin/search`, `GET /pending-games/search` y `GET /graded-games/search` ignoran tildes y mayúsculas («oscar» encuentra a Óscar, «operacion» a «Operación Segura»). Pendientes y Calificados buscan también por código de equipo («202» o «N2-AYP-202»), además de juego, equipo, integrantes, NRC y materia (código y nombre). La forma de las respuestas, el orden y los límites (20 y 100) no cambian; `search/quick` no se toca.
+- Se filtra en memoria con `src/common/utils/search-text.ts` (`normalizeSearchText`, `matchesAllWords`) y `src/pending-games/videogame-search.ts`, sin la extensión `unaccent` ni migraciones. [endpoints](../02-backend/endpoints.md) no describe los campos de búsqueda, así que no cambia.
+
 ## 2026-11-16: zip de 200 MB y «Jugar» en juegos históricos (HU-40, ARK-226)
 - [juegos web por motor](../01-negocio/juegos-web-por-motor.md): el back acepta zips de hasta 200 MB (antes 100 MB) y responde 413 «El archivo supera el máximo de 200 MB.». «Decisiones pendientes» pasa a «Decisiones» con lo que Allison decidió el 15 y 16-nov (200 MB, solo computador, F1–F8 en HU-40, I1 hecho, sin hilos). Sección nueva sobre los juegos de ediciones pasadas. Las instrucciones para los equipos se actualizan en TA-28 (ARK-234).
 - [endpoints](../02-backend/endpoints.md): `GET /historicals/videogames/:historicalVideogameId/game-file`, pública, con la misma forma que `GET /videogames/:id` (`gameFileURL` firmada por 1 h y `entry`; vacíos si no hay zip; 404 si no existe).

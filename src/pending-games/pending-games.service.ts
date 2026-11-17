@@ -7,6 +7,11 @@ import { BlobReferenceService } from '../upload/blob-reference.service';
 import { assertEvaluationsOpen } from '../settings/active-edition-config';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { CONFIRMED_VIDEOGAME, GRADABLE_TEAM } from '../teams/team-status';
+import {
+  SEARCHABLE_MEMBER_SELECT,
+  filterVideogamesBySearch,
+  firstNrcOnly,
+} from './videogame-search';
 
 /**
  * ARK-132 (BG-19): el jurado solo ve juegos de equipos de la edición activa que le asignaron.
@@ -51,44 +56,10 @@ export class PendingGamesService {
 
   async searchPendingGames(jurorId: string, search: string) {
     await this.checkEvaluationsOpen();
-    // Normalizar el término de búsqueda
-    const normalizedSearch = search.trim();
-    const isNumeric = /^\d+$/.test(normalizedSearch);
-    const numericSearch = isNumeric ? parseInt(normalizedSearch, 10) : null;
 
-    // Construir filtros de búsqueda de manera más eficiente
-    const searchConditions: Prisma.VideogameWhereInput['OR'] = [
-      { name: { contains: normalizedSearch, mode: 'insensitive' } },
-      { team: { teamName: { contains: normalizedSearch, mode: 'insensitive' } } },
-      {
-        team: {
-          members: {
-            some: {
-              OR: [
-                { firstName: { contains: normalizedSearch, mode: 'insensitive' } },
-                { lastName: { contains: normalizedSearch, mode: 'insensitive' } }
-              ]
-            }
-          }
-        }
-      },
-    ];
-
-    // Solo agregar búsqueda numérica si el término es un número
-    if (numericSearch !== null) {
-      searchConditions.push(
-        { team: { members: { some: { nrcs: { some: { code: numericSearch } } } } } },
-        { team: { members: { some: { nrcs: { some: { subject: { code: { contains: normalizedSearch, mode: 'insensitive' } } } } } } } }
-      );
-    }
-
-    // Agregar búsqueda por materia siempre
-    searchConditions.push(
-      { team: { members: { some: { nrcs: { some: { subject: { name: { contains: normalizedSearch, mode: 'insensitive' } } } } } } } }
-    );
-
-    // Consulta única optimizada con todas las condiciones
-    const videogames = await this.prisma.videogame.findMany({
+    // BG-60 (ARK-260): se traen los juegos del jurado y se filtran en memoria para ignorar
+    // tildes y buscar también por código de equipo (ver videogame-search.ts).
+    const candidates = await this.prisma.videogame.findMany({
       where: {
         AND: [
           // Excluir juegos ya evaluados por el jurado
@@ -101,8 +72,6 @@ export class PendingGamesService {
           },
           // Solo juegos de equipos asignados al jurado, de la edición activa
           ASSIGNED_IN_ACTIVE_EDITION(jurorId),
-          // Aplicar filtros de búsqueda
-          normalizedSearch ? { OR: searchConditions } : {}
         ]
       },
       select: {
@@ -116,29 +85,14 @@ export class PendingGamesService {
             id: true, // teamId: lo necesita el front para /team-verification (HU-19)
             teamName: true,
             teamCode: true, // [MODIFICACIÓN]: Agregado teamCode para enviar al frontend
-            members: {
-              select: {
-                firstName: true,
-                lastName: true,
-                nrcs: {
-                  select: {
-                    code: true,
-                    subject: {
-                      select: {
-                        name: true
-                      }
-                    },
-                  },
-                  take: 1, // Optimización: solo tomar el primer NRC para subject/materia
-                },
-              },
-            },
+            members: { select: SEARCHABLE_MEMBER_SELECT },
           },
         },
       },
-      // Agregar límite para evitar resultados excesivos
-      take: 100,
     });
+
+    // Agregar límite para evitar resultados excesivos
+    const videogames = filterVideogamesBySearch(candidates, search).slice(0, 100);
 
     // Procesamiento optimizado de datos
     const data = videogames.map((videogame) => {
@@ -146,7 +100,7 @@ export class PendingGamesService {
       const nrcCodes = new Set<number>();
       let firstSubject = 'Sin materia';
 
-      videogame.team?.members?.forEach(member => {
+      firstNrcOnly(videogame.team?.members).forEach(member => {
         member.nrcs?.forEach(nrc => {
           nrcCodes.add(nrc.code);
           if (firstSubject === 'Sin materia' && nrc.subject?.name) {
