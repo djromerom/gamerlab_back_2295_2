@@ -23,7 +23,8 @@ import {
   trimToUndefined,
 } from '../../common/utils/trim-transform';
 
-const NAME_PATTERN = /^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ\s'-]+$/;
+// ARK-257 (BG-57): acepta dígitos (un nombre artístico o una organización pueden tenerlos)
+const NAME_PATTERN = /^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ0-9\s'-]+$/;
 export const MAX_ORGANIZATION = 150;
 export const MAX_PRESENTATION_TITLE = 200;
 export const MAX_BULK_PRESENTERS = 100;
@@ -53,7 +54,7 @@ export class CreateExternalPresenterDto {
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   @MaxLength(50, { message: 'El nombre no puede superar los 50 caracteres' })
   @Matches(NAME_PATTERN, {
-    message: 'El nombre solo puede contener letras y espacios',
+    message: 'El nombre solo puede contener letras, números y espacios',
   })
   firstName: string;
 
@@ -63,7 +64,7 @@ export class CreateExternalPresenterDto {
   @IsNotEmpty({ message: 'El apellido es obligatorio' })
   @MaxLength(50, { message: 'El apellido no puede superar los 50 caracteres' })
   @Matches(NAME_PATTERN, {
-    message: 'El apellido solo puede contener letras y espacios',
+    message: 'El apellido solo puede contener letras, números y espacios',
   })
   lastName: string;
 

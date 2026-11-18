@@ -18,6 +18,16 @@ export const CERTIFICATE_TEAM_GRADABLE = 'CERTIFICATE_TEAM_GRADABLE';
 export const NOT_GRADABLE_MESSAGE =
   'Este equipo es un presentador externo: no se califica ni recibe jurados.';
 
+/** ARK-257 (BG-57): el código de verificación no se consulta ni se regenera en estos equipos. */
+export const NOT_GRADABLE_NO_CODE_MESSAGE =
+  'Este equipo es un presentador externo: no se califica y no tiene código de verificación.';
+
+/** ARK-257 (BG-57): solo un equipo con el videojuego Confirmado se puede marcar. */
+export const GRADABLE_REQUIRES_CONFIRMED = 'TEAM_NOT_CONFIRMED';
+export function markRequiresConfirmedMessage(status: string | null): string {
+  return `Solo se puede marcar como presentador externo un equipo con el videojuego Confirmado. Estado actual: ${status ?? 'sin videojuego'}.`;
+}
+
 export const NOT_GRADABLE_RELEASE_NOTE =
   'Retiro automático: el equipo se marcó como no calificable (presentador externo).';
 

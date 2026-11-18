@@ -8,8 +8,14 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { findActiveEdition } from '../../editions/active-edition';
 import { AssignmentPushNotifier } from '../../push-notifications/assignment-push-notifier.service';
-import { ReleasedJuror, releaseAllJurors } from '../team-status';
 import {
+  CONFIRMED_VIDEOGAME_STATUS,
+  ReleasedJuror,
+  releaseAllJurors,
+} from '../team-status';
+import {
+  GRADABLE_REQUIRES_CONFIRMED,
+  markRequiresConfirmedMessage,
   NOT_GRADABLE_RELEASE_NOTE,
   notGradableReleaseNotice,
 } from '../team-gradable';
@@ -50,6 +56,9 @@ export class TeamGradableService {
         isActive: true,
         editionId: true,
         notGradable: true,
+        videogame: {
+          select: { videogameStatus: { select: { status: true } } },
+        },
       },
     });
     if (!team || !team.isActive) {
@@ -73,6 +82,17 @@ export class TeamGradableService {
     };
     // Sin cambios: no se toca la base ni se avisa a nadie
     if (team.notGradable === notGradable) return summary;
+
+    // ARK-257 (BG-57): solo se marca un equipo Confirmado. Desmarcar siempre se permite, para
+    // poder quitar la marca a un equipo que se rechazó después de marcarlo.
+    const status = team.videogame?.videogameStatus?.status ?? null;
+    if (notGradable && status !== CONFIRMED_VIDEOGAME_STATUS) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: GRADABLE_REQUIRES_CONFIRMED,
+        message: markRequiresConfirmedMessage(status),
+      });
+    }
 
     const released = await this.prisma.$transaction(async (tx) => {
       await tx.team.update({ where: { id: teamId }, data: { notGradable } });
