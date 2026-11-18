@@ -99,10 +99,7 @@ export interface TieTeam {
 export interface TieGroup {
   tieKey: string;
   editionId: number;
-  /** Null en el grupo Externos (HU-38), que mezcla equipos de varios niveles. */
-  level: number | null;
-  /** HU-38: empate dentro del grupo Externos. */
-  external: boolean;
+  level: number;
   score: number;
   /** Puestos que ocupan los grupos empatados dentro del nivel (desde, hasta). */
   positions: [number, number];
@@ -123,10 +120,7 @@ export interface TieGroup {
 export type MissingScorePart = 'PROFESSOR' | 'JUROR';
 
 export interface LevelRanking {
-  /** Null en el grupo Externos (HU-38). */
-  level: number | null;
-  /** HU-38: el grupo Externos, con su propio podio. */
-  external: boolean;
+  level: number;
   label: string;
   teams: RankedTeam[];
   podium: RankedTeam[];
@@ -153,26 +147,15 @@ export function levelLabel(level: number): string {
   return `N${level}`;
 }
 
-export const EXTERNAL_GROUP_LABEL = 'Externos'; // HU-38 (ARK-219)
-
-/** HU-38: un externo compite en el grupo Externos; un colegio (N0) sigue en su nivel. */
-export function inExternalGroup(
-  row: Pick<ScoreRow, 'isExternal'>,
-  level: number,
-): boolean {
-  return row.isExternal && level !== 0;
-}
-
-/** Identifica un empate (otra nota u otros equipos = otro empate). `level` null = Externos. */
+/** Identifica un empate: si cambia la nota o el conjunto de equipos, es otro empate. */
 export function buildTieKey(
   editionId: number,
-  level: number | null,
+  level: number,
   score: number,
   teamIds: number[],
 ): string {
   const ids = [...teamIds].sort((a, b) => a - b).join(',');
-  const scope = level === null ? 'EXT' : `N${level}`;
-  return `${editionId}:${scope}:${score.toFixed(2)}:${ids}`;
+  return `${editionId}:N${level}:${score.toFixed(2)}:${ids}`;
 }
 
 /** Profesores comunes a todos los equipos (intersección por id). */
@@ -283,9 +266,8 @@ export interface BuildRankingInput {
 
 /**
  * Arma el ranking oficial de cada nivel. Quedan fuera los equipos inactivos, los de otra
- * edición, los que no tienen código con nivel (ver `teamsWithoutLevel`) y los externos, que
- * tienen su propio grupo (HU-38, `external-ranking.logic.ts`); los que no tienen ninguna nota
- * se listan aparte.
+ * edición y los que no tienen código con nivel (ver `teamsWithoutLevel`); los que no tienen
+ * ninguna nota se listan aparte.
  */
 export function buildLevelRankings(input: BuildRankingInput): LevelRanking[] {
   const podiumSize = input.podiumSize ?? DEFAULT_PODIUM_SIZE;
@@ -299,7 +281,7 @@ export function buildLevelRankings(input: BuildRankingInput): LevelRanking[] {
     const info = input.teams.get(row.teamId);
     if (!info || !info.isActive) continue;
     const level = parseLevel(row.teamCode);
-    if (level === null || inExternalGroup(row, level)) continue;
+    if (level === null) continue;
     const bucket = byLevel.get(level) ?? { scored: [], unscored: [] };
     if (row.finalScore === null || row.finalScore === undefined)
       bucket.unscored.push(row);
@@ -311,7 +293,7 @@ export function buildLevelRankings(input: BuildRankingInput): LevelRanking[] {
     .sort((a, b) => a - b)
     .map((level) => {
       const { scored, unscored } = byLevel.get(level)!;
-      return buildGroupRanking(input, level, scored, unscored, podiumSize);
+      return buildOneLevel(input, level, scored, unscored, podiumSize);
     });
 }
 
@@ -349,22 +331,19 @@ function toTieTeam(row: ScoreRow, info: TeamInfo): TieTeam {
 }
 
 /**
- * HU-34: un colegio (N0) solo cuenta a profesores y seniors, con o sin marca de externo; un externo
- * solo cuenta a los jurados junior; los demás cuentan ambas partes.
+ * HU-34: un colegio (N0) solo cuenta a profesores y seniors; los demás cuentan ambas partes. La
+ * casilla «Externo» no cambia qué partes cuentan (BG-69, ARK-272).
  */
 function countedScoreParts(row: ScoreRow, level: number) {
   const isCollege = level === 0;
   return {
-    professors: isCollege || !row.isExternal,
+    professors: true,
     jurors: !isCollege,
   };
 }
 
-/** Nivel del propio equipo (en el grupo Externos los niveles se mezclan). */
-const rowLevel = (row: ScoreRow): number => parseLevel(row.teamCode) ?? -1;
-
-function missingScoreParts(row: ScoreRow): MissingScorePart[] {
-  const counted = countedScoreParts(row, rowLevel(row));
+function missingScoreParts(row: ScoreRow, level: number): MissingScorePart[] {
+  const counted = countedScoreParts(row, level);
   const missing: MissingScorePart[] = [];
   if (counted.professors && row.seniorEvaluations === 0)
     missing.push('PROFESSOR');
@@ -372,10 +351,9 @@ function missingScoreParts(row: ScoreRow): MissingScorePart[] {
   return missing;
 }
 
-/** Ranking de un grupo: un nivel o, con `level` null, el grupo Externos (HU-38). */
-export function buildGroupRanking(
+function buildOneLevel(
   input: BuildRankingInput,
-  level: number | null,
+  level: number,
   scored: ScoreRow[],
   unscored: ScoreRow[],
   podiumSize: number,
@@ -414,7 +392,6 @@ export function buildGroupRanking(
         tieKey,
         editionId: input.editionId,
         level,
-        external: level === null,
         score,
         positions: [from, to],
         affectsPodium: from <= podiumSize,
@@ -430,7 +407,7 @@ export function buildGroupRanking(
 
     for (const row of ordered) {
       const info = input.teams.get(row.teamId)!;
-      const counted = countedScoreParts(row, rowLevel(row));
+      const counted = countedScoreParts(row, level);
       teams.push({
         position,
         teamId: row.teamId,
@@ -465,8 +442,7 @@ export function buildGroupRanking(
 
   return {
     level,
-    external: level === null,
-    label: level === null ? EXTERNAL_GROUP_LABEL : levelLabel(level),
+    label: levelLabel(level),
     teams,
     podium: teams.filter((t) => t.podium),
     ties,
@@ -474,7 +450,7 @@ export function buildGroupRanking(
       teamId: r.teamId,
       teamCode: r.teamCode ?? '',
       teamName: r.teamName,
-      missing: missingScoreParts(r),
+      missing: missingScoreParts(r, level),
     })),
   };
 }

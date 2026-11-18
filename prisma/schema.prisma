@@ -812,8 +812,6 @@ model RankingResult {
   finalPosition Int     @map("posicion_final")
   // HU-04: nivel del equipo (N0 a N4); la posición es dentro del nivel. Null en filas anteriores a HU-04.
   level         Int?    @map("nivel")
-  // HU-38 (ARK-219): la posición es dentro del grupo Externos, no del nivel.
-  externalGroup Boolean @default(false) @map("grupo_externo")
 
   createdAt DateTime @default(now()) @map("creado_en")
   updatedAt DateTime @updatedAt @map("actualizado_en")
@@ -1004,10 +1002,7 @@ enum TieBreakMethod {
 model TieBreakDecision {
   id             Int            @id @default(autoincrement()) @map("id_decision")
   editionId      Int            @map("id_edicion")
-  // Null en un empate del grupo Externos (HU-38), que mezcla niveles.
-  level          Int?           @map("nivel")
-  // HU-38 (ARK-219): empate dentro del grupo Externos.
-  externalGroup  Boolean        @default(false) @map("grupo_externo")
+  level          Int            @map("nivel")
   score          Float          @map("nota")
   tieKey         String         @unique @map("clave_empate") @db.VarChar(255)
   teamIds        Int[]          @map("equipos_empatados")

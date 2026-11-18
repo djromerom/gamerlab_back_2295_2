@@ -39,8 +39,8 @@ export interface GradingGameRow {
   calificacionFeria: number | null;
   calificacionDocente: number | null;
   /**
-   * BG-37: en un equipo externo solo cuenta la nota de los jurados, así que la nota del profesor
-   * no saca `calificacionFeria` de null. False si el equipo no tiene videojuego activo.
+   * Casilla «Externo» del equipo: dato informativo. No cambia la nota ni la regla (BG-69,
+   * ARK-272). False si el equipo no tiene videojuego activo.
    */
   isExternal: boolean;
   /** BG-37: con qué regla se calcula `calificacionFeria`, para que el panel explique el motivo. */
@@ -51,17 +51,14 @@ export interface GradingGameRow {
 }
 
 /**
- * BG-37: `SCHOOL`, un colegio (N0) solo cuenta a profesores y seniors, tenga o no la marca de
- * externo. `EXTERNAL`, un equipo externo solo cuenta a los jurados junior. `STANDARD`, los demás.
+ * BG-37 / BG-69: `SCHOOL`, un colegio (N0) solo cuenta a profesores y seniors. `STANDARD`, los
+ * demás (60 % profesores y 40 % jurados junior, HU-34). La casilla «Externo» ya no cambia la regla:
+ * `EXTERNAL` dejó de existir (ARK-272).
  */
-export type FairGradeRule = 'STANDARD' | 'EXTERNAL' | 'SCHOOL';
+export type FairGradeRule = 'STANDARD' | 'SCHOOL';
 
-export function fairGradeRuleOf(
-  teamCode: string,
-  isExternal: boolean,
-): FairGradeRule {
-  if (isCollegeTeamCode(teamCode)) return 'SCHOOL';
-  return isExternal ? 'EXTERNAL' : 'STANDARD';
+export function fairGradeRuleOf(teamCode: string): FairGradeRule {
+  return isCollegeTeamCode(teamCode) ? 'SCHOOL' : 'STANDARD';
 }
 
 interface ListedTeam {
@@ -261,10 +258,7 @@ export class GradingGamesService {
             ? null
             : (docente.get(`${juror}:${vgId}`) ?? null),
         isExternal: vgId !== null && external.has(vgId),
-        fairGradeRule: fairGradeRuleOf(
-          t.team.teamCode,
-          vgId !== null && external.has(vgId),
-        ),
+        fairGradeRule: fairGradeRuleOf(t.team.teamCode),
         // BG-43 (ARK-205): rechazado, sin nota de feria (vuelve si lo confirman de nuevo)
         rejected: t.team.rejected === true,
         canEdit:
@@ -355,7 +349,7 @@ export class GradingGamesService {
         calificacionFeria: t.videogame!.finalScore,
         calificacionDocente: null,
         isExternal: t.isExternal,
-        fairGradeRule: fairGradeRuleOf(t.teamCode, t.isExternal),
+        fairGradeRule: fairGradeRuleOf(t.teamCode),
         rejected: false,
         canEdit: false,
       };

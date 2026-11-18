@@ -168,7 +168,7 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     await evaluate('D', jurors[0], 2.5, 16);
     await evaluate('D', jurors[1], 3.5, 17);
     await evaluate('D', profA, 5, 18, true);
-    // E: sin notas. F: 3 y 3 → 3, la misma nota de D, pero D es externo y no compite en N2 (HU-38).
+    // E: sin notas. F: 3 y 3 → 3, empata con D (profesores distintos → inscripción: F el día 2).
     await evaluate('F', jurors[0], 3, 19);
     await evaluate('F', profB, 3, 21, true);
   });
@@ -218,7 +218,9 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     });
   });
 
-  it('los equipos externos cuentan solo la nota junior', async () => {
+  // BG-69 (ARK-272): la casilla solo conserva su regla en ediciones congeladas (como esta); en la
+  // edición vigente no cambia la nota (src/evaluation/final-score.db.spec.ts).
+  it('en una edición congelada, los equipos con la casilla Externo conservan la nota solo junior', async () => {
     expect(await scoreOf('D')).toMatchObject({ finalScore: 3, avgSenior: 5 });
   });
 
@@ -252,27 +254,12 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
       juniorNotCounted: 1,
     });
 
-    // HU-38 (ARK-219): D es externo, así que no compite en N2 y no hay empate con F
-    expect(n2.teams.map((t) => t.teamId)).toEqual([team.F.id]);
-    expect(n2.ties).toHaveLength(0);
-    expect(n2.withoutScore.map((t) => t.teamId)).toEqual([team.E.id]);
-  });
-
-  it('los equipos externos tienen su propio grupo y podio (HU-38)', async () => {
-    const r = await service.getRanking({ editionId });
-    expect(r.levels.flatMap((l) => l.teams).some((t) => t.isExternal)).toBe(
-      false,
-    );
-    expect(r.external).toMatchObject({
-      level: null,
-      external: true,
-      label: 'Externos',
+    expect(n2.teams.map((t) => t.teamId)).toEqual([team.F.id, team.D.id]);
+    expect(n2.ties[0]).toMatchObject({
+      rule: 'REGISTRATION',
+      status: 'RESOLVED',
     });
-    expect(
-      r.external!.podium.map((t) => [t.teamId, t.position, t.finalScore]),
-    ).toEqual([[team.D.id, 1, 3]]);
-    const winners = await service.getWinners({ editionId });
-    expect(winners.external!.podium.map((t) => t.teamId)).toEqual([team.D.id]);
+    expect(n2.withoutScore.map((t) => t.teamId)).toEqual([team.E.id]);
   });
 
   it('la decisión se registra y el cierre guarda las posiciones por nivel', async () => {
@@ -293,15 +280,11 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     expect(decision.method).toBe('ADMIN');
 
     const done = await service.finalize(admin, editionId);
-    expect(done).toMatchObject({ editionId, teams: 5, registeredDecisions: 0 });
+    expect(done).toMatchObject({ editionId, teams: 5, registeredDecisions: 1 });
 
     const saved = await prisma.rankingResult.findMany({
       where: { editionId },
-      orderBy: [
-        { externalGroup: 'asc' },
-        { level: 'asc' },
-        { finalPosition: 'asc' },
-      ],
+      orderBy: [{ level: 'asc' }, { finalPosition: 'asc' }],
     });
     expect(
       saved.map((s) => [
@@ -310,19 +293,20 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
         s.finalPosition,
         s.wasTied,
         s.baseScore,
-        s.externalGroup,
       ]),
     ).toEqual([
-      [1, team.C.id, 1, false, 4.56, false],
-      [1, team.A.id, 2, true, 3.4, false],
-      [1, team.B.id, 3, true, 3.4, false],
-      [2, team.F.id, 1, false, 3, false],
-      // HU-38: D se guarda con su nivel, pero su posición es la del grupo Externos
-      [2, team.D.id, 1, false, 3, true],
+      [1, team.C.id, 1, false, 4.56],
+      [1, team.A.id, 2, true, 3.4],
+      [1, team.B.id, 3, true, 3.4],
+      [2, team.F.id, 1, true, 3],
+      [2, team.D.id, 2, true, 3],
     ]);
 
     const decisions = await service.getDecisions(editionId);
-    expect(decisions.map((d) => d.method)).toEqual(['ADMIN']);
+    expect(decisions.map((d) => d.method).sort()).toEqual([
+      'ADMIN',
+      'REGISTRATION',
+    ]);
     expect((await service.getRanking({ editionId })).finalized).toMatchObject({
       matchesCurrent: true,
     });

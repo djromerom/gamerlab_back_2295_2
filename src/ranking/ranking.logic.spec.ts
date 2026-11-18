@@ -9,7 +9,6 @@ import {
   teamsWithoutLevel,
   validateOrder,
 } from './ranking.logic';
-import { buildExternalRanking } from './external-ranking.logic';
 
 const EDITION = 7;
 const profA = { id: 'pa', name: 'Ana Prof' };
@@ -164,15 +163,9 @@ describe('ranking.logic (HU-04)', () => {
     expect(missingOf(n1)).toEqual([
       [3, ['PROFESSOR', 'JUROR']],
       [4, ['PROFESSOR']],
+      // La casilla Externo no cambia qué partes cuentan (BG-69): igual que el equipo 3
+      [5, ['PROFESSOR', 'JUROR']],
     ]);
-    // HU-38: el externo N1 sale de su nivel y va al grupo Externos; ahí solo le falta la de jurados
-    const external = buildExternalRanking({
-      editionId: EDITION,
-      rows: [row(5, 'N1-A-5', null, { ...empty, isExternal: true })],
-      teams: new Map([[5, info(5)]]),
-      decisions: new Map(),
-    });
-    expect(external && missingOf(external)).toEqual([[5, ['JUROR']]]);
   });
 
   it('a un colegio (N0) no se le marcan evaluaciones de jurado faltantes', () => {
@@ -225,10 +218,11 @@ describe('ranking.logic (HU-04)', () => {
           juniorCounted: 3,
           seniorEvaluations: 0,
         }),
+        row(3, 'N1-A-3', 3, { isExternal: true, seniorEvaluations: 0 }),
       ],
-      { 1: info(1), 2: info(2) },
+      { 1: info(1), 2: info(2), 3: info(3) },
     );
-    const [t1, t2] = level.teams;
+    const [t1, t2, t3] = level.teams;
     expect(t1).toMatchObject({
       lessThanMinEvaluations: true,
       juniorNotCounted: 0,
@@ -239,14 +233,58 @@ describe('ranking.logic (HU-04)', () => {
       juniorNotCounted: 2,
       missingProfessorScore: true,
     });
-    // Los externos no llevan nota del profesor (HU-38: van en su propio grupo)
-    const external = buildExternalRanking({
-      editionId: EDITION,
-      rows: [row(3, 'N1-A-3', 3, { isExternal: true, seniorEvaluations: 0 })],
-      teams: new Map([[3, info(3)]]),
-      decisions: new Map(),
+    // La casilla Externo no cambia la nota (BG-69): a un equipo marcado también le falta la del profesor
+    expect(t3.missingProfessorScore).toBe(true);
+  });
+
+  describe('la casilla «Externo» no cambia dónde compite el equipo (BG-69, ARK-272)', () => {
+    it('un equipo marcado compite en su propio nivel y no hay grupo «Externos»', () => {
+      const levels = build(
+        [
+          row(1, 'N1-A-1', 3, { isExternal: true }),
+          row(2, 'N1-A-2', 4),
+          row(3, 'N2-B-3', 4.5, { isExternal: true }),
+        ],
+        { 1: info(1), 2: info(2), 3: info(3) },
+      );
+      expect(levels.map((l) => l.level)).toEqual([1, 2]);
+      const n1 = levels[0];
+      expect(n1.teams.map((t) => [t.teamId, t.position])).toEqual([
+        [2, 1],
+        [1, 2],
+      ]);
+      // Su nota cuenta como la de cualquier equipo: llega al podio de su nivel
+      expect(n1.podium.map((t) => t.teamId)).toEqual([2, 1]);
+      expect(levels[1].teams.map((t) => t.teamId)).toEqual([3]);
+      for (const level of levels) expect(level).not.toHaveProperty('external');
     });
-    expect(external?.teams[0].missingProfessorScore).toBe(false);
+
+    it('un colegio marcado compite en Colegios con las mismas reglas que los demás', () => {
+      const [colegios] = build(
+        [
+          row(1, 'N0-C-1', 4.5),
+          row(2, 'N0-C-2', 3.6, { isExternal: true }),
+          row(3, 'N0-C-3', 3, { isExternal: false }),
+        ],
+        { 1: info(1), 2: info(2), 3: info(3) },
+      );
+      expect(colegios.level).toBe(0);
+      expect(colegios.teams.map((t) => [t.teamId, t.position])).toEqual([
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ]);
+    });
+
+    it('el empate de un equipo marcado es del nivel, con el mismo desempate de siempre', () => {
+      const [level] = build(
+        [row(1, 'N1-A-1', 4, { isExternal: true }), row(2, 'N1-A-2', 4)],
+        { 1: info(1), 2: info(2) },
+      );
+      expect(level.ties).toHaveLength(1);
+      expect(level.ties[0].tieKey).toContain('N1');
+      expect(level.ties[0]).not.toHaveProperty('external');
+    });
   });
 
   describe('empates (P-05)', () => {

@@ -27,29 +27,10 @@ import {
   registrationReason,
   validateOrder,
 } from './ranking.logic';
-import {
-  buildExternalRanking,
-  rankingGroupKey,
-} from './external-ranking.logic';
 import { findActiveEdition } from '../editions/active-edition';
 
 const personName = (u: { firstName: string; lastName: string }) =>
   `${u.firstName} ${u.lastName}`.trim();
-
-/** Los niveles y, si existe, el grupo Externos (HU-38). */
-const groupsOf = (s: Pick<RankingSnapshot, 'levels' | 'external'>) =>
-  s.external ? [...s.levels, s.external] : s.levels;
-
-/** Podio y empates que lo tocan, de un nivel o del grupo Externos. */
-const winnersOf = (l: LevelRanking) => ({
-  level: l.level,
-  external: l.external,
-  label: l.label,
-  podium: l.podium,
-  ties: l.ties.filter((t) => t.affectsPodium),
-  pendingTies: l.ties.filter((t) => t.affectsPodium && t.status === 'PENDING')
-    .length,
-});
 
 export interface RankingSnapshot {
   editionId: number;
@@ -58,8 +39,6 @@ export interface RankingSnapshot {
   pendingTies: number;
   finalized: { at: string; matchesCurrent: boolean } | null;
   levels: LevelRanking[];
-  /** HU-38 (ARK-219): grupo «Externos» con su propio podio; null si no hay equipos externos. */
-  external: LevelRanking | null;
   /** Equipos activos cuyo código no indica nivel (`N{n}-...`): no entran a ningún ranking. */
   withoutLevel: { teamId: number; teamCode: string; teamName: string | null }[];
 }
@@ -79,29 +58,34 @@ export class RankingService {
     const editionId = await this.resolveEditionId(query.editionId);
     const snapshot = await this.buildSnapshot(editionId, query.top);
     if (query.level === undefined) return snapshot;
-    // Con un nivel pedido no va el grupo Externos: mezcla niveles
     return {
       ...snapshot,
       levels: snapshot.levels.filter((l) => l.level === query.level),
-      external: null,
     };
   }
 
-  /** Podio de cada nivel y del grupo Externos, con los empates que lo afectan. */
+  /** Podio de cada nivel y los empates que lo afectan (vista para comunicar a los profesores). */
   async getWinners(query: RankingQueryDto) {
     const snapshot = await this.getRanking(query);
     return {
       editionId: snapshot.editionId,
       podiumSize: snapshot.podiumSize,
       finalized: snapshot.finalized,
-      levels: snapshot.levels.map(winnersOf),
-      external: snapshot.external ? winnersOf(snapshot.external) : null,
+      levels: snapshot.levels.map((l) => ({
+        level: l.level,
+        label: l.label,
+        podium: l.podium,
+        ties: l.ties.filter((t) => t.affectsPodium),
+        pendingTies: l.ties.filter(
+          (t) => t.affectsPodium && t.status === 'PENDING',
+        ).length,
+      })),
     };
   }
 
   async getTies(query: TiesQueryDto): Promise<TieGroup[]> {
     const snapshot = await this.getRanking(query);
-    return groupsOf(snapshot)
+    return snapshot.levels
       .flatMap((l) => l.ties)
       .filter((t) => !query.status || t.status === query.status)
       .filter((t) => !query.podiumOnly || t.affectsPodium);
@@ -111,7 +95,7 @@ export class RankingService {
   async getMyTies(user: AppUser): Promise<TieGroup[]> {
     const editionId = await this.resolveEditionId();
     const snapshot = await this.buildSnapshot(editionId);
-    return groupsOf(snapshot)
+    return snapshot.levels
       .flatMap((l) => l.ties)
       .filter(
         (t) =>
@@ -132,7 +116,6 @@ export class RankingService {
       id: d.id,
       editionId: d.editionId,
       level: d.level,
-      external: d.externalGroup,
       score: d.score,
       tieKey: d.tieKey,
       teamIds: d.teamIds,
@@ -156,7 +139,7 @@ export class RankingService {
       isAdmin ? dto.editionId : undefined,
     );
     const snapshot = await this.buildSnapshot(editionId);
-    const tie = groupsOf(snapshot)
+    const tie = snapshot.levels
       .flatMap((l) => l.ties)
       .find((t) => t.tieKey === dto.tieKey);
 
@@ -235,7 +218,6 @@ export class RankingService {
         data: {
           editionId,
           level: tie.level,
-          externalGroup: tie.external,
           score: tie.score,
           tieKey: tie.tieKey,
           teamIds: tie.teams.map((t) => t.teamId),
@@ -274,8 +256,7 @@ export class RankingService {
   async finalize(user: AppUser, editionId?: number) {
     const id = await this.resolveEditionId(editionId);
     const snapshot = await this.buildSnapshot(id);
-    const groups = groupsOf(snapshot);
-    const ties = groups.flatMap((l) => l.ties);
+    const ties = snapshot.levels.flatMap((l) => l.ties);
     const pending = ties.filter((t) => t.status === 'PENDING');
     if (pending.length > 0) {
       throw new ConflictException({
@@ -290,14 +271,12 @@ export class RankingService {
     }
 
     const automatic = ties.filter((t) => !t.decision);
-    const results = groups.flatMap((l) =>
+    const results = snapshot.levels.flatMap((l) =>
       l.teams.map((t) => ({
         teamId: t.teamId,
         videogameId: t.videogameId,
         editionId: id,
-        // En el grupo Externos se guarda el nivel del equipo y la marca del grupo (HU-38)
-        level: l.level ?? parseLevel(t.teamCode),
-        externalGroup: l.external,
+        level: l.level,
         baseScore: t.finalScore,
         rankingScore: t.finalScore,
         wasTied: t.tieKey !== null,
@@ -311,7 +290,6 @@ export class RankingService {
           data: automatic.map((t) => ({
             editionId: id,
             level: t.level,
-            externalGroup: t.external,
             score: t.score,
             tieKey: t.tieKey,
             teamIds: t.teams.map((x) => x.teamId),
@@ -331,9 +309,8 @@ export class RankingService {
     return {
       editionId: id,
       teams: results.length,
-      levels: groups.map((l) => ({
+      levels: snapshot.levels.map((l) => ({
         level: l.level,
-        external: l.external,
         label: l.label,
         teams: l.teams.length,
       })),
@@ -355,19 +332,17 @@ export class RankingService {
       this.loadTeams(editionId, ids),
       this.loadDecisions(editionId),
     ]);
-    const input = {
+    const levels = buildLevelRankings({
       editionId,
       rows: rows.map((r) => this.toScoreRow(r)),
       teams,
       decisions,
-    };
-    const external = buildExternalRanking(input);
-    const levels = buildLevelRankings(input);
+    });
     const official = new Map<
       number,
       { position: number; tied: boolean; provisional: boolean }
     >();
-    for (const l of external ? [...levels, external] : levels) {
+    for (const l of levels) {
       for (const t of l.teams) {
         official.set(t.teamId, {
           position: t.position,
@@ -386,12 +361,11 @@ export class RankingService {
     return [...rows]
       .sort((a, b) => {
         if (score(a) !== score(b)) return score(b) - score(a);
-        // Mismo grupo (nivel o Externos, HU-38): manda el orden oficial
-        const ga = rankingGroupKey(this.toScoreRow(a));
-        const gb = rankingGroupKey(this.toScoreRow(b));
+        const la = parseLevel(a.teamCode);
+        const lb = parseLevel(b.teamCode);
         const oa = official.get(Number(a.teamId));
         const ob = official.get(Number(b.teamId));
-        if (ga !== null && ga === gb && oa && ob)
+        if (la !== null && la === lb && oa && ob)
           return oa.position - ob.position;
         return regTime(a) - regTime(b) || Number(a.teamId) - Number(b.teamId);
       })
@@ -427,15 +401,11 @@ export class RankingService {
       this.loadDecisions(editionId),
       this.prisma.weighting.findUnique({ where: { editionId } }),
       this.prisma.rankingResult.findMany({
-        where: {
-          editionId,
-          OR: [{ level: { not: null } }, { externalGroup: true }],
-        },
+        where: { editionId, level: { not: null } },
         select: {
           teamId: true,
           finalPosition: true,
           level: true,
-          externalGroup: true,
           updatedAt: true,
         },
       }),
@@ -444,21 +414,23 @@ export class RankingService {
     // El logo puede ser una referencia a un upload; se firma al leer (como en by-n)
     const signed = await this.blobRefs.resolveKeys(rows, ['videogameLogoUrl']);
     const scoreRows = signed.map((r) => this.toScoreRow(r));
-    const input = { editionId, rows: scoreRows, teams, decisions, podiumSize };
-    const levels = buildLevelRankings(input);
-    const external = buildExternalRanking(input);
-    const groups = groupsOf({ levels, external });
+    const levels = buildLevelRankings({
+      editionId,
+      rows: scoreRows,
+      teams,
+      decisions,
+      podiumSize,
+    });
 
     return {
       editionId,
       podiumSize,
       weighting: snapshotWeighting(weighting, rows),
-      pendingTies: groups
+      pendingTies: levels
         .flatMap((l) => l.ties)
         .filter((t) => t.status === 'PENDING').length,
-      finalized: this.finalizedState(saved, groups),
+      finalized: this.finalizedState(saved, levels),
       levels,
-      external,
       withoutLevel: teamsWithoutLevel({ editionId, rows: scoreRows, teams }),
     };
   }
@@ -468,23 +440,17 @@ export class RankingService {
       teamId: number;
       finalPosition: number;
       level: number | null;
-      externalGroup: boolean;
       updatedAt: Date;
     }[],
-    groups: LevelRanking[],
+    levels: LevelRanking[],
   ): RankingSnapshot['finalized'] {
     if (saved.length === 0) return null;
     const at = new Date(Math.max(...saved.map((s) => s.updatedAt.getTime())));
-    const current = groups.flatMap((l) =>
-      l.teams.map(
-        (t) => `${l.external ? 'EXT' : l.level}:${t.teamId}:${t.position}`,
-      ),
+    const current = levels.flatMap((l) =>
+      l.teams.map((t) => `${l.level}:${t.teamId}:${t.position}`),
     );
     const stored = new Set(
-      saved.map(
-        (s) =>
-          `${s.externalGroup ? 'EXT' : s.level}:${s.teamId}:${s.finalPosition}`,
-      ),
+      saved.map((s) => `${s.level}:${s.teamId}:${s.finalPosition}`),
     );
     const matchesCurrent =
       current.length === stored.size && current.every((k) => stored.has(k));

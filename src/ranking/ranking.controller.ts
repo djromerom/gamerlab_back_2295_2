@@ -44,12 +44,10 @@ export class RankingController {
   @UseGuards(AdminRoleGuard)
   @ApiOperation({
     summary: 'Ranking oficial por nivel con empates (administrador)',
-    description:
-      'HU-38 (ARK-219): los equipos externos (salvo colegios N0) no compiten en su nivel; van en `external`, el grupo «Externos» con su propio podio (null si no hay). Con `level` no se devuelve `external`.',
   })
   @ApiOkResponse({
     description:
-      'Niveles con equipos ordenados, podio, empates y equipos sin nota; `external` con el grupo Externos',
+      'Niveles con equipos ordenados, podio, empates y equipos sin nota',
   })
   @ApiNotFoundResponse({
     description: 'No hay edición activa o no existe la edición',
@@ -63,8 +61,6 @@ export class RankingController {
   @ApiOperation({
     summary:
       'Ganadores de cada nivel y empates que tocan el podio (administrador)',
-    description:
-      'HU-38 (ARK-219): `external` trae el podio del grupo Externos, separado de los niveles (null si no hay equipos externos).',
   })
   getWinners(@Query() query: RankingQueryDto) {
     return this.ranking.getWinners(query);

@@ -9,8 +9,9 @@ import { ProfessorsService } from './professors.service';
  * Integración (ARK-160 / BG-37) contra Postgres real y la vista `vw_team_final_scores`: qué ve el
  * profesor en su panel después de guardar notas de varios equipos de un mismo NRC.
  *
- * La nota del profesor siempre se guarda. La nota de la feria queda en null («Pendiente») solo en
- * los equipos externos sin evaluaciones de jurados, porque ahí solo cuenta la nota junior.
+ * La nota del profesor siempre se guarda. La nota de la feria queda en null («Pendiente») mientras
+ * falte una de las dos partes (HU-34). La casilla «Externo» no cambia ni la nota ni la regla
+ * (BG-69, ARK-272).
  *
  * Solo corre con RUN_DB_TESTS=1 sobre una base desechable con migraciones y seed.
  */
@@ -253,20 +254,21 @@ maybe('Nota de la feria tras guardar la del profesor (BD real)', () => {
       expect(score?.juniorEvaluations).toBe(1);
     });
 
-    it('equipo externo sin jurados: la nota se guarda, la feria sigue pendiente y la fila dice por qué', async () => {
+    it('equipo con la casilla Externo y sin jurados: la nota se guarda, la feria sigue pendiente y la regla es la estándar', async () => {
       expect(await rowOf('externo')).toMatchObject({
         calificacionFeria: null,
         calificacionDocente: 3.5,
         isExternal: true,
-        fairGradeRule: 'EXTERNAL',
+        fairGradeRule: 'STANDARD',
       });
     });
 
-    it('equipo externo con jurado: la feria es solo la nota de los jurados', async () => {
+    it('equipo con la casilla Externo y con jurado: la feria es 60/40 como la de cualquier equipo', async () => {
       expect(await rowOf('externoconjurado')).toMatchObject({
-        calificacionFeria: 4,
+        calificacionFeria: 3.8, // ponderación de la prueba: 60 % de 4 (jurado) + 40 % de 3.5 (profesor)
         calificacionDocente: 3.5,
         isExternal: true,
+        fairGradeRule: 'STANDARD',
       });
     });
 

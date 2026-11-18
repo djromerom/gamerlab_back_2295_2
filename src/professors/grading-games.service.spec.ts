@@ -575,7 +575,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionFeria: null,
       calificacionDocente: 4.8,
       isExternal: true,
-      fairGradeRule: 'EXTERNAL',
+      fairGradeRule: 'STANDARD', // la casilla no cambia la regla (BG-69)
     });
     expect(byCode.get('T-2')).toMatchObject({
       isExternal: false,
@@ -588,13 +588,15 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
   });
 
   it.each([
-    ['N0-COL-1', false, 'SCHOOL'],
-    ['N0-COL-1', true, 'SCHOOL'],
-    ['N1-ISI-1', true, 'EXTERNAL'],
-    ['N1-ISI-1', false, 'STANDARD'],
-  ])('BG-37: %s con externo=%s usa la regla %s', (code, isExternal, rule) => {
-    expect(fairGradeRuleOf(code, isExternal)).toBe(rule);
-  });
+    ['N0-COL-1', 'SCHOOL'],
+    ['N1-ISI-1', 'STANDARD'],
+    ['N4-ISI-9', 'STANDARD'],
+  ])(
+    'BG-69: %s usa la regla %s, tenga o no la casilla Externo',
+    (code, rule) => {
+      expect(fairGradeRuleOf(code)).toBe(rule);
+    },
+  );
 
   it('canEdit es falso con las evaluaciones cerradas', async () => {
     await setup(buildData(false));
@@ -757,7 +759,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionFeria: 4.1,
       calificacionDocente: null,
       isExternal: true,
-      fairGradeRule: 'EXTERNAL',
+      fairGradeRule: 'STANDARD',
       rejected: false,
       canEdit: false,
     });

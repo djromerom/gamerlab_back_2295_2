@@ -195,7 +195,6 @@ export class ReportsService {
       // compute semestre from teamCode
       const computeSemestre = (team: any): string => {
         if (!team) return '';
-        if ((team as any)?.isExternal) return 'Externos';
         const rawCode: string = (team as any)?.teamCode ?? '';
         const prefix = rawCode.slice(0, 2).toUpperCase(); // N1, N2, N3, N4
         switch (prefix) {
@@ -833,7 +832,6 @@ async getJuradosData(editionId?: number): Promise<
       // compute semestre from teamCode
       const computeSemestre = (team: any): string => {
         if (!team) return '';
-        if ((team as any)?.isExternal) return 'Externo';
         const rawCode: string = (team as any)?.teamCode ?? '';
         const prefix = rawCode.slice(0, 2).toUpperCase(); // N1, N2, N3, N4
         switch (prefix) {
