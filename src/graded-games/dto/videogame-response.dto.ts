@@ -36,4 +36,15 @@ export class VideogameResponseDto {
   @IsString()
   @IsOptional()
   comments?: string;
+
+  /** ARK-264 (BG-64): puntaje por criterio de la evaluación del jurado. */
+  @IsArray()
+  @IsOptional()
+  criteria?: GradedCriterionScore[];
+}
+
+export interface GradedCriterionScore {
+  criterionId: number;
+  name: string;
+  score: number;
 }

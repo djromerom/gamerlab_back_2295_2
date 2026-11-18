@@ -50,8 +50,16 @@ describe('GradedGamesService.searchGradedGames (BG-60)', () => {
       evaluationsOpen: true,
     });
     prismaMock.evaluation.findMany.mockResolvedValue([
-      { videogameId: 1, totalScore: 4.5, comments: 'Bien' },
-      { videogameId: 2, totalScore: 3, comments: null },
+      {
+        videogameId: 1,
+        totalScore: 4.5,
+        comments: 'Bien',
+        details: [
+          { criterionId: 1, score: 4, criterion: { name: 'Jugabilidad' } },
+          { criterionId: 2, score: 5, criterion: { name: 'Arte' } },
+        ],
+      },
+      { videogameId: 2, totalScore: 3, comments: null, details: [] },
     ]);
     prismaMock.videogame.findMany.mockResolvedValue(games);
     service = new GradedGamesService(
@@ -103,8 +111,107 @@ describe('GradedGamesService.searchGradedGames (BG-60)', () => {
         subject: 'Programación',
         totalScore: 4.5,
         comments: 'Bien',
+        criteria: [
+          { criterionId: 1, name: 'Jugabilidad', score: 4 },
+          { criterionId: 2, name: 'Arte', score: 5 },
+        ],
         isEvaluated: true,
       },
+    ]);
+  });
+});
+
+describe('GradedGamesService: puntaje por criterio en Calificados (ARK-264 / BG-64)', () => {
+  let service: GradedGamesService;
+
+  const prismaMock = {
+    eventConfiguration: { findFirst: jest.fn() },
+    evaluation: { findMany: jest.fn() },
+    videogame: { findMany: jest.fn(), count: jest.fn() },
+    $transaction: jest.fn(),
+  };
+
+  const game = (id: number, name: string) => ({
+    id,
+    name,
+    logoUrl: null,
+    description: 'd',
+    team: { teamName: `Equipo ${id}`, teamCode: `N1-ABC-10${id}`, members: [] },
+  });
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    prismaMock.$transaction.mockImplementation((queries: Promise<unknown>[]) =>
+      Promise.all(queries),
+    );
+    prismaMock.eventConfiguration.findFirst.mockResolvedValue({
+      evaluationsOpen: true,
+    });
+    prismaMock.evaluation.findMany.mockResolvedValue([
+      {
+        videogameId: 1,
+        totalScore: 4.25,
+        comments: 'Bien',
+        details: [
+          { criterionId: 1, score: 4.5, criterion: { name: 'Jugabilidad' } },
+          { criterionId: 3, score: 4, criterion: { name: 'Innovación' } },
+        ],
+      },
+      { videogameId: 2, totalScore: 3, comments: null, details: [] },
+    ]);
+    prismaMock.videogame.findMany.mockResolvedValue([
+      game(1, 'Stella'),
+      game(2, 'Pixel Run'),
+    ]);
+    prismaMock.videogame.count.mockResolvedValue(2);
+    service = new GradedGamesService(
+      prismaMock as never,
+      blobRefsPassthrough(),
+    );
+  });
+
+  it('pide solo los detalles activos, con el nombre del criterio y en orden', async () => {
+    await service.getGradedVideogames('juror-1', 10, 1);
+
+    const [query] = prismaMock.evaluation.findMany.mock.calls[0] as [
+      { select: { details: unknown } },
+    ];
+    expect(query.select.details).toEqual({
+      where: { isActive: true },
+      orderBy: { criterionId: 'asc' },
+      select: {
+        criterionId: true,
+        score: true,
+        criterion: { select: { name: true } },
+      },
+    });
+  });
+
+  it('la lista devuelve el puntaje por criterio de cada juego calificado', async () => {
+    const page = await service.getGradedVideogames('juror-1', 10, 1);
+
+    expect(
+      page.data.map((g) => [g.videogameId, g.totalScore, g.criteria]),
+    ).toEqual([
+      [
+        1,
+        4.25,
+        [
+          { criterionId: 1, name: 'Jugabilidad', score: 4.5 },
+          { criterionId: 3, name: 'Innovación', score: 4 },
+        ],
+      ],
+      [2, 3, []],
+    ]);
+  });
+
+  it('la búsqueda también devuelve el puntaje por criterio', async () => {
+    const result = await service.searchGradedGames('juror-1', 'stella');
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].criteria).toEqual([
+      { criterionId: 1, name: 'Jugabilidad', score: 4.5 },
+      { criterionId: 3, name: 'Innovación', score: 4 },
     ]);
   });
 });
