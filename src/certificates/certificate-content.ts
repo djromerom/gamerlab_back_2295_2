@@ -15,20 +15,6 @@ export function fillCertificateTemplate(
   );
 }
 
-/** «26/11/2026», o vacío si la feria no tiene fecha en el cronograma (HU-12). */
-export function fairDateNumeric(fairDate: Date | null): string {
-  if (!fairDate) return '';
-  // `fecha_feria` es una fecha sin hora: se guarda a medianoche UTC.
-  const day = String(fairDate.getUTCDate()).padStart(2, '0');
-  const month = String(fairDate.getUTCMonth() + 1).padStart(2, '0');
-  return `${day}/${month}/${fairDate.getUTCFullYear()}`;
-}
-
-/** «Barranquilla 26/11/2026», como en los certificados de ferias anteriores. */
-export function placeWithDate(eventDate: string): string {
-  return eventDate ? `Barranquilla ${eventDate}` : 'Barranquilla';
-}
-
 /** «Ana, Luis y Marta». */
 export function joinStudentNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? '';

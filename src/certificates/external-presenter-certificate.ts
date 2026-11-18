@@ -34,9 +34,18 @@ export function fairDateLong(fairDate: Date): string {
   }).format(fairDate);
 }
 
+/**
+ * ARK-256: formato único de la línea de lugar y fecha de TODOS los certificados (equipo, jurado y
+ * presentador externo): «Barranquilla, 26 de noviembre de 2026», o solo «Barranquilla» sin fecha.
+ * Recibe la fecha ya escrita en largo («26 de noviembre de 2026») o vacía.
+ */
+export function placeWithDate(longDate: string): string {
+  return longDate ? `Barranquilla, ${longDate}` : 'Barranquilla';
+}
+
 /** «Barranquilla, 26 de noviembre de 2026» con la fecha de la feria (cronograma de HU-12). */
 export function placeAndDateOf(fairDate: Date | null): string {
-  return fairDate ? `Barranquilla, ${fairDateLong(fairDate)}` : 'Barranquilla';
+  return placeWithDate(fairDate ? fairDateLong(fairDate) : '');
 }
 
 export function renderExternalPresenterCertificate(

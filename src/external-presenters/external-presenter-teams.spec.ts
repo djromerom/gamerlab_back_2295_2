@@ -19,7 +19,7 @@ describe('Equipos presentadores externos', () => {
     memberNames: ['Ana Ruiz', 'Luis Díaz'],
     memberEmails: ['ana@prueba.invalid', 'luis@prueba.invalid'],
     fairName: 'VI Feria Gamer',
-    eventDate: '26/11/2026',
+    eventDate: '26 de noviembre de 2026',
   };
 
   const setup = () => {
