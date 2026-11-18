@@ -253,7 +253,7 @@ export class JurorController {
   @ApiOperation({
     summary: 'Historial de cambios manuales de asignación',
     description:
-      'Devuelve el log de auditoría de asignaciones, desasignaciones y reasignaciones manuales.',
+      'Devuelve el log de auditoría de asignaciones, desasignaciones y reasignaciones manuales, de lo más reciente a lo más antiguo (desempata por id, así que las páginas no repiten ni se saltan registros). ARK-262: cada registro trae además los nombres (`actorName`, `jurorName`, `previousJurorName`, `newJurorName`, `teamName`, `teamCode`, `gameName`; null si el dato no existe) y `notesText`, la nota con los códigos de advertencia traducidos. `limit` admite como máximo 100.',
   })
   @ApiQuery({ name: 'jurorId', required: false, type: String })
   @ApiQuery({ name: 'teamId', required: false, type: Number })
@@ -282,7 +282,12 @@ export class JurorController {
     description: 'Fecha final en formato ISO',
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'De 1 a 100 (por defecto 20)',
+  })
   @ApiOkResponse({ description: 'Log de auditoría paginado' })
   getAssignmentAuditLog(@Query() query: AuditLogQueryDto) {
     return this.jurorAssignmentService.getAuditLog({
