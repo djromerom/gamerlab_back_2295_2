@@ -79,9 +79,70 @@ describe('HU-20 · reglas de la nota final del estudiante', () => {
     });
 
     it('menos de 3 evaluaciones de jurados: solo aviso, no queda en proceso', () => {
-      expect(checkTeamGrade(row({ juniorEvaluations: 2 }))).toEqual({
+      expect(
+        checkTeamGrade(row({ juniorEvaluations: 1, seniorEvaluations: 1 })),
+      ).toEqual({
         inProcess: false,
         reasons: ['LESS_THAN_MIN_EVALUATIONS'],
+      });
+    });
+
+    describe('BG-68 (ARK-270): el mínimo de 3 cuenta junior y senior', () => {
+      it.each([
+        [3, 0],
+        [2, 1],
+        [1, 2],
+      ])(
+        '%i junior y %i senior suman 3: no sale marcado «menos de 3»',
+        (juniorEvaluations, seniorEvaluations) => {
+          const check = checkTeamGrade(
+            row({
+              juniorEvaluations,
+              seniorEvaluations: seniorEvaluations || 1,
+            }),
+          );
+          expect(check.reasons).not.toContain('LESS_THAN_MIN_EVALUATIONS');
+          expect(check.inProcess).toBe(false);
+        },
+      );
+
+      it('3 evaluaciones senior y ninguna junior: sigue en proceso por la nota junior, pero no «menos de 3»', () => {
+        const check = checkTeamGrade(
+          row({ juniorEvaluations: 0, seniorEvaluations: 3 }),
+        );
+        expect(check.reasons).toEqual(['MISSING_JUNIOR_SCORE']);
+        expect(check.inProcess).toBe(true);
+      });
+
+      it.each([
+        [2, 0],
+        [1, 1],
+        [0, 2],
+      ])(
+        '%i junior y %i senior suman menos de 3: sí se marca',
+        (juniorEvaluations, seniorEvaluations) => {
+          expect(
+            checkTeamGrade(row({ juniorEvaluations, seniorEvaluations }))
+              .reasons,
+          ).toContain('LESS_THAN_MIN_EVALUATIONS');
+        },
+      );
+
+      it('no cambia cuándo queda en proceso: eso sigue dependiendo de las notas que faltan', () => {
+        // 1 junior + 2 senior = 3: sin aviso y con nota
+        expect(
+          checkTeamGrade(row({ juniorEvaluations: 1, seniorEvaluations: 2 })),
+        ).toEqual({ inProcess: false, reasons: [] });
+        // sin nota final en la vista: en proceso aunque sumen 3
+        expect(
+          checkTeamGrade(
+            row({
+              juniorEvaluations: 1,
+              seniorEvaluations: 2,
+              finalScore: null,
+            }),
+          ).inProcess,
+        ).toBe(true);
       });
     });
 
