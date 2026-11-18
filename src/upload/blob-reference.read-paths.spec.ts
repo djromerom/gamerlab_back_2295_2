@@ -123,7 +123,7 @@ describe('Referencia de blob en el resto de lecturas y escrituras (Task 28)', ()
     it('GradedGames firma el logo', async () => {
       const prisma = {
         eventConfiguration: { findFirst: jest.fn().mockResolvedValue({ evaluationsOpen: true }) },
-        evaluation: { findMany: jest.fn().mockResolvedValue([{ videogameId: 1 }]) },
+        evaluation: { findMany: jest.fn().mockResolvedValue([{ videogameId: 1, details: [] }]) },
         videogame: {
           findMany: jest
             .fn()

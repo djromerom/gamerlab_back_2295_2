@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { VideogameResponseDto } from './dto/videogame-response.dto';
+import {
+  GradedCriterionScore,
+  VideogameResponseDto,
+} from './dto/videogame-response.dto';
 import { PaginatedResult } from '../common/types/paginated-result.type';
 import { Prisma } from '@prisma/client';
 import { BlobReferenceService } from '../upload/blob-reference.service';
@@ -27,6 +30,38 @@ function gradedInActiveEdition(jurorId: string): Prisma.EvaluationWhereInput {
   };
 }
 
+/**
+ * ARK-264 (BG-64): lo que se lee de cada evaluación del jurado, con su puntaje por criterio
+ * para el detalle de «Calificados» / «Equipos Evaluados».
+ */
+const GRADED_EVALUATION_SELECT = {
+  videogameId: true,
+  totalScore: true,
+  comments: true,
+  details: {
+    where: { isActive: true },
+    orderBy: { criterionId: 'asc' },
+    select: {
+      criterionId: true,
+      score: true,
+      criterion: { select: { name: true } },
+    },
+  },
+} satisfies Prisma.EvaluationSelect;
+
+type GradedEvaluation = Prisma.EvaluationGetPayload<{
+  select: typeof GRADED_EVALUATION_SELECT;
+}>;
+
+/** Puntaje por criterio de una evaluación, en el orden de los criterios. */
+function criteriaOf(evaluation: GradedEvaluation): GradedCriterionScore[] {
+  return evaluation.details.map((detail) => ({
+    criterionId: detail.criterionId,
+    name: detail.criterion.name,
+    score: detail.score,
+  }));
+}
+
 
 @Injectable()
 export class GradedGamesService {
@@ -46,16 +81,13 @@ export class GradedGamesService {
     // Obtener evaluaciones del jurado
     const evaluations = await this.prisma.evaluation.findMany({
       where: gradedInActiveEdition(jurorId),
-      select: {
-        videogameId: true,
-        totalScore: true,
-        comments: true,
-      },
+      select: GRADED_EVALUATION_SELECT,
     });
 
     const evaluatedIds = evaluations.map((e) => e.videogameId);
     const scoresMap = new Map(evaluations.map((e) => [e.videogameId, e.totalScore]));
     const commentsMap = new Map(evaluations.map((e) => [e.videogameId, e.comments]));
+    const criteriaMap = new Map(evaluations.map((e) => [e.videogameId, criteriaOf(e)]));
 
     // BG-60 (ARK-260): se traen los juegos que calificó y se filtran en memoria para ignorar
     // tildes y buscar también por código de equipo (ver videogame-search.ts).
@@ -105,6 +137,7 @@ export class GradedGamesService {
         subject: firstSubject,
         totalScore: scoresMap.get(videogame.id) || 0,
         comments: commentsMap.get(videogame.id) || 'Sin comentarios',
+        criteria: criteriaMap.get(videogame.id) ?? [],
         isEvaluated: true,
       };
     });
@@ -121,16 +154,13 @@ export class GradedGamesService {
     await this.checkEvaluationsOpen();
     const evaluations = await this.prisma.evaluation.findMany({
       where: gradedInActiveEdition(jurorId),
-      select: {
-        videogameId: true,
-        totalScore: true,
-        comments: true,
-      },
+      select: GRADED_EVALUATION_SELECT,
     });
 
     const evaluatedIds = evaluations.map((e) => e.videogameId);
     const scoresMap = new Map(evaluations.map((e) => [e.videogameId, e.totalScore]));
     const commentsMap = new Map(evaluations.map((e) => [e.videogameId, e.comments]));
+    const criteriaMap = new Map(evaluations.map((e) => [e.videogameId, criteriaOf(e)]));
 
     const offset = (page - 1) * limit;
 
@@ -190,6 +220,7 @@ export class GradedGamesService {
         subject: videogame.team?.members?.[0]?.nrcs?.[0]?.subject?.name || 'Sin materia',
         totalScore: scoresMap.get(videogame.id) || 0,
         comments: commentsMap.get(videogame.id) || 'Sin comentarios',
+        criteria: criteriaMap.get(videogame.id) ?? [],
         isEvaluated: true,
       };
     });
