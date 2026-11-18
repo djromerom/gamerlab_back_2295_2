@@ -23,15 +23,15 @@ import {
   CERTIFICATE_TEAM_NOT_GRADABLE,
 } from '../teams/team-gradable';
 import {
-  fairDateNumeric,
   fillCertificateTemplate,
   joinStudentNames,
-  placeWithDate,
 } from './certificate-content';
 import { ConcurrencyLimiter } from './concurrency-limiter';
 import {
   EXTERNAL_PRESENTER_TEMPLATE,
   ExternalPresenterCertificateData,
+  fairDateLong,
+  placeWithDate,
   renderExternalPresenterCertificate,
 } from './external-presenter-certificate';
 import { fairNameOf } from './fair-name';
@@ -70,6 +70,7 @@ export interface CertifiableTeam {
   memberNames: string[];
   memberEmails: string[];
   fairName: string;
+  /** «26 de noviembre de 2026», o vacío si la feria no tiene fecha en el cronograma (HU-12). */
   eventDate: string;
 }
 
@@ -174,7 +175,8 @@ export class CertificatesService {
         gameName: team.gameName,
         studentList: joinStudentNames(team.memberNames),
         fairName: team.fairName,
-        eventDate: team.eventDate,
+        // ARK-256: «del 26 de noviembre de 2026», o vacío (sin «del» suelto) sin fecha de feria
+        eventDate: team.eventDate ? `del ${team.eventDate}` : '',
         placeAndDate: placeWithDate(team.eventDate),
       }),
     );
@@ -251,7 +253,8 @@ export class CertificatesService {
   // ─────────────────────────────────────────────
 
   private async eventDateOf(edition: ActiveEdition): Promise<string> {
-    return fairDateNumeric(await eventDayOf(this.prisma, edition));
+    const day = await eventDayOf(this.prisma, edition);
+    return day ? fairDateLong(day) : '';
   }
 
   private readTemplate(name: string): Promise<string> {

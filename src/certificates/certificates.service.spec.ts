@@ -72,7 +72,7 @@ describe('CertificatesService (ARK-170)', () => {
       expect(args.include.members.where).toEqual({ isActive: true });
       expect(result).toMatchObject({
         fairName: 'VI Feria Gamer',
-        eventDate: '26/11/2026',
+        eventDate: '26 de noviembre de 2026',
         memberNames: ['Ana Ruiz'],
       });
     });
@@ -161,10 +161,30 @@ describe('CertificatesService (ARK-170)', () => {
       const data = await service.findCertifiableTeam({ id: 10 });
       await service.generateTeamCertificatePdf(data, place);
       const html = await sentHtml();
-      expect(html).toContain('VI Feria Gamer 26/11/2026');
+      expect(html).toContain('VI Feria Gamer del 26 de noviembre de 2026');
       expect(html).not.toContain('Edición de Prueba');
       expect(html).toContain('Los Pixeles');
       expect(html).not.toContain('V Feria Gamer 28/05/2026');
+      // ARK-256: ninguna fecha numérica en ninguna plantilla
+      expect(html).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    });
+
+    it('el certificado de participación cierra con Barranquilla, 26 de noviembre de 2026', async () => {
+      const { service } = build();
+      const data = await service.findCertifiableTeam({ id: 10 });
+      await service.generateTeamCertificatePdf(data, 0);
+      expect(await sentHtml()).toContain(
+        'Barranquilla, 26 de noviembre de 2026',
+      );
+    });
+
+    it('sin fecha de feria no queda un del suelto en la frase', async () => {
+      const { service } = build();
+      const data = await service.findCertifiableTeam({ id: 10 });
+      await service.generateTeamCertificatePdf({ ...data, eventDate: '' }, 1);
+      const html = await sentHtml();
+      expect(html).toMatch(/VI Feria Gamer\s+al equipo/);
+      expect(html).not.toMatch(/Feria Gamer\s+del\b/);
     });
 
     it('el certificado de jurado usa edición y fecha reales', async () => {
@@ -177,7 +197,8 @@ describe('CertificatesService (ARK-170)', () => {
       await service.generateJurorCertificateHtml('u1');
       const html = await sentHtml();
       expect(html).toContain('Participó en la VI Feria Gamer como Jurado');
-      expect(html).toContain('Barranquilla 26/11/2026');
+      expect(html).toContain('Barranquilla, 26 de noviembre de 2026');
+      expect(html).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
       expect(html).not.toContain('Edición de Prueba');
     });
 
@@ -190,7 +211,9 @@ describe('CertificatesService (ARK-170)', () => {
         lastName: 'Ruiz',
       });
       await service.generateJurorCertificateHtml('u1');
-      expect(await sentHtml()).toContain('Barranquilla 26/11/2026');
+      expect(await sentHtml()).toContain(
+        'Barranquilla, 26 de noviembre de 2026',
+      );
     });
 
     it('ya no pide una espera fija a Gotenberg', async () => {
