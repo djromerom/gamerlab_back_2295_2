@@ -139,8 +139,63 @@ describe('ReportsService — promedios por NRC y por materia con el ranking ocul
       const res = await service.getSubjectAverageScores(undefined);
       expect(res).toEqual([
         { name: 'Algoritmos', value: 3 },
-        { name: 'Diseño', value: 0 },
+        // ARK-265: una materia sin notas es null («Sin nota»), no 0
+        { name: 'Diseño', value: null },
       ]);
+    });
+
+    describe('ARK-265 (BG-65): evaluaciones sin detalle por criterio', () => {
+      const subjectWith = (name: string, evaluations: object[]) => ({
+        name,
+        nrcs: [{ members: [{ team: { videogame: { evaluations } } }] }],
+      });
+
+      it('la nota del profesor a un colegio (solo el total, sin detalle) cuenta como una nota', async () => {
+        settings.isRankingVisible.mockResolvedValue(true);
+        prisma.subject.findMany.mockResolvedValue([
+          subjectWith('Colegios', [
+            { totalScore: 3.8, isSenior: true, details: [] },
+            { totalScore: 3.6, isSenior: true, details: [] },
+          ]),
+        ]);
+        const res = await service.getSubjectAverageScores(undefined);
+        expect(res).toEqual([{ name: 'Colegios', value: 3.7 }]);
+      });
+
+      it('una evaluación con detalle sigue contando por criterio y la que no lo trae, por su total', async () => {
+        settings.isRankingVisible.mockResolvedValue(true);
+        prisma.subject.findMany.mockResolvedValue([
+          subjectWith('Mixta', [
+            { totalScore: 4, details: [{ score: 4 }, { score: 2 }] },
+            { totalScore: 5, details: [] },
+          ]),
+        ]);
+        const res = await service.getSubjectAverageScores(undefined);
+        // (4 + 2 + 5) / 3
+        expect(res).toEqual([{ name: 'Mixta', value: 3.67 }]);
+      });
+
+      it('una evaluación sin detalle y sin total no cuenta, y sin ninguna nota la materia es null', async () => {
+        settings.isRankingVisible.mockResolvedValue(true);
+        prisma.subject.findMany.mockResolvedValue([
+          subjectWith('Vacía', [{ totalScore: null, details: [] }]),
+          { name: 'Sin equipos', nrcs: [] },
+        ]);
+        const res = await service.getSubjectAverageScores(undefined);
+        expect(res).toEqual([
+          { name: 'Vacía', value: null },
+          { name: 'Sin equipos', value: null },
+        ]);
+      });
+
+      it('un 0 real sigue siendo 0, no «Sin nota»', async () => {
+        settings.isRankingVisible.mockResolvedValue(true);
+        prisma.subject.findMany.mockResolvedValue([
+          subjectWith('Con cero', [{ totalScore: 0, details: [{ score: 0 }] }]),
+        ]);
+        const res = await service.getSubjectAverageScores(undefined);
+        expect(res).toEqual([{ name: 'Con cero', value: 0 }]);
+      });
     });
 
     it.each([
