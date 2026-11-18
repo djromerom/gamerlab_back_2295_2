@@ -11,6 +11,8 @@ export interface PresenterTeamView {
   /** Título del proyecto: el nombre del videojuego, el que va en el certificado. */
   projectTitle: string | null;
   members: { firstName: string; lastName: string; email: string }[];
+  /** ARK-258: último envío del certificado del equipo; null si no se ha enviado. */
+  certificateSentAt: Date | null;
 }
 
 export async function presenterTeamsOf(
@@ -24,6 +26,7 @@ export async function presenterTeamsOf(
       id: true,
       teamCode: true,
       teamName: true,
+      presenterCertificateSentAt: true,
       videogame: { select: { name: true, isActive: true } },
       members: {
         where: { isActive: true },
@@ -38,5 +41,6 @@ export async function presenterTeamsOf(
     teamName: team.teamName,
     projectTitle: team.videogame?.isActive ? team.videogame.name : null,
     members: team.members,
+    certificateSentAt: team.presenterCertificateSentAt,
   }));
 }

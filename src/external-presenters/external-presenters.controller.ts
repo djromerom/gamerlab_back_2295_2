@@ -179,7 +179,7 @@ export class ExternalPresentersController {
   @ApiOperation({
     summary: 'Enviar el certificado de presentador externo a un equipo no calificable',
     description:
-      'HU-39 (ARK-209): un certificado por equipo, con sus integrantes activos y el título del proyecto, enviado al correo de cada integrante. 400 `CERTIFICATE_TEAM_GRADABLE` si el equipo no está marcado como no calificable.',
+      'HU-39 (ARK-209): un certificado por equipo, con sus integrantes activos y el título del proyecto, enviado al correo de cada integrante. 400 `CERTIFICATE_TEAM_GRADABLE` si el equipo no está marcado como no calificable. ARK-258: responde `{ teamId, sentTo, failed, certificateSentAt }` y guarda `certificateSentAt` en el equipo (sale en `teams` del listado).',
   })
   sendTeamCertificate(@Param('teamId', ParseIntPipe) teamId: number) {
     return this.certificates.sendTeam(teamId);

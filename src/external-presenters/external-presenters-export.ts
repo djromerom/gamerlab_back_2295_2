@@ -29,6 +29,7 @@ export const PRESENTER_TEAM_COLUMNS = [
   { header: 'Nombre', key: 'firstName', width: 22 },
   { header: 'Apellido', key: 'lastName', width: 22 },
   { header: 'Correo', key: 'email', width: 32 },
+  { header: 'Certificado enviado', key: 'certificateSent', width: 18 },
 ] as const;
 
 export function buildExternalPresentersWorkbook(
@@ -78,6 +79,9 @@ export function buildExternalPresentersWorkbook(
       teamCode: team.teamCode,
       teamName: team.teamName,
       projectTitle: team.projectTitle ?? '',
+      certificateSent: team.certificateSentAt
+        ? bogotaDate(team.certificateSentAt)
+        : 'No',
     };
     if (team.members.length === 0) teamSheet.addRow(base);
     for (const member of team.members) {
