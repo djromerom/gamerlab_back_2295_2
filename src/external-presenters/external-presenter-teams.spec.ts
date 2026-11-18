@@ -1,5 +1,6 @@
 import { ExternalPresenterCertificatesService } from './external-presenter-certificates.service';
 import { buildExternalPresentersWorkbook } from './external-presenters-export';
+import { presenterTeamsOf } from './external-presenter-teams';
 
 /** HU-39 (ARK-209): el presentador externo que es un equipo. */
 describe('Equipos presentadores externos', () => {
@@ -32,7 +33,10 @@ describe('Equipos presentadores externos', () => {
             fairDate: new Date('2026-11-26T00:00:00.000Z'),
           }),
       },
-      team: { findMany: jest.fn().mockResolvedValue([]) },
+      team: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue({}),
+      },
     };
     const certificates = {
       findCertifiableTeam: jest.fn().mockResolvedValue(TEAM),
@@ -86,7 +90,31 @@ describe('Equipos presentadores externos', () => {
       teamId: 10,
       sentTo: TEAM.memberEmails,
       failed: [],
+      certificateSentAt: expect.any(Date),
     });
+  });
+
+  it('ARK-258: guarda en el equipo la fecha de envío y la devuelve', async () => {
+    const { service, prisma } = setup();
+    const before = Date.now();
+
+    const result = await service.sendTeam(10);
+
+    expect(prisma.team.update).toHaveBeenCalledTimes(1);
+    expect(prisma.team.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { presenterCertificateSentAt: result.certificateSentAt },
+    });
+    expect(result.certificateSentAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it('ARK-258: con un envío parcial también deja la fecha', async () => {
+    const { service, prisma, email } = setup();
+    email.sendEmail.mockRejectedValueOnce(new Error('ACS caído'));
+
+    await service.sendTeam(10);
+
+    expect(prisma.team.update).toHaveBeenCalledTimes(1);
   });
 
   it('si falla un correo, los demás se envían y se informa', async () => {
@@ -103,6 +131,46 @@ describe('Equipos presentadores externos', () => {
     const { service, email } = setup();
     email.sendEmail.mockRejectedValue(new Error('ACS caído'));
     await expect(service.sendTeam(10)).rejects.toThrow('ningún integrante');
+  });
+
+  it('ARK-258: si no llega a nadie, no deja fecha de envío', async () => {
+    const { service, prisma, email } = setup();
+    email.sendEmail.mockRejectedValue(new Error('ACS caído'));
+    await expect(service.sendTeam(10)).rejects.toThrow();
+    expect(prisma.team.update).not.toHaveBeenCalled();
+  });
+
+  it('ARK-258: el listado de equipos presentadores trae la fecha de envío', async () => {
+    const { prisma } = setup();
+    const sentAt = new Date('2026-11-18T15:30:00.000Z');
+    prisma.team.findMany.mockResolvedValue([
+      {
+        id: 10,
+        teamCode: 'N1-ABC-101',
+        teamName: 'Los Pixeles',
+        presenterCertificateSentAt: sentAt,
+        videogame: { name: 'Pixel Quest', isActive: true },
+        members: [],
+      },
+      {
+        id: 11,
+        teamCode: 'N1-ABC-102',
+        teamName: 'Los Bytes',
+        presenterCertificateSentAt: null,
+        videogame: null,
+        members: [],
+      },
+    ]);
+
+    const teams = await presenterTeamsOf(prisma as never, 4);
+
+    expect(prisma.team.findMany.mock.calls[0][0].select).toMatchObject({
+      presenterCertificateSentAt: true,
+    });
+    expect(teams.map((t) => [t.id, t.certificateSentAt])).toEqual([
+      [10, sentAt],
+      [11, null],
+    ]);
   });
 
   it('enviar a todos incluye a los equipos presentadores', async () => {
@@ -124,6 +192,10 @@ describe('Equipos presentadores externos', () => {
     });
     expect(email.sendEmail).toHaveBeenCalledTimes(2);
     expect(result.teams).toEqual({ sent: 1, failed: [] });
+    expect(prisma.team.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { presenterCertificateSentAt: expect.any(Date) },
+    });
     expect(result.message).toContain('1 de 1 equipos');
   });
 
@@ -138,11 +210,24 @@ describe('Equipos presentadores externos', () => {
           { firstName: 'Ana', lastName: 'Ruiz', email: 'ana@prueba.invalid' },
           { firstName: 'Luis', lastName: 'Díaz', email: 'luis@prueba.invalid' },
         ],
+        certificateSentAt: new Date('2026-11-18T15:30:00.000Z'),
+      },
+      {
+        id: 11,
+        teamCode: 'N1-ABC-102',
+        teamName: 'Los Bytes',
+        projectTitle: null,
+        members: [],
+        certificateSentAt: null,
       },
     ]);
     const sheet = workbook.getWorksheet('Equipos presentadores')!;
-    expect(sheet.rowCount).toBe(3);
+    expect(sheet.rowCount).toBe(4);
     expect(sheet.getRow(2).getCell('projectTitle').value).toBe('Pixel Quest');
     expect(sheet.getRow(3).getCell('email').value).toBe('luis@prueba.invalid');
+    // ARK-258: fecha del envío del certificado del equipo, como en la hoja de presentadores
+    expect(sheet.getRow(1).getCell('certificateSent').value).toBe('Certificado enviado');
+    expect(sheet.getRow(2).getCell('certificateSent').value).not.toBe('No');
+    expect(sheet.getRow(4).getCell('certificateSent').value).toBe('No');
   });
 });

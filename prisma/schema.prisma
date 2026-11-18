@@ -268,6 +268,8 @@ model Team {
   // HU-39 (ARK-209): presentador externo que es un equipo. Sale en la galería, pero no se califica,
   // no recibe jurados ni entra al ranking ni a las notas. Solo lo marca el Administrador.
   notGradable      Boolean         @default(false) @map("no_calificable")
+  // ARK-258: último envío del certificado de presentador externo del equipo; null si no se ha enviado.
+  presenterCertificateSentAt DateTime? @map("certificado_presentador_enviado_en")
   teamCode         String          @map("codigo_equipo") @db.VarChar(12)
   // Código que el estudiante ve en su panel y el jurado digita para calificar (HU-19). Null en equipos N0 (colegios).
   verificationCode String?         @map("codigo_verificacion") @db.VarChar(8)

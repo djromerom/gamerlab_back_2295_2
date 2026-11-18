@@ -99,6 +99,8 @@ export class ExternalPresenterCertificatesService {
    * HU-39 (ARK-209): certificado de presentador externo de un equipo no calificable. Es uno por
    * equipo (los integrantes activos y el título del proyecto, como el de participación) y le llega
    * por correo a cada integrante activo. Si falla un correo, se informa en `failed`.
+   * ARK-258: si le llega al menos a un integrante, guarda la fecha de envío en el equipo y la
+   * devuelve en `certificateSentAt`.
    */
   async sendTeam(teamId: number) {
     const team = await this.certificates.findCertifiableTeam({ id: teamId }, 'presenter');
@@ -135,7 +137,12 @@ export class ExternalPresenterCertificatesService {
     if (sentTo.length === 0) {
       throw new Error(`No se pudo enviar el certificado del equipo «${team.teamName}» a ningún integrante.`);
     }
-    return { teamId, sentTo, failed };
+    const sentAt = new Date();
+    await this.prisma.team.update({
+      where: { id: teamId },
+      data: { presenterCertificateSentAt: sentAt },
+    });
+    return { teamId, sentTo, failed, certificateSentAt: sentAt };
   }
 
   /** HU-39 (ARK-209): descarga del certificado de un equipo presentador; no envía correos. */
