@@ -20,6 +20,8 @@ describe('JurorAssignmentService - manual assignment module', () => {
             findUnique: jest.fn(),
             // ARK-131: participación en la edición activa (jurorsOfEdition)
             findFirst: jest.fn(),
+            // ARK-262: nombres del historial de cambios
+            findMany: jest.fn(),
         },
         edition: {
             findFirst: jest.fn(),
@@ -817,6 +819,19 @@ describe('JurorAssignmentService - manual assignment module', () => {
 
         prismaMock.$transaction.mockResolvedValueOnce([[logItem], 1]);
 
+        prismaMock.user.findMany.mockResolvedValueOnce([
+            { id: actorUserId, firstName: 'Admin', lastName: 'Romero' },
+            { id: juniorJuror.id, firstName: 'Jurado', lastName: 'Junior' },
+        ]);
+        prismaMock.team.findMany.mockResolvedValueOnce([
+            {
+                id: n1Team.id,
+                teamName: n1Team.teamName,
+                teamCode: n1Team.teamCode,
+                videogame: { name: 'Juego N1' },
+            },
+        ]);
+
         const result = await service.getAuditLog({
             action: ManualJurorAssignmentAction.ASSIGN,
             teamId: n1Team.id,
@@ -827,6 +842,39 @@ describe('JurorAssignmentService - manual assignment module', () => {
         expect(result.data).toHaveLength(1);
         expect(result.metadata.totalItems).toBe(1);
         expect(result.metadata.currentPage).toBe(1);
+        // ARK-262: nombres en vez de ids
+        expect(result.data[0]).toMatchObject({
+            id: 1,
+            actorName: 'Admin Romero',
+            jurorName: 'Jurado Junior',
+            newJurorName: 'Jurado Junior',
+            previousJurorName: null,
+            teamName: n1Team.teamName,
+            teamCode: n1Team.teamCode,
+            gameName: 'Juego N1',
+        });
+    });
+
+    it('ARK-262: el historial se ordena por fecha y por id, para que las páginas no repitan ni salten registros', async () => {
+        prismaMock.jurorAssignmentAuditLog.findMany.mockReturnValueOnce(
+            Promise.resolve([]),
+        );
+        prismaMock.jurorAssignmentAuditLog.count.mockReturnValueOnce(
+            Promise.resolve(0),
+        );
+        prismaMock.$transaction.mockResolvedValueOnce([[], 0]);
+
+        await service.getAuditLog({ page: 2, limit: 50 });
+
+        expect(prismaMock.jurorAssignmentAuditLog.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                skip: 50,
+                take: 50,
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            }),
+        );
+        // Sin registros no se consulta nada más
+        expect(prismaMock.user.findMany).not.toHaveBeenCalled();
     });
 
     it('debe devolver seguimiento de evaluaciones por equipo', async () => {

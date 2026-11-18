@@ -36,6 +36,7 @@ import { resolveListEdition } from 'src/editions/list-edition';
 import { AssignmentPushNotifier } from 'src/push-notifications/assignment-push-notifier.service';
 import { SubstituteNoticesService } from 'src/jurors/substitute-notices/substitute-notices.service';
 import { ASSIGNABLE_TEAM } from 'src/teams/team-status';
+import { withAuditNames } from './audit-log-view';
 import {
   findTeamNotConfirmedBlocker,
   findTeamNotGradableBlocker,
@@ -943,17 +944,20 @@ export class JurorAssignmentService implements OnModuleInit {
           where,
           skip,
           take: limit,
-          orderBy: {
-            createdAt: 'desc',
-          },
+          // ARK-262: `id` desempata los registros creados en el mismo instante (asignación
+          // automática); sin él, una página podía repetir o saltarse registros de la siguiente.
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         }),
         this.prisma.jurorAssignmentAuditLog.count({
           where,
         }),
       ]);
 
+      // ARK-262 (BG-62): con los nombres, el front no muestra ids internos
+      const named = await withAuditNames(this.prisma, data);
+
       return {
-        data,
+        data: named,
         metadata: {
           totalItems: total,
           itemsOnCurrentPage: data.length,

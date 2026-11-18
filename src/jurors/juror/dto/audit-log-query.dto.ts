@@ -4,6 +4,7 @@ import {
   IsInt,
   IsDateString,
   IsEnum,
+  Max,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -50,5 +51,6 @@ export class AuditLogQueryDto {
   @Type(() => Number)
   @IsInt({ message: 'limit debe ser un número entero' })
   @Min(1, { message: 'limit debe ser mayor a 0' })
+  @Max(100, { message: 'limit no puede ser mayor a 100' })
   limit?: number = 20;
 }
