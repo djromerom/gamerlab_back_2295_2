@@ -57,7 +57,7 @@ describe('FinalGradeService', () => {
       activeEdition();
       prisma.teamFinalScore.findMany.mockResolvedValue([
         row(1),
-        row(2, { juniorEvaluations: 2 }),
+        row(2, { juniorEvaluations: 1 }), // 1 junior + 1 senior: menos de 3 (BG-68)
         row(3, { seniorEvaluations: 0 }),
         row(4, { seniorEvaluations: 0 }), // equipo dado de baja: no cuenta
       ]);

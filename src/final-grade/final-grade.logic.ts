@@ -2,7 +2,8 @@ import {
   DEFAULT_FAIR_TIMES,
   fairInstant,
 } from 'src/jurors/absence-alert/fair-schedule';
-import { MIN_EVALUATIONS, parseLevel } from '../ranking/ranking.logic';
+import { hasLessThanMinEvaluations } from '../ranking/min-evaluations';
+import { parseLevel } from '../ranking/ranking.logic';
 
 /**
  * HU-20 (ARK-80): reglas de la nota final que ve el estudiante, sin acceso a la base.
@@ -132,7 +133,7 @@ export function checkTeamGrade(
   if (row.seniorEvaluations === 0) reasons.push('MISSING_PROFESSOR_SCORE');
   if (countsJurors && row.juniorEvaluations === 0)
     reasons.push('MISSING_JUNIOR_SCORE');
-  if (countsJurors && row.juniorEvaluations < MIN_EVALUATIONS) {
+  if (countsJurors && hasLessThanMinEvaluations(row)) {
     reasons.push('LESS_THAN_MIN_EVALUATIONS');
   }
   const inProcess =

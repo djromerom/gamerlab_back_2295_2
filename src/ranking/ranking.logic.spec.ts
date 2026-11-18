@@ -209,10 +209,41 @@ describe('ranking.logic (HU-04)', () => {
     ]);
   });
 
+  it('BG-68 (ARK-270): el mínimo de 3 cuenta las evaluaciones de jurados junior y senior', () => {
+    const [level] = build(
+      [
+        row(1, 'N1-A-1', 4, { juniorEvaluations: 2, seniorEvaluations: 1 }),
+        row(2, 'N1-A-2', 4, { juniorEvaluations: 1, seniorEvaluations: 2 }),
+        row(3, 'N1-A-3', 4, { juniorEvaluations: 3, seniorEvaluations: 0 }),
+        row(4, 'N1-A-4', 4, { juniorEvaluations: 1, seniorEvaluations: 1 }),
+        row(5, 'N1-A-5', 4, { juniorEvaluations: 0, seniorEvaluations: 2 }),
+      ],
+      { 1: info(1), 2: info(2), 3: info(3), 4: info(4), 5: info(5) },
+    );
+    const flagged = (code: string) =>
+      level.teams.find((t) => t.teamCode === code)?.lessThanMinEvaluations;
+    // Suman 3: no se marca
+    expect(flagged('N1-A-1')).toBe(false);
+    expect(flagged('N1-A-2')).toBe(false);
+    expect(flagged('N1-A-3')).toBe(false);
+    // Suman menos de 3: se marca
+    expect(flagged('N1-A-4')).toBe(true);
+    expect(flagged('N1-A-5')).toBe(true);
+  });
+
+  it('BG-68 (ARK-270): un colegio (N0) sigue sin marcarse, tenga las evaluaciones que tenga', () => {
+    const [colegios] = build(
+      [row(1, 'N0-C-1', 4, { juniorEvaluations: 0, seniorEvaluations: 1 })],
+      { 1: info(1) },
+    );
+    expect(colegios.teams[0].lessThanMinEvaluations).toBe(false);
+  });
+
   it('marca menos de 3 evaluaciones, evaluaciones que no cuentan y falta de nota del profesor', () => {
     const [level] = build(
       [
-        row(1, 'N1-A-1', 4, { juniorEvaluations: 2, juniorCounted: 2 }),
+        // 1 junior + 1 senior (por defecto): suman 2, menos de 3 (BG-68)
+        row(1, 'N1-A-1', 4, { juniorEvaluations: 1, juniorCounted: 1 }),
         row(2, 'N1-A-2', 3.5, {
           juniorEvaluations: 5,
           juniorCounted: 3,

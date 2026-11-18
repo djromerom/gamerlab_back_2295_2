@@ -1,4 +1,5 @@
 import { TieBreakMethod } from '@prisma/client';
+import { hasLessThanMinEvaluations } from './min-evaluations';
 
 /**
  * HU-04 (ARK-98): reglas del ranking oficial por nivel, sin acceso a la base.
@@ -16,7 +17,6 @@ import { TieBreakMethod } from '@prisma/client';
  */
 
 export const DEFAULT_PODIUM_SIZE = 3;
-export const MIN_EVALUATIONS = 3;
 
 export type TieRule = 'PROFESSOR' | 'REGISTRATION' | 'MANUAL';
 export type TieStatus = 'PENDING' | 'RESOLVED';
@@ -428,7 +428,7 @@ function buildOneLevel(
         ),
         seniorEvaluations: row.seniorEvaluations,
         lessThanMinEvaluations:
-          counted.jurors && row.juniorEvaluations < MIN_EVALUATIONS,
+          counted.jurors && hasLessThanMinEvaluations(row),
         missingProfessorScore:
           counted.professors && row.seniorEvaluations === 0,
         registrationDate: info.registrationDate.toISOString(),
