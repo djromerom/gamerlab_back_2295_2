@@ -125,13 +125,11 @@ export function checkTeamGrade(
     };
   }
   // Qué partes cuentan en su nota (igual que el ranking, HU-34): un colegio solo cuenta a los
-  // profesores y seniors, con o sin marca de externo; un externo solo a los jurados junior.
+  // profesores y seniors; los demás, ambas. La casilla «Externo» no cambia la nota (BG-69).
   const school = isSchool(row.teamCode);
-  const countsProfessors = school || !row.isExternal;
   const countsJurors = !school;
   const reasons: IncompleteReason[] = [];
-  if (countsProfessors && row.seniorEvaluations === 0)
-    reasons.push('MISSING_PROFESSOR_SCORE');
+  if (row.seniorEvaluations === 0) reasons.push('MISSING_PROFESSOR_SCORE');
   if (countsJurors && row.juniorEvaluations === 0)
     reasons.push('MISSING_JUNIOR_SCORE');
   if (countsJurors && row.juniorEvaluations < MIN_EVALUATIONS) {

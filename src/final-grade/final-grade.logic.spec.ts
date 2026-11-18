@@ -116,13 +116,18 @@ describe('HU-20 · reglas de la nota final del estudiante', () => {
       ).toEqual(['MISSING_PROFESSOR_SCORE']);
     });
 
-    it('equipo externo: cuenta solo la nota de los jurados, no le falta la del profesor', () => {
+    it('la casilla Externo no cambia la nota: a un equipo marcado también le falta la del profesor (BG-69)', () => {
       expect(
         checkTeamGrade(row({ isExternal: true, seniorEvaluations: 0 })),
       ).toEqual({
-        inProcess: false,
-        reasons: [],
+        inProcess: true,
+        reasons: ['MISSING_PROFESSOR_SCORE'],
       });
+      expect(
+        checkTeamGrade(row({ isExternal: true, seniorEvaluations: 0 })),
+      ).toEqual(
+        checkTeamGrade(row({ isExternal: false, seniorEvaluations: 0 })),
+      );
     });
 
     it('sin nota final en la vista: en proceso', () => {

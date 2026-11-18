@@ -247,7 +247,7 @@ maybe('Nota final 60/40 en la vista (BD real)', () => {
       });
     });
 
-    it('equipo externo: regla vigente, solo la nota junior', async () => {
+    it('la casilla Externo no cambia la nota: regla vigente 60/40 (BG-69, ARK-272)', async () => {
       const e = await edition();
       expect(
         await scoreOf(e, {
@@ -255,7 +255,18 @@ maybe('Nota final 60/40 en la vista (BD real)', () => {
           juniors: [3],
           professors: [5],
         }),
-      ).toMatchObject({ finalScore: 3, avgSenior: 5 });
+      ).toMatchObject({ finalScore: 4.2, avgSenior: 5, isExternal: true });
+      // Igual que un equipo sin la casilla con las mismas notas
+      expect(await scoreOf(e, { juniors: [3], professors: [5] })).toMatchObject(
+        { finalScore: 4.2 },
+      );
+    });
+
+    it('con la casilla y solo la nota junior: «Nota en proceso», como cualquier equipo', async () => {
+      const e = await edition();
+      expect(
+        await scoreOf(e, { isExternal: true, juniors: [4] }),
+      ).toMatchObject({ finalScore: null });
     });
 
     it('el tipo en jurado_edicion (oficial o suplente) no cambia la nota', async () => {
@@ -310,6 +321,13 @@ maybe('Nota final 60/40 en la vista (BD real)', () => {
       expect(
         await scoreOf(e, { code: code(), isExternal: true, professors: [5] }),
       ).toMatchObject({ finalScore: null });
+    });
+
+    it('en una edición congelada la marca de externo conserva su regla: no cambia ninguna nota pasada', async () => {
+      const e = await edition({ legacyFinalScoreRule: true });
+      expect(
+        await scoreOf(e, { isExternal: true, juniors: [3], professors: [5] }),
+      ).toMatchObject({ finalScore: 3, avgSenior: 5 });
     });
   });
 });
