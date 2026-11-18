@@ -16,6 +16,10 @@ import {
   isCollegeTeamCode,
 } from './verification-code.util';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import {
+  NOT_GRADABLE_NO_CODE_MESSAGE,
+  TEAM_NOT_GRADABLE,
+} from '../teams/team-gradable';
 
 export const MAX_FAILED_ATTEMPTS = 5;
 export const ATTEMPT_WINDOW_MINUTES = 10;
@@ -227,7 +231,12 @@ export class TeamVerificationService {
     }
   }
 
-  /** Panel del estudiante: el código de su equipo (null en equipos de colegios). */
+  /**
+   * Panel del estudiante: el código de su equipo (null en equipos de colegios).
+   * ARK-257 (BG-57): un equipo no calificable es un presentador externo; nadie le dice el código a
+   * un jurado, así que no se entrega (`verificationCode: null`) y `notGradable: true` deja que el
+   * front muestre el aviso en lugar del panel.
+   */
   async getCodeForStudent(userId: string) {
     const team = await this.prisma.team.findFirst({
       where: {
@@ -235,7 +244,12 @@ export class TeamVerificationService {
         isActive: true,
         edition: ACTIVE_EDITION_WHERE,
       },
-      select: { id: true, teamCode: true, verificationCode: true },
+      select: {
+        id: true,
+        teamCode: true,
+        verificationCode: true,
+        notGradable: true,
+      },
     });
 
     if (!team) {
@@ -245,7 +259,8 @@ export class TeamVerificationService {
     return {
       teamId: team.id,
       teamCode: team.teamCode,
-      verificationCode: team.verificationCode,
+      verificationCode: team.notGradable ? null : team.verificationCode,
+      notGradable: team.notGradable,
     };
   }
 
@@ -297,6 +312,7 @@ export class TeamVerificationService {
         editionId: true,
         teamCode: true,
         verificationCode: true,
+        notGradable: true,
         edition: { select: { status: true, title: true } },
       },
     });
@@ -308,6 +324,14 @@ export class TeamVerificationService {
       throw new BadRequestException(
         'Los equipos de colegios (N0) no tienen código de verificación',
       );
+    }
+    // ARK-257 (BG-57): un presentador externo no se califica; su código no se consulta ni se cambia
+    if (team.notGradable) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: TEAM_NOT_GRADABLE,
+        message: NOT_GRADABLE_NO_CODE_MESSAGE,
+      });
     }
     return team;
   }

@@ -32,6 +32,7 @@ describe('TeamGradableService', () => {
             isActive: true,
             editionId: 4,
             notGradable: false,
+            videogame: { videogameStatus: { status: 'CONFIRMADO' } },
             ...team,
           },
         ),
@@ -136,5 +137,77 @@ describe('TeamGradableService', () => {
     await expect(
       service.setNotGradable(10, true, 'admin'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  describe('solo se marcan equipos Confirmados (ARK-257, BG-57)', () => {
+    const withStatus = (status: string | null) => ({
+      videogame: status ? { videogameStatus: { status } } : null,
+    });
+
+    it.each([
+      ['PENDIENTE', 'PENDIENTE'],
+      ['RECHAZADO', 'RECHAZADO'],
+      ['sin videojuego', null],
+    ])(
+      'marcar un equipo %s da 400 TEAM_NOT_CONFIRMED y no cambia nada',
+      async (_label, status) => {
+        const { service, prisma, push } = setup(withStatus(status));
+        const error: unknown = await service
+          .setNotGradable(10, true, 'admin')
+          .catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as BadRequestException).getResponse()).toMatchObject({
+          statusCode: 400,
+          code: 'TEAM_NOT_CONFIRMED',
+          message: expect.stringContaining('Confirmado') as string,
+        });
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+      },
+    );
+
+    it('el mensaje dice el estado actual', async () => {
+      const { service } = setup(withStatus('PENDIENTE'));
+      await expect(
+        service.setNotGradable(10, true, 'admin'),
+      ).rejects.toMatchObject({
+        response: { message: expect.stringContaining('PENDIENTE') as string },
+      });
+    });
+
+    it('un equipo Confirmado se marca', async () => {
+      const { service, tx } = setup(withStatus('CONFIRMADO'));
+      await service.setNotGradable(10, true, 'admin');
+      expect(tx.team.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: { notGradable: true },
+      });
+    });
+
+    it.each(['PENDIENTE', 'RECHAZADO'])(
+      'desmarcar un equipo %s siempre se permite',
+      async (status) => {
+        const { service, tx } = setup({
+          notGradable: true,
+          ...withStatus(status),
+        });
+        const result = await service.setNotGradable(10, false, 'admin');
+        expect(result.notGradable).toBe(false);
+        expect(tx.team.update).toHaveBeenCalledWith({
+          where: { id: 10 },
+          data: { notGradable: false },
+        });
+      },
+    );
+
+    it('repetir la marca en un equipo ya marcado no falla ni cambia nada', async () => {
+      const { service, prisma } = setup({
+        notGradable: true,
+        ...withStatus('RECHAZADO'),
+      });
+      const result = await service.setNotGradable(10, true, 'admin');
+      expect(result.notGradable).toBe(true);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
   });
 });

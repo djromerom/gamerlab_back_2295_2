@@ -42,6 +42,7 @@ describe('TeamVerificationService', () => {
     editionId: 1,
     teamCode: 'N10-ABC-1001',
     verificationCode: 'K7M2QX',
+    notGradable: false,
     assignedJurors: [{ id: jurorId }],
     edition: { status: 'ACTIVE', title: 'Edición 1' },
   };
@@ -506,6 +507,7 @@ describe('TeamVerificationService', () => {
         teamId: 10,
         teamCode: 'N10-ABC-1001',
         verificationCode: 'K7M2QX',
+        notGradable: false,
       });
     });
   });
