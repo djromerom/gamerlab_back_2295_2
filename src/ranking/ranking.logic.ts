@@ -7,18 +7,17 @@ import { hasLessThanMinEvaluations } from './min-evaluations';
  * - El nivel sale del prefijo del código del equipo (`N{semestre}-...`, P-03).
  * - La nota ya viene redondeada a 2 decimales desde `vw_team_final_scores` (P-04).
  * - Empate = misma nota dentro del mismo nivel y edición.
- * - Desempate (P-05):
- *   1. Todos los grupos empatados comparten un profesor (cualquier NRC suyo): decide ese profesor.
- *      Mientras no decida, el orden provisional es el de inscripción.
- *   2. Si no comparten profesor (o el empate mezcla grupos del mismo profesor con otros): primero
- *      el grupo inscrito antes.
- *   3. Si dos grupos tienen la misma fecha de inscripción no se puede aplicar el punto 2 y el empate
- *      queda para resolución manual del administrador.
+ * - Desempate (HU-47, ARK-304; decisión del profesor del 19-nov que reemplaza P-05): siempre por
+ *   fecha de inscripción, primero el grupo inscrito antes. Si la fecha coincide, decide el id del
+ *   equipo (menor primero). Los profesores ya no eligen y las decisiones guardadas antes
+ *   (`TieBreakDecision`) no cambian el orden: quedan solo como historial.
  */
 
 export const DEFAULT_PODIUM_SIZE = 3;
 
-export type TieRule = 'PROFESSOR' | 'REGISTRATION' | 'MANUAL';
+/** Desde HU-47 todo empate se resuelve por inscripción. */
+export type TieRule = 'REGISTRATION';
+/** Desde HU-47 un empate nunca queda pendiente; se conserva el campo por compatibilidad. */
 export type TieStatus = 'PENDING' | 'RESOLVED';
 
 export interface ScoreRow {
@@ -106,11 +105,12 @@ export interface TieGroup {
   affectsPodium: boolean;
   rule: TieRule;
   status: TieStatus;
-  /** Profesores que pueden elegir (regla PROFESSOR). */
+  /** Siempre vacío desde HU-47 (nadie decide); se conserva por compatibilidad con el front. */
   deciders: PersonRef[];
   teams: TieTeam[];
-  /** Orden aplicado (provisional mientras status = PENDING). */
+  /** Orden aplicado: por fecha de inscripción y, si coincide, por id del equipo. */
   order: number[];
+  /** Siempre null desde HU-47; el historial está en `GET /ranking/decisions`. */
   decision: DecisionRef | null;
   /** Motivo del orden aplicado, para mostrarlo tal cual. */
   explanation: string;
@@ -158,101 +158,50 @@ export function buildTieKey(
   return `${editionId}:N${level}:${score.toFixed(2)}:${ids}`;
 }
 
-/** Profesores comunes a todos los equipos (intersección por id). */
-export function commonProfessors(
-  teams: { professors: PersonRef[] }[],
-): PersonRef[] {
-  if (teams.length === 0) return [];
-  const [first, ...rest] = teams;
-  return first.professors.filter((p) =>
-    rest.every((t) => t.professors.some((q) => q.id === p.id)),
-  );
-}
-
 function byRegistration(a: TieTeam, b: TieTeam): number {
   const diff = Date.parse(a.registrationDate) - Date.parse(b.registrationDate);
   return diff !== 0 ? diff : a.teamId - b.teamId;
 }
 
-function hasRepeatedRegistration(teams: TieTeam[]): boolean {
-  const seen = new Set<number>();
-  for (const t of teams) {
-    const time = Date.parse(t.registrationDate);
-    if (seen.has(time)) return true;
-    seen.add(time);
-  }
-  return false;
-}
-
-export function classifyTie(teams: TieTeam[]): {
-  rule: TieRule;
-  deciders: PersonRef[];
-} {
-  const deciders = commonProfessors(teams);
-  if (deciders.length > 0) return { rule: 'PROFESSOR', deciders };
-  if (hasRepeatedRegistration(teams)) return { rule: 'MANUAL', deciders: [] };
+/** HU-47: todo empate se resuelve por inscripción; nadie decide. */
+export function classifyTie(): { rule: TieRule; deciders: PersonRef[] } {
   return { rule: 'REGISTRATION', deciders: [] };
 }
 
-/** Texto del criterio de inscripción, con las fechas, para registrar el motivo. */
+/** Orden de un empate: primero el inscrito antes; con la misma fecha, el id menor. */
+export function registrationOrder(teams: TieTeam[]): number[] {
+  return [...teams].sort(byRegistration).map((t) => t.teamId);
+}
+
+function hasRepeatedRegistration(teams: TieTeam[]): boolean {
+  const times = teams.map((t) => Date.parse(t.registrationDate));
+  return new Set(times).size !== times.length;
+}
+
+/** Texto del criterio de inscripción, con las fechas, para mostrarlo y registrarlo. */
 export function registrationReason(teams: TieTeam[]): string {
   const ordered = [...teams].sort(byRegistration);
   const detail = ordered
     .map((t) => `${t.teamCode} (${t.registrationDate})`)
     .join(', ');
-  return `Criterio de inscripción: primero el grupo inscrito antes. Orden: ${detail}.`;
+  const sameDate = hasRepeatedRegistration(teams)
+    ? ' Hay grupos con la misma fecha de inscripción: entre ellos va primero el de id menor.'
+    : '';
+  return `Resuelto por fecha de inscripción: primero el grupo inscrito antes.${sameDate} Orden: ${detail}.`;
 }
 
 function resolveTie(
   teams: TieTeam[],
-  decision: DecisionRef | undefined,
 ): Pick<
   TieGroup,
   'rule' | 'status' | 'deciders' | 'order' | 'decision' | 'explanation'
 > {
-  const { rule, deciders } = classifyTie(teams);
-  const registrationOrder = [...teams]
-    .sort(byRegistration)
-    .map((t) => t.teamId);
-
-  if (decision) {
-    return {
-      rule,
-      deciders,
-      status: 'RESOLVED',
-      order: decision.orderedTeamIds,
-      decision,
-      explanation: decision.reason,
-    };
-  }
-  if (rule === 'REGISTRATION') {
-    return {
-      rule,
-      deciders,
-      status: 'RESOLVED',
-      order: registrationOrder,
-      decision: null,
-      explanation: registrationReason(teams),
-    };
-  }
-  if (rule === 'PROFESSOR') {
-    return {
-      rule,
-      deciders,
-      status: 'PENDING',
-      order: registrationOrder,
-      decision: null,
-      explanation: `Pendiente: decide ${deciders.map((d) => d.name).join(' o ')}. Mientras tanto se muestra el orden de inscripción.`,
-    };
-  }
   return {
-    rule,
-    deciders,
-    status: 'PENDING',
-    order: [...teams].sort((a, b) => a.teamId - b.teamId).map((t) => t.teamId),
+    ...classifyTie(),
+    status: 'RESOLVED',
+    order: registrationOrder(teams),
     decision: null,
-    explanation:
-      'Pendiente: hay grupos con la misma fecha de inscripción; lo resuelve el administrador.',
+    explanation: registrationReason(teams),
   };
 }
 
@@ -260,7 +209,6 @@ export interface BuildRankingInput {
   editionId: number;
   rows: ScoreRow[];
   teams: Map<number, TeamInfo>;
-  decisions: Map<string, DecisionRef>;
   podiumSize?: number;
 }
 
@@ -385,7 +333,7 @@ function buildOneLevel(
         score,
         rows.map((r) => r.teamId),
       );
-      const resolved = resolveTie(tieTeams, input.decisions.get(tieKey));
+      const resolved = resolveTie(tieTeams);
       const from = position;
       const to = position + rows.length - 1;
       tie = {
@@ -453,23 +401,4 @@ function buildOneLevel(
       missing: missingScoreParts(r, level),
     })),
   };
-}
-
-/**
- * Valida el orden que envía quien decide: debe ser exactamente el conjunto de equipos empatados.
- * Devuelve un mensaje de error o null.
- */
-export function validateOrder(
-  tie: TieGroup,
-  orderedTeamIds: number[],
-): string | null {
-  const expected = tie.teams.map((t) => t.teamId).sort((a, b) => a - b);
-  const given = [...orderedTeamIds].sort((a, b) => a - b);
-  if (
-    given.length !== expected.length ||
-    given.some((id, i) => id !== expected[i])
-  ) {
-    return `El orden debe incluir una sola vez cada equipo empatado: ${expected.join(', ')}.`;
-  }
-  return null;
 }

@@ -19,6 +19,7 @@ const juror = (
   category: JUNIOR,
   checkedIn: true,
   possibleLeft: false,
+  notComing: false,
   evaluated: false,
   ...extra,
 });
@@ -123,6 +124,51 @@ describe('contingencia: quién cuenta en un grupo (HU-14)', () => {
     expect(groups[0].jurados.find((j) => j.id === 'x')).toMatchObject({
       estado: 'LEFT',
       cuenta: false,
+    });
+  });
+
+  describe('«No podrá asistir» (HU-44)', () => {
+    const away = { checkedIn: false, notComing: true };
+
+    it('deja de contar antes de la hora de control y su grupo queda en riesgo', () => {
+      expect(countsForGroup(juror('x', away), 'ASSIGNED')).toBe(false);
+      const groups = groupsAtRisk(
+        [team(1, 1, [juror('x', away), juror('b'), juror('c')])],
+        { basis: 'ASSIGNED', minimum: 3 },
+      );
+      expect(groups).toHaveLength(1);
+      expect(groups[0].faltantes).toBe(1);
+      expect(groups[0].jurados.find((j) => j.id === 'x')).toMatchObject({
+        estado: 'ABSENT',
+        noVendra: true,
+        cuenta: false,
+      });
+    });
+
+    it('lo que ya calificó sigue contando', () => {
+      expect(
+        countsForGroup(juror('x', { ...away, evaluated: true }), 'ASSIGNED'),
+      ).toBe(true);
+    });
+
+    it('si al final llega, vuelve a contar', () => {
+      const arrived = juror('x', { checkedIn: true, notComing: true });
+      expect(countsForGroup(arrived, 'PRESENT')).toBe(true);
+      expect(
+        groupsAtRisk([team(1, 1, [arrived, juror('b'), juror('c')])], PRESENT),
+      ).toEqual([]);
+    });
+
+    it('propone suplentes para sus grupos sin quitarlo del grupo', () => {
+      const [group] = suggestSubstitutes(
+        groupsAtRisk([team(1, 1, [juror('x', away), juror('b'), juror('c')])], {
+          basis: 'ASSIGNED',
+          minimum: 3,
+        }),
+        [sub('s1')],
+      );
+      expect(group.sugeridos.map((s) => s.id)).toEqual(['s1']);
+      expect(group.jurados.map((j) => j.id)).toEqual(['x', 'b', 'c']);
     });
   });
 

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { requireActiveEdition } from 'src/editions/active-edition';
 import { MAX_COUNTED_EVALUATIONS } from 'src/evaluation/counted-evaluations';
+import { JUROR_EVALUATION_FILTER } from 'src/evaluation/juror-evaluation';
 import { EvaluationTrackingService } from 'src/evaluation-tracking/evaluation-tracking.service';
+import { loadNotComing } from 'src/jurors/absent-juror-responses/not-coming';
 import { compareRows } from 'src/jurors/juror-attendance/attendance-page';
 import { JurorAttendanceService } from 'src/jurors/juror-attendance/juror-attendance.service';
 import { toEditionSummary } from 'src/jurors/juror-edition/edition-resolver';
@@ -11,6 +13,7 @@ import {
   AbsencePanel,
   AlertJuror,
   AlertTotals,
+  AttendanceJuror,
   JurorAttendanceState,
   PanelGroup,
 } from './absence-alert.types';
@@ -23,9 +26,43 @@ import {
 } from './fair-schedule';
 import { FairScheduleService } from './fair-schedule.service';
 
-function totalsOf(jurors: AlertJuror[]): AlertTotals {
+function totalsOf(jurors: AttendanceJuror[]): AlertTotals {
   const present = jurors.filter((juror) => juror.state === 'PRESENT').length;
-  return { present, missing: jurors.length - present, total: jurors.length };
+  const notComing = jurors.filter((juror) => juror.notComing).length;
+  return {
+    present,
+    missing: jurors.length - present - notComing,
+    notComing,
+    total: jurors.length,
+  };
+}
+
+/** HU-44: los grupos de cada jurado (los del panel) y cuántos le faltan por calificar. */
+function withGroups(
+  jurors: AttendanceJuror[],
+  groups: PanelGroup[],
+): AlertJuror[] {
+  return jurors.map((juror) => {
+    const mine = groups.flatMap((group) => {
+      const assigned = group.jurors.find((j) => j.jurorId === juror.jurorId);
+      return assigned
+        ? [
+            {
+              teamId: group.teamId,
+              teamCode: group.teamCode,
+              level: group.level,
+              evaluated: assigned.hasEvaluated,
+            },
+          ]
+        : [];
+    });
+    mine.sort((a, b) => a.teamCode.localeCompare(b.teamCode));
+    return {
+      ...juror,
+      groups: mine,
+      pendingGroups: mine.filter((group) => !group.evaluated).length,
+    };
+  });
 }
 
 /**
@@ -44,12 +81,13 @@ export class AbsenceAlertService {
 
   /**
    * Jurados de la edición sin check-in, por apellido. No depende de la hora: antes de la hora de
-   * control vienen como `NO_CHECK_IN` y desde ella como `ABSENT`. Para otros módulos (HU-13, HU-14).
+   * control vienen como `NO_CHECK_IN` y desde ella como `ABSENT` (los que no vendrán, siempre
+   * `ABSENT`, con `notComing`). Para otros módulos (HU-13, HU-14).
    */
   async listAbsentJurors(
     editionId: number,
     now: Date = new Date(),
-  ): Promise<AlertJuror[]> {
+  ): Promise<AttendanceJuror[]> {
     const schedule = await this.schedules.findForEdition(editionId);
     const jurors = await this.loadJurors(editionId, fairPhase(schedule, now));
     return jurors.filter((juror) => juror.state !== 'PRESENT');
@@ -62,9 +100,15 @@ export class AbsenceAlertService {
     const jurors = await this.loadJurors(edition.id, phase);
     const totals = totalsOf(jurors);
     const reached = isAlertReached(phase);
+    // Los grupos solo hacen falta desde la hora de alerta o si alguien ya avisó que no vendrá.
+    const panelGroups =
+      reached || totals.notComing > 0
+        ? await this.loadGroups(edition.id, jurors)
+        : [];
+    const alertJurors = withGroups(jurors, panelGroups);
 
     const groups = reached
-      ? (await this.loadGroups(edition.id, jurors))
+      ? panelGroups
           .filter((group) => group.missingEvaluations > 0)
           .sort(
             (a, b) =>
@@ -78,12 +122,17 @@ export class AbsenceAlertService {
       edition: toEditionSummary(edition),
       schedule,
       phase,
-      alertActive: reached && (totals.missing > 0 || groups.length > 0),
+      alertActive:
+        reached &&
+        (totals.missing > 0 || totals.notComing > 0 || groups.length > 0),
       generatedAt: now,
       totals,
       missingJurors: reached
-        ? jurors.filter((juror) => juror.state !== 'PRESENT')
+        ? alertJurors.filter(
+            (juror) => juror.state !== 'PRESENT' && !juror.notComing,
+          )
         : [],
+      notComingJurors: alertJurors.filter((juror) => juror.notComing),
       groups,
     };
   }
@@ -121,28 +170,37 @@ export class AbsenceAlertService {
   private async loadJurors(
     editionId: number,
     phase: FairPhase,
-  ): Promise<AlertJuror[]> {
-    const [rows, enrollments] = await Promise.all([
+  ): Promise<AttendanceJuror[]> {
+    const [rows, enrollments, notComing] = await Promise.all([
       this.attendance.rowsOfEdition(editionId),
       this.prisma.jurorEdition.findMany({
         where: { editionId },
         select: { jurorId: true, type: true },
       }),
+      loadNotComing(this.prisma, editionId),
     ]);
     const typeOf = new Map(enrollments.map((e) => [e.jurorId, e.type]));
     const missingState: JurorAttendanceState = isControlReached(phase)
       ? 'ABSENT'
       : 'NO_CHECK_IN';
 
-    return [...rows].sort(compareRows).map(({ item }) => ({
-      jurorId: item.jurorId,
-      name: item.name,
-      category: item.category,
-      isProfessor: item.isProfessor,
-      type: typeOf.get(item.jurorId) ?? null,
-      state: item.checkedInAt ? 'PRESENT' : missingState,
-      checkedInAt: item.checkedInAt,
-    }));
+    return [...rows].sort(compareRows).map(({ item }) => {
+      // Con llegada activa está presente; si no, «No podrá asistir» lo deja ausente a cualquier hora.
+      const since = item.checkedInAt
+        ? null
+        : (notComing.get(item.jurorId) ?? null);
+      return {
+        jurorId: item.jurorId,
+        name: item.name,
+        category: item.category,
+        isProfessor: item.isProfessor,
+        type: typeOf.get(item.jurorId) ?? null,
+        state: item.checkedInAt ? 'PRESENT' : since ? 'ABSENT' : missingState,
+        checkedInAt: item.checkedInAt,
+        notComing: since !== null,
+        notComingSince: since,
+      };
+    });
   }
 
   /**
@@ -151,7 +209,7 @@ export class AbsenceAlertService {
    */
   private async loadGroups(
     editionId: number,
-    jurors: AlertJuror[],
+    jurors: AttendanceJuror[],
   ): Promise<PanelGroup[]> {
     const [{ groups }, teams, evaluations] = await Promise.all([
       this.tracking.getTracking(),
@@ -164,7 +222,9 @@ export class AbsenceAlertService {
         },
       }),
       this.prisma.evaluation.findMany({
-        where: { editionId, isActive: true },
+        // BG-73 (ARK-284): «ya evaluó» es haber enviado una evaluación de jurado; la nota del
+        // profesor a sus NRC (sin detalles) no lo cuenta.
+        where: { editionId, ...JUROR_EVALUATION_FILTER },
         select: { videogameId: true, jurorId: true },
       }),
     ]);

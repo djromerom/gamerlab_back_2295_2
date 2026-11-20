@@ -27,9 +27,9 @@ Independientes del rol. Un suplente también es junior o senior (al reemplazar c
 ## Flujo del día de la feria
 1. **Antes:** asignación automática (HU-07, validada por HU-08) entre el 23 y 24-nov; escarapelas con QR el 25 (HU-10).
 2. **8:00** check-in por QR o buscando por nombre (HU-11; sin modo offline, P-20). Al leer un QR, la mesa ve primero el nombre y los grupos del jurado y confirma antes de registrar (BG-49, `GET /juror-checkin/badge`). Si una llegada se registró por error (otro jurado, el QR vecino), **solo el administrador** la anula desde la asistencia (BG-49): el jurado vuelve a «Sin check-in» en la asistencia, la alerta de inasistencia, la presencia y la contingencia, y queda registro de quién la anuló, cuándo y por qué. El Staff no puede anular. Después se puede registrar la llegada correcta.
-3. **10:00** alerta informativa de jurados sin check-in (HU-12; la ven admin y profesores en solo lectura). Los profesores contactan a los ausentes y el equipo registra la respuesta (HU-13).
+3. **10:00** alerta informativa de jurados sin check-in (HU-12; la ven admin y profesores en solo lectura). Los profesores contactan a los ausentes y el equipo registra la respuesta (HU-13). Cada ausente muestra sus grupos (código, nivel y cuántos le faltan por calificar). **«No podrá asistir»** lo deja como **ausente confirmado** (HU-44, ARK-293): sale de «Faltan por llegar», pasa a «No vendrán» y Contingencia lo trata como ausente de inmediato, sin esperar las 11:00, y propone suplentes para sus grupos. No se le quitan los grupos. «Viene en camino» y «Sin respuesta» son informativas; si se registran después, o si el jurado hace check-in, vuelve a la normalidad. El historial de respuestas se conserva. Un suplente que «No podrá asistir» no se propone para cubrir.
 4. **11:00** control definitivo: el sistema **sugiere** suplentes y el administrador acepta, rechaza o asigna a mano; lo asignado **se suma** (nadie pierde grupos, aunque el jurado llegue tarde) (HU-14, HU-09).
-5. **Durante:** pregunta de presencia cada hora (HU-23); seguimiento por hora de evaluaciones por grupo (HU-21).
+5. **Durante:** pregunta de presencia cada hora (HU-23). El panel «Presencia de los jurados» lista solo a los que llegaron y todavía tienen equipos por calificar, con cuántos les faltan; el que ya calificó todos sale de la lista y vuelve si le asignan un equipo nuevo (BG-72). Seguimiento por hora de evaluaciones por grupo (HU-21).
 6. **Jurado de último momento** (HU-24): lo da de alta solo el administrador; es **Junior y Suplente**, sin escarapela ni QR; la asignación automática elige un solo nivel (el de más faltantes), excluye colegios, tope 3 grupos y muestra la lista antes de asignar.
 7. **Cierre ~12:00:** nota final liberada por el administrador (HU-20); encuesta opcional al jurado (HU-17).
 
@@ -57,12 +57,13 @@ Para quien llega a la feria sin estar registrado. Lo hace **solo el Administrado
 ## Calificar un grupo
 - El jurado debe digitar el **código de verificación** del grupo (lo ve el estudiante) para calificar; N0 no lo lleva (HU-19, P-25).
 - Quién puede calificar (decisión U1 del 30-oct): actor asignado al grupo, o Profesor dueño de un NRC del equipo en su edición; N0 exige además senior; el juego debe ser de la edición activa.
+- Check-in obligatorio (BG-71, ARK-285): el jurado asignado solo califica si registró su llegada en la mesa; si no, ve «Registra tu llegada en la mesa de ARKAD para poder calificar». Si al administrador se le olvidó, la registra por búsqueda manual en el check-in. El jurado de último momento (HU-24) ya queda con la llegada al darlo de alta.
 - Lote: `evaluations` de 1 a 50 filas; escritura todo o nada (U2).
 
 ## Asignación automática y manual
 Reglas en [reglas-de-negocio §5](reglas-de-negocio.md). Existe bitácora de cambios (`JurorAssignmentAuditLog`). «Quitar todas las asignaciones» debe afectar solo la edición activa (BG-20).
 
 ## Panel de seguimiento
-Se actualiza cada 10 s. Lo ven Administrador y, en solo lectura, profesores senior (P-16, P-26). Asistencia visible también para Staff en solo lectura (HU-29).
+Se actualiza cada 10 s. Lo ven Administrador y, en solo lectura, profesores senior (P-16, P-26). Asistencia visible también para Staff en solo lectura (HU-29). «Recibidas», «Cuentan» y «Faltan» cuentan solo las evaluaciones de los jurados; la nota que el profesor pone a sus NRC no se incluye (BG-73).
 
 > PENDIENTE: confirmar en producción qué jurados figuran hoy como senior sin ser profesores (subtarea de HU-07) y qué tickets de esta lista ya están mergeados (ver [backlog-y-epicas](../05-scrum-y-proceso/backlog-y-epicas.md)).

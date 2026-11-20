@@ -10,6 +10,7 @@ import {
   isControlReached,
 } from 'src/jurors/absence-alert/fair-schedule';
 import { FairScheduleService } from 'src/jurors/absence-alert/fair-schedule.service';
+import { loadNotComing } from 'src/jurors/absent-juror-responses/not-coming';
 import {
   JUROR_ROLE_NAME,
   PROFESSOR_ROLE_NAME,
@@ -213,7 +214,7 @@ export class JurorContingencyService {
     const videogameIds = teams.flatMap((t) =>
       t.videogame ? [t.videogame.id] : [],
     );
-    const [attendances, evaluations, presence] = await Promise.all([
+    const [attendances, evaluations, presence, notComing] = await Promise.all([
       this.prisma.jurorAttendance.findMany({
         where: { editionId, isActive: true },
         select: { jurorId: true },
@@ -223,6 +224,7 @@ export class JurorContingencyService {
         select: { videogameId: true, jurorId: true },
       }),
       this.presence.list({ indicator: 'POSSIBLE_LEFT' }, now),
+      loadNotComing(this.prisma, editionId),
     ]);
     const arrived = new Set(attendances.map((a) => a.jurorId));
     const evaluated = new Set(
@@ -248,13 +250,18 @@ export class JurorContingencyService {
         category: categoryOf(juror),
         checkedIn: arrived.has(juror.id),
         possibleLeft: possibleLeft.has(juror.id),
+        notComing: notComing.has(juror.id),
         evaluated: evaluated.has(`${team.videogame?.id}:${juror.id}`),
       })),
     }));
   }
 
-  /** Suplentes (tipo Suplente) confirmados en la edición, con sus grupos y su llegada. */
+  /**
+   * Suplentes (tipo Suplente) confirmados en la edición, con sus grupos y su llegada. No se propone
+   * al suplente que «No podrá asistir» (HU-44).
+   */
   private async loadSubstitutes(editionId: number): Promise<SubstituteInput[]> {
+    const notComing = await loadNotComing(this.prisma, editionId);
     const users = await this.prisma.user.findMany({
       where: {
         isActive: true,
@@ -283,7 +290,10 @@ export class JurorContingencyService {
         },
       },
     });
-    return users.map((user) => ({
+    const available = users.filter(
+      (user) => user.attendances.length > 0 || !notComing.has(user.id),
+    );
+    return available.map((user) => ({
       id: user.id,
       name: fullName(user),
       category: user.jurorCategory,

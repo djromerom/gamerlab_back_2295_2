@@ -12,13 +12,11 @@ import {
 } from 'src/jurors/juror-badges/juror-label';
 import { handlePrismaError } from 'src/prisma/prisma-exceptions.util';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { EditionIdDto } from './dto/edition-id.dto';
 import { EnrollJurorDto } from './dto/enroll-juror.dto';
 import { ListEditionJurorsQueryDto } from './dto/list-edition-jurors-query.dto';
 import { UpdateJurorEditionStatusDto } from './dto/update-juror-edition-status.dto';
 import {
   assertWritable,
-  findPreviousEdition,
   resolveEdition,
   toEditionSummary,
 } from './edition-resolver';
@@ -27,7 +25,6 @@ import { buildPage } from './juror-edition-list';
 import {
   AUTOMATIC_STATUS,
   EditionJurorItem,
-  ImportPreviousResult,
   PaginatedEditionJurors,
   StatusRowResult,
   UpdateStatusResult,
@@ -93,16 +90,6 @@ function toProfessorItem(professor: ListedJuror): EditionJurorItem {
   };
 }
 
-/**
- * Jurados externos (rol Jurado) con cuenta activa: solo para el *fallback* de `importPrevious`
- * (edición anterior sin lista). Las filas de `jurado_edicion` se leen con
- * `enrollableAccountWhere`, que desde HU-28 incluye a los profesores inscritos.
- */
-const activeJurorWhere: Prisma.UserWhereInput = {
-  isActive: true,
-  role: { name: JUROR_ROLE_NAME },
-};
-
 @Injectable()
 export class JurorEditionService {
   constructor(private readonly prisma: PrismaService) {}
@@ -135,65 +122,6 @@ export class JurorEditionService {
     return {
       ...buildPage([...items.values()], query),
       edition: toEditionSummary(edition),
-    };
-  }
-
-  /**
-   * Trae como Pendientes a los confirmados de la edición anterior (jurados y profesores inscritos,
-   * HU-28), sin duplicar. Si la anterior no tiene lista (ediciones previas a HU-25), trae a todos
-   * los jurados activos (solo rol Jurado).
-   */
-  async importPrevious(
-    dto: EditionIdDto,
-    actorId: string,
-  ): Promise<ImportPreviousResult> {
-    const edition = await resolveEdition(this.prisma, dto.editionId);
-    assertWritable(edition);
-    const previous = await findPreviousEdition(this.prisma, edition);
-
-    const previousRows = await this.prisma.jurorEdition.count({
-      where: { editionId: previous.id },
-    });
-    const fallback = previousRows === 0;
-
-    const candidates: { jurorId: string; type: JurorType }[] = fallback
-      ? (
-          await this.prisma.user.findMany({
-            where: activeJurorWhere,
-            select: { id: true, jurorType: true },
-          })
-        ).map((user) => ({
-          jurorId: user.id,
-          // Único uso de User.jurorType: valor inicial; desde aquí manda JurorEdition.type.
-          type: user.jurorType ?? JurorType.OFFICIAL,
-        }))
-      : await this.prisma.jurorEdition.findMany({
-          where: {
-            editionId: previous.id,
-            status: JurorEditionStatus.CONFIRMED,
-            juror: enrollableAccountWhere(),
-          },
-          select: { jurorId: true, type: true },
-        });
-
-    const { count } = candidates.length
-      ? await this.prisma.jurorEdition.createMany({
-          data: candidates.map((candidate) => ({
-            jurorId: candidate.jurorId,
-            editionId: edition.id,
-            type: candidate.type,
-            status: JurorEditionStatus.PENDING,
-            updatedById: actorId,
-          })),
-          skipDuplicates: true,
-        })
-      : { count: 0 };
-
-    return {
-      sourceEditionId: previous.id,
-      created: count,
-      skipped: candidates.length - count,
-      fallback,
     };
   }
 

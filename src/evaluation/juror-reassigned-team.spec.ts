@@ -131,6 +131,8 @@ function createDb() {
       findFirst: jest.fn(async () => ({ evaluationsOpen: true })),
     },
     criterion: { findMany: jest.fn(async () => [{ id: 1, weight: 1 }]) },
+    // BG-71 (ARK-285): el jurado ya hizo check-in.
+    jurorAttendance: { findFirst: jest.fn(async () => ({ id: 1 })) },
     videogame: {
       findMany: jest.fn(async ({ where, select }) => {
         if (where.AND) {

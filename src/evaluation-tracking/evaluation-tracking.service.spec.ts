@@ -87,12 +87,19 @@ describe('EvaluationTrackingService (HU-21)', () => {
     });
   });
 
-  it('lee solo evaluaciones activas de la edición activa', async () => {
+  it('lee solo evaluaciones de jurado activas de la edición activa', async () => {
     prisma.team.findMany.mockResolvedValue([team(1, 'N1-X-01', [])]);
     await service.getTracking({ date: DAY });
+    // BG-73 (ARK-284): `details: { some: {} }` deja fuera la nota del profesor a sus NRC (sin
+    // detalles); es el mismo filtro de `jurorEvaluationsOf` (ARK-147).
     expect(prisma.evaluation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { editionId: 12, isActive: true, videogameId: { in: [10] } },
+        where: {
+          editionId: 12,
+          isActive: true,
+          details: { some: {} },
+          videogameId: { in: [10] },
+        },
       }),
     );
     expect(whereOf(prisma.team.findMany)).toMatchObject({
