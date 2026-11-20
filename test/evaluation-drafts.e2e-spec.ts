@@ -141,6 +141,15 @@ describeIfDb('Borradores de evaluación (HU-18, HTTP + PostgreSQL)', () => {
         status: JurorEditionStatus.CONFIRMED,
       })),
     });
+    // BG-71 (ARK-285): solo califica quien hizo check-in; cada jurado ya llegó a la mesa.
+    await prisma.jurorAttendance.createMany({
+      data: [jurorA, jurorB].map((jurorId) => ({
+        jurorId,
+        editionId,
+        checkedInById: adminId,
+        method: 'MANUAL' as const,
+      })),
+    });
     for (const [index, owner] of [ownerA, ownerB].entries()) {
       const team = await prisma.team.create({
         data: {
@@ -209,6 +218,9 @@ describeIfDb('Borradores de evaluación (HU-18, HTTP + PostgreSQL)', () => {
     });
     await prisma.jurorAssignmentAuditLog.deleteMany({
       where: { actorUserId: adminId },
+    });
+    await prisma.jurorAttendance.deleteMany({
+      where: { jurorId: { in: allUsers } },
     });
     await prisma.jurorEdition.deleteMany({
       where: { jurorId: { in: allUsers } },

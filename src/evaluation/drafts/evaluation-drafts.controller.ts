@@ -72,7 +72,7 @@ export class EvaluationDraftsController {
   })
   @ApiConflictResponse({
     description:
-      '`code: DRAFT_VERSION_CONFLICT` (trae `draft` con la versión actual) o `code: EVALUATION_ALREADY_SUBMITTED`.',
+      '`code: DRAFT_VERSION_CONFLICT` (trae `draft` con la versión actual), `code: EVALUATION_ALREADY_SUBMITTED` o `code: JUROR_NOT_CHECKED_IN` (el jurado no registró su llegada en la mesa, BG-71).',
   })
   save(
     @GetUser('id') jurorId: string,

@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: check-in obligatorio para calificar (BG-71, ARK-285)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): `findEvaluationBlockers` agrega el bloqueo «sin check-in» (409 `JUROR_NOT_CHECKED_IN`) para el envío individual, el lote (de toda la petición) y el guardado de borradores; la lista de borradores no lo aplica. El Profesor que califica solo por su NRC (sin estar asignado) queda exento. Sin migración ni permiso nuevo.
+- Contrato nuevo `docs/frontend/BG-71-check-in-para-calificar.md`.
+
 ## 2026-11-20: el seguimiento cuenta solo evaluaciones de jurado (BG-73, ARK-284)
 - [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): «Recibidas», «Cuentan», «Faltan», la tabla por hora y la alerta de HU-12 excluyen la nota del profesor a sus NRC (filtro único `JUROR_EVALUATION_FILTER`). Sin migración ni cambio de contrato (mismos campos). Queda anotada la diferencia con la marca «Menos de 3 evaluaciones» del ranking (BG-68), que la vista cuenta con la nota del profesor.
 

@@ -26,6 +26,10 @@ import {
 } from '../teams/team-status';
 import { MAX_SCORE, scoreError } from './score-rules';
 import { NOT_GRADABLE_MESSAGE } from '../teams/team-gradable';
+import {
+  evaluationBlockerException,
+  NOT_CHECKED_IN_MESSAGE,
+} from './evaluation-blockers';
 
 /** Quien califica: el usuario de la sesión. */
 type EvaluationActor = {
@@ -98,7 +102,7 @@ export class EvaluationService {
     );
     const blocker = blockers.get(videogameId);
     if (blocker) {
-      throw new ForbiddenException(blocker);
+      throw evaluationBlockerException(blocker);
     }
 
     // HU-19: el jurado debe haber digitado el código del grupo
@@ -259,6 +263,12 @@ export class EvaluationService {
       professorRoleId,
     );
 
+    // BG-71 (ARK-285): el check-in es del jurado, no de cada fila: sin él todo el lote falla igual,
+    // así que responde 409 de la petición completa (como el envío individual) y no guarda nada.
+    if ([...blockers.values()].includes(NOT_CHECKED_IN_MESSAGE)) {
+      throw evaluationBlockerException(NOT_CHECKED_IN_MESSAGE);
+    }
+
     // --- (a) Validación en memoria, fila por fila ---
     const now = new Date();
     const seen = new Set<number>();
@@ -412,7 +422,12 @@ export class EvaluationService {
    * 2. el equipo no es de la edición activa;
    * 3. equipo de colegios (N0) y el actor no es senior (Profesor o jurado SENIOR);
    * 4. el actor no está asignado al equipo ni es Profesor dueño de un NRC activo de algún
-   *    integrante activo en la edición del equipo (aplica también a colegios).
+   *    integrante activo en la edición del equipo (aplica también a colegios);
+   * 5. BG-71 (ARK-285): el actor está asignado al equipo pero no tiene check-in activo en la
+   *    edición activa (`NOT_CHECKED_IN_MESSAGE`; los llamadores lo responden como 409
+   *    `JUROR_NOT_CHECKED_IN`). El Profesor que califica solo por ser dueño del NRC, sin estar
+   *    asignado, no lo necesita (es la nota a sus NRC). `requireCheckIn: false` la omite (la lista
+   *    de borradores: perder el check-in no es un cambio de asignación que obligue a descartar).
    * `professorRoleId` es opcional para no repetir la consulta del rol si el llamador ya la hizo.
    */
   async findEvaluationBlockers(
@@ -420,6 +435,7 @@ export class EvaluationService {
     videogameIds: number[],
     activeEditionId: number,
     professorRoleId?: number,
+    options: { requireCheckIn?: boolean } = {},
   ): Promise<Map<number, string>> {
     const roleId =
       professorRoleId === undefined
@@ -456,6 +472,21 @@ export class EvaluationService {
       },
     });
     const byId = new Map(videogames.map((v) => [v.id, v]));
+
+    // Una sola consulta de asistencia, y solo si algún juego es de un equipo al que está asignado.
+    const needsCheckIn =
+      options.requireCheckIn !== false &&
+      videogames.some((v) => (v.team?.assignedJurors.length ?? 0) > 0);
+    const checkedIn = needsCheckIn
+      ? (await this.prisma.jurorAttendance.findFirst({
+          where: {
+            jurorId: actor.id,
+            editionId: activeEditionId,
+            isActive: true,
+          },
+          select: { id: true },
+        })) !== null
+      : true;
 
     const blockers = new Map<number, string>();
     for (const videogameId of videogameIds) {
@@ -503,6 +534,12 @@ export class EvaluationService {
         );
       if (!isAssigned && !ownsMemberNrc) {
         blockers.set(videogameId, 'Este grupo no está asignado al evaluador');
+        continue;
+      }
+
+      // BG-71 (ARK-285): quien califica como jurado debe haber registrado su llegada.
+      if (isAssigned && !checkedIn) {
+        blockers.set(videogameId, NOT_CHECKED_IN_MESSAGE);
       }
     }
     return blockers;
