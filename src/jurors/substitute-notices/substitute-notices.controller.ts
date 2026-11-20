@@ -1,9 +1,12 @@
 import {
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -122,5 +125,32 @@ export class SubstituteNoticesController {
   @ApiResponse({ status: 404, description: noActiveEdition })
   listUnread() {
     return this.noticesService.listUnread();
+  }
+
+  @Post(':id/resend')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RequiredService('AssignJurors')
+  @ApiOperation({
+    summary: 'Reenviar el correo de un aviso que no salió (BG-74)',
+    description:
+      'Solo Administrador. Solo para avisos con `emailStatus: FAILED` («El correo no salió»). El aviso pasa a PENDING y el correo sale por la cola de envío (con pausa entre correos), así que la respuesta no espera a ACS: el resultado (SENT o FAILED) se ve en `GET /substitute-notices/unread`.',
+  })
+  @ApiResponse({
+    status: 202,
+    schema: { example: { noticeId: 12, emailStatus: 'PENDING' } },
+  })
+  @ApiResponse({ status: 400, description: 'El id no es un número' })
+  @ApiResponse({ status: 403, description: 'Sin permiso' })
+  @ApiResponse({
+    status: 404,
+    description: 'El aviso no existe (`code: SUBSTITUTE_NOTICE_NOT_FOUND`)',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'El correo del aviso no está en FAILED: ya salió, se está enviando o se omitió (`code: SUBSTITUTE_NOTICE_EMAIL_NOT_FAILED`, con `emailStatus` actual)',
+  })
+  resendEmail(@Param('id', ParseIntPipe) id: number) {
+    return this.noticesService.resendEmail(id);
   }
 }

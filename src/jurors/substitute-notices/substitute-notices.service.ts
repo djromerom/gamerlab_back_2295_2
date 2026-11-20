@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   JurorEditionStatus,
@@ -13,6 +18,7 @@ import { JUROR_ROLE_NAME } from 'src/jurors/juror-badges/juror-label';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NoticeStatusFilter } from './dto/list-my-notices-query.dto';
 import {
+  SUBSTITUTE_NOTICE_EMAIL_NOT_FAILED,
   SUBSTITUTE_NOTICE_MESSAGE,
   SUBSTITUTE_NOTICE_NOT_FOUND,
   byUnreadThenNewest,
@@ -185,6 +191,41 @@ export class SubstituteNoticesService {
       );
     }
     return status;
+  }
+
+  /**
+   * BG-74 (ARK-289): el administrador reenvía el correo de un aviso en «El correo no salió»
+   * (FAILED). El aviso pasa a PENDING antes de encolar el correo, así un segundo clic responde 409
+   * en lugar de duplicarlo. El correo sale por la cola de EmailService y el resultado (SENT o
+   * FAILED) se ve en GET /substitute-notices/unread.
+   */
+  async resendEmail(noticeId: number) {
+    const { count } = await this.prisma.substituteNotice.updateMany({
+      where: { id: noticeId, emailStatus: SubstituteNoticeEmailStatus.FAILED },
+      data: { emailStatus: SubstituteNoticeEmailStatus.PENDING, emailError: null },
+    });
+    if (count === 0) {
+      const notice = await this.prisma.substituteNotice.findUnique({
+        where: { id: noticeId },
+        select: { emailStatus: true },
+      });
+      if (!notice) {
+        throw new NotFoundException({
+          statusCode: 404,
+          code: SUBSTITUTE_NOTICE_NOT_FOUND,
+          message: 'El aviso no existe.',
+        });
+      }
+      throw new ConflictException({
+        statusCode: 409,
+        code: SUBSTITUTE_NOTICE_EMAIL_NOT_FAILED,
+        message: 'Solo se reenvía el correo de un aviso en «El correo no salió».',
+        emailStatus: notice.emailStatus,
+      });
+    }
+    this.logger.log(`Reenvío del correo del aviso ${noticeId} encolado.`);
+    this.sendEmailAfterCommit([noticeId]);
+    return { noticeId, emailStatus: SubstituteNoticeEmailStatus.PENDING };
   }
 
   /** Avisos del usuario en la edición activa; por defecto solo los sin leer. */

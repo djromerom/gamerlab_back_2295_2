@@ -1,13 +1,12 @@
 import {
-  DecisionRef,
   ScoreRow,
   TeamInfo,
   buildLevelRankings,
   buildTieKey,
   classifyTie,
   parseLevel,
+  registrationOrder,
   teamsWithoutLevel,
-  validateOrder,
 } from './ranking.logic';
 
 const EDITION = 7;
@@ -52,14 +51,12 @@ function info(day: number, professors = [profA], isActive = true): TeamInfo {
 function build(
   rows: ScoreRow[],
   teams: Record<number, TeamInfo>,
-  decisions: DecisionRef[] = [],
   podiumSize?: number,
 ) {
   return buildLevelRankings({
     editionId: EDITION,
     rows,
     teams: new Map(Object.entries(teams).map(([k, v]) => [Number(k), v])),
-    decisions: new Map(decisions.map((d) => [d.tieKey, d])),
     podiumSize,
   });
 }
@@ -107,9 +104,7 @@ describe('ranking.logic (HU-04)', () => {
     expect(build(rows, teams)[0].podium.map((t) => t.teamId)).toEqual([
       1, 2, 3,
     ]);
-    expect(build(rows, teams, [], 1)[0].podium.map((t) => t.teamId)).toEqual([
-      1,
-    ]);
+    expect(build(rows, teams, 1)[0].podium.map((t) => t.teamId)).toEqual([1]);
   });
 
   it('deja fuera equipos inactivos, de otra edición o sin nivel, y lista aparte los que no tienen nota', () => {
@@ -318,18 +313,18 @@ describe('ranking.logic (HU-04)', () => {
     });
   });
 
-  describe('empates (P-05)', () => {
-    it('mismo profesor: queda pendiente para ese profesor, con orden provisional por inscripción', () => {
+  describe('empates (HU-47: siempre por fecha de inscripción)', () => {
+    it('mismo profesor: ya no decide el profesor; gana la inscripción más antigua', () => {
       const [level] = build(
         [row(1, 'N1-A-1', 4.2), row(2, 'N1-A-2', 4.2), row(3, 'N1-A-3', 4.5)],
         { 1: info(5, [profA]), 2: info(3, [profA, profB]), 3: info(1) },
       );
       expect(level.ties).toHaveLength(1);
-      const tie = level.ties[0];
-      expect(tie).toMatchObject({
-        rule: 'PROFESSOR',
-        status: 'PENDING',
-        deciders: [profA],
+      expect(level.ties[0]).toMatchObject({
+        rule: 'REGISTRATION',
+        status: 'RESOLVED',
+        deciders: [],
+        decision: null,
         positions: [2, 3],
         affectsPodium: true,
         order: [2, 1],
@@ -339,12 +334,12 @@ describe('ranking.logic (HU-04)', () => {
         level.teams.map((t) => [t.teamId, t.position, t.provisional]),
       ).toEqual([
         [3, 1, false],
-        [2, 2, true],
-        [1, 3, true],
+        [2, 2, false],
+        [1, 3, false],
       ]);
     });
 
-    it('profesores distintos: gana la inscripción más antigua, sin decisión', () => {
+    it('profesores distintos: gana la inscripción más antigua', () => {
       const [level] = build([row(1, 'N1-A-1', 4), row(2, 'N1-A-2', 4)], {
         1: info(9, [profA]),
         2: info(2, [profB]),
@@ -354,12 +349,15 @@ describe('ranking.logic (HU-04)', () => {
         status: 'RESOLVED',
         order: [2, 1],
       });
-      expect(level.ties[0].explanation).toContain('Criterio de inscripción');
+      expect(level.ties[0].explanation).toContain(
+        'Resuelto por fecha de inscripción',
+      );
+      expect(level.ties[0].explanation).not.toContain('misma fecha');
       expect(level.teams.map((t) => t.teamId)).toEqual([2, 1]);
       expect(level.teams.every((t) => !t.provisional)).toBe(true);
     });
 
-    it('si el empate mezcla grupos del mismo profesor con otros, se aplica la inscripción', () => {
+    it('empate que mezcla grupos del mismo profesor con otros: por inscripción', () => {
       const [level] = build(
         [row(1, 'N1-A-1', 4), row(2, 'N1-A-2', 4), row(3, 'N1-A-3', 4)],
         { 1: info(3, [profA]), 2: info(1, [profA]), 3: info(2, [profB]) },
@@ -381,60 +379,42 @@ describe('ranking.logic (HU-04)', () => {
       });
     });
 
-    it('misma fecha de inscripción sin profesor común: queda para el administrador', () => {
-      const [level] = build([row(1, 'N1-A-1', 4), row(2, 'N1-A-2', 4)], {
-        1: info(3, [profA]),
-        2: info(3, [profB]),
-      });
-      expect(level.ties[0]).toMatchObject({
-        rule: 'MANUAL',
-        status: 'PENDING',
-      });
-    });
-
-    it('aplica la decisión registrada para esa clave de empate', () => {
-      const tieKey = buildTieKey(EDITION, 1, 4.2, [1, 2]);
-      const decision: DecisionRef = {
-        id: 1,
-        tieKey,
-        method: 'PROFESSOR',
-        reason: 'Mejor jugabilidad',
-        orderedTeamIds: [1, 2],
-        decidedBy: profA,
-        decidedAt: new Date(),
-      };
+    it('misma fecha de inscripción: decide el id del equipo, sin pasar a manual', () => {
       const [level] = build(
-        [row(1, 'N1-A-1', 4.2), row(2, 'N1-A-2', 4.2)],
-        { 1: info(5), 2: info(1) },
-        [decision],
+        [row(9, 'N1-A-9', 4), row(4, 'N1-A-4', 4), row(6, 'N1-A-6', 4)],
+        { 9: info(3, [profA]), 4: info(3, [profB]), 6: info(3, [profA]) },
       );
       expect(level.ties[0]).toMatchObject({
+        rule: 'REGISTRATION',
         status: 'RESOLVED',
-        order: [1, 2],
-        explanation: 'Mejor jugabilidad',
+        order: [4, 6, 9],
       });
-      expect(level.teams.map((t) => t.teamId)).toEqual([1, 2]);
+      expect(level.ties[0].explanation).toContain('misma fecha');
+      expect(level.teams.map((t) => [t.teamId, t.position])).toEqual([
+        [4, 1],
+        [6, 2],
+        [9, 3],
+      ]);
     });
 
-    it('una decisión de otro empate (otra nota u otros equipos) no se aplica', () => {
-      const stale: DecisionRef = {
-        id: 1,
-        tieKey: buildTieKey(EDITION, 1, 4.1, [1, 2]),
-        method: 'PROFESSOR',
-        reason: 'x',
-        orderedTeamIds: [1, 2],
-        decidedBy: profA,
-        decidedAt: new Date(),
-      };
+    it('fecha distinta manda sobre el id; con la misma fecha, el id menor', () => {
       const [level] = build(
-        [row(1, 'N1-A-1', 4.2), row(2, 'N1-A-2', 4.2)],
-        { 1: info(5), 2: info(1) },
-        [stale],
+        [row(1, 'N1-A-1', 4), row(2, 'N1-A-2', 4), row(3, 'N1-A-3', 4)],
+        { 1: info(4, [profA]), 2: info(2, [profA]), 3: info(2, [profA]) },
       );
-      expect(level.ties[0]).toMatchObject({
-        status: 'PENDING',
-        decision: null,
-      });
+      expect(level.ties[0].order).toEqual([2, 3, 1]);
+    });
+
+    it('el empate es de cada nivel: dos niveles con la misma nota no se mezclan', () => {
+      const levels = build(
+        [row(1, 'N1-A-1', 4), row(2, 'N1-A-2', 4), row(3, 'N2-B-3', 4)],
+        { 1: info(3), 2: info(1), 3: info(0) },
+      );
+      expect(levels.map((l) => [l.level, l.ties.length])).toEqual([
+        [1, 1],
+        [2, 0],
+      ]);
+      expect(levels[0].ties[0].order).toEqual([2, 1]);
     });
 
     it('un empate fuera del podio se detecta pero no afecta el podio', () => {
@@ -469,30 +449,21 @@ describe('ranking.logic (HU-04)', () => {
     });
   });
 
-  it('classifyTie da todos los profesores comunes como posibles decisores', () => {
-    const t = (id: number, professors: any[]) => ({
+  it('classifyTie siempre devuelve inscripción, sin decisores', () => {
+    expect(classifyTie()).toEqual({ rule: 'REGISTRATION', deciders: [] });
+  });
+
+  it('registrationOrder ordena por fecha y luego por id', () => {
+    const t = (id: number, day: number) => ({
       teamId: id,
       teamCode: `N1-${id}`,
       teamName: null,
       videogameName: null,
-      registrationDate: new Date(Date.UTC(2026, 0, id)).toISOString(),
-      professors,
+      registrationDate: new Date(Date.UTC(2026, 0, day)).toISOString(),
+      professors: [],
     });
-    expect(classifyTie([t(1, [profA, profB]), t(2, [profB, profA])])).toEqual({
-      rule: 'PROFESSOR',
-      deciders: [profA, profB],
-    });
-  });
-
-  it('validateOrder exige exactamente los equipos empatados', () => {
-    const [level] = build([row(1, 'N1-A-1', 4), row(2, 'N1-A-2', 4)], {
-      1: info(1),
-      2: info(2),
-    });
-    const tie = level.ties[0];
-    expect(validateOrder(tie, [2, 1])).toBeNull();
-    expect(validateOrder(tie, [1])).toContain('una sola vez');
-    expect(validateOrder(tie, [1, 1])).toContain('una sola vez');
-    expect(validateOrder(tie, [1, 3])).toContain('una sola vez');
+    expect(registrationOrder([t(5, 2), t(3, 2), t(1, 9), t(7, 1)])).toEqual([
+      7, 3, 5, 1,
+    ]);
   });
 });

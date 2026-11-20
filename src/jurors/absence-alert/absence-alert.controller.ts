@@ -30,6 +30,14 @@ const juror = {
   type: 'OFFICIAL',
   state: 'NO_CHECK_IN',
   checkedInAt: null,
+  notComing: false,
+  notComingSince: null,
+};
+const jurorGroups = {
+  groups: [
+    { teamId: 41, teamCode: 'N2-AYP-07', level: 'N2', evaluated: false },
+  ],
+  pendingGroups: 1,
 };
 const group = {
   teamId: 41,
@@ -48,15 +56,26 @@ const alertExample = {
   phase: 'ALERT',
   alertActive: true,
   generatedAt: '2026-11-26T15:02:10.000Z',
-  totals: { present: 42, missing: 71, total: 113 },
-  missingJurors: [juror],
+  totals: { present: 42, missing: 70, notComing: 1, total: 113 },
+  missingJurors: [{ ...juror, ...jurorGroups }],
+  notComingJurors: [
+    {
+      ...juror,
+      ...jurorGroups,
+      jurorId: '7a1c2b3d-4e5f-4a6b-8c9d-0e1f2a3b4c09',
+      name: 'Ana Ruiz',
+      state: 'ABSENT',
+      notComing: true,
+      notComingSince: '2026-11-26T15:10:00.000Z',
+    },
+  ],
   groups: [group],
 };
 const panelExample = {
   edition,
   phase: 'ALERT',
   generatedAt: '2026-11-26T15:02:10.000Z',
-  totals: { present: 42, missing: 71, total: 113 },
+  totals: { present: 42, missing: 70, notComing: 1, total: 113 },
   data: [{ ...group, jurors: [{ ...juror, hasEvaluated: false }] }],
 };
 
@@ -74,7 +93,7 @@ export class AbsenceAlertController {
   @ApiOperation({
     summary: 'Alerta temprana de inasistencia de la edición activa (HU-12)',
     description:
-      'Fase del cronograma, contador de jurados que faltan y, desde la hora de alerta, la lista de jurados sin check-in y los grupos con más evaluaciones por recibir (de más a menos). Desde la hora de control los jurados sin check-in salen como `ABSENT`. Solo lectura y sin correos ni teléfonos.',
+      'Fase del cronograma, contador de jurados que faltan y, desde la hora de alerta, la lista de jurados sin check-in y los grupos con más evaluaciones por recibir (de más a menos). Desde la hora de control los jurados sin check-in salen como `ABSENT`. HU-44: cada jurado trae sus `groups` (código, nivel y si ya evaluó) y `pendingGroups`; los que «No podrán asistir» (última respuesta `CANNOT_ATTEND` sin check-in después) salen en `notComingJurors` a cualquier hora, como `ABSENT` y con `notComing: true`, y no en `missingJurors`. Solo lectura y sin correos ni teléfonos.',
   })
   @ApiResponse({ status: 200, schema: { example: alertExample } })
   @ApiResponse({ status: 403, description: 'Sin permiso' })

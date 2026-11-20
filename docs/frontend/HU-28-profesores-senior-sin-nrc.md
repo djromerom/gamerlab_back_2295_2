@@ -77,7 +77,7 @@ Ahora incluye a los profesores inscritos: `source: 'ENROLLED'`, `category: 'Seni
 | `NOT_ENROLLED` | "No está en esta edición" (si es profesor, se inscribe por correo) |
 | `IS_PROFESSOR` | "Profesor con NRC en la edición: es jurado automático" |
 
-### 4. Traer de la edición anterior — `POST /juror-edition/import-previous` (misma forma)
+### 4. Traer de la edición anterior — `POST /juror-edition/import-previous` (RETIRADO en HU-49 / ARK-280, ahora responde 404)
 `created` y `skipped` ahora cuentan también a los profesores inscritos y confirmados en la anterior. Si la anterior no tenía lista (*fallback*), sigue trayendo solo cuentas de rol Jurado.
 
 ## Notas de UI

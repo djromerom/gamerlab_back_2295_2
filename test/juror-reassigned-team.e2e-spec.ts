@@ -116,6 +116,15 @@ describeIfDb('Equipo reasignado (HTTP + PostgreSQL)', () => {
         status: JurorEditionStatus.CONFIRMED,
       })),
     });
+    // BG-71 (ARK-285): solo califica quien hizo check-in; cada jurado ya llegó a la mesa.
+    await prisma.jurorAttendance.createMany({
+      data: [jurorA, jurorB].map((jurorId) => ({
+        jurorId,
+        editionId: edition.id,
+        checkedInById: adminId,
+        method: 'MANUAL' as const,
+      })),
+    });
     const team = await prisma.team.create({
       data: {
         teamName: `it-ark190-${runId}`,
@@ -186,6 +195,9 @@ describeIfDb('Equipo reasignado (HTTP + PostgreSQL)', () => {
     await prisma.teamVerification.deleteMany({ where: { teamId } });
     await prisma.jurorAssignmentAuditLog.deleteMany({
       where: { actorUserId: adminId },
+    });
+    await prisma.jurorAttendance.deleteMany({
+      where: { jurorId: { in: allUsers } },
     });
     await prisma.jurorEdition.deleteMany({
       where: { jurorId: { in: allUsers } },

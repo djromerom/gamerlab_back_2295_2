@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { findActiveEdition } from '../../editions/active-edition';
 import { PrismaService } from '../../prisma/prisma.service';
+import { evaluationBlockerException } from '../evaluation-blockers';
 import { EvaluationService } from '../evaluation.service';
 import { scoreError } from '../score-rules';
 import { DraftStatus, draftStatusOf } from './evaluation-draft-status';
@@ -90,7 +91,7 @@ export class EvaluationDraftsService {
       professorRoleId,
     );
     const blocker = blockers.get(videogameId);
-    if (blocker) throw new ForbiddenException(blocker);
+    if (blocker) throw evaluationBlockerException(blocker);
 
     const submitted = await this.prisma.evaluation.findUnique({
       where: { jurado_videojuego_unique: { jurorId, videogameId } },
@@ -253,11 +254,14 @@ export class EvaluationDraftsService {
     } else {
       const { actor, professorRoleId } =
         await this.evaluations.loadActor(jurorId);
+      // Sin check-in no se bloquea la lista: el borrador sigue pendiente y es el envío (o el
+      // guardado) el que responde 409. Si no, el front ofrecería «descartar» lo escrito.
       blockers = await this.evaluations.findEvaluationBlockers(
         actor,
         ids,
         activeEditionId,
         professorRoleId,
+        { requireCheckIn: false },
       );
     }
 

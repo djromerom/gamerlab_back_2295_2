@@ -57,6 +57,7 @@ interface JurorPresenceItem {
   lastConfirmedAt: string | null;
   lastActivityAt: string | null; // última evaluación enviada desde su llegada
   nextPromptAt: string;
+  pendingTeams: number; // BG-72: equipos asignados que le faltan por calificar (siempre ≥ 1)
   indicators: PresenceIndicator[]; // [] = sin alertas
 }
 
@@ -65,7 +66,9 @@ interface JurorPresenceList {
   serverTime: string;
   evaluationsOpen: boolean;
   settings: PresenceSettings;
-  totals: { checkedIn: number; presenceUnconfirmed: number; possibleLeft: number; withAnyIndicator: number };
+  // checkedIn: todos los que llegaron; withPendingTeams: los listados; finished: los que ya calificaron todo.
+  // presenceUnconfirmed, possibleLeft y withAnyIndicator cuentan solo a los listados (BG-72).
+  totals: { checkedIn: number; withPendingTeams: number; finished: number; presenceUnconfirmed: number; possibleLeft: number; withAnyIndicator: number };
   data: JurorPresenceItem[];
 }
 ```
@@ -90,11 +93,11 @@ El botón "Sigo aquí". Guarda la hora del servidor y devuelve el estado nuevo (
 ## Panel del administrador
 
 ### `GET /juror-presence?indicator=` → 200 `JurorPresenceList`
-Jurados de la edición activa **que ya llegaron**, primero los que tienen indicadores y luego por nombre.
+Jurados de la edición activa **que ya llegaron y todavía tienen equipos por calificar** (BG-72, ARK-283), primero los que tienen indicadores y luego por nombre. El que ya calificó todos sus equipos no sale; si le asignan uno nuevo, vuelve a salir. Se cuentan los mismos equipos que sigue el panel: activos, con el juego confirmado y calificables.
 
 | Parámetro | Valores | Por defecto |
 |---|---|---|
-| `indicator` | `PRESENCE_UNCONFIRMED`, `POSSIBLE_LEFT` o `ANY` (con al menos uno) | todos los que llegaron |
+| `indicator` | `PRESENCE_UNCONFIRMED`, `POSSIBLE_LEFT` o `ANY` (con al menos uno) | todos los que llegaron con equipos por calificar |
 
 `totals` no cambia con el filtro. Consultar cada **10 s**, como el resto del panel; si falla, mantener la última lista y avisar. Los que no han llegado están en `GET /juror-attendance` (HU-29).
 

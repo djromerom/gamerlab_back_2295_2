@@ -35,12 +35,8 @@
 - **Ranking oficial por nivel (N0–N4).** El ranking general se conserva como vista informativa (P-03).
 - **Podio:** los **3 primeros** de cada nivel, configurable (P-29). La tabla de podio se eliminó de la BD en mayo de 2026: el podio se calcula desde el ranking.
 - El administrador ve ganadores y empates por nivel para comunicarlos.
-- **Desempate (P-05)**, reemplaza el puntaje automático 70 % jurados / 30 % profesores:
-  1. Si los empatados son de NRC **del mismo profesor** (cualquier NRC suyo), **decide ese profesor**.
-  2. Si son de profesores distintos, **gana el primer grupo inscrito** (`fecha_registro` del equipo).
-  3. Si el profesor no quiere decidir, se aplica la inscripción.
-  4. Un empate que mezcla grupos del mismo profesor con otros se resuelve por inscripción.
-- La decisión del profesor queda registrada (`TieBreakDecision`).
+- **Desempate (HU-47, decisión del profesor del 19-nov; reemplaza P-05):** siempre **gana el primer grupo inscrito** (`fecha_registro` del equipo), sea del mismo profesor o de profesores distintos. Si la fecha coincide, va primero el equipo de id menor. Los profesores ya no eligen y no hay empates pendientes ni resolución manual.
+- Las decisiones guardadas antes (`TieBreakDecision`) se conservan como historial, pero ya no cambian el orden. `/tiebreaker` del administrador queda en solo lectura (front, ARK-305).
 - **Equipos externos (decisión de Allison del 7-nov, por confirmar con el profesor):** sí compiten por el podio, pero con uno **propio** de 3 (configurable), separado de los niveles, porque no pueden competir con los de nivel 1 (HU-38, en el backlog; hoy no está implementado). Los colegios (N0) siguen en su propio nivel.
 
 ## 5. Asignación de jurados

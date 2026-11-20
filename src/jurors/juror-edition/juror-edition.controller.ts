@@ -13,7 +13,6 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
-import { EditionIdDto } from './dto/edition-id.dto';
 import { EnrollJurorDto } from './dto/enroll-juror.dto';
 import { ListEditionJurorsQueryDto } from './dto/list-edition-jurors-query.dto';
 import { UpdateJurorEditionStatusDto } from './dto/update-juror-edition-status.dto';
@@ -74,29 +73,6 @@ export class JurorEditionController {
   })
   list(@Query() query: ListEditionJurorsQueryDto) {
     return this.service.list(query);
-  }
-
-  @Post('import-previous')
-  @RequiredService('ManageEditionJurors')
-  @ApiOperation({
-    summary:
-      'Trae como Pendientes a los jurados confirmados de la edición anterior',
-    description:
-      'No duplica. Si la anterior no tiene lista (antes de HU-25), trae a todos los jurados activos (fallback).',
-  })
-  @ApiResponse({
-    status: 201,
-    schema: {
-      example: { sourceEditionId: 4, created: 37, skipped: 0, fallback: true },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'La edición es de solo lectura (archivada o ya terminó)',
-  })
-  @ApiResponse({ status: 404, description: 'No hay edición anterior o activa' })
-  importPrevious(@Body() dto: EditionIdDto, @GetUser('id') actorId: string) {
-    return this.service.importPrevious(dto, actorId);
   }
 
   @Patch('status')
