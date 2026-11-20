@@ -2,12 +2,6 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
-## 2026-11-20: «No podrá asistir» como ausente confirmado y grupos de cada ausente (HU-44, ARK-293)
-- [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): «No podrá asistir» deja al jurado en «No vendrán» y Contingencia lo trata como ausente de inmediato, sin quitarle los grupos; un check-in o una respuesta informativa posterior lo devuelven a la normalidad.
-- `GET /absence-alert`: cada jurado trae `groups` (`teamId`, `teamCode`, `level`, `evaluated`), `pendingGroups`, `notComing` y `notComingSince`; nueva lista `notComingJurors` (a cualquier hora) y `totals.notComing`. `missingJurors` y `totals.missing` ya no cuentan a los que no vendrán. En `GET /absence-alert/panel` el que no vendrá sale `ABSENT` también antes de la hora de control.
-- `GET /juror/contingency/groups-at-risk` y `suggestions`: el que no vendrá deja de contar en los grupos que no ha calificado (`noVendra: true`, `cuenta: false`) y no se propone como suplente.
-- Regla en `src/jurors/absent-juror-responses/not-coming.ts`. Sin migración ni permisos nuevos. Contrato para el front en `docs/frontend/HU-44-no-podra-asistir.md` (ARK-294).
-
 ## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
 - [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
 - [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.
