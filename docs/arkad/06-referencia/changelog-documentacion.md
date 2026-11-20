@@ -2,11 +2,6 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
-## 2026-11-20: presencia solo de los jurados con equipos por calificar (BG-72, ARK-283)
-- [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): «Presencia de los jurados» lista solo a los que llegaron y todavía tienen equipos sin calificar; vuelve a salir quien recibe un equipo nuevo.
-- `GET /juror-presence`: cada fila trae `pendingTeams`; `totals` suma `withPendingTeams` y `finished` (`checkedIn` sigue contando a todos los que llegaron; los totales de indicadores cuentan solo a los listados).
-- Contrato `docs/frontend/HU-23-presencia-jurado.md` actualizado. Sin migración ni permisos nuevos.
-
 ## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
 - [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
 - [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.
