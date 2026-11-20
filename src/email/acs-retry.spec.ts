@@ -1,5 +1,6 @@
 import { RestError } from '@azure/core-rest-pipeline';
 import {
+  acsOperationFailure,
   acsRetryDelayMs,
   isAzureManagedSender,
   isTransientAcsError,
@@ -62,6 +63,21 @@ describe('acs-retry (BG-74)', () => {
     ).toBeNull();
     expect(acsRetryDelayMs(withHeaders(503, {}), 3, retry)).toBeNull();
     expect(acsRetryDelayMs(withHeaders(400, {}), 1, retry)).toBeNull();
+  });
+
+  it('reconoce el rechazo de ACS (operación Failed) y quita los correos del detalle', () => {
+    expect(
+      acsOperationFailure(
+        new Error(
+          'The long-running operation has failed. Throttled. Too many emails to a@b.co',
+        ),
+      ),
+    ).toBe('Throttled. Too many emails to [correo]');
+    expect(
+      acsOperationFailure(new Error('The long-running operation has failed')),
+    ).toBe('sin detalle');
+    expect(acsOperationFailure(new Error('otro'))).toBeNull();
+    expect(acsOperationFailure('texto')).toBeNull();
   });
 
   it('reconoce el dominio administrado por Azure', () => {

@@ -91,6 +91,29 @@ export function acsRetryDelayMs(
   return Math.max(requested, backoff);
 }
 
+/** Prefijo del error de @azure/core-lro cuando la operación de ACS termina en `Failed`. */
+const OPERATION_FAILED = 'The long-running operation has failed';
+
+/**
+ * Si ACS aceptó el correo y luego lo rechazó (estado final `Failed`), `pollUntilDone` no devuelve
+ * el estado: lanza un `Error` genérico con el código y el mensaje de ACS. Devuelve ese detalle sin
+ * direcciones de correo, o `null` si el error es otro.
+ */
+export function acsOperationFailure(error: unknown): string | null {
+  if (
+    !(error instanceof Error) ||
+    !error.message.startsWith(OPERATION_FAILED)
+  ) {
+    return null;
+  }
+  const detail = error.message
+    .slice(OPERATION_FAILED.length)
+    .replace(/^\.\s*/, '')
+    .replace(/[^\s@<>"']+@[^\s@<>"']+/g, '[correo]')
+    .trim();
+  return detail || 'sin detalle';
+}
+
 /** Dominio `…azurecomm.net`: administrado por Azure, con cupo de 5 por minuto y 10 por hora. */
 export function isAzureManagedSender(senderAddress: string): boolean {
   return /@[^@]*\.azurecomm\.net$/i.test(senderAddress.trim());

@@ -25,6 +25,7 @@ import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 import { EmailClient, EmailMessage, EmailSendResponse } from '@azure/communication-email';
 import { RestError } from '@azure/core-rest-pipeline';
 import {
+  acsOperationFailure,
   acsRetryDelayMs,
   isAzureManagedSender,
   isRateLimitError,
@@ -657,7 +658,15 @@ export class EmailService {
         `Error inesperado enviando correo: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new InternalServerErrorException('Error inesperado enviando correo');
+      // BG-74: el tipo y el inicio del mensaje (sin correos) quedan en el motivo guardado; los
+      // logs del contenedor se pierden en cada despliegue.
+      const detail =
+        error instanceof Error
+          ? `${error.name}: ${error.message}`
+              .replace(/[^\s@<>"']+@[^\s@<>"']+/g, '[correo]')
+              .slice(0, 120)
+          : 'desconocido';
+      throw new InternalServerErrorException(`Error inesperado enviando correo (${detail})`);
     }
   }
 
@@ -728,6 +737,15 @@ export class EmailService {
           abortSignal: AbortSignal.timeout(this.readMs('ACS_CONFIRM_TIMEOUT_MS', 60_000)),
         });
       } catch (error) {
+        // ACS aceptó el correo y luego lo rechazó (estado Failed): es definitivo, no se reintenta.
+        // El código de ACS queda en el motivo (antes caía como "Error inesperado enviando correo").
+        const rejected = acsOperationFailure(error);
+        if (rejected !== null) {
+          this.logger.error(
+            `[ACS] ACS rechazó el correo para ${to} (operación ${operationId}): ${rejected}`,
+          );
+          throw new ServiceUnavailableException(`ACS rechazó el correo: ${rejected}`);
+        }
         const label =
           (error as { statusCode?: number } | null)?.statusCode ??
           (error as Error | null)?.name ??

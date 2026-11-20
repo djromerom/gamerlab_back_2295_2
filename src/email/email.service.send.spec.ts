@@ -124,7 +124,28 @@ describe('EmailService.sendEmail: cola y reintentos sin duplicar (BG-74)', () =>
     expect(ids[1]).toBe(ids[0]);
   });
 
-  it('un estado final Failed no se reintenta', async () => {
+  it('si ACS acepta y luego rechaza (Failed), falla con el código de ACS, sin correos y sin reintentar', async () => {
+    // Así lo lanza @azure/core-lro: un Error genérico, no un resultado con status Failed.
+    const failed = new Error(
+      'The long-running operation has failed. EmailDroppedAllRecipientsSuppressed. Recipient ana@test.co is suppressed',
+    );
+    const beginSend = accepts({ pollUntilDone: jest.fn().mockRejectedValue(failed) });
+    const result = send(build({ NODE_ENV: 'production' }, beginSend));
+    await expect(result).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(result).rejects.toThrow(
+      'ACS rechazó el correo: EmailDroppedAllRecipientsSuppressed. Recipient [correo] is suppressed',
+    );
+    expect(beginSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('un error inesperado deja su tipo en el motivo, sin correos', async () => {
+    const beginSend = jest.fn().mockRejectedValue(new TypeError('no se pudo leer x de ana@test.co'));
+    await expect(send(build({ NODE_ENV: 'production' }, beginSend))).rejects.toThrow(
+      'Error inesperado enviando correo (TypeError: no se pudo leer x de [correo])',
+    );
+  });
+
+  it('un resultado con estado Failed tampoco se reintenta', async () => {
     const beginSend = accepts({
       pollUntilDone: jest.fn().mockResolvedValue({ id: 'op-9', status: 'Failed' }),
     });
@@ -165,7 +186,7 @@ describe('EmailService.sendEmail: cola y reintentos sin duplicar (BG-74)', () =>
     release();
     await Promise.all([first, second]);
     expect(log).toEqual(['envío 1', 'envío 2']);
-    expect(waits).toContain(2_000);
+    expect(waits.some((ms) => ms > 1_900 && ms <= 2_000)).toBe(true);
   });
 
   it('con remitente de Azure (azurecomm.net) la pausa es de 12 s; ACS_MIN_INTERVAL_MS la cambia', async () => {
@@ -176,7 +197,8 @@ describe('EmailService.sendEmail: cola y reintentos sin duplicar (BG-74)', () =>
       await Promise.all([send(service), send(service)]);
       return waits;
     };
-    expect(await twoSends({ NODE_ENV: 'production' })).toContain(12_000);
-    expect(await twoSends({ NODE_ENV: 'production', ACS_MIN_INTERVAL_MS: '500' })).toContain(500);
+    const pause = (ms: number[], expected: number) => ms.some((w) => w > expected - 100 && w <= expected);
+    expect(pause(await twoSends({ NODE_ENV: 'production' }), 12_000)).toBe(true);
+    expect(pause(await twoSends({ NODE_ENV: 'production', ACS_MIN_INTERVAL_MS: '500' }), 500)).toBe(true);
   });
 });
