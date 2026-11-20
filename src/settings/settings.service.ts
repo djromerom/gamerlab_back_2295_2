@@ -15,6 +15,13 @@ import {
   RANKING_REQUIRES_FINAL_GRADE_MESSAGE,
 } from './ranking-publication.logic';
 
+/** HU-50 (ARK-314): estado del interruptor global del código de verificación. */
+export interface VerificationCodesSetting {
+  verificationCodesEnabled: boolean;
+  changedAt: Date | null;
+  changedBy: { id: string; name: string } | null;
+}
+
 /** Código del 404 cuando la edición aún no tiene ponderados. */
 export const WEIGHTS_NOT_CONFIGURED = 'WEIGHTS_NOT_CONFIGURED';
 
@@ -189,6 +196,77 @@ export class SettingsService {
       data: { registrationsOpen: open },
       select: { registrationsOpen: true },
     });
+  }
+
+  /**
+   * HU-50 (ARK-314): «Exigir código de verificación a los jurados» de la edición activa, con quién
+   * y cuándo lo cambió por última vez. Sin configuración se exige (es el valor por defecto).
+   */
+  async getVerificationCodes(): Promise<VerificationCodesSetting> {
+    const config = await this.prisma.eventConfiguration.findFirst({
+      where: ACTIVE_EDITION_CONFIG_WHERE,
+      select: {
+        verificationCodesEnabled: true,
+        verificationCodesChangedAt: true,
+        verificationCodesChangedBy: true,
+      },
+    });
+    return this.toVerificationCodesSetting(config);
+  }
+
+  /**
+   * HU-50 (ARK-314): apaga o prende el código de verificación de todos los equipos de la edición
+   * activa. No toca el interruptor de cada equipo: al volver a prenderlo, los equipos que tenían el
+   * código desactivado siguen sin pedirlo. Solo registra quién y cuándo si el valor cambia.
+   */
+  async setVerificationCodes(
+    enabled: boolean,
+    adminId: string,
+  ): Promise<VerificationCodesSetting> {
+    const activeCnfg = await this.getActiveConfig();
+    if (activeCnfg.verificationCodesEnabled === enabled) {
+      return this.getVerificationCodes();
+    }
+    const updated = await this.prisma.eventConfiguration.update({
+      where: { id: activeCnfg.id },
+      data: {
+        verificationCodesEnabled: enabled,
+        verificationCodesChangedAt: new Date(),
+        verificationCodesChangedBy: adminId,
+      },
+      select: {
+        verificationCodesEnabled: true,
+        verificationCodesChangedAt: true,
+        verificationCodesChangedBy: true,
+      },
+    });
+    return this.toVerificationCodesSetting(updated);
+  }
+
+  private async toVerificationCodesSetting(
+    config: {
+      verificationCodesEnabled: boolean;
+      verificationCodesChangedAt: Date | null;
+      verificationCodesChangedBy: string | null;
+    } | null,
+  ): Promise<VerificationCodesSetting> {
+    const changedById = config?.verificationCodesChangedBy ?? null;
+    const changedBy = changedById
+      ? await this.prisma.user.findUnique({
+          where: { id: changedById },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : null;
+    return {
+      verificationCodesEnabled: config?.verificationCodesEnabled ?? true,
+      changedAt: config?.verificationCodesChangedAt ?? null,
+      changedBy: changedBy
+        ? {
+            id: changedBy.id,
+            name: `${changedBy.firstName ?? ''} ${changedBy.lastName ?? ''}`.trim(),
+          }
+        : null,
+    };
   }
 
   /**

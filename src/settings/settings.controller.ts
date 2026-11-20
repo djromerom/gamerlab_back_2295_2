@@ -7,6 +7,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam } from '@nestjs/s
 import { Public } from 'src/auth/decorators/public.decorator';
 import { AdminRoleGuard } from 'src/auth/guards/admin-role.guard';
 import { UpdateRegistrationsDto } from './dto/update-registrations.dto';
+import { UpdateVerificationCodesDto } from './dto/update-verification-codes.dto';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
 
 @ApiTags('Settings')
 @Controller('settings')
@@ -201,5 +203,63 @@ export class SettingsController {
   })
   setRegistrationsOpen(@Body() dto: UpdateRegistrationsDto) {
     return this.settingsService.setRegistrationsOpen(dto.open);
+  }
+
+  @Get('verification-codes')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateSettings')
+  @ApiOperation({
+    summary: '«Exigir código de verificación a los jurados» de la edición activa (HU-50)',
+    description:
+      'Para Configuración del evento. Sin configuración de la edición activa responde true (valor por defecto). ' +
+      '`changedAt` y `changedBy` son el último cambio (null si nunca se cambió).',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: {
+        verificationCodesEnabled: true,
+        changedAt: null,
+        changedBy: null,
+      },
+    },
+  })
+  @ApiResponse({ status: 403, description: 'Sin permiso' })
+  getVerificationCodes() {
+    return this.settingsService.getVerificationCodes();
+  }
+
+  @Patch('verification-codes')
+  @UseGuards(RolePermissionGuard)
+  @RequiredService('UpdateSettings')
+  @ApiOperation({
+    summary: 'Prender o apagar el código de verificación de todos los equipos (HU-50)',
+    description:
+      'Solo Administrador. Con { enabled: false } ningún equipo de la edición activa pide código y los jurados califican directamente. ' +
+      'Con { enabled: true } vuelve a pedirse, salvo en los equipos que tienen el código desactivado (PATCH /team-verification/:teamId/required). ' +
+      'No regenera códigos ni borra verificaciones. Guarda quién y cuándo si el valor cambia.',
+  })
+  @ApiBody({ schema: { example: { enabled: false } }, type: UpdateVerificationCodesDto })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: {
+        verificationCodesEnabled: false,
+        changedAt: '2026-11-26T15:10:00.000Z',
+        changedBy: { id: '5e1c7a2b-3d4f-4a6b-8c9d-0e1f2a3b4c01', name: 'Allison Ruiz' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Body inválido' })
+  @ApiResponse({ status: 403, description: 'Sin permiso' })
+  @ApiResponse({
+    status: 404,
+    description: 'La edición activa no tiene configuración (`code: EVENT_CONFIGURATION_NOT_FOUND`)',
+  })
+  setVerificationCodes(
+    @Body() dto: UpdateVerificationCodesDto,
+    @GetUser('id') adminId: string,
+  ) {
+    return this.settingsService.setVerificationCodes(dto.enabled, adminId);
   }
 }
