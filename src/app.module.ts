@@ -9,13 +9,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { SubjectsModule } from './subjects/subjects.module';
 import { NrcsModule } from './nrcs/nrcs.module';
-import { PendingGamesModule } from './pending-games/pg.module';
-import { GradedGamesModule } from './graded-games/gg.module';
+import { PendingGamesModule } from './pending-games/pending-games.module';
+import { GradedGamesModule } from './graded-games/graded-games.module';
 import { VideogameModule } from './videogames/videogames.module';
 import { CriterionModule } from './criterion/criterion.module';
 import { ProfessorsModule } from './professors/professors.module';
 import { TeamsModule } from './teams/teams.module';
-import { JurorModule } from './juror/juror.module';
+import { JurorModule } from './jurors/juror/juror.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
 import { ReportsModule } from './reports/reports.module';
 import { CacheModule } from './cache/cache.module';
@@ -30,17 +30,20 @@ import { EducationalFocusesModule } from './educational-focuses/educational-focu
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
 import { FinalGradeModule } from './final-grade/final-grade.module';
 import { HistoricalsModule } from './historicals/historicals.module';
-import { JurorBadgesModule } from './juror-badges/juror-badges.module';
-import { JurorCheckinModule } from './juror-checkin/juror-checkin.module';
-import { JurorAttendanceModule } from './juror-attendance/juror-attendance.module';
-import { AbsentJurorResponsesModule } from './absent-juror-responses/absent-juror-responses.module';
-import { JurorPresenceModule } from './juror-presence/juror-presence.module';
-import { AbsenceAlertModule } from './absence-alert/absence-alert.module';
+import { JurorBadgesModule } from './jurors/juror-badges/juror-badges.module';
+import { JurorCheckinModule } from './jurors/juror-checkin/juror-checkin.module';
+import { JurorAttendanceModule } from './jurors/juror-attendance/juror-attendance.module';
+import { AbsentJurorResponsesModule } from './jurors/absent-juror-responses/absent-juror-responses.module';
+import { JurorPresenceModule } from './jurors/juror-presence/juror-presence.module';
+import { AbsenceAlertModule } from './jurors/absence-alert/absence-alert.module';
 import { PushNotificationsModule } from './push-notifications/push-notifications.module';
 import { ExternalPresentersModule } from './external-presenters/external-presenters.module';
-import { JurorSurveyModule } from './juror-survey/juror-survey.module';
+import { JurorSurveyModule } from './jurors/juror-survey/juror-survey.module';
+import { SubstituteNoticesModule } from './jurors/substitute-notices/substitute-notices.module';
 import { StaffModule } from './staff/staff.module';
-import { JurorEditionModule } from './juror-edition/juror-edition.module';
+import { JurorEditionModule } from './jurors/juror-edition/juror-edition.module';
+import { WalkInJurorModule } from './jurors/walk-in-juror/walk-in-juror.module';
+import { JurorContingencyModule } from './jurors/juror-contingency/juror-contingency.module';
 import { EvaluationTrackingModule } from './evaluation-tracking/evaluation-tracking.module';
 import { TeamVerificationModule } from './team-verification/team-verification.module';
 import { RankingModule } from './ranking/ranking.module';
@@ -87,8 +90,11 @@ import { RankingModule } from './ranking/ranking.module';
     PushNotificationsModule,
     ExternalPresentersModule,
     JurorSurveyModule,
+    SubstituteNoticesModule,
     StaffModule,
     JurorEditionModule,
+    WalkInJurorModule,
+    JurorContingencyModule,
     EvaluationTrackingModule,
   ],
   controllers: [AppController],

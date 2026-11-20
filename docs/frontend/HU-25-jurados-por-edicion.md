@@ -206,7 +206,7 @@ Rol: Administrador. Para un jurado **con cuenta** que no estuvo en la edición a
 | 409 | Ya está en la edición | "Ya está en esta edición como <estado>" (el `message` lo incluye) |
 
 ## Notas de UI (página «Jurados de la edición»)
-- Página nueva en el panel de administración y una línea en `app-sidebar.tsx`. No se toca todavía la columna de confirmación de Personal → Jurados (se reemplaza cuando BG-05 esté mezclado).
+- Página nueva en el panel de administración y una línea en `layouts/AppSidebar.tsx`. No se toca todavía la columna de confirmación de Personal → Jurados (se reemplaza cuando BG-05 esté mezclado).
 - Selector de edición arriba (por defecto la activa); si `edition.writable` es `false`, ocultar o deshabilitar las acciones (importar, confirmar, declinar, inscribir) y mostrar "Edición de solo lectura".
 - Pestañas o filtro por estado con los contadores de `counts`; búsqueda por nombre o correo.
 - Selección múltiple con acciones: **Confirmar** (con tipo Oficial o Suplente), **Declinar**, **Volver a pendiente** y **Confirmar seleccionados y declinar el resto** (`declineRemaining: true`; pedir confirmación con el número de Pendientes que se declinarán, ver la ruta 3).

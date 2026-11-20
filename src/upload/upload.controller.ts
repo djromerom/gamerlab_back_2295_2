@@ -12,6 +12,33 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { DEFAULT_SAS_TTL_SEC, MAX_SAS_TTL_SEC } from './azure-storage.service';
 import { ZipUploadAccessGuard } from './zip-upload-access.guard';
 import { RegistrationsOpenOrSessionGuard } from '../settings/registrations-open.guard';
+import { MAX_ZIP_SIZE_BYTES, MAX_ZIP_SIZE_MB } from './zip-entry.logic';
+
+/** Peso máximo de una imagen (1 MB). */
+const MAX_IMAGE_SIZE_MB = 1;
+
+/** Tipos con los que los navegadores envían un .zip. */
+const ZIP_MIME_TYPES = [
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-zip',
+  'multipart/x-zip',
+];
+
+/**
+ * SP-03 (ARK-38): algunos sistemas envían el .zip como `application/octet-stream`. Se acepta si el
+ * nombre termina en .zip; el contenido se revisa igual con `isZip` (firma PK).
+ */
+export function isZipUploadType(file: {
+  mimetype: string;
+  originalname: string;
+}): boolean {
+  return (
+    ZIP_MIME_TYPES.includes(file.mimetype) ||
+    (file.mimetype === 'application/octet-stream' &&
+      file.originalname.toLowerCase().endsWith('.zip'))
+  );
+}
 
 @ApiTags('Upload')
 @Controller('upload')
@@ -23,7 +50,7 @@ export class UploadController {
   @UseGuards(OptionalJwtAuthGuard, RegistrationsOpenOrSessionGuard)
   @PublicThrottle(PUBLIC_LIMITS.imageUpload)
   @Post()
-  @UseFilters(MulterExceptionFilter)
+  @UseFilters(new MulterExceptionFilter(MAX_IMAGE_SIZE_MB))
   @ApiOperation({ summary: 'Subir una imagen a Azure Blob Storage; guarda solo blobName en Postgres' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -75,7 +102,7 @@ export class UploadController {
   })
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 1024 * 1024, // 1MB limit
+      fileSize: MAX_IMAGE_SIZE_MB * 1024 * 1024,
     },
     fileFilter: (req, file, callback) => {
       // Optional: Add file type validation
@@ -117,20 +144,15 @@ export class UploadController {
       },
     },
   })
-  @UseFilters(MulterExceptionFilter)
+  // SP-03: el 413 dice el máximo en español (antes «File too large»).
+  @UseFilters(new MulterExceptionFilter(MAX_ZIP_SIZE_MB))
   @UseInterceptors(FileInterceptor('file', {
     limits: {
-      fileSize: 1024 * 1024 * 100, // 100MB limit,
+      fileSize: MAX_ZIP_SIZE_BYTES,
       files: 1
     },
     fileFilter: (req, file, callback) => {
-      const allowedTypes = [
-        'application/zip',
-        'application/x-zip-compressed',
-        'application/x-zip',
-        'multipart/x-zip',
-      ];
-      if (!allowedTypes.includes(file.mimetype)) {
+      if (!isZipUploadType(file)) {
         return callback(new BadRequestException('Tipo de archivo no permitido. Solo se permite .zip!'), false);
       }
       callback(null, true);

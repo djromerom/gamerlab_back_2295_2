@@ -57,7 +57,7 @@ describe('buildGradingReportFileName', () => {
   it('con feria y NRC los incluye en el nombre', () => {
     expect(
       buildGradingReportFileName([group(2501, [1])], { nrcId: 2501 }, date),
-    ).toBe('calificaciones_2026-30_nrc-2501_2026-11-26.xlsx');
+    ).toBe('calificaciones_2026-2_nrc-2501_2026-11-26.xlsx');
   });
 
   it('solo feria', () => {
@@ -67,8 +67,27 @@ describe('buildGradingReportFileName', () => {
         { editionId: 3 },
         date,
       ),
-    ).toBe('calificaciones_2026-30_todos-los-nrc_2026-11-26.xlsx');
+    ).toBe('calificaciones_2026-2_todos-los-nrc_2026-11-26.xlsx');
   });
+
+  it.each([
+    [10, '2026-1'],
+    [20, '2026-intersemestral'],
+    [30, '2026-2'],
+  ])(
+    'BG-63: semestre %i ⇒ %s en el nombre (nunca el código crudo)',
+    (semester, feria) => {
+      const name = buildGradingReportFileName(
+        [group(2501, [1], { ...edition, semester })],
+        { editionId: 3 },
+        date,
+      );
+      expect(name).toBe(
+        `calificaciones_${feria}_todos-los-nrc_2026-11-26.xlsx`,
+      );
+      expect(name).not.toMatch(/2026-(10|20|30)|S\d0/);
+    },
+  );
 
   it('sin filtros', () => {
     expect(buildGradingReportFileName([group(2501, [1])], {}, date)).toBe(
@@ -141,15 +160,32 @@ describe('GradingReportExportService', () => {
     expect(options.sheets).toHaveLength(1);
     const sheet = options.sheets[0];
     expect(sheet.nrcCode).toBe('2501');
-    expect(sheet.editionLabel).toBe('Feria 2026-2 (2026-30)');
+    expect(sheet.editionLabel).toBe('Feria 2026-2 (2026 - 2)');
     expect([...sheet.groups.values()].map((g) => g.teamName)).toEqual([
       'Equipo 3',
       'Equipo 1',
       'Equipo 2',
     ]);
     expect(options.fileName).toMatch(
-      /^calificaciones_2026-30_todos-los-nrc_\d{4}-\d{2}-\d{2}\.xlsx$/,
+      /^calificaciones_2026-2_todos-los-nrc_\d{4}-\d{2}-\d{2}\.xlsx$/,
     );
+  });
+
+  it('BG-63: lleva la marca de rechazado y la feria intersemestral legible', async () => {
+    const g = group(2501, [1, 2], { ...edition, semester: 20 });
+    g.teams[1].rejected = true;
+    panelQuery.findPanelGroups.mockResolvedValue([g]);
+
+    await service.exportFiltered('prof-1', query({ editionId: 3 }), res);
+
+    const [options] = excelExport.generateAndStream.mock.calls[0];
+    expect(options.sheets[0].editionLabel).toBe(
+      'Feria 2026-2 (2026 - Intersemestral)',
+    );
+    expect(
+      [...options.sheets[0].groups.values()].map((r) => r.rejected),
+    ).toEqual([false, true]);
+    expect(options.fileName).toMatch(/^calificaciones_2026-intersemestral_/);
   });
 
   it('precarga las notas en una sola consulta por tipo', async () => {

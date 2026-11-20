@@ -33,6 +33,7 @@ import { ValidateStudentCodesDto } from '../dto/validate-student-codes.dto';
 import { MemberDto } from '../dto/member.dto';
 import { RegistrationsOpenGuard } from '../../settings/registrations-open.guard';
 import { editionIdQuery, parseEditionIdParam } from '../../editions/list-edition';
+import { TEAM_ORIGINS, parseTeamListFilters } from '../repositories/team-list-filter';
 
 /**
  * Tope de `limit` en GET /teams. Más alto que el común (100) porque la vista «Todos» de la tabla de
@@ -73,6 +74,18 @@ export class TeamsController {
     type: Number,
     description: 'ARK-129: equipos de esa edición. Por defecto, la edición activa (sin edición activa, lista vacía).',
   })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'BG-53: sin tildes ni mayúsculas; cada palabra debe estar en el nombre del equipo, el del juego o el código del equipo. El total de metaData ya es el filtrado.',
+  })
+  @ApiQuery({
+    name: 'origin',
+    required: false,
+    enum: TEAM_ORIGINS,
+    description: 'BG-53: «externo» (isExternal = true) o «uninorte» (isExternal = false). Otro valor responde 400.',
+  })
   getTeams(
     @IsAdmin() includePersonalData: boolean,
     @GetUser('id') currentUserId: string | undefined,
@@ -80,6 +93,8 @@ export class TeamsController {
     @Query('limit') @Optional() limit?: string,
     @Query('sortByLikes') @Optional() sortByLikes?: boolean,
     @Query('editionId') @Optional() editionIdParam?: string,
+    @Query('search') @Optional() search?: string,
+    @Query('origin') @Optional() origin?: string,
   ) {
     if (sortByLikes === undefined) {
       sortByLikes = false;
@@ -89,14 +104,15 @@ export class TeamsController {
     if (editionId === 'invalid') {
       throw new BadRequestException('editionId debe ser un número entero positivo');
     }
+    const filters = parseTeamListFilters(search, origin); // BG-53: 400 si origin no es válido
     if (limit) {
       const pageNum = page ? parseInt(page, 10) : 1;
       const limitNum = parseInt(limit, 10);
       if (!isNaN(pageNum) && !isNaN(limitNum) && pageNum > 0 && limitNum > 0) {
-        return this.teamsService.findPaged(pageNum, Math.min(limitNum, MAX_TEAMS_LIST_LIMIT), sortByLikes, includePersonalData, currentUserId, editionId);
+        return this.teamsService.findPaged(pageNum, Math.min(limitNum, MAX_TEAMS_LIST_LIMIT), sortByLikes, includePersonalData, currentUserId, editionId, filters);
       }
     }
-    return this.teamsService.findAll(sortByLikes, includePersonalData, currentUserId, editionId);
+    return this.teamsService.findAll(sortByLikes, includePersonalData, currentUserId, editionId, filters);
   }
 
   @Get('incomplete-jurors')

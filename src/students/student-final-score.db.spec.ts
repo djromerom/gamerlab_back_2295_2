@@ -150,11 +150,13 @@ maybe('Nota final del estudiante sin desglose (BD real)', () => {
       where: { id: ids.edition },
       data: { status: EditionStatus.ACTIVE },
     });
-    // Ranking publicado: la ruta pública de la nota final responde
+    // Ranking publicado: la ruta pública de la nota final responde.
+    // BG-67: publicado exige también la nota final liberada.
     await prisma.eventConfiguration.create({
       data: {
         editionId: ids.edition,
         showRanking: true,
+        showFinalGrade: true,
         showEvaluations: true,
       },
     });

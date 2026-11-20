@@ -45,6 +45,7 @@ model Edition {
   evaluations        Evaluation[]
   externalPresenters ExternalPresenter[]
   jurorSurveyResponses JurorSurveyResponse[]
+  substituteNotices  SubstituteNotice[]
   evaluationDrafts   EvaluationDraft[]
   nrcs               NRC[]
   weighting          Weighting?
@@ -78,6 +79,9 @@ model EventConfiguration {
   presencePromptMinutes   Int @default(60) @map("presencia_pregunta_min")
   presenceResponseMinutes Int @default(15) @map("presencia_respuesta_min")
   inactivityMinutes       Int @default(45) @map("presencia_inactividad_min")
+  // HU-14 (ARK-213): mínimo de evaluaciones por grupo para la contingencia (grupos en riesgo y
+  // cuántos suplentes sugerir). No cambia que solo cuenten las 3 primeras en la nota (P-10).
+  minEvaluationsPerTeam   Int @default(3) @map("minimo_evaluaciones")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -236,6 +240,7 @@ model User {
   jurorBadges          JurorBadge[]
   attendances          JurorAttendance[]  @relation("JurorAttendance")
   recordedAttendances  JurorAttendance[]  @relation("AttendanceRecorder")
+  annulledAttendances  JurorAttendance[]  @relation("AttendanceAnnuller")
   teamVerifications    TeamVerification[]
   jurorEditions        JurorEdition[]
   refreshTokens        RefreshToken[]
@@ -245,6 +250,7 @@ model User {
   pushSubscriptions    PushSubscription[]
   externalPresenterEditions ExternalPresenter[]
   jurorSurveyResponses JurorSurveyResponse[]
+  substituteNotices    SubstituteNotice[]
 
   @@index([jurorCategory])
   @@index([jurorType])
@@ -259,6 +265,11 @@ model Team {
   editionId        Int             @map("id_edicion")
   isActive         Boolean         @default(true) @map("activo")
   isExternal       Boolean         @default(false) @map("externo")
+  // HU-39 (ARK-209): presentador externo que es un equipo. Sale en la galería, pero no se califica,
+  // no recibe jurados ni entra al ranking ni a las notas. Solo lo marca el Administrador.
+  notGradable      Boolean         @default(false) @map("no_calificable")
+  // ARK-258: último envío del certificado de presentador externo del equipo; null si no se ha enviado.
+  presenterCertificateSentAt DateTime? @map("certificado_presentador_enviado_en")
   teamCode         String          @map("codigo_equipo") @db.VarChar(12)
   // Código que el estudiante ve en su panel y el jurado digita para calificar (HU-19). Null en equipos N0 (colegios).
   verificationCode String?         @map("codigo_verificacion") @db.VarChar(8)
@@ -269,6 +280,7 @@ model Team {
   assignedJurors   User[]          @relation("JurorTeamAssignment")
   rankingResults   RankingResult[]
   verifications    TeamVerification[]
+  substituteNoticeTeams SubstituteNoticeTeam[]
 
   @@unique([teamCode, editionId])
   @@unique([verificationCode, editionId])
@@ -425,6 +437,8 @@ model HistoricalVideogame {
   likes            Int            @default(0) @map("likes")
   finalScore       Float?         @map("puntaje_final")
 
+  highlightedGames HighlightedGame[]
+
   @@map("videojuegos_historico")
 }
 
@@ -440,16 +454,22 @@ model VideogameLike {
   @@map("videogame_likes")
 }
 
+// HU-41 (ARK-229): un destacado apunta a un videojuego en vivo O a uno histórico, nunca a los dos.
+// La regla «exactamente uno» es el CHECK "juego_destacado_un_videojuego_check" de la migración
+// 20261118000000_add_historical_highlighted_games (Prisma no expresa CHECK).
 model HighlightedGame {
-  id          Int       @id @default(autoincrement()) @map("id_juego_destacado")
-  editionId   Int       @map("id_edicion")
-  videogameId Int       @map("id_videojuego")
-  createdAt   DateTime  @default(now()) @map("creado_en")
-  updatedAt   DateTime  @updatedAt @map("actualizado_en")
-  edition     Edition   @relation(fields: [editionId], references: [id])
-  videogame   Videogame @relation(fields: [videogameId], references: [id])
+  id                    Int                  @id @default(autoincrement()) @map("id_juego_destacado")
+  editionId             Int                  @map("id_edicion")
+  videogameId           Int?                 @map("id_videojuego")
+  historicalVideogameId Int?                 @map("id_videojuego_historico")
+  createdAt             DateTime             @default(now()) @map("creado_en")
+  updatedAt             DateTime             @updatedAt @map("actualizado_en")
+  edition               Edition              @relation(fields: [editionId], references: [id])
+  videogame             Videogame?           @relation(fields: [videogameId], references: [id], onDelete: Restrict)
+  historicalVideogame   HistoricalVideogame? @relation(fields: [historicalVideogameId], references: [id], onDelete: Cascade)
 
   @@unique([editionId, videogameId])
+  @@unique([editionId, historicalVideogameId])
   @@map("juego_destacado")
 }
 
@@ -613,8 +633,14 @@ model JurorAttendance {
   isActive      Boolean       @default(true) @map("activo")
   // HU-23: último "Sigo aquí" del jurado. Null = no ha respondido desde su llegada.
   lastPresenceConfirmedAt DateTime? @map("ultima_confirmacion_presencia")
+  // BG-49 (ARK-251): anulación de una llegada registrada por error. La fila queda con
+  // activo = false y estos datos; el jurado vuelve a «Sin check-in» y puede registrarse de nuevo.
+  annulledAt      DateTime? @map("anulado_en")
+  annulledById    String?   @map("anulado_por")
+  annulmentReason String?   @map("motivo_anulacion") @db.VarChar(500)
   juror         User          @relation("JurorAttendance", fields: [jurorId], references: [id])
   checkedInBy   User          @relation("AttendanceRecorder", fields: [checkedInById], references: [id])
+  annulledBy    User?         @relation("AttendanceAnnuller", fields: [annulledById], references: [id])
   edition       Edition       @relation(fields: [editionId], references: [id])
   badge         JurorBadge?   @relation(fields: [badgeId], references: [id])
 
@@ -637,6 +663,55 @@ model PushSubscription {
 
   @@index([userId, isActive])
   @@map("suscripcion_push")
+}
+
+// HU-22 (ARK-84): estado del correo del aviso al suplente. SKIPPED = sin claves de ACS en desarrollo
+// (modo simulación, no salió ningún correo).
+enum SubstituteNoticeEmailStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// HU-22 (ARK-84): aviso "Te asignaron grupos" a un suplente (tipo BACKUP en la edición). Uno por
+// operación de asignación; queda activo hasta que el suplente lo marca como leído.
+model SubstituteNotice {
+  id          Int                         @id @default(autoincrement()) @map("id_aviso")
+  jurorId     String                      @map("id_jurado")
+  editionId   Int                         @map("id_edicion")
+  createdAt   DateTime                    @default(now()) @map("creado_en")
+  // Null = sin leer.
+  readAt      DateTime?                   @map("leido_en")
+  emailStatus SubstituteNoticeEmailStatus @default(PENDING) @map("estado_correo")
+  // Motivo corto del fallo del correo, sin datos personales.
+  emailError  String?                     @map("error_correo") @db.VarChar(200)
+  juror       User                        @relation(fields: [jurorId], references: [id])
+  edition     Edition                     @relation(fields: [editionId], references: [id])
+  teams       SubstituteNoticeTeam[]
+
+  @@index([jurorId, editionId, readAt])
+  @@index([editionId, readAt])
+  @@map("aviso_suplente")
+}
+
+// HU-22 (ARK-84): grupos de un aviso, con una foto del código, nombre, videojuego y nivel al
+// momento de asignar: el aviso se sigue leyendo igual aunque el equipo cambie o se elimine.
+model SubstituteNoticeTeam {
+  id            Int              @id @default(autoincrement()) @map("id_aviso_equipo")
+  noticeId      Int              @map("id_aviso")
+  teamId        Int?             @map("id_equipo")
+  teamCode      String           @map("codigo_equipo") @db.VarChar(12)
+  teamName      String           @map("nombre_equipo") @db.VarChar(50)
+  videogameName String?          @map("nombre_videojuego") @db.VarChar(30)
+  // 0 = colegios; null si el código no trae nivel.
+  level         Int?             @map("nivel")
+  notice        SubstituteNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  team          Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([noticeId, teamId])
+  @@index([teamId])
+  @@map("aviso_suplente_equipo")
 }
 
 model Subject {
@@ -827,6 +902,22 @@ enum ManualJurorAssignmentAction {
   UNASSIGN_ALL_FROM_EVALUATOR
 }
 
+// HU-14 (ARK-213): el administrador rechazó una sugerencia de suplente (quién, cuándo y por qué).
+// Sin llaves foráneas: es un registro de auditoría, como `cronograma_feria.actualizado_por`.
+model SubstituteSuggestionRejection {
+  id           Int      @id @default(autoincrement()) @map("id_rechazo")
+  editionId    Int      @map("id_edicion")
+  teamId       Int      @map("id_equipo")
+  // Suplente rechazado; null = se rechazó toda la sugerencia del grupo.
+  substituteId String?  @map("id_suplente")
+  reason       String?  @map("motivo") @db.VarChar(500)
+  rejectedById String   @map("rechazado_por")
+  createdAt    DateTime @default(now()) @map("creado_en")
+
+  @@index([editionId, teamId])
+  @@map("rechazo_sugerencia_suplente")
+}
+
 // HU-25: participación de un jurado (rol Jurado) en una edición. La cuenta se conserva entre
 // ediciones; aquí se guarda si viene a esta (Pendiente, Confirmado, Declinó) y si es Oficial o
 // Suplente. Los profesores no tienen fila: son jurados de la edición si tienen un NRC activo en ella.
@@ -855,6 +946,8 @@ model JurorEdition {
   editionId   Int                @map("id_edicion")
   status      JurorEditionStatus @default(PENDING) @map("estado")
   type        JurorType          @default(OFFICIAL) @map("tipo")
+  // HU-24: el administrador lo dio de alta el día de la feria (llegó sin estar registrado).
+  walkIn      Boolean            @default(false) @map("alta_dia_feria")
   createdAt   DateTime           @default(now()) @map("creado_en")
   updatedAt   DateTime           @updatedAt @map("actualizado_en")
   // Id del administrador que hizo el último cambio (sin llave foránea, solo auditoría).

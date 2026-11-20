@@ -83,7 +83,7 @@ export class FinalGradeController {
     summary:
       'Liberar u ocultar la nota final a los estudiantes (solo Administrador)',
     description:
-      'Liberar solo se puede desde la hora de cierre del día de la feria (hora de Colombia): la del cronograma de la edición (HU-12) o, si no está configurado, las 12:00 del día en que inicia la edición. Ocultar se puede siempre. Responde el mismo estado que GET /final-grade/release.',
+      'Liberar solo se puede desde la hora de cierre del día de la feria (hora de Colombia): la del cronograma de la edición (HU-12) o, si no está configurado, las 12:00 del día en que inicia la edición. Ocultar se puede siempre y también oculta el ranking público (BG-67). Responde el mismo estado que GET /final-grade/release.',
   })
   @ApiBody({ type: UpdateFinalGradeReleaseDto })
   @ApiOkResponse({
@@ -113,7 +113,7 @@ export class FinalGradeController {
   @ApiOperation({
     summary: 'Nota final del equipo del estudiante (sin desglose)',
     description:
-      '`status`: NOT_RELEASED (el administrador no la ha liberado), IN_PROCESS (falta la nota de los profesores o de los jurados: mostrar «Nota en proceso») o AVAILABLE (`finalGrade` con 2 decimales).',
+      '`status`: NOT_GRADABLE (HU-39: el equipo es un presentador externo y no se califica), REJECTED (BG-43: la inscripción del equipo está rechazada; si la confirman de nuevo, la nota vuelve), NOT_RELEASED (el administrador no la ha liberado), IN_PROCESS (falta la nota de los profesores o de los jurados: mostrar «Nota en proceso») o AVAILABLE (`finalGrade` con 2 decimales).',
   })
   @ApiOkResponse({
     schema: {

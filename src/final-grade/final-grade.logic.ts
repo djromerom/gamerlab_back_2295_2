@@ -1,8 +1,9 @@
 import {
   DEFAULT_FAIR_TIMES,
   fairInstant,
-} from '../absence-alert/fair-schedule';
-import { MIN_EVALUATIONS, parseLevel } from '../ranking/ranking.logic';
+} from 'src/jurors/absence-alert/fair-schedule';
+import { hasLessThanMinEvaluations } from '../ranking/min-evaluations';
+import { parseLevel } from '../ranking/ranking.logic';
 
 /**
  * HU-20 (ARK-80): reglas de la nota final que ve el estudiante, sin acceso a la base.
@@ -31,7 +32,20 @@ export type IncompleteReason =
   | 'MISSING_JUNIOR_SCORE'
   | 'LESS_THAN_MIN_EVALUATIONS';
 
-export type StudentGradeStatus = 'NOT_RELEASED' | 'IN_PROCESS' | 'AVAILABLE';
+/**
+ * NOT_GRADABLE (HU-39, ARK-209): el equipo es un presentador externo y no tiene nota.
+ * REJECTED (BG-43, ARK-205): la inscripción del equipo está rechazada y no tiene nota; si la
+ * vuelven a confirmar, la nota reaparece (sus evaluaciones se conservan).
+ */
+export type StudentGradeStatus =
+  | 'NOT_GRADABLE'
+  | 'REJECTED'
+  | 'NOT_RELEASED'
+  | 'IN_PROCESS'
+  | 'AVAILABLE';
+
+/** Por qué un equipo no tiene nota aunque tenga evaluaciones. */
+export type UngradedReason = 'NOT_GRADABLE' | 'REJECTED' | null;
 
 /** Fila de `vw_team_final_scores` con los campos que usa esta regla. */
 export interface FinalScoreRow {
@@ -112,16 +126,14 @@ export function checkTeamGrade(
     };
   }
   // Qué partes cuentan en su nota (igual que el ranking, HU-34): un colegio solo cuenta a los
-  // profesores y seniors, con o sin marca de externo; un externo solo a los jurados junior.
+  // profesores y seniors; los demás, ambas. La casilla «Externo» no cambia la nota (BG-69).
   const school = isSchool(row.teamCode);
-  const countsProfessors = school || !row.isExternal;
   const countsJurors = !school;
   const reasons: IncompleteReason[] = [];
-  if (countsProfessors && row.seniorEvaluations === 0)
-    reasons.push('MISSING_PROFESSOR_SCORE');
+  if (row.seniorEvaluations === 0) reasons.push('MISSING_PROFESSOR_SCORE');
   if (countsJurors && row.juniorEvaluations === 0)
     reasons.push('MISSING_JUNIOR_SCORE');
-  if (countsJurors && row.juniorEvaluations < MIN_EVALUATIONS) {
+  if (countsJurors && hasLessThanMinEvaluations(row)) {
     reasons.push('LESS_THAN_MIN_EVALUATIONS');
   }
   const inProcess =
@@ -135,7 +147,9 @@ export function checkTeamGrade(
 export function studentGrade(
   released: boolean,
   row: FinalScoreRow | null | undefined,
+  ungraded: UngradedReason = null,
 ): { status: StudentGradeStatus; finalGrade: number | null } {
+  if (ungraded) return { status: ungraded, finalGrade: null };
   if (!released) return { status: 'NOT_RELEASED', finalGrade: null };
   if (checkTeamGrade(row).inProcess || row?.finalScore == null) {
     return { status: 'IN_PROCESS', finalGrade: null };

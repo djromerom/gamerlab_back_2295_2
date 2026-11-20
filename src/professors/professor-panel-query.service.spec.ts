@@ -163,6 +163,7 @@ describe('ProfessorPanelQueryService', () => {
       expect.objectContaining({
         where: {
           isActive: true,
+          notGradable: false, // HU-39 (ARK-209)
           members: {
             some: { isActive: true, nrcs: { some: { id: { in: [10] } } } },
           },

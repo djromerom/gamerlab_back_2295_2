@@ -19,7 +19,7 @@ Flujo en pasos del frontend: datos del equipo, integrantes (paso 2), juego (paso
 Código propio de cada equipo, visible en el **panel del estudiante**; el estudiante se lo da al jurado, que debe **digitarlo** para calificar ese grupo. **N0 (colegios) no tiene código** (P-25). Hay único `(codigo_verificacion, id_edicion)` y se generó para equipos existentes (migración `...add_team_verification_code`).
 
 ## NRC y profesores
-- Cada NRC pertenece a una edición y a un profesor; el panel del profesor muestra solo la feria activa y sus NRC; el histórico global es una pestaña aparte (decisión 16, el Administrador exporta todos los NRC de la feria activa).
+- Cada NRC pertenece a una edición y a un profesor; el panel del profesor muestra solo la feria activa y sus NRC (decisión 16, el Administrador exporta todos los NRC de la feria activa). La pestaña «Históricos» muestra los equipos archivados de **sus** NRC; el Administrador ve todos (decisión del 2026-11-17, BG-63).
 - Hay un único parcial `(codigo, id_edicion) WHERE activo` (decisión D).
 - Bugs conocidos de la revisión del 30-oct (NRC sin filtrar por edición, filtros duplicados, listado vs exportación, falta único) → revisión de filtros.
 - Borrado de profesor/jurado: **borrado lógico** (`isActive=false`); el correo queda reservado. Nunca `onDelete: Cascade`.
@@ -41,7 +41,7 @@ Tabla de SP-05 (ARK-166), aprobada por Allison el 7-nov y aplicada en el back po
 - Código: `src/teams/student-edit-policy.ts`.
 
 ## Videojuegos y multimedia
-Aprobación de juego: conserva video e imágenes (error de V3 corregido). Likes con tope según multimedia. Juegos de Pygame, Unity y Godot en navegador: SP-03 (spike); navegadores soportados sin definir (P-23). Archivos en Azure Blob (Azurite en local); URLs firmadas de lectura con vigencia por defecto y máxima de 3 años (se guardan en BD; ver [integraciones](../02-backend/integraciones.md)); zip máx. 100 MB, 3 por 10 min (I5, I6). Las fotos de ediciones pasadas no se veían por archivos no públicos (BG-24).
+Aprobación de juego: conserva video e imágenes (error de V3 corregido). Likes con tope según multimedia. Juegos de Pygame, Unity y Godot en navegador: qué funciona, límites del zip e instrucciones para los equipos en [juegos web por motor](juegos-web-por-motor.md) (SP-03). Cómo monta la administradora el zip que cada equipo comparte por enlace: [montaje de los videojuegos](montaje-de-videojuegos.md) (TA-28). Archivos en Azure Blob (Azurite en local); URLs firmadas de lectura con vigencia por defecto y máxima de 3 años (se guardan en BD; ver [integraciones](../02-backend/integraciones.md)); zip máx. 200 MB desde HU-40 (antes 100 MB), 3 por 10 min (I5, I6). Las fotos de ediciones pasadas no se veían por archivos no públicos (BG-24).
 
 ## Flujo de registro de un equipo (leído del código, 2026-11-05)
 1. `/registro-equipo` pasa por `RegistrationGate`: consulta `GET /settings/registrations` (pública) y muestra `TeamRegisterPage` si las inscripciones están abiertas, o `RegistrationClosedPage` si no.

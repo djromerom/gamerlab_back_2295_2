@@ -163,7 +163,8 @@ describe('ranking.logic (HU-04)', () => {
     expect(missingOf(n1)).toEqual([
       [3, ['PROFESSOR', 'JUROR']],
       [4, ['PROFESSOR']],
-      [5, ['JUROR']],
+      // La casilla Externo no cambia qué partes cuentan (BG-69): igual que el equipo 3
+      [5, ['PROFESSOR', 'JUROR']],
     ]);
   });
 
@@ -208,10 +209,41 @@ describe('ranking.logic (HU-04)', () => {
     ]);
   });
 
+  it('BG-68 (ARK-270): el mínimo de 3 cuenta las evaluaciones de jurados junior y senior', () => {
+    const [level] = build(
+      [
+        row(1, 'N1-A-1', 4, { juniorEvaluations: 2, seniorEvaluations: 1 }),
+        row(2, 'N1-A-2', 4, { juniorEvaluations: 1, seniorEvaluations: 2 }),
+        row(3, 'N1-A-3', 4, { juniorEvaluations: 3, seniorEvaluations: 0 }),
+        row(4, 'N1-A-4', 4, { juniorEvaluations: 1, seniorEvaluations: 1 }),
+        row(5, 'N1-A-5', 4, { juniorEvaluations: 0, seniorEvaluations: 2 }),
+      ],
+      { 1: info(1), 2: info(2), 3: info(3), 4: info(4), 5: info(5) },
+    );
+    const flagged = (code: string) =>
+      level.teams.find((t) => t.teamCode === code)?.lessThanMinEvaluations;
+    // Suman 3: no se marca
+    expect(flagged('N1-A-1')).toBe(false);
+    expect(flagged('N1-A-2')).toBe(false);
+    expect(flagged('N1-A-3')).toBe(false);
+    // Suman menos de 3: se marca
+    expect(flagged('N1-A-4')).toBe(true);
+    expect(flagged('N1-A-5')).toBe(true);
+  });
+
+  it('BG-68 (ARK-270): un colegio (N0) sigue sin marcarse, tenga las evaluaciones que tenga', () => {
+    const [colegios] = build(
+      [row(1, 'N0-C-1', 4, { juniorEvaluations: 0, seniorEvaluations: 1 })],
+      { 1: info(1) },
+    );
+    expect(colegios.teams[0].lessThanMinEvaluations).toBe(false);
+  });
+
   it('marca menos de 3 evaluaciones, evaluaciones que no cuentan y falta de nota del profesor', () => {
     const [level] = build(
       [
-        row(1, 'N1-A-1', 4, { juniorEvaluations: 2, juniorCounted: 2 }),
+        // 1 junior + 1 senior (por defecto): suman 2, menos de 3 (BG-68)
+        row(1, 'N1-A-1', 4, { juniorEvaluations: 1, juniorCounted: 1 }),
         row(2, 'N1-A-2', 3.5, {
           juniorEvaluations: 5,
           juniorCounted: 3,
@@ -232,8 +264,58 @@ describe('ranking.logic (HU-04)', () => {
       juniorNotCounted: 2,
       missingProfessorScore: true,
     });
-    // Los externos no llevan nota del profesor
-    expect(t3.missingProfessorScore).toBe(false);
+    // La casilla Externo no cambia la nota (BG-69): a un equipo marcado también le falta la del profesor
+    expect(t3.missingProfessorScore).toBe(true);
+  });
+
+  describe('la casilla «Externo» no cambia dónde compite el equipo (BG-69, ARK-272)', () => {
+    it('un equipo marcado compite en su propio nivel y no hay grupo «Externos»', () => {
+      const levels = build(
+        [
+          row(1, 'N1-A-1', 3, { isExternal: true }),
+          row(2, 'N1-A-2', 4),
+          row(3, 'N2-B-3', 4.5, { isExternal: true }),
+        ],
+        { 1: info(1), 2: info(2), 3: info(3) },
+      );
+      expect(levels.map((l) => l.level)).toEqual([1, 2]);
+      const n1 = levels[0];
+      expect(n1.teams.map((t) => [t.teamId, t.position])).toEqual([
+        [2, 1],
+        [1, 2],
+      ]);
+      // Su nota cuenta como la de cualquier equipo: llega al podio de su nivel
+      expect(n1.podium.map((t) => t.teamId)).toEqual([2, 1]);
+      expect(levels[1].teams.map((t) => t.teamId)).toEqual([3]);
+      for (const level of levels) expect(level).not.toHaveProperty('external');
+    });
+
+    it('un colegio marcado compite en Colegios con las mismas reglas que los demás', () => {
+      const [colegios] = build(
+        [
+          row(1, 'N0-C-1', 4.5),
+          row(2, 'N0-C-2', 3.6, { isExternal: true }),
+          row(3, 'N0-C-3', 3, { isExternal: false }),
+        ],
+        { 1: info(1), 2: info(2), 3: info(3) },
+      );
+      expect(colegios.level).toBe(0);
+      expect(colegios.teams.map((t) => [t.teamId, t.position])).toEqual([
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ]);
+    });
+
+    it('el empate de un equipo marcado es del nivel, con el mismo desempate de siempre', () => {
+      const [level] = build(
+        [row(1, 'N1-A-1', 4, { isExternal: true }), row(2, 'N1-A-2', 4)],
+        { 1: info(1), 2: info(2) },
+      );
+      expect(level.ties).toHaveLength(1);
+      expect(level.ties[0].tieKey).toContain('N1');
+      expect(level.ties[0]).not.toHaveProperty('external');
+    });
   });
 
   describe('empates (P-05)', () => {

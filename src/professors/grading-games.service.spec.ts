@@ -258,7 +258,9 @@ function createFakePanelPrisma(data: FakePanelData) {
         }: {
           where: {
             editionId?: number;
-            members?: { some: { nrcs: { some: { nrcId: number } } } };
+            members?: {
+              some: { nrcs: { some: { nrcId: number | { in: number[] } } } };
+            };
           };
           orderBy?: Partial<Record<'editionId' | 'id', 'asc' | 'desc'>>[];
         }) =>
@@ -269,9 +271,12 @@ function createFakePanelPrisma(data: FakePanelData) {
                   t.editionId === where.editionId) &&
                 (where.members === undefined ||
                   t.members.some((m) =>
-                    m.nrcs.some(
-                      (n) => n.nrcId === where.members!.some.nrcs.some.nrcId,
-                    ),
+                    m.nrcs.some((n) => {
+                      const f = where.members!.some.nrcs.some.nrcId;
+                      return typeof f === 'number'
+                        ? n.nrcId === f
+                        : f.in.includes(n.nrcId);
+                    }),
                   )),
             ),
           ),
@@ -535,6 +540,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionDocente: 4.8,
       isExternal: false,
       fairGradeRule: 'STANDARD',
+      rejected: false,
       canEdit: true,
     });
     // Varios NRC del profesor: se listan juntos y nrcId queda en null
@@ -569,7 +575,7 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionFeria: null,
       calificacionDocente: 4.8,
       isExternal: true,
-      fairGradeRule: 'EXTERNAL',
+      fairGradeRule: 'STANDARD', // la casilla no cambia la regla (BG-69)
     });
     expect(byCode.get('T-2')).toMatchObject({
       isExternal: false,
@@ -582,13 +588,15 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
   });
 
   it.each([
-    ['N0-COL-1', false, 'SCHOOL'],
-    ['N0-COL-1', true, 'SCHOOL'],
-    ['N1-ISI-1', true, 'EXTERNAL'],
-    ['N1-ISI-1', false, 'STANDARD'],
-  ])('BG-37: %s con externo=%s usa la regla %s', (code, isExternal, rule) => {
-    expect(fairGradeRuleOf(code, isExternal)).toBe(rule);
-  });
+    ['N0-COL-1', 'SCHOOL'],
+    ['N1-ISI-1', 'STANDARD'],
+    ['N4-ISI-9', 'STANDARD'],
+  ])(
+    'BG-69: %s usa la regla %s, tenga o no la casilla Externo',
+    (code, rule) => {
+      expect(fairGradeRuleOf(code)).toBe(rule);
+    },
+  );
 
   it('canEdit es falso con las evaluaciones cerradas', async () => {
     await setup(buildData(false));
@@ -751,7 +759,8 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
       calificacionFeria: 4.1,
       calificacionDocente: null,
       isExternal: true,
-      fairGradeRule: 'EXTERNAL',
+      fairGradeRule: 'STANDARD',
+      rejected: false,
       canEdit: false,
     });
     expect(withHistory.metadata.totalItems).toBe(4);
@@ -796,6 +805,115 @@ describe('GradingGamesService (listado del panel, HU-03)', () => {
     const listed = codes((await service.list('prof-2', listQuery())).data);
     expect(listed).toEqual(['T-6']);
     expect(await exportedCodes('prof-2', exportQuery())).toEqual(['T-6']);
+  });
+
+  describe('BG-63: históricos solo de los NRC del profesor', () => {
+    const historical = (
+      id: number,
+      nrcs: { nrcId: number; code: number }[],
+    ): FakeHistoricalTeam => ({
+      id,
+      teamCode: `HT-${id}`,
+      teamName: `Histórico ${id}`,
+      editionId: 2,
+      isExternal: false,
+      videogame: { id: 900 + id, name: `Viejo ${id}`, finalScore: 3 },
+      members: [
+        {
+          firstName: 'Ex',
+          lastName: `Alumno ${id}`,
+          studentCode: `1${id}`,
+          nrcs,
+        },
+      ],
+    });
+
+    const withHistory = async () => {
+      const data = buildData();
+      // NRC 40: de prof-2 en la feria archivada
+      data.nrcs.push(nrc(40, 2402, { editionId: 2, professorId: 'prof-2' }));
+      data.historicalTeams.push(
+        historical(2, [{ nrcId: 40, code: 2402 }]), // de otro profesor
+        historical(3, []), // «No registrado»: sin NRC
+        historical(4, [{ nrcId: 30, code: 2401 }]), // otro de prof-1
+        historical(5, [
+          { nrcId: 30, code: 2401 },
+          { nrcId: 40, code: 2402 },
+        ]), // compartido: prof-1 solo ve su NRC
+      );
+      await setup(data);
+    };
+
+    const historicalCodes = (rows: GradingGameRow[]) =>
+      codes(rows.filter((r) => r.source === 'historical'));
+
+    it('el profesor solo ve los históricos de sus NRC, no los de otro ni los sin NRC', async () => {
+      await withHistory();
+      const { data, metadata } = await service.list(
+        'prof-1',
+        listQuery({ includeHistorical: true }),
+      );
+      expect(historicalCodes(data)).toEqual(['HT-1', 'HT-4', 'HT-5']);
+      expect(data.find((r) => r.teamCode === 'HT-5')).toMatchObject({
+        nrc: '2401',
+        nrcId: 30,
+      });
+      expect(metadata.totalItems).toBe(6);
+
+      const other = await service.list(
+        'prof-2',
+        listQuery({ includeHistorical: true }),
+      );
+      expect(historicalCodes(other.data)).toEqual(['HT-2', 'HT-5']);
+      expect(other.data.find((r) => r.teamCode === 'HT-5')?.nrc).toBe('2402');
+    });
+
+    it('un NRC histórico de otro profesor no devuelve sus equipos', async () => {
+      await withHistory();
+      const { data, metadata } = await service.list(
+        'prof-1',
+        listQuery({ includeHistorical: true, nrcId: 40 }),
+      );
+      expect(data).toEqual([]);
+      expect(metadata.totalItems).toBe(0);
+    });
+
+    it('el Administrador ve todos los históricos (vista global)', async () => {
+      await withHistory();
+      const { data, metadata } = await service.list(
+        'admin-1',
+        listQuery({ includeHistorical: true }),
+        ROLE_IDS.ADMIN,
+      );
+      expect(historicalCodes(data)).toEqual([
+        'HT-1',
+        'HT-2',
+        'HT-3',
+        'HT-4',
+        'HT-5',
+      ]);
+      expect(metadata.totalItems).toBe(4 + 5);
+    });
+
+    it('totalItems es el total real y la paginación cruza actuales e históricos', async () => {
+      await withHistory();
+      const page = async (n: number) =>
+        service.list(
+          'prof-1',
+          listQuery({ includeHistorical: true, page: n, limit: 2 }),
+        );
+
+      const pages = await Promise.all([1, 2, 3].map(page));
+      expect(pages.map((p) => codes(p.data))).toEqual([
+        ['T-2', 'T-8'],
+        ['T-1', 'HT-1'],
+        ['HT-4', 'HT-5'],
+      ]);
+      for (const p of pages) {
+        expect(p.metadata).toMatchObject({ totalItems: 6, totalPages: 3 });
+      }
+      expect(pages[1].metadata.itemsOnCurrentPage).toBe(2);
+    });
   });
 
   describe('Administrador (M4)', () => {

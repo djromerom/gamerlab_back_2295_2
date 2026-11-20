@@ -39,7 +39,7 @@
 - `AZURE_BLOB_SAS_URL` era la única variable sobrante en el `.env` de test y prod; se quitó el 2026-11-10 y se revocó su SAS. Las demás candidatas ya no estaban en el servidor.
 - Resuelto en el front: se retiró Supabase (módulo, dependencia y `VITE_SUPABASE_*`) y `MaintenancePage` con `VITE_MAINTENANCE_*`.
 - Dependencias retiradas en ARK-175: front `dotenv`, `react-error-boundary`, `@radix-ui/themes`, `@types/js-cookie` y los paquetes de Radix que solo usaban archivos sin uso; back `nest`, `nestjs-supabase-auth`, `swagger-ui-express`, `ts-loader`, `source-map-support`, `@eslint/eslintrc` y `@types/image-size`. También se borraron 26 archivos del front y 14 del back sin referencias. Quedan por verificar los demás candidatos de `TA-02-docker-compose-build.md` (por ejemplo `multer`).
-- Código sin montar que se mantiene por decisión del equipo: el módulo `members` del back (ver [endpoints](../02-backend/endpoints.md)). Además, el back importa `@azure/core-rest-pipeline` sin declararla en `package.json` (funciona como dependencia transitiva).
+- El back importa `@azure/core-rest-pipeline` sin declararla en `package.json` (funciona como dependencia transitiva).
 
 ## Preguntas abiertas
 1. ¿Quién administra `openlabun/Arkad-Front`, la organización `openlabun` y el proxy/red del servidor?

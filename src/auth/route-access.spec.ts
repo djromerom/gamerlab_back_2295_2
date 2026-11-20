@@ -79,6 +79,12 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   // HU-17: el jurado (externo o profesor) responde su encuesta; los resultados, solo el Administrador
   AnswerJurorSurvey: ['Jurado', 'Profesor'],
   ViewJurorSurveyResults: [],
+  // HU-22 (ARK-84): solo el suplente (rol Jurado) ve y marca sus avisos; el listado de no leídos usa AssignJurors
+  ViewOwnSubstituteNotices: ['Jurado'],
+  // HU-24 (ARK-217): el alta del jurado de último momento es solo del Administrador (ni Staff)
+  ManageWalkInJurors: [],
+  // BG-49 (ARK-251): anular una llegada es solo del Administrador; el Staff la registra pero no la anula
+  AnnulJurorArrival: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],
@@ -245,6 +251,17 @@ describe('Control de acceso de las rutas (BG-01)', () => {
           Estudiante: 'permitido',
           Profesor: 'permitido',
           Jurado: 'permitido',
+          Staff: 'sin permiso',
+          'Presentador externo': 'sin permiso',
+        },
+      ],
+      // HU-09 (ARK-215): suplentes en lote, solo el Administrador
+      [
+        'POST /juror/assignments/substitutes/bulk',
+        {
+          Estudiante: 'sin permiso',
+          Profesor: 'sin permiso',
+          Jurado: 'sin permiso',
           Staff: 'sin permiso',
           'Presentador externo': 'sin permiso',
         },

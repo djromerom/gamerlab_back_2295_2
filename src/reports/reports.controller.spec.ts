@@ -4,10 +4,8 @@ import { PassThrough } from 'stream';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
-import { CACHE_MANAGER } from '@nestjs/cache-manager'; // Importar CACHE_MANAGER
 import { Reflector } from '@nestjs/core'; // Importar Reflector
 import { OptionalAdminRoleGuard } from '../auth/guards/admin-role.guard';
-import { SettingsService } from '../settings/settings.service';
 
 describe('ReportsController', () => {
   let controller: ReportsController;
@@ -22,13 +20,6 @@ describe('ReportsController', () => {
     getVideogamesDataFilter: jest.fn(),
   };
 
-  const mockCacheManager = {
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
-    reset: jest.fn(),
-  };
-
   const mockReflector = {
     get: jest.fn(),
   };
@@ -40,14 +31,6 @@ describe('ReportsController', () => {
         {
           provide: ReportsService,
           useValue: mockReportsService,
-        },
-        {
-          provide: SettingsService,
-          useValue: { getShowRanking: jest.fn() },
-        },
-        {
-          provide: CACHE_MANAGER, // Usar el token correcto
-          useValue: mockCacheManager,
         },
         {
           provide: Reflector, // Añadir el mock para Reflector

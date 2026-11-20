@@ -218,7 +218,9 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     });
   });
 
-  it('los equipos externos cuentan solo la nota junior', async () => {
+  // BG-69 (ARK-272): la casilla solo conserva su regla en ediciones congeladas (como esta); en la
+  // edición vigente no cambia la nota (src/evaluation/final-score.db.spec.ts).
+  it('en una edición congelada, los equipos con la casilla Externo conservan la nota solo junior', async () => {
     expect(await scoreOf('D')).toMatchObject({ finalScore: 3, avgSenior: 5 });
   });
 

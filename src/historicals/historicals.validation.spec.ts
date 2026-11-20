@@ -8,7 +8,7 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 /** M3: un id no numérico debe dar 400, no 500. */
 describe('HistoricalsController — validación (M3)', () => {
   let app: INestApplication;
-  const service = { getHistoricalVideogamesByEdition: jest.fn() };
+  const service = { getHistoricalVideogamesByEdition: jest.fn(), getHistoricalGameFile: jest.fn() };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -44,5 +44,21 @@ describe('HistoricalsController — validación (M3)', () => {
       .get('/historicals/historical-videogames/3')
       .expect(200);
     expect(service.getHistoricalVideogamesByEdition).toHaveBeenCalledWith(3);
+  });
+
+  it('HU-40: GET /historicals/videogames/abc/game-file responde 400', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/historicals/videogames/abc/game-file')
+      .expect(400);
+    expect((res.body as { message: string }).message).toBe('El identificador debe ser un número entero');
+    expect(service.getHistoricalGameFile).not.toHaveBeenCalled();
+  });
+
+  it('HU-40: con un id numérico pide el archivo del juego histórico', async () => {
+    service.getHistoricalGameFile.mockResolvedValue({ id: 12, gameFileURL: '', entry: '' });
+    await request(app.getHttpServer())
+      .get('/historicals/videogames/12/game-file')
+      .expect(200);
+    expect(service.getHistoricalGameFile).toHaveBeenCalledWith(12);
   });
 });

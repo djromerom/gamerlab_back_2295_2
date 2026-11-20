@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Arkad | {{message}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- HU-22 (ARK-84): aviso al suplente. Solo lleva su nombre, los grupos y su nivel: nada de integrantes ni de otros jurados. -->
+    <style>
+      body {
+        font-family: 'Poppins', Arial, sans-serif;
+        background-color: #f9f9fb;
+        color: #333;
+        padding: 24px 8px;
+        margin: 0;
+      }
+      .container {
+        background-color: #fff;
+        border-radius: 16px;
+        padding: 40px 30px;
+        max-width: 600px;
+        margin: auto;
+        box-shadow: 0 4px 20px rgba(102, 68, 255, 0.1);
+        border: 1px solid #e5e5e5;
+      }
+      .title {
+        text-align: center;
+        color: #5a3aff;
+        font-size: 1.8em;
+        margin-top: 10px;
+        letter-spacing: 0.5px;
+      }
+      p {
+        line-height: 1.6;
+        text-align: center;
+        font-size: 1.05em;
+        color: #444;
+      }
+      strong {
+        color: #5a3aff;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0 20px;
+        font-size: 0.95em;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #eee;
+        padding: 8px 6px;
+        text-align: left;
+      }
+      th {
+        color: #5a3aff;
+      }
+      .footer {
+        font-size: 0.85em;
+        color: #777;
+        text-align: center;
+        margin-top: 35px;
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+      }
+      @media (max-width: 600px) {
+        .container {
+          padding: 10vw 2vw;
+          max-width: 98vw;
+        }
+        .title {
+          font-size: 1.1em;
+        }
+        p {
+          font-size: 0.95em;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h2 class="title">{{message}}</h2>
+
+      <p>Hola{{#if firstName}} <b>{{firstName}}</b>{{/if}},</p>
+
+      <p>
+        Como jurado suplente te asignaron estos grupos para calificar en la Feria Gamer:
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Grupo</th>
+            <th>Videojuego</th>
+            <th>Nivel</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each teams}}
+          <tr>
+            <td>{{teamCode}}</td>
+            <td>{{teamName}}</td>
+            <td>{{#if videogameName}}{{videogameName}}{{else}}—{{/if}}</td>
+            <td>{{levelLabel}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+
+      <p>
+        Ingresa a Arkad y ve a <strong>Pendientes por calificar</strong> para encontrarlos y calificarlos.
+        Al abrir la plataforma también verás este aviso.
+      </p>
+
+      <p style="text-align: center;">
+        <a
+          href="{{pendingUrl}}"
+          style="
+            background-color: #7a42ff;
+            color: #ffffff !important;
+            text-decoration: none !important;
+            display: inline-block;
+            padding: 16px 36px;
+            margin: 25px auto;
+            border-radius: 30px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-align: center;
+            border: none;
+          "
+        >
+          Ver mis grupos
+        </a>
+      </p>
+
+      <p class="footer">© 2026 Arkad · Todos los derechos reservados</p>
+    </div>
+  </body>
+</html>

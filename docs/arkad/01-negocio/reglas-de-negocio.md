@@ -47,11 +47,11 @@
 | Regla | Valor | Ref. |
 |---|---|---|
 | Grupos por jurado | **Máx. 3** (parámetro configurable). En manual solo **advierte** | HU-07, HU-08 |
-| Jurados por grupo | 3 (la automática asigna 3) | P-10 |
+| Jurados por grupo | 3 (la automática asigna 3). Más es válido: con suplentes un grupo puede quedar con más de 3, sin advertencia | P-10, HU-09 |
 | Nivel | Todos los grupos de un jurado del **mismo nivel** (automática lo exige; manual advierte) | HU-07 |
 | Colegios (N0) | Solo los califican jurados **senior (= profesores)**. Los junior siguen **bloqueados** | P-08 |
 | Senior | **Solo profesores.** Todos los demás jurados son junior | P-07 |
-| Suplentes | No reciben carga en la automática: entran solo como reemplazo | HU-07, HU-09 |
+| Suplentes | No reciben carga en la automática: entran solo como reemplazo. En lote (HU-09) se **suman** a todos los grupos de los jurados que cubren, sin quitarle grupos a nadie, en una sola transacción con bitácora y aviso de HU-22; aplican los bloqueos y advertencias de HU-08 | HU-07, HU-09 |
 | Asignaciones fijas | La automática respeta las asignaciones manuales marcadas como fijas | P-21 |
 | Conflicto de interés | La automática no asigna a un profesor equipos de NRC que él dicta (excepto colegios); la manual **advierte** | HU-07, HU-08 |
 | Un senior por equipo | La automática intenta incluir al menos un senior/profesor por equipo universitario y avisa cuántos quedaron sin uno | HU-07 |
@@ -61,7 +61,7 @@
 Detalle: [jurados](jurados.md).
 
 ## 6. Edición (feria) y datos
-- Cada edición tiene estado activa / inactiva / archivada. Semestre se guarda como número: 10 primer semestre, 20 intersemestral, 30 segundo.
+- Cada edición tiene estado activa / inactiva / archivada. Semestre se guarda como número: 10 primer semestre, 20 intersemestral, 30 segundo. En pantallas y Excel se muestra «2026 - 1», «2026 - Intersemestral» o «2026 - 2» y en nombres de archivo `2026-1`, `2026-intersemestral` o `2026-2`, nunca el código crudo (`src/editions/semester-label.ts`, BG-63).
 - La edición de trabajo es siempre la `ACTIVE` y **la decide el servidor**. Solo se escribe sobre la activa; las anteriores son historial de solo lectura. Ver [ediciones](ediciones.md).
 
 ## 7. Otras reglas vigentes

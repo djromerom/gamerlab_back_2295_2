@@ -1,4 +1,5 @@
 import { TieBreakMethod } from '@prisma/client';
+import { hasLessThanMinEvaluations } from './min-evaluations';
 
 /**
  * HU-04 (ARK-98): reglas del ranking oficial por nivel, sin acceso a la base.
@@ -16,7 +17,6 @@ import { TieBreakMethod } from '@prisma/client';
  */
 
 export const DEFAULT_PODIUM_SIZE = 3;
-export const MIN_EVALUATIONS = 3;
 
 export type TieRule = 'PROFESSOR' | 'REGISTRATION' | 'MANUAL';
 export type TieStatus = 'PENDING' | 'RESOLVED';
@@ -331,13 +331,13 @@ function toTieTeam(row: ScoreRow, info: TeamInfo): TieTeam {
 }
 
 /**
- * HU-34: un colegio (N0) solo cuenta a profesores y seniors, con o sin marca de externo; un externo
- * solo cuenta a los jurados junior; los demás cuentan ambas partes.
+ * HU-34: un colegio (N0) solo cuenta a profesores y seniors; los demás cuentan ambas partes. La
+ * casilla «Externo» no cambia qué partes cuentan (BG-69, ARK-272).
  */
 function countedScoreParts(row: ScoreRow, level: number) {
   const isCollege = level === 0;
   return {
-    professors: isCollege || !row.isExternal,
+    professors: true,
     jurors: !isCollege,
   };
 }
@@ -428,7 +428,7 @@ function buildOneLevel(
         ),
         seniorEvaluations: row.seniorEvaluations,
         lessThanMinEvaluations:
-          counted.jurors && row.juniorEvaluations < MIN_EVALUATIONS,
+          counted.jurors && hasLessThanMinEvaluations(row),
         missingProfessorScore:
           counted.professors && row.seniorEvaluations === 0,
         registrationDate: info.registrationDate.toISOString(),

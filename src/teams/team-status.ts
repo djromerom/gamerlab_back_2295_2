@@ -17,6 +17,28 @@ export const CONFIRMED_TEAM = {
   videogame: { is: CONFIRMED_VIDEOGAME },
 } satisfies Prisma.TeamWhereInput;
 
+/**
+ * HU-39 (ARK-209): filtro sobre `Team`: equipo que se califica. Un equipo «no calificable» es un
+ * presentador externo: sale en la galería, pero no recibe jurados, no se califica y no tiene nota.
+ */
+export const GRADABLE_TEAM = { notGradable: false } satisfies Prisma.TeamWhereInput;
+
+/**
+ * Filtro sobre `Team`: equipo con nota final, el mismo criterio de `vw_team_final_scores`.
+ * Excluye a los no calificables (HU-39) y a los rechazados (BG-43, ARK-205). Sirve para los
+ * cálculos que no pasan por la vista, como el promedio por materia.
+ */
+export const SCORED_TEAM = {
+  notGradable: false,
+  videogame: { is: { videogameStatus: { status: { not: REJECTED_VIDEOGAME_STATUS } } } },
+} satisfies Prisma.TeamWhereInput;
+
+/** Filtro sobre `Team`: equipo que puede tener jurados y ser calificado (confirmado y calificable). */
+export const ASSIGNABLE_TEAM = {
+  ...CONFIRMED_TEAM,
+  ...GRADABLE_TEAM,
+} satisfies Prisma.TeamWhereInput;
+
 export interface ReleasedJuror {
   id: string;
   nombre: string;
@@ -41,7 +63,19 @@ export async function releaseJurorsIfRejected(
     select: { status: true },
   });
   if (status?.status !== REJECTED_VIDEOGAME_STATUS) return [];
+  return releaseAllJurors(tx, teamId, actorUserId, 'Retiro automático: el equipo fue rechazado.');
+}
 
+/**
+ * Retira todos los jurados del equipo y deja una línea por jurado en la bitácora de asignaciones.
+ * Lo usan el rechazo (ARK-158) y la marca de no calificable (ARK-209).
+ */
+export async function releaseAllJurors(
+  tx: Prisma.TransactionClient,
+  teamId: number,
+  actorUserId: string,
+  notes: string,
+): Promise<ReleasedJuror[]> {
   const team = await tx.team.findUnique({
     where: { id: teamId },
     select: {
@@ -64,7 +98,7 @@ export async function releaseJurorsIfRejected(
       teamId,
       jurorId: id,
       previousJurorId: id,
-      notes: 'Retiro automático: el equipo fue rechazado.',
+      notes,
     })),
   });
 

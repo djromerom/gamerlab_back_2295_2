@@ -43,6 +43,8 @@ export class TeamVerificationController {
   @RequiredService('MyTeamMembers')
   @ApiOperation({
     summary: 'Código de verificación del equipo del estudiante (panel)',
+    description:
+      'Devuelve { teamId, teamCode, verificationCode, notGradable }. En un equipo no calificable (presentador externo, HU-39) `verificationCode` es null y `notGradable` es true: no se entrega código. En equipos de colegios (N0) `verificationCode` también es null.',
   })
   getMyCode(@GetUser('id') userId: string) {
     return this.service.getCodeForStudent(userId);
@@ -76,7 +78,11 @@ export class TeamVerificationController {
   @Get(':teamId')
   @UseGuards(RolePermissionGuard)
   @RequiredService('ManageTeamVerificationCode')
-  @ApiOperation({ summary: 'Consultar el código de un equipo (administrador)' })
+  @ApiOperation({
+    summary: 'Consultar el código de un equipo (administrador)',
+    description:
+      '400 en equipos de colegios (N0) y en equipos no calificables (`TEAM_NOT_GRADABLE`): no tienen código.',
+  })
   getCode(
     @Param('teamId', ParseIntPipe) teamId: number,
     @GetUser('id') adminId: string,
@@ -90,7 +96,7 @@ export class TeamVerificationController {
   @ApiOperation({
     summary: 'Regenerar el código de un equipo (administrador)',
     description:
-      'Se usa cuando el estudiante perdió el código. Queda registrado quién lo regeneró.',
+      'Se usa cuando el estudiante perdió el código. Queda registrado quién lo regeneró. 400 en equipos de colegios (N0) y en equipos no calificables (`TEAM_NOT_GRADABLE`).',
   })
   regenerate(
     @Param('teamId', ParseIntPipe) teamId: number,

@@ -83,21 +83,29 @@ export const ROUTE_NOTES: Record<string, string> = {
   'POST /upload':
     'Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02).',
   'POST /upload/zip':
-    'Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 100 MB, 3 por 10 min y verificación del tipo de archivo (I6).',
+    'Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 200 MB, 3 por 10 min y verificación del tipo de archivo (I6).',
   'GET /reports/videojuegoData':
-    '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
+    'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
   'GET /reports/materiaData':
     '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
   'GET /reports/NRCData':
-    '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
+    'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
   'GET /reports/JuradosData':
     'Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol.',
   'POST /ranking/ties/decision':
     'Profesor: solo empates entre grupos de sus NRC (RankingService.decide); el Administrador, cualquier empate pendiente (HU-04).',
   'GET /ranking/my-ties':
     'Profesor: solo los empates que le toca decidir (HU-04).',
+  'GET /substitute-notices/me':
+    'Solo los avisos del propio suplente en la edición activa (HU-22, ARK-84).',
+  'PATCH /substitute-notices/:id/read':
+    'Solo el dueño del aviso; si no es suyo responde 404 (HU-22, ARK-84).',
+  'GET /substitute-notices/unread':
+    'Solo Administrador (AssignJurors): suplentes con el aviso de grupos sin leer, para el panel de seguimiento (HU-22, ARK-84).',
+  'POST /juror/assignments/substitutes/bulk':
+    'Solo Administrador (AssignJurors): suma suplentes a los grupos de uno o varios jurados sin quitar a nadie, en una sola transacción (HU-09, ARK-215).',
   'GET /reports/DatosGraficoMateria':
-    '⚠️ BG-02: pública; revisar si debe exigir sesión o rol.',
+    'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
 };
 
 export type RouteAccess =

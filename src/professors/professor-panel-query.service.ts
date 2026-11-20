@@ -8,6 +8,7 @@ import {
   ProfessorPanelQueryDto,
 } from './dto/professor-panel-query.dto';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { GRADABLE_TEAM, REJECTED_VIDEOGAME_STATUS } from '../teams/team-status';
 
 export interface PanelEdition {
   id: number;
@@ -30,6 +31,8 @@ export interface PanelTeam {
   videogameId: number | null;
   videogameName: string | null;
   members: PanelMember[];
+  /** BG-43 (ARK-205): inscripción rechazada; no tiene nota de feria mientras lo esté. */
+  rejected?: boolean;
 }
 
 export interface PanelNrcGroup {
@@ -171,6 +174,7 @@ export class ProfessorPanelQueryService {
     const teams = await this.prisma.team.findMany({
       where: {
         isActive: true,
+        ...GRADABLE_TEAM, // HU-39 (ARK-209): el presentador externo no está en Calificaciones Uninorte
         members: {
           some: { isActive: true, nrcs: { some: { id: { in: nrcIds } } } },
         },
@@ -180,7 +184,14 @@ export class ProfessorPanelQueryService {
         teamCode: true,
         teamName: true,
         editionId: true,
-        videogame: { select: { id: true, name: true, isActive: true } },
+        videogame: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+            videogameStatus: { select: { status: true } },
+          },
+        },
         members: {
           where: { isActive: true },
           select: {
@@ -218,7 +229,12 @@ export class ProfessorPanelQueryService {
     id: number;
     teamCode: string;
     teamName: string;
-    videogame: { id: number; name: string; isActive: boolean } | null;
+    videogame: {
+      id: number;
+      name: string;
+      isActive: boolean;
+      videogameStatus?: { status: string } | null;
+    } | null;
     members: { firstName: string; lastName: string; studentCode: string }[];
   }): PanelTeam {
     const members = team.members
@@ -238,6 +254,7 @@ export class ProfessorPanelQueryService {
       videogameId: videogame?.id ?? null,
       videogameName: videogame?.name ?? null,
       members,
+      rejected: videogame?.videogameStatus?.status === REJECTED_VIDEOGAME_STATUS,
     };
   }
 }

@@ -26,8 +26,8 @@ import { EmailClient } from '@azure/communication-email';
 import { RestError } from '@azure/core-rest-pipeline';
 import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import { ActiveEdition, findActiveEdition } from '../editions/active-edition';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
-import { JUROR_ROLE_NAME } from '../juror-badges/juror-label';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
+import { JUROR_ROLE_NAME } from 'src/jurors/juror-badges/juror-label';
 import { assertJurorOfEdition, eventDayOf } from '../certificates/certificate-eligibility';
 import { fairDateLong } from '../certificates/external-presenter-certificate';
 import { fairNameOf } from '../certificates/fair-name';
@@ -528,6 +528,14 @@ export class EmailService {
     } catch (error) {
       this.handleResendError(error, 'JUROR_CERTIFICATE', userId, { isCert: true });
     }
+  }
+
+  /**
+   * HU-22 (ARK-84): true si hay claves de ACS. Sin ellas, en desarrollo `sendEmail` no envía nada
+   * (modo simulación) y quien registra el resultado del envío lo anota como omitido.
+   */
+  isConfigured(): boolean {
+    return this.emailClient !== null;
   }
 
   /**

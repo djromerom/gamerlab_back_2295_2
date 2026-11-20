@@ -1,13 +1,14 @@
 # Pruebas y verificación
 
-> **Audiencia:** DevOps, Backend, QA · **Actualizado:** 2026-11-05 · **Estado:** parcial (índice con resumen; el detalle está en la entrega de Santiago) · **Fuente:** `05-referencia-promociones-y-pruebas/*`, `verificacion/` en la raíz del proyecto
+> **Audiencia:** DevOps, Backend, QA · **Actualizado:** 2026-11-14 · **Estado:** parcial (índice con resumen; el detalle está en la entrega de Santiago) · **Fuente:** `05-referencia-promociones-y-pruebas/*`, `verificacion/` en la raíz del proyecto
 
 ## Pruebas automáticas
 | Dónde | Estado |
 |---|---|
 | Back (Jest) | Unit y e2e en `test/`; specs de BD con `RUN_DB_TESTS=1`. TA-10 (Hecho): corrida del 2026-11-05 sobre `origin/main` = 1313 pruebas pasan, 77 omitidas (BD), 0 fallan. Ver [02-backend/pruebas](../02-backend/pruebas.md) |
-| CI del back (`Test-back`, en PR a `dev`/`main`) | build, lint (`continue-on-error`), `npm run test:ci`, integración contra Postgres 15 efímero (migrate, seed, e2e y `*.db.spec.ts`) |
+| CI del back (`Test-back`, en PR a `dev`/`main`) | build, lint (`continue-on-error`), `npm run test:ci`, integración contra Postgres 15 efímero (migrate, seed, `npm run test:e2e` y `npm run test:db`, los dos en serie: ARK-208) |
 | Front | Vitest (~52 archivos `*.test.ts(x)` en `origin/main`). `Test-front` ejecuta build y `npm run test:ci` como checks **bloqueantes**; lint y `check:env` con `continue-on-error`. Ver [03-frontend/deuda-tecnica](../03-frontend/deuda-tecnica.md) |
+| Pruebas funcionales e2e del front (TA-06, ARK-42, Hecho) | Playwright contra lo desplegado en Arkad-test: 9 casos del flujo de evaluación del jurado (sesión, borradores, lote, consecutiva). Bajo demanda con el workflow `E2E-Arkad-test` del repo del front (no corre en PR); el resumen de la corrida dice qué comportamiento pasó y el artefacto `playwright-report` trae una captura por paso. Corrida completa del 2026-11-14: 9 de 9. Detalle en `e2e/README.md` del repo del front |
 | `npm run check:env` | Valida `.env.example`; corre en CI con `continue-on-error` |
 
 ## Scripts de verificación (`verificacion/` en la raíz del proyecto, fuera de los repos)

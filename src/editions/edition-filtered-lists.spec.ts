@@ -1,14 +1,14 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { editionIdQuery } from './list-edition';
 import { TeamsService } from '../teams/services/teams.service';
-import { VideogamesService as PendingGamesService } from '../pending-games/pg.service';
-import { GradedGamesService } from '../graded-games/gg.service';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
+import { GradedGamesService } from 'src/graded-games/graded-games.service';
 import { ProfessorsService } from '../professors/professors.service';
 import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 
 /**
  * ARK-132 (BG-19): las listas de equipos, jurados y el panel del jurado no mezclan ediciones.
- * La prueba con dos ediciones reales está en `src/juror/edition-lists.db.spec.ts`.
+ * La prueba con dos ediciones reales está en `src/jurors/juror/edition-lists.db.spec.ts`.
  */
 const ACTIVE = { id: 5, title: 'E5', status: 'ACTIVE' };
 
@@ -120,7 +120,7 @@ describe('Panel del jurado: solo la edición activa', () => {
         isActive: true,
         // ARK-147: solo evaluaciones de jurado (con detalles), no la nota del NRC
         details: { some: {} },
-        videogame: { team: { edition: { status: 'ACTIVE' } } },
+        videogame: { team: { edition: { status: 'ACTIVE' }, notGradable: false } },
       });
     }
   });
@@ -158,7 +158,7 @@ describe('GET /professors/juror-evaluations', () => {
           jurorId: 'p1',
           isActive: true,
           details: { some: {} },
-          videogame: { team: { editionId: 5 } },
+          videogame: { team: { editionId: 5, notGradable: false } },
         },
       }),
     );
@@ -193,7 +193,7 @@ describe('GET /professors/juror-evaluations', () => {
           jurorId: 'p1',
           isActive: true,
           details: { some: {} },
-          videogame: { team: { editionId: 4 } },
+          videogame: { team: { editionId: 4, notGradable: false } },
         },
       }),
     );
@@ -210,7 +210,7 @@ describe('GET /professors/juror-evaluations', () => {
           jurorId: 'p1',
           isActive: true,
           details: { some: {} },
-          videogame: { team: { editionId: -1 } },
+          videogame: { team: { editionId: -1, notGradable: false } },
         },
       }),
     );

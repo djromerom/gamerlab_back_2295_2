@@ -1,8 +1,9 @@
 // src/teams/interfaces/team-repository.interface.ts
 import { Team, Member, Videogame, User } from '@prisma/client';
 import { CreateTeamDto } from '../dto/create-team.dto';
-import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
+import { UpdateMemberDto } from '../dto/update-member.dto';
 import { UpdateTeamDto } from '../dto/update-team.dto';
+import { TeamListFilters } from '../repositories/team-list-filter';
 
 export interface ITeamRepository {
   findByTeamName(teamName: string): Promise<boolean>;
@@ -15,9 +16,9 @@ export interface ITeamRepository {
     members: Member[];
     videogame: Videogame;
   }>;
-  findAll(): Promise<Team[]>;
+  findAll(sortByLikes?: boolean, editionId?: number, filters?: TeamListFilters): Promise<Team[]>;
   findOne(id: number): Promise<Team | null>;
-  findPaged(page: number, limit: number): Promise<any>;
+  findPaged(page: number, limit: number, sortByLikes?: boolean, editionId?: number, filters?: TeamListFilters): Promise<any>;
   findOneWithDetails(id: number): Promise<any>;
   findOneWithDetailsByLeaderId(leaderId: string): Promise<any>;
   isActiveMember(teamId: number, email: string): Promise<boolean>;

@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import {
   ARRIVAL_REMINDER_NOTICE,
   PENDING_EVALUATIONS_NOTICE,

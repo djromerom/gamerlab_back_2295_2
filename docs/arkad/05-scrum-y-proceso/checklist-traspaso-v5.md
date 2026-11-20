@@ -29,7 +29,7 @@
 - [x] Supabase y `VITE_MAINTENANCE_*` retirados del front (ARK-175, 10-nov).
 
 ## Producto y proceso
-- [ ] Decisiones abiertas ([decisiones-abiertas](../01-negocio/decisiones-abiertas.md)): P-02, P-23, P-24, P-28, rangos de «Excelente/Bueno», histórico del profesor, equipos externos en el podio.
+- [ ] Decisiones abiertas ([decisiones-abiertas](../01-negocio/decisiones-abiertas.md)): P-02, P-23, P-24, P-28, rangos de «Excelente/Bueno», equipos externos en el podio.
 - [ ] Estado de Jira por ticket y sprint (Sprint 3 y 4 aún no existen en Jira a 4-nov).
 - [ ] Resultado y retrospectiva de los sprints 1 a 4 ([sprints-historial](sprints-historial.md)).
 - [ ] Resultado de la feria del 26-nov: lecciones, incidentes, mejoras para la V5.
@@ -37,5 +37,6 @@
 
 ## Documentación
 - [ ] Esta documentación al día ([changelog](../06-referencia/changelog-documentacion.md)); no versionar la carpeta de accesos y credenciales ni ninguna carpeta `keys/`.
+- [ ] Re-medir la estructura de los repos con los comandos de los diagnósticos ([back](../02-backend/diagnostico-estructura.md), [front](../03-frontend/diagnostico-estructura.md)) y entregar las cifras junto con las [convenciones de estructura](../02-backend/estructura-objetivo-y-convenciones.md) vigentes.
 - [ ] Mover la documentación al repositorio/espacio que decida el PO (el `00-INDICE` de Santiago menciona un repositorio compartido por centralizar).
 - [ ] Reunión de traspaso con la V5: recorrer [onboarding por rol](../00-inicio-rapido/onboarding-por-rol.md).

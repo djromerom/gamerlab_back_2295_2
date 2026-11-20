@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { EVENT_CONFIGURATION_NOT_FOUND } from '../settings/active-edition-config';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
+import { REJECTED_VIDEOGAME_STATUS } from '../teams/team-status';
 import {
   checkTeamGrade,
   FINAL_GRADE_RELEASE_TOO_EARLY,
@@ -19,6 +20,7 @@ import {
   IncompleteReason,
   resolveReleaseMoment,
   StudentGradeStatus,
+  UngradedReason,
   studentGrade,
 } from './final-grade.logic';
 
@@ -137,7 +139,8 @@ export class FinalGradeService {
 
   /**
    * Libera (`show=true`) u oculta (`show=false`) la nota final. Liberar antes de la hora de
-   * cierre del día de la feria responde 400 con la hora; ocultar se puede siempre.
+   * cierre del día de la feria responde 400 con la hora; ocultar se puede siempre y también oculta
+   * el ranking público (BG-67: el ranking no se ve sin la nota final liberada).
    */
   async setRelease(
     show: boolean,
@@ -165,7 +168,10 @@ export class FinalGradeService {
     if (config.showFinalGrade !== show) {
       await this.prisma.eventConfiguration.update({
         where: { id: config.id },
-        data: { showFinalGrade: show, finalGradeReleasedAt: show ? now : null },
+        // BG-67 (ARK-268): ocultar la nota final también oculta el ranking público
+        data: show
+          ? { showFinalGrade: true, finalGradeReleasedAt: now }
+          : { showFinalGrade: false, finalGradeReleasedAt: null, showRanking: false },
       });
     }
     return this.getReleaseStatus(now);
@@ -181,6 +187,8 @@ export class FinalGradeService {
         teamName: true,
         teamCode: true,
         editionId: true,
+        notGradable: true,
+        videogame: { select: { videogameStatus: { select: { status: true } } } },
         edition: {
           select: { eventConfiguration: { select: { showFinalGrade: true } } },
         },
@@ -190,12 +198,17 @@ export class FinalGradeService {
       throw new NotFoundException('No tienes un equipo en la edición activa.');
     }
     const released = team.edition.eventConfiguration?.showFinalGrade === true;
-    const row = released
+    const ungraded: UngradedReason = team.notGradable
+      ? 'NOT_GRADABLE'
+      : team.videogame?.videogameStatus.status === REJECTED_VIDEOGAME_STATUS
+        ? 'REJECTED'
+        : null;
+    const row = released && !ungraded
       ? await this.prisma.teamFinalScore.findFirst({
           where: { teamId: team.id, editionId: team.editionId },
         })
       : null;
-    const grade = studentGrade(released, row);
+    const grade = studentGrade(released, row, ungraded);
     return {
       editionId: team.editionId,
       team: { id: team.id, teamName: team.teamName, teamCode: team.teamCode },

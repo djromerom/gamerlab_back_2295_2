@@ -17,7 +17,7 @@ import { ITeamRepository } from '../interfaces/team-repository.interface';
 import { CreateTeamDto } from '../dto/create-team.dto';
 import { Team, Member, Videogame, Prisma, User, EditionStatus } from '@prisma/client';
 import { UpdateTeamDto } from '../dto/update-team.dto';
-import { UpdateMemberDto } from 'src/members/dto/update-member.dto';
+import { UpdateMemberDto } from '../dto/update-member.dto';
 import { UpdateVideogameDto } from 'src/videogames/dto/update-videogame.dto';
 import { MemberDto } from '../dto/member.dto';
 import { VideogameDto } from '../dto/videogame.dto';
@@ -34,12 +34,13 @@ import {
   activeEditionTeamOf,
 } from '../active-edition-team';
 import { findActiveEdition } from '../../editions/active-edition';
-import { ReleasedJuror, releaseJurorsIfRejected } from '../team-status';
+import { TeamListFilters, resolveTeamListWhere } from './team-list-filter';
+import { GRADABLE_TEAM, ReleasedJuror, releaseJurorsIfRejected } from '../team-status';
 import {
   TeamLevelInfo,
   byLevelThenName,
   teamLevelInfo,
-} from '../../juror/assignment-validation/team-level';
+} from 'src/jurors/juror/assignment-validation/team-level';
 
 @Injectable()
 export class TeamRepository implements ITeamRepository {
@@ -235,8 +236,8 @@ export class TeamRepository implements ITeamRepository {
     }
   }
 
-  /** ARK-129: `editionId` limita el listado a esa edición (el servicio resuelve la activa). */
-  async findAll(sortByLikes = false, editionId?: number): Promise<Team[]> {
+  /** ARK-129: `editionId` limita el listado a esa edición. BG-53: `filters` (búsqueda y origen). */
+  async findAll(sortByLikes = false, editionId?: number, filters: TeamListFilters = {}): Promise<Team[]> {
     const orderBy: Prisma.TeamOrderByWithRelationInput[] = [
       { videogame: { videogameStatusId: 'asc' } } // confirmed teams always first
     ];
@@ -249,7 +250,7 @@ export class TeamRepository implements ITeamRepository {
     }
 
     return this.prisma.team.findMany({
-      where: editionId === undefined ? undefined : { editionId },
+      where: await resolveTeamListWhere(this.prisma, editionId, filters),
       orderBy: orderBy,
       include: {
         videogame: {
@@ -293,7 +294,7 @@ export class TeamRepository implements ITeamRepository {
     return member !== null;
   }
 
-  async findPaged(page = 1, limit = 10, sortByLikes = false, editionId?: number) {
+  async findPaged(page = 1, limit = 10, sortByLikes = false, editionId?: number, filters: TeamListFilters = {}) {
     const currentPage = Math.max(page, 1);
     const itemsPerPage = Math.max(limit, 1);
 
@@ -307,8 +308,7 @@ export class TeamRepository implements ITeamRepository {
     } else {
       orderBy.push({ id: 'asc' });
     }
-    const where: Prisma.TeamWhereInput | undefined =
-      editionId === undefined ? undefined : { editionId };
+    const where = await resolveTeamListWhere(this.prisma, editionId, filters);
     const [teams, totalItems] = await this.prisma.$transaction([
       this.prisma.team.findMany({
         where,
@@ -751,6 +751,7 @@ export class TeamRepository implements ITeamRepository {
         where: {
           isActive: true,
           editionId,
+          ...GRADABLE_TEAM, // HU-39 (ARK-209)
           videogame: {
             videogameStatusId: confirmedStatus.id,
           },

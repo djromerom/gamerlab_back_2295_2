@@ -2,6 +2,8 @@
 
 > **Audiencia:** Backend · **Actualizado:** 2026-11-05 · **Estado:** parcial (módulos y responsabilidades inferidas de `app.module.ts` y controladores; falta leer cada servicio) · **Fuente:** `src/app.module.ts`, `src/*/*.controller.ts`
 
+> Estructura objetivo, agrupación de dominios (`src/jurors/`) y convenciones: [estructura objetivo y convenciones](estructura-objetivo-y-convenciones.md) (TA-14).
+
 ## Patrón
 NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con controlador(es), servicio(s), DTOs (`dto/`), a veces entidades/repositorios (`teams/` tiene `controllers/`, `services/`, `repositories/`). Guard JWT **global** (`APP_GUARD`) y `@Public()` para rutas abiertas; permisos con `RolePermissionGuard` + `@RequiredService('<servicio>')` ([auth-y-sesiones](auth-y-sesiones.md)). Los ficheros `*.spec.ts` van junto al código.
 
@@ -12,16 +14,17 @@ NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con contro
 | Plataforma | `prisma`, `cache`, `common`, `settings`, `app.*` | Cliente Prisma, caché en memoria, utilidades (`common/throttle`, `common/utils`), configuración del evento y ponderados |
 | Acceso | `auth`, `email`, `staff` | Login/refresh/logout/reset, Entra ID, guards; envío de correos; alta de cuentas Staff |
 | Ediciones y landing | `editions`, `educational-focuses`, `testimonials`, `highlighted-games`, `historicals` | Ciclo de vida de la edición (crear, activar, archivar), contenido público por edición, histórico |
-| Inscripción | `teams`, `members` (sin montar: ver [endpoints](endpoints.md)), `team-verification`, `students`, `videogames`, `upload` | Equipos e integrantes, código de verificación, panel del estudiante, videojuegos y multimedia, archivos (Azure Blob) |
+| Inscripción | `teams`, `team-verification`, `students`, `videogames`, `upload` | Equipos e integrantes, código de verificación, panel del estudiante, videojuegos y multimedia, archivos (Azure Blob) |
 | Académico | `subjects`, `nrcs`, `professors`, `criterion` | Materias, NRC, panel del profesor (notas, reportes, filtros), criterios de evaluación |
-| Jurados | `juror`, `juror-edition`, `juror-badges`, `juror-checkin`, `evaluation-tracking` | Alta y asignación de jurados (con validación y bitácora), jurados por edición, escarapelas QR, check-in, seguimiento por hora |
+| Jurados | `jurors/juror`, `jurors/juror-edition`, `jurors/juror-badges`, `jurors/juror-checkin`, `jurors/juror-attendance`, `jurors/juror-presence`, `jurors/juror-survey`, `jurors/absence-alert`, `jurors/absent-juror-responses`, `evaluation-tracking` | Alta y asignación de jurados (con validación y bitácora), jurados por edición, escarapelas QR, check-in, seguimiento por hora |
 | Evaluación | `evaluation`, `pending-games`, `graded-games`, `ranking` | Calificar (con detalles, en lote, idempotente), juegos pendientes/calificados, ranking por nivel y desempate |
-| Salidas | `reports`, `certificates`, `templates` | Reportes y Excel, certificados PDF (Gotenberg), plantillas de correo/PDF |
+| Salidas | `reports`, `certificates` | Reportes y Excel, certificados PDF (Gotenberg); las plantillas están en `email/templates/` |
 
 ## Piezas transversales importantes
 - **Edición activa:** `src/editions/active-edition.ts` (`findActiveEdition`, `requireActiveEdition`, `ACTIVE_EDITION_WHERE`, `assert*Writable`) y `list-edition.ts` (`resolveListEdition`). Una prueba (`active-edition.regression.spec.ts`) falla si alguien filtra la edición a mano. Ver `docs/editions.md`.
-- **Validación de asignaciones:** `src/juror/assignment-validation/` (`assignment-rules.ts` con las reglas, servicio central, tipos). Reglas de [negocio](../01-negocio/reglas-de-negocio.md): bloqueos vs advertencias.
-- **Bitácora de asignaciones:** `src/juror/assignment-audit` y modelo `JurorAssignmentAuditLog`.
+- **Validación de asignaciones:** `src/jurors/juror/assignment-validation/` (`assignment-rules.ts` con las reglas, servicio central, tipos). Reglas de [negocio](../01-negocio/reglas-de-negocio.md): bloqueos vs advertencias.
+- **Bitácora de asignaciones:** `src/jurors/juror/assignment-audit` y modelo `JurorAssignmentAuditLog`.
+- **Suplentes en lote:** `src/jurors/juror/substitute-assignment/` (subcarpeta del módulo `juror`, sin módulo propio): `POST /juror/assignments/substitutes/bulk` suma suplentes a los grupos de uno o varios jurados en una transacción, con bitácora y aviso de HU-22 (HU-09, ARK-215).
 - **Evaluaciones que cuentan:** `src/evaluation/counted-evaluations.ts` (`MAX_COUNTED_EVALUATIONS = 3`, ordena por hora de envío) y `evaluation-progress.ts`.
 - **Ranking:** `src/ranking/ranking.logic.ts` (lógica pura, sin BD) + `ranking.service.ts`.
 - **Visibilidad/privacidad:** `common/utils/strip-personal-data.ts`, `omit-password.ts`, `opaque-user-key.ts`, `teams/team-visibility.ts` (BG-02, BG-06, BG-07).
@@ -39,15 +42,15 @@ NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con contro
 
 | Módulo | Qué hace | Ticket |
 |---|---|---|
-| `juror/automatic-assignment/` | Asignación automática de jurados. `automatic-assignment.planner.ts` es una **función pura** (sin BD) que arma el plan; `.coverage.ts` calcula cobertura y alertas; `.service.ts` toma la foto de la edición y guarda al confirmar. Reglas: hasta 3 jurados por grupo; hasta 3 grupos por jurado, todos del mismo nivel; lo ya asignado es fijo (se puede volver a ejecutar y solo completa lo que falta); suplentes excluidos; colegios (N0) solo con seniors; nadie evalúa equipos de sus propios NRC (salvo N0); cada equipo universitario recibe al menos un senior si es posible; un jurado con grupos de varios niveles o sin categoría queda fuera y se reporta | HU-07 |
-| `juror/assignment-validation/` | Reglas de coherencia (`assignment-rules.ts`, `findEvaluatorBlocker`, `hasNrcConflict`, `isSeniorEvaluator`) que usan tanto la asignación manual como la automática | HU-08 |
-| `juror-attendance/` | `GET /juror-attendance`: asistencia de los jurados de la edición (`PRESENT` / `MISSING`), con hora, método y quién hizo el check-in; no devuelve correos ni códigos | HU-29 |
-| `juror-edition/juror-edition-enroll.ts` | Inscribir a un profesor senior sin NRC como jurado de la edición, por correo | HU-28 |
+| `jurors/juror/automatic-assignment/` | Asignación automática de jurados. `automatic-assignment.planner.ts` es una **función pura** (sin BD) que arma el plan; `.coverage.ts` calcula cobertura y alertas; `.service.ts` toma la foto de la edición y guarda al confirmar. Reglas: hasta 3 jurados por grupo; hasta 3 grupos por jurado, todos del mismo nivel; lo ya asignado es fijo (se puede volver a ejecutar y solo completa lo que falta); suplentes excluidos; colegios (N0) solo con seniors; nadie evalúa equipos de sus propios NRC (salvo N0); cada equipo universitario recibe al menos un senior si es posible; un jurado con grupos de varios niveles o sin categoría queda fuera y se reporta | HU-07 |
+| `jurors/juror/assignment-validation/` | Reglas de coherencia (`assignment-rules.ts`, `findEvaluatorBlocker`, `hasNrcConflict`, `isSeniorEvaluator`) que usan tanto la asignación manual como la automática | HU-08 |
+| `jurors/juror-attendance/` | `GET /juror-attendance`: asistencia de los jurados de la edición (`PRESENT` / `MISSING`), con hora, método y quién hizo el check-in; no devuelve correos ni códigos | HU-29 |
+| `jurors/juror-edition/juror-edition-enroll.ts` | Inscribir a un profesor senior sin NRC como jurado de la edición, por correo | HU-28 |
 | `professors/professor-juror-profile.ts` | Un profesor creado desde el panel queda Senior y Oficial en la tabla de jurados | BG-26 |
 | `teams/final-score-breakdown.ts` | El estudiante ve solo la nota general final de su grupo, sin desglose | HU-30 |
 | `editions/list-edition.ts`, `settings/active-edition-config.ts` | Filtro por edición de las listas y configuración de la edición activa | HU-27, BG-18..23 |
 
-`juror/juror.service.ts` se redujo (la lógica de asignación salió a sus propios archivos). Documento de cierre de edición: `docs/edition-closure.md` (resumen en [01-negocio/ediciones](../01-negocio/ediciones.md)).
+`jurors/juror/juror.service.ts` se redujo (la lógica de asignación salió a sus propios archivos). Documento de cierre de edición: `docs/edition-closure.md` (resumen en [01-negocio/ediciones](../01-negocio/ediciones.md)).
 
 ## Servicios con más lógica
 | Servicio | Tamaño | Notas |

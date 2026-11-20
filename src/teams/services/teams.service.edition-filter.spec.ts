@@ -19,15 +19,15 @@ describe('TeamsService.findAll / findPaged: edición', () => {
 
   it('sin editionId pide al repositorio solo la edición activa', async () => {
     await service.findAll(false);
-    expect(repository.findAll).toHaveBeenCalledWith(false, 5);
+    expect(repository.findAll).toHaveBeenCalledWith(false, 5, {});
     await service.findPaged(1, 10, true);
-    expect(repository.findPaged).toHaveBeenCalledWith(1, 10, true, 5);
+    expect(repository.findPaged).toHaveBeenCalledWith(1, 10, true, 5, {});
   });
 
   it('con editionId usa esa edición y la marca de solo lectura si no es la activa', async () => {
     prisma.edition.findUnique.mockResolvedValue({ id: 4, title: 'E4', status: 'INACTIVE', endsAt: new Date() });
     const result: any = await service.findPaged(1, 10, false, true, undefined, 4);
-    expect(repository.findPaged).toHaveBeenCalledWith(1, 10, false, 4);
+    expect(repository.findPaged).toHaveBeenCalledWith(1, 10, false, 4, {});
     expect(result.edition).toEqual({ id: 4, title: 'E4', status: 'INACTIVE', readOnly: true });
   });
 

@@ -2,8 +2,8 @@ import { ForbiddenException } from '@nestjs/common';
 import { EditionStatus } from '@prisma/client';
 
 import { EvaluationService } from '../evaluation/evaluation.service';
-import { GradedGamesService } from '../graded-games/gg.service';
-import { VideogamesService } from '../pending-games/pg.service';
+import { GradedGamesService } from 'src/graded-games/graded-games.service';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
 import { blobRefsPassthrough } from '../upload/blob-reference.mock';
 
 /**
@@ -39,9 +39,9 @@ describe('Puerta de evaluaciones abiertas: configuración de la edición activa 
         ).getGradedVideogamesCount('juror-1'),
     ],
     [
-      'VideogamesService (pending-games)',
+      'PendingGamesService (pending-games)',
       () =>
-        new VideogamesService(
+        new PendingGamesService(
           prisma,
           blobRefsPassthrough(),
         ).getPendingVideogamesCount('juror-1'),

@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { MAX_PAGE_LIMIT } from '../../common/dto/pagination-query.dto';
 import { trimToUndefined } from '../../common/utils/trim-transform';
-import { EditionIdDto } from '../../juror-edition/dto/edition-id.dto';
+import { EditionIdDto } from 'src/jurors/juror-edition/dto/edition-id.dto';
 import {
   PARTICIPATION_VIDEOGAME_STATUSES,
   ParticipationVideogameStatus,

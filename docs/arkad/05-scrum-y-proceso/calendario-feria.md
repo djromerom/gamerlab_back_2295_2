@@ -20,7 +20,7 @@
 
 ## Prerrequisitos de producción antes de la feria
 - Cargar **NRC y ponderados de la edición 5** (sin NRC nadie completa la inscripción).
-- Script de limpieza de escarapelas de BG-16 (desactivar, no borrar; con `pg_dump` previo de `escarapelas_jurado` y `asistencia_jurado`; verificar que no haya llegadas en `asistencia_jurado`); lo ejecuta DevOps en producción **después** de HU-25. Orden: HU-25 en prod → cargar NRC y confirmar jurados → BG-16 → script → escarapelas el 25.
+- Script de limpieza de escarapelas de BG-16 (desactivar, no borrar; con `pg_dump` previo de `escarapelas_jurado` y `asistencia_jurado`; verificar que no haya llegadas en `asistencia_jurado`); lo ejecuta DevOps en producción **después** de HU-25. Orden: HU-25 en prod → cargar NRC y confirmar jurados → BG-16 → script → escarapelas el 25. **Script ejecutado en producción el 2026-11-14** (desactivó 106 escarapelas generadas el 2-nov con la regla vieja; ver [estado actual](../00-inicio-rapido/estado-actual.md#pendientes-de-producción)).
 - **No correr la asignación automática en producción** hasta que HU-25 esté mezclada.
 - Promover `main → dev` / `dev-deploy` (igualación) antes de la próxima promoción.
 - Renovar `DEPLOY_PAT` antes del 2026-12-19 (posterior a la feria, pero no olvidar).

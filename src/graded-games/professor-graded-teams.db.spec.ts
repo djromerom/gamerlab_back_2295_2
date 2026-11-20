@@ -1,7 +1,7 @@
 import { EditionStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { GradedGamesService } from './gg.service';
+import { GradedGamesService } from './graded-games.service';
 import { ProfessorsService } from '../professors/professors.service';
 
 /**
@@ -90,6 +90,7 @@ maybe('Equipos evaluados del profesor: solo como jurado (BD real)', () => {
   const evaluateAsJuror = async (jurorId: string, key: string) => {
     const criterion = await prisma.criterion.findFirstOrThrow({
       where: { isActive: true },
+      orderBy: { id: 'asc' },
     });
     await prisma.evaluation.create({
       data: {
@@ -213,6 +214,20 @@ maybe('Equipos evaluados del profesor: solo como jurado (BD real)', () => {
     expect(page.data.map((g) => g.videogameName)).toEqual([`Juego J1 ${tag}`]);
     expect(page.metadata.totalItems).toBe(1);
     expect(await graded.getGradedVideogamesCount(ids.profA)).toBe(1);
+  });
+
+  it('ARK-264: cada juego trae el puntaje por criterio que guardó el jurado', async () => {
+    const criterion = await prisma.criterion.findFirstOrThrow({
+      where: { isActive: true },
+      orderBy: { id: 'asc' },
+      select: { id: true, name: true },
+    });
+    const page = await graded.getGradedVideogames(ids.profA, 50, 1);
+    expect(page.data[0].criteria).toEqual([
+      { criterionId: criterion.id, name: criterion.name, score: 4.2 },
+    ]);
+    const search = await graded.searchGradedGames(ids.profA, tag);
+    expect(search.data[0].criteria).toEqual(page.data[0].criteria);
   });
 
   it('profesor B: lo suyo, sin lo de A ni su nota del NRC', async () => {

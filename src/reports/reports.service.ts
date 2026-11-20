@@ -10,7 +10,7 @@ import { countProgress } from '../evaluation/evaluation-progress';
 import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evaluation/final-score';
 import { EditionStatus } from '@prisma/client';
 import { activeEditionTeamOf } from '../teams/active-edition-team';
-import { CONFIRMED_TEAM, CONFIRMED_VIDEOGAME } from '../teams/team-status';
+import { ASSIGNABLE_TEAM, CONFIRMED_VIDEOGAME, GRADABLE_TEAM, SCORED_TEAM } from '../teams/team-status';
 import {
   JUROR_EDITION_STATUS_LABEL,
   JurorAssignmentRow,
@@ -20,7 +20,7 @@ import {
 } from './juror-assignment-export';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { resolveListEdition } from '../editions/list-edition';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 
 /**
  * ARK-135 (BG-22): id de edición que nunca existe. Sin edición activa los reportes salen
@@ -76,7 +76,8 @@ export class ReportsService {
       !(await this.settingsService.isRankingVisible());
     const videojuegos = await this.prisma.videogame.findMany({
       // ARK-135: solo los juegos de la edición del reporte
-      where: { isActive: true, team: { editionId: reportEditionId } },
+      // HU-39 (ARK-209): sin los no calificables (sin fila en la vista caerían al promedio crudo)
+      where: { isActive: true, team: { editionId: reportEditionId, ...GRADABLE_TEAM } },
       include: {
         team: {
           include: {
@@ -194,7 +195,6 @@ export class ReportsService {
       // compute semestre from teamCode
       const computeSemestre = (team: any): string => {
         if (!team) return '';
-        if ((team as any)?.isExternal) return 'Externos';
         const rawCode: string = (team as any)?.teamCode ?? '';
         const prefix = rawCode.slice(0, 2).toUpperCase(); // N1, N2, N3, N4
         switch (prefix) {
@@ -248,6 +248,7 @@ export class ReportsService {
   /**
    * Promedio por materia (gráficas públicas). Con el ranking oculto (o sin edición activa)
    * y un usuario que no es Administrador devuelve las mismas materias con `value: null`.
+   * Una materia sin ninguna nota también devuelve `null` (ARK-265), no 0.
    */
   async getSubjectAverageScores(
     user?: AppUser,
@@ -272,6 +273,8 @@ export class ReportsService {
           where: { isActive: true, editionId: reportEditionId },
           include: {
             members: {
+              // BG-43 y HU-39: sin equipos rechazados ni no calificables, como la nota final
+              where: { team: SCORED_TEAM },
               include: {
                 team: {
                   include: {
@@ -306,6 +309,16 @@ export class ReportsService {
           const evaluations = videogame?.evaluations ?? [];
 
           for (const evaluation of evaluations) {
+            // ARK-265 (BG-65): la nota del profesor a un colegio solo guarda el total, sin detalle
+            // por criterio; sin esto la materia «Colegios» no tenía ninguna nota. Su total cuenta
+            // como una nota.
+            if (evaluation.details.length === 0) {
+              if (typeof evaluation.totalScore === 'number') {
+                totalScore += evaluation.totalScore;
+                scoreCount++;
+              }
+              continue;
+            }
             for (const detail of evaluation.details) {
               totalScore += detail.score;
               scoreCount++;
@@ -316,8 +329,11 @@ export class ReportsService {
 
       results.push({
         name: subject.name,
+        // ARK-265 (BG-65): sin notas es null («Sin nota»), no 0
         value:
-          scoreCount > 0 ? parseFloat((totalScore / scoreCount).toFixed(2)) : 0,
+          scoreCount > 0
+            ? parseFloat((totalScore / scoreCount).toFixed(2))
+            : null,
       });
     }
 
@@ -368,7 +384,8 @@ async getNrcWithSubjectNameAndAverage(
 
   // 2. Obtener videojuegos y sus evaluaciones para calcular promedios por NRC
   const videojuegosConInfo = await this.prisma.videogame.findMany({
-    where: { isActive: true, team: { editionId: reportEditionId } },
+    // HU-39 (ARK-209): sin los no calificables
+    where: { isActive: true, team: { editionId: reportEditionId, ...GRADABLE_TEAM } },
     include: {
       team: {
         include: {
@@ -483,7 +500,7 @@ async getJurorAssignmentReport(editionId?: number): Promise<{
         select: { type: true },
       },
       teamsToEvaluate: {
-        where: { editionId: edition.id, isActive: true, ...CONFIRMED_TEAM },
+        where: { editionId: edition.id, isActive: true, ...ASSIGNABLE_TEAM },
         select: { teamCode: true, videogame: { select: { id: true, name: true } } },
       },
       evaluationsSubmitted: {
@@ -560,6 +577,7 @@ async getJuradosData(editionId?: number): Promise<
         where: {
           isActive: true, // Solo equipos activos
           editionId: reportEditionId,
+          ...GRADABLE_TEAM, // HU-39 (ARK-209)
           videogame: { // Asegurarse que el equipo tenga un videojuego asociado, activo y confirmado
             isActive: true,
             ...CONFIRMED_VIDEOGAME,
@@ -697,6 +715,7 @@ async getJuradosData(editionId?: number): Promise<
         team: {
           // ARK-135: el Excel es de una sola edición
           editionId: reportEditionId,
+          ...GRADABLE_TEAM, // HU-39 (ARK-209): el Excel de notas no incluye presentadores externos
           members: {
             some: {
               nrcs: {
@@ -827,7 +846,6 @@ async getJuradosData(editionId?: number): Promise<
       // compute semestre from teamCode
       const computeSemestre = (team: any): string => {
         if (!team) return '';
-        if ((team as any)?.isExternal) return 'Externo';
         const rawCode: string = (team as any)?.teamCode ?? '';
         const prefix = rawCode.slice(0, 2).toUpperCase(); // N1, N2, N3, N4
         switch (prefix) {

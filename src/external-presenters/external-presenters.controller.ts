@@ -109,6 +109,8 @@ export class ExternalPresentersController {
   @ApiQuery({ name: 'editionId', required: false, type: Number })
   @ApiOperation({
     summary: 'Presentadores de la edición (por defecto la activa)',
+    description:
+      'HU-39 (ARK-209): `teams` trae los equipos presentadores externos (equipos no calificables, marcados con `PATCH /teams/:id/gradable`) con sus integrantes activos y el título del proyecto.',
   })
   list(@Query('editionId') editionIdParam?: string) {
     return this.presenters.list(editionIdQuery(editionIdParam));
@@ -127,13 +129,14 @@ export class ExternalPresentersController {
     @Res() res: Response,
     @Query('editionId') editionIdParam?: string,
   ) {
-    const { edition, presenters } = await this.presenters.exportData(
+    const { edition, presenters, teams } = await this.presenters.exportData(
       editionIdQuery(editionIdParam),
     );
     try {
       const workbook = buildExternalPresentersWorkbook(
         presenters,
         edition.title,
+        teams,
       );
       res.setHeader(
         'Content-Type',
@@ -168,6 +171,32 @@ export class ExternalPresentersController {
   })
   sendAll() {
     return this.certificates.sendAll();
+  }
+
+  @Post('teams/:teamId/certificate')
+  @HttpCode(200)
+  @RequiredService('ManageExternalPresenters')
+  @ApiOperation({
+    summary: 'Enviar el certificado de presentador externo a un equipo no calificable',
+    description:
+      'HU-39 (ARK-209): un certificado por equipo, con sus integrantes activos y el título del proyecto, enviado al correo de cada integrante. 400 `CERTIFICATE_TEAM_GRADABLE` si el equipo no está marcado como no calificable. ARK-258: responde `{ teamId, sentTo, failed, certificateSentAt }` y guarda `certificateSentAt` en el equipo (sale en `teams` del listado).',
+  })
+  sendTeamCertificate(@Param('teamId', ParseIntPipe) teamId: number) {
+    return this.certificates.sendTeam(teamId);
+  }
+
+  @Get('teams/:teamId/certificate')
+  @RequiredService('ManageExternalPresenters')
+  @ApiProduces('application/pdf')
+  @ApiOperation({
+    summary: 'Descargar el certificado de presentador externo de un equipo no calificable',
+    description: 'HU-39 (ARK-209): no envía correos.',
+  })
+  async downloadTeamCertificate(
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    return sendCertificatePdf(res, await this.certificates.downloadTeam(teamId));
   }
 
   @Patch(':id')

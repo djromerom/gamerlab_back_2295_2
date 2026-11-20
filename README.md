@@ -201,7 +201,7 @@ npm test
 
 # One file or folder
 npx jest src/evaluation/evaluation.service.spec.ts
-npx jest src/juror
+npx jest src/jurors
 
 # Same command as CI (sequential, with coverage report in coverage/)
 npm run test:ci
@@ -214,9 +214,11 @@ They run against a real PostgreSQL and **skip themselves** when no database is c
 | Tests | Run when |
 |---|---|
 | `test/*.e2e-spec.ts` (`npm run test:e2e`) | `INTEGRATION_DATABASE_URL` is set |
-| `src/**/*.db.spec.ts` | `RUN_DB_TESTS=1` (uses `DATABASE_URL`) |
+| `src/**/*.db.spec.ts` (`npm run test:db`) | `RUN_DB_TESTS=1` (uses `DATABASE_URL`) |
 
 > **Warning:** point them only to a **disposable** database. They create and delete their own rows, but never use your development or a shared database.
+
+All the files of each suite share that database, so they run **one file at a time**: `maxWorkers: 1` in `test/jest-e2e.json` and `--runInBand` in the `test:db` script. Running them in parallel can make one file step on another's rows; that was reported as intermittent CI failures in ARK-208, with each file passing on its own. Do not add `--maxWorkers` or `-w` to these commands. Serial takes about 1.5 min for the e2e suite.
 
 The database needs the migrations and the seed applied. Example with a throwaway container (bash):
 
@@ -229,8 +231,8 @@ export NODE_ENV=test
 npx prisma migrate deploy
 npm run db:seed
 
-npm run test:e2e -- --runInBand
-RUN_DB_TESTS=1 npx jest --testPathPattern "\.db\.spec\.ts$"
+npm run test:e2e
+RUN_DB_TESTS=1 npm run test:db
 
 docker stop arkad_test_db
 ```

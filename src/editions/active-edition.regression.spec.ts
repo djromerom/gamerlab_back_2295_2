@@ -14,11 +14,11 @@ const ALLOWED: Record<string, string> = {
   'editions/active-edition.ts': 'la fuente única',
   'editions/editions.service.ts':
     'activar una edición escribe el estado ACTIVE',
-  'absence-alert/absence-alert.controller.ts': 'ejemplo de Swagger',
-  'juror-edition/juror-edition.controller.ts': 'ejemplo de Swagger',
+  'jurors/absence-alert/absence-alert.controller.ts': 'ejemplo de Swagger',
+  'jurors/juror-edition/juror-edition.controller.ts': 'ejemplo de Swagger',
   'students/students.controller.ts': 'ejemplo de Swagger',
   'professors/professors.swagger-examples.ts': 'ejemplo de Swagger',
-  'juror/automatic-assignment/automatic-assignment.swagger.ts':
+  'jurors/juror/automatic-assignment/automatic-assignment.swagger.ts':
     'ejemplo de Swagger',
 };
 

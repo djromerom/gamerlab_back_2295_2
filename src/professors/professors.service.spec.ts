@@ -217,10 +217,11 @@ describe('ProfessorsService', () => {
       });
     });
 
-    it('includeHistorical toma las ferias de todos los NRC activos del profesor', async () => {
+    it('includeHistorical toma las ferias de todos los NRC activos del profesor y solo sus NRC historicos (BG-63)', async () => {
       mockPrismaService.nRC.findMany
         .mockResolvedValueOnce([{ id: 1, code: 100, editionId: 4 }])
-        .mockResolvedValueOnce([{ editionId: 4 }, { editionId: 2 }]);
+        .mockResolvedValueOnce([{ editionId: 4 }, { editionId: 2 }])
+        .mockResolvedValueOnce([{ id: 1 }, { id: 7 }]);
       mockPrismaService.historicalMemberNrc.findMany.mockResolvedValue([
         hist(7, 700, 2),
       ]);
@@ -239,13 +240,39 @@ describe('ProfessorsService', () => {
         mockPrismaService.historicalMemberNrc.findMany,
       ).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { member: { team: { editionId: { in: [4, 2] } } } },
+          where: {
+            nrcId: { in: [1, 7] },
+            member: { team: { editionId: { in: [4, 2] } } },
+          },
         }),
       );
+      // Los NRC del profesor en cualquier feria (sin filtrar por activo)
+      expect(mockPrismaService.nRC.findMany).toHaveBeenNthCalledWith(3, {
+        where: { professorId: 'prof-1' },
+        select: { id: true },
+      });
       expect(nrcs).toEqual([
         { id: 1, code: 100, editionId: 4, source: 'current' },
         { id: 7, code: 700, editionId: 2, source: 'historical' },
       ]);
+    });
+
+    it('BG-63: el Administrador recibe los NRC historicos de todos los profesores', async () => {
+      mockPrismaService.nRC.findMany.mockResolvedValue([{ editionId: 2 }]);
+
+      await service.getGradingFilterOptions('admin-1', {
+        roleId: 1,
+        includeHistorical: true,
+      });
+
+      expect(mockPrismaService.nRC.findMany).toHaveBeenCalledTimes(2);
+      expect(
+        mockPrismaService.historicalMemberNrc.findMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { member: { team: { editionId: { in: [2] } } } },
+        }),
+      );
     });
 
     it('el Administrador recibe los NRC activos de todos los profesores', async () => {

@@ -11,6 +11,9 @@ import { NrcsService } from './nrcs.service';
  * Solo corre con RUN_DB_TESTS=1 sobre una base desechable con migraciones y seed. Crea dos
  * ediciones de 2097; durante la prueba la «actual» es la ACTIVE y la(s) activa(s) del seed pasan a
  * INACTIVE. Al terminar restaura los estados y borra lo que creó.
+ *
+ * ARK-236 (BG-46): también comprueba que lista, detalle, crear y editar no devuelven el `password`
+ * del profesor.
  */
 const maybe = process.env.RUN_DB_TESTS === '1' ? describe : describe.skip;
 
@@ -69,6 +72,8 @@ maybe('NRC por edición (BD real)', () => {
           email: `profesor-${tag}@bg23.test`,
           firstName: 'Profesor',
           lastName: tag,
+          // ARK-236 (BG-46): con contraseña, para comprobar que /nrcs no la devuelve
+          password: '$2b$10$hashdeprueba.ark236',
           roleId: professorRole.id,
           isActive: true,
         },
@@ -166,5 +171,35 @@ maybe('NRC por edición (BD real)', () => {
     } finally {
       await prisma.nRC.update({ where: { id: ids.currentActiveNrc }, data: { isActive: true } });
     }
+  });
+
+  it('ARK-236 (BG-46): lista, detalle, crear y editar no devuelven el password del profesor', async () => {
+    const safeProfessor = {
+      id: ids.professor,
+      firstName: 'Profesor',
+      lastName: tag,
+      email: `profesor-${tag}@bg23.test`,
+    };
+    const expectSafe = (nrc: unknown) => {
+      expect(JSON.stringify(nrc)).not.toContain('password');
+      expect(JSON.stringify(nrc)).not.toContain('hashdeprueba');
+      expect((nrc as { professor: unknown }).professor).toEqual(safeProfessor);
+    };
+
+    const list = await service.findAll(false, 100, 1);
+    expect(list.data).toHaveLength(1);
+    expectSafe(list.data[0]);
+
+    expectSafe(await service.findOne(ids.currentActiveNrc));
+
+    const created = await service.create({
+      code: 970005,
+      subjectId: ids.subject,
+      professorId: ids.professor,
+    });
+    ids.nrcs.push(created.id);
+    expectSafe(created);
+
+    expectSafe(await service.update(created.id, { code: 970006 }));
   });
 });

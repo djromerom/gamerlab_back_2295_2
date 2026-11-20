@@ -127,7 +127,8 @@ export class SettingsController {
   @ApiOperation({ summary: 'Get if ranking is visible for users' })
   @ApiResponse({
     status: 200,
-    description: 'Returns whether the ranking is visible',
+    description:
+      'BG-67: true solo si el ranking está publicado y la nota final liberada (PATCH /final-grade/release)',
     schema: { example: { showRanking: true } },
   })
   getShowRanking() {
@@ -142,6 +143,11 @@ export class SettingsController {
     status: 200,
     description: 'Returns the updated ranking visibility',
     schema: { example: { showRanking: true } },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'BG-67: show=true con la nota final sin liberar (code RANKING_REQUIRES_FINAL_GRADE)',
   })
   setShowRanking(@Body() dto: { show: boolean }) {
     return this.settingsService.setShowRanking(dto.show);

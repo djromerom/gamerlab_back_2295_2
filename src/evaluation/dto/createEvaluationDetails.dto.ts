@@ -1,29 +1,44 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsISO8601, IsNotEmpty, IsBoolean, IsOptional } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsInt,
+  IsISO8601,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+} from 'class-validator';
+
+export const SCORE_REQUIRED_MESSAGE =
+  'Cada puntaje debe ser un número entre 0 y 5: no puede ser nulo, vacío ni texto. Un 0 debe enviarse de forma explícita.';
 
 export class CreateDetailEvaluationDto {
-    @Type(() => Number)
-    @IsInt()
-    @IsNotEmpty()
-    criterionId: number;
+  @Type(() => Number)
+  @IsInt()
+  @IsNotEmpty()
+  criterionId: number;
 
-    @Type(() => Number)
-    @IsNumber()
-    @IsNotEmpty()
-    score: number;
+  /**
+   * ARK-250: el valor se toma tal como llegó. Con la conversión implícita, `Number(null)` y
+   * `Number('')` darían 0 y una nota vacía se guardaría como un 0 válido. El rango y los
+   * decimales los sigue validando `scoreError` en el servicio.
+   */
+  @Transform(({ obj }: { obj: { score?: unknown } }) => obj.score)
+  @IsNumber(
+    { allowNaN: false, allowInfinity: false },
+    { message: SCORE_REQUIRED_MESSAGE },
+  )
+  score: number;
 
-    @Type(() => IsISO8601)
-    @IsISO8601()
-    @IsNotEmpty()
-    createdAt: string;
+  // M8: las fechas las fija el servidor; se aceptan por compatibilidad pero se ignoran.
+  @IsOptional()
+  @IsISO8601()
+  createdAt?: string;
 
-    @Type(() => IsISO8601)
-    @IsISO8601()
-    @IsNotEmpty()
-    updatedAt: string;
+  @IsOptional()
+  @IsISO8601()
+  updatedAt?: string;
 
-    @IsBoolean()
-    @IsNotEmpty()
-    isActive: boolean; // Agregar esta propiedad
-
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

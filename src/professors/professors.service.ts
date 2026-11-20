@@ -19,9 +19,12 @@ import { SelectOption } from './types/select-option.type';
 import { Response } from 'express';
 import { ExcelExportService, NrcSheetData } from './excel-export.service';
 import { seesAllProfessors } from './professor-panel-query.service';
+import { historicalNrcIdFilter, ownedNrcIds } from './historical-scope';
 import { findActiveEdition, ACTIVE_EDITION_WHERE } from '../editions/active-edition';
 import { ListEdition, resolveListEdition } from '../editions/list-edition';
 import { PROFESSOR_JUROR_PROFILE } from './professor-juror-profile';
+import { NOT_GRADABLE_MESSAGE, TEAM_NOT_GRADABLE } from '../teams/team-gradable';
+import { GRADABLE_TEAM } from '../teams/team-status';
 
 @Injectable()
 export class ProfessorsService {
@@ -480,7 +483,7 @@ export class ProfessorsService {
     const evaluations = await this.prisma.evaluation.findMany({
       where: {
         ...jurorEvaluationsOf(professorId),
-        videogame: { team: { editionId: edition?.id ?? -1 } },
+        videogame: { team: { editionId: edition?.id ?? -1, ...GRADABLE_TEAM } },
       },
       select: {
         videogameId: true,
@@ -656,6 +659,7 @@ export class ProfessorsService {
 
     const teamWhere: Prisma.TeamWhereInput = {
       editionId: nrcInfo.editionId,
+      ...GRADABLE_TEAM, // HU-39 (ARK-209)
       members: {
         some: { nrcs: { some: { id: nrcInfo.id, professorId } } },
       },
@@ -881,6 +885,7 @@ export class ProfessorsService {
   ) {
     const offset = (page - 1) * limit;
     const teamWhere: Prisma.TeamWhereInput = {
+      ...GRADABLE_TEAM, // HU-39 (ARK-209)
       members: {
         some: {
           nrcs: {
@@ -1030,6 +1035,7 @@ export class ProfessorsService {
     return await this.prisma.member.findMany({
       where: {
         nrcs: { some: { professorId, subject: { name: subjectName } } },
+        team: GRADABLE_TEAM, // HU-39 (ARK-209)
       },
       select: {
         firstName: true,
@@ -1188,10 +1194,14 @@ export class ProfessorsService {
         id: videogame.teamId,
         editionId: activeEdition.id,
         members: { some: { nrcs: { some: { professorId, editionId: activeEdition.id } } } },
-      }, select: { id: true },
+      }, select: { id: true, notGradable: true },
     });
     if (!activeEdition || !activeEdition.eventConfiguration?.evaluationsOpen || !hasProfessorNrc) {
       throw new BadRequestException('This game is not editable by the authenticated professor in the active edition');
+    }
+    // HU-39 (ARK-209): el presentador externo no se califica
+    if (hasProfessorNrc.notGradable) {
+      throw new BadRequestException({ statusCode: 400, code: TEAM_NOT_GRADABLE, message: NOT_GRADABLE_MESSAGE });
     }
     const editionId = activeEdition.id;
 
@@ -1233,12 +1243,12 @@ export class ProfessorsService {
   // Coherente con `GradingGamesService.list`: por defecto solo los NRC activos de
   // la feria activa (los del profesor; el Administrador, todos). Con
   // `includeHistorical`, también las ferias de los NRC del profesor y sus NRC históricos.
+  // BG-63 (decisión del 2026-11-17): los NRC históricos también son solo los del
+  // profesor (el Administrador, todos), igual que los equipos del listado.
   async getGradingFilterOptions(
     professorId: string,
     scope: { roleId?: number; includeHistorical?: boolean } = {},
   ) {
-    // Historical NRC options are intentionally not filtered by professor:
-    // each professor can browse the global, read-only historical teams view.
     type GradingNrcOption = { id: number; code: number; editionId: number; source: 'current' | 'historical' };
     const owner = seesAllProfessors(scope.roleId) ? {} : { professorId };
     const nrcs = await this.prisma.nRC.findMany({
@@ -1261,8 +1271,9 @@ export class ProfessorsService {
         select: { editionId: true },
       });
       editionIds = [...new Set(owned.map((n) => n.editionId))];
+      const nrcId = historicalNrcIdFilter(await ownedNrcIds(this.prisma, professorId, scope.roleId));
       historical = await this.prisma.historicalMemberNrc.findMany({
-        where: { member: { team: { editionId: { in: editionIds } } } },
+        where: { ...(nrcId === undefined ? {} : { nrcId }), member: { team: { editionId: { in: editionIds } } } },
         select: {
           nrcId: true,
           code: true,

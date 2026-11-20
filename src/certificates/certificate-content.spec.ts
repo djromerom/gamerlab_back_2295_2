@@ -1,10 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-  fairDateNumeric,
   fillCertificateTemplate,
   joinStudentNames,
 } from './certificate-content';
+import {
+  fairDateLong,
+  placeAndDateOf,
+  placeWithDate,
+} from './external-presenter-certificate';
 
 describe('contenido de los certificados (ARK-170)', () => {
   it('escapa lo que escribe el estudiante', () => {
@@ -20,11 +24,15 @@ describe('contenido de los certificados (ARK-170)', () => {
     expect(fillCertificateTemplate('[{{ nada }}]', {})).toBe('[]');
   });
 
-  it('la fecha numérica no se corre por la zona horaria y es vacía sin cronograma', () => {
-    expect(fairDateNumeric(new Date('2026-11-26T00:00:00.000Z'))).toBe(
-      '26/11/2026',
+  it('ARK-256: un solo formato de lugar y fecha, sin correrse por la zona horaria', () => {
+    const day = new Date('2026-11-26T00:00:00.000Z');
+    expect(fairDateLong(day)).toBe('26 de noviembre de 2026');
+    expect(placeWithDate('26 de noviembre de 2026')).toBe(
+      'Barranquilla, 26 de noviembre de 2026',
     );
-    expect(fairDateNumeric(null)).toBe('');
+    expect(placeAndDateOf(day)).toBe('Barranquilla, 26 de noviembre de 2026');
+    expect(placeWithDate('')).toBe('Barranquilla');
+    expect(placeAndDateOf(null)).toBe('Barranquilla');
   });
 
   it('une los nombres de los integrantes', () => {
@@ -49,5 +57,22 @@ describe('contenido de los certificados (ARK-170)', () => {
       expect(html).not.toMatch(/V Feria Gamer/);
       expect(html).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
     });
+  });
+
+  it('ARK-256: ninguna plantilla de assets/ tiene una fecha dd/mm/aaaa escrita a mano', () => {
+    const dir = path.join(__dirname, 'assets');
+    // Las plantillas «empty» son moldes sin uso en el código; las demás se envían a los usuarios.
+    const used = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.html') && !f.startsWith('certificate-empty'));
+    expect(used.length).toBeGreaterThanOrEqual(6);
+    expect(used).not.toContain('certificate.html');
+    for (const name of used) {
+      const html = fs.readFileSync(path.join(dir, name), 'utf8');
+      expect({ name, hardcoded: html.match(/\d{2}\/\d{2}\/\d{4}/g) }).toEqual({
+        name,
+        hardcoded: null,
+      });
+    }
   });
 });

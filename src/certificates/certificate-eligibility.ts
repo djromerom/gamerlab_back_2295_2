@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActiveEdition } from '../editions/active-edition';
-import { jurorsOfEdition } from '../juror-edition/jurors-of-edition';
+import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 
 /** ARK-170 (TA-19): el estado de aprobación del equipo es el de su videojuego. */
 export const CERTIFIABLE_VIDEOGAME_STATUS = 'CONFIRMADO';

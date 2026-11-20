@@ -126,6 +126,7 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | DELETE | `/editions/:editionId/highlighted-games/:videogameId` | Permiso `ManageHighlightedGames` | Administrador |  |
+| DELETE | `/editions/:editionId/highlighted-games/historical/:historicalVideogameId` | Permiso `ManageHighlightedGames` | Administrador |  |
 | GET | `/editions/:editionId/highlighted-games` | Pública | Cualquiera (sin sesión) |  |
 | POST | `/editions/:editionId/highlighted-games` | Permiso `ManageHighlightedGames` | Administrador |  |
 
@@ -141,6 +142,7 @@
 | GET | `/historicals/historical-teams-with-scores/:editionId` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/historicals/historical-teams/:editionId` | Permiso `ManageHistoricals` | Administrador |  |
 | GET | `/historicals/historical-videogames/:editionId` | Pública | Cualquiera (sin sesión) |  |
+| GET | `/historicals/videogames/:historicalVideogameId/game-file` | Pública | Cualquiera (sin sesión) |  |
 | PATCH | `/historicals/update-historical-member/:historicalMemberId` | Permiso `ManageHistoricals` | Administrador |  |
 | PATCH | `/historicals/update-historical-team/:historicalTeamId` | Permiso `ManageHistoricals` | Administrador |  |
 | PATCH | `/historicals/update-historical-videogame/:historicalVideogameId` | Permiso `ManageHistoricals` | Administrador |  |
@@ -151,6 +153,7 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | GET | `/juror-attendance` | Permiso `ViewJurorAttendance` | Administrador, Staff |  |
+| PATCH | `/juror-attendance/:attendanceId/annul` | Permiso `AnnulJurorArrival` | Administrador | Agregada a mano (BG-49, ARK-251) |
 
 ## JurorBadgesController
 
@@ -165,6 +168,7 @@
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
+| GET | `/juror-checkin/badge` | Permiso `JurorCheckIn` | Administrador, Staff | BG-49: de quién es un QR, sin registrar la llegada |
 | GET | `/juror-checkin/search` | Permiso `JurorCheckIn` | Administrador, Staff |  |
 | POST | `/juror-checkin/manual` | Permiso `JurorCheckIn` | Administrador, Staff |  |
 | POST | `/juror-checkin/scan` | Permiso `JurorCheckIn` | Administrador, Staff |  |
@@ -212,6 +216,15 @@
 | PATCH | `/nrcs/:id` | Permiso `UpdateNrc` | Administrador |  |
 | POST | `/nrcs` | Permiso `CreateNrc` | Administrador |  |
 
+## PendingGamesController
+
+| Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
+|---|---|---|---|---|
+| GET | `/pending-games` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+| GET | `/pending-games/count` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+| GET | `/pending-games/search` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+| GET | `/pending-games/search/quick` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
+
 ## ProfessorsController
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
@@ -233,6 +246,12 @@
 | POST | `/professors/team-evaluation` | Permiso `UploadSeniorGrades` | Administrador, Profesor |  |
 | POST | `/professors/team-evaluation/batch` | Permiso `UploadSeniorGrades` | Administrador, Profesor |  |
 
+## PublicHighlightedGamesController
+
+| Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
+|---|---|---|---|---|
+| GET | `/highlighted-games` | Pública | Cualquiera (sin sesión) |  |
+
 ## RankingController
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
@@ -249,13 +268,13 @@
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
-| GET | `/reports/DatosGraficoMateria` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
+| GET | `/reports/DatosGraficoMateria` | Permiso `ExportAdminReports` | Administrador | Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268). |
 | GET | `/reports/exportExcel` | Permiso `ExportAdminReports` | Administrador |  |
 | GET | `/reports/exportJurados` | Permiso `ExportAdminReports` | Administrador |  |
 | GET | `/reports/JuradosData` | Solo sesión | Cualquier usuario con sesión | La usa la página "Mis jurados": el administrador ve todos los jurados y cualquier otro usuario solo los de su propio equipo (OptionalAdminRoleGuard, BG-02). Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol. |
 | GET | `/reports/materiaData` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
-| GET | `/reports/NRCData` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
-| GET | `/reports/videojuegoData` | Pública | Cualquiera (sin sesión) | ⚠️ BG-02: pública; revisar si debe exigir sesión o rol. |
+| GET | `/reports/NRCData` | Permiso `ExportAdminReports` | Administrador | Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268). |
+| GET | `/reports/videojuegoData` | Permiso `ExportAdminReports` | Administrador | Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268). |
 
 ## SettingsController
 
@@ -264,13 +283,13 @@
 | GET | `/settings/evaluations-status` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/registrations` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/show-evaluations` | Pública | Cualquiera (sin sesión) |  |
-| GET | `/settings/show-ranking` | Pública | Cualquiera (sin sesión) |  |
+| GET | `/settings/show-ranking` | Pública | Cualquiera (sin sesión) | `true` solo con el ranking publicado y la nota final liberada (BG-67). |
 | GET | `/settings/weights` | Permiso `GetWeight` | Administrador |  |
 | GET | `/settings/weights/:editionId` | Permiso `GetWeight` | Administrador |  |
 | PATCH | `/settings/evaluations-status` | Permiso `UpdateSettings` | Administrador |  |
 | PATCH | `/settings/registrations` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): abre o cierra las inscripciones. |
 | PATCH | `/settings/show-evaluations` | Permiso `UpdateSettings` | Administrador |  |
-| PATCH | `/settings/show-ranking` | Permiso `UpdateSettings` | Administrador |  |
+| PATCH | `/settings/show-ranking` | Permiso `UpdateSettings` | Administrador | 400 `RANKING_REQUIRES_FINAL_GRADE` si se publica sin la nota final liberada (BG-67). |
 | POST | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 | PUT | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 
@@ -355,17 +374,13 @@
 | GET | `/upload/:id/url` | Pública | Cualquiera (sin sesión) |  |
 | POST | `/upload` | Pública | Cualquiera (sin sesión) | Pública: la usa el registro de equipos antes de crear la cuenta. Con límite de peticiones y verificación del tipo de archivo (BG-02). |
 | POST | `/upload/:id/public` | Permiso `ManageUploads` | Administrador |  |
-| POST | `/upload/zip` | Pública | Cualquiera (sin sesión) | Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 100 MB, 3 por 10 min y verificación del tipo de archivo (I6). |
+| POST | `/upload/zip` | Pública | Cualquiera (sin sesión) | Pública con condición: exige sesión o token reCAPTCHA válido (cabecera x-recaptcha-token). Máx. 200 MB, 3 por 10 min y verificación del tipo de archivo (I6). |
 
 ## VideogamesController
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | DELETE | `/videogames/:id` | Permiso `ManageVideogames` | Administrador |  |
-| GET | `/pending-games` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
-| GET | `/pending-games/count` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
-| GET | `/pending-games/search` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
-| GET | `/pending-games/search/quick` | Permiso `PendingGamesService` | Administrador, Jurado, Profesor |  |
 | GET | `/videogames` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id/likes` | Pública | Cualquiera (sin sesión) |  |

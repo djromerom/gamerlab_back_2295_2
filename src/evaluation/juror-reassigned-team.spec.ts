@@ -14,10 +14,10 @@ import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { CacheService } from '../cache/cache.service';
 import { CriterionService } from '../criterion/criterion.service';
-import { JurorAssignmentAuditService } from '../juror/assignment-audit/juror-assignment-audit.service';
-import { JurorAssignmentService } from '../juror/assignment-audit/juror-assignment.service';
-import { VideogamesController } from '../pending-games/pg.controller';
-import { VideogamesService } from '../pending-games/pg.service';
+import { JurorAssignmentAuditService } from 'src/jurors/juror/assignment-audit/juror-assignment-audit.service';
+import { JurorAssignmentService } from 'src/jurors/juror/assignment-audit/juror-assignment.service';
+import { PendingGamesController } from 'src/pending-games/pending-games.controller';
+import { PendingGamesService } from 'src/pending-games/pending-games.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamVerificationController } from '../team-verification/team-verification.controller';
 import { TeamVerificationService } from '../team-verification/team-verification.service';
@@ -298,12 +298,12 @@ describe('Jurado y equipo reasignado por HTTP (ARK-190)', () => {
       imports: [PassportModule],
       controllers: [
         EvaluationController,
-        VideogamesController,
+        PendingGamesController,
         TeamVerificationController,
       ],
       providers: [
         EvaluationService,
-        VideogamesService,
+        PendingGamesService,
         TeamVerificationService,
         RolePermissionGuard,
         { provide: PrismaService, useValue: db.prisma },
@@ -338,6 +338,8 @@ describe('Jurado y equipo reasignado por HTTP (ARK-190)', () => {
       new JurorAssignmentAuditService(db.prisma),
       { validate: async () => ({}), enforce: () => [] } as any,
       { notifyAssignmentChanged: () => undefined } as any,
+      // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
+      { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
     );
     await assignments.onModuleInit();
     db.verified.add('juror-a');

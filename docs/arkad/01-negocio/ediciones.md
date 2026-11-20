@@ -39,4 +39,6 @@ Hallazgo de BG-14 (ARK-119, Rafael, 2-nov; cerrado el 6-nov como investigación)
 ## Históricos
 Tablas `*_historico` (v1 + v2 consolidados: 197 equipos / 723 integrantes / 197 juegos). Ver [04-devops/base-de-datos-operacion](../04-devops/base-de-datos-operacion.md).
 
+En el panel de calificaciones (`GET /professors/grading-games?includeHistorical=true` y sus opciones de filtro) el profesor solo ve los equipos archivados con algún integrante en un NRC suyo (`integrante_historico_nrc.id_nrc` entre los NRC con `id_profesor` = él, de cualquier feria); el Administrador ve todos. Los equipos sin NRC (p. ej. los 197 de V1/V2) solo los ve el Administrador. `metadata.totalItems` es el total real (actuales + históricos del alcance). Decisión del 2026-11-17 (BG-63, ARK-263).
+
 > PENDIENTE: contenido de `configuracion_evento` en producción (BG-21) y si HU-21 mezcla ediciones.
