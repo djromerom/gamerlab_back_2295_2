@@ -159,114 +159,6 @@ describe('JurorEditionService (HU-25)', () => {
     });
   });
 
-  describe('importPrevious', () => {
-    beforeEach(() => {
-      prisma.edition.findFirst
-        .mockResolvedValueOnce(active) // edición activa
-        .mockResolvedValueOnce({ id: 4 }); // anterior
-    });
-
-    it('trae como Pendientes a los confirmados de la anterior, conserva su tipo y no duplica', async () => {
-      prisma.jurorEdition.count.mockResolvedValue(10);
-      prisma.jurorEdition.findMany.mockResolvedValue([
-        { jurorId: 'a', type: 'OFFICIAL' },
-        { jurorId: 'b', type: 'BACKUP' },
-        { jurorId: 'c', type: 'OFFICIAL' },
-      ]);
-      prisma.jurorEdition.createMany.mockResolvedValue({ count: 2 });
-
-      const result = await service.importPrevious({}, ACTOR);
-
-      expect(result).toEqual({
-        sourceEditionId: 4,
-        created: 2,
-        skipped: 1,
-        fallback: false,
-      });
-      expect(
-        callArg<{ where: unknown }>(prisma.jurorEdition.findMany).where,
-      ).toEqual({
-        editionId: 4,
-        status: 'CONFIRMED',
-        juror: {
-          isActive: true,
-          role: { name: { in: ['Jurado', 'Profesor'] } },
-        },
-      });
-      const createArg = callArg<{ data: unknown[]; skipDuplicates: boolean }>(
-        prisma.jurorEdition.createMany,
-      );
-      expect(createArg.skipDuplicates).toBe(true);
-      expect(createArg.data[1]).toEqual({
-        jurorId: 'b',
-        editionId: 5,
-        type: 'BACKUP',
-        status: 'PENDING',
-        updatedById: ACTOR,
-      });
-      // La anterior se busca por año y semestre, no por id.
-      expect(
-        callArg<{ where: unknown }>(prisma.edition.findFirst, 1).where,
-      ).toEqual({
-        OR: [{ year: { lt: 2026 } }, { year: 2026, semester: { lt: 30 } }],
-      });
-    });
-
-    it('si la anterior no tiene lista, trae a todos los jurados activos (fallback)', async () => {
-      prisma.jurorEdition.count.mockResolvedValue(0);
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'a', jurorType: 'BACKUP' },
-        { id: 'b', jurorType: null },
-      ]);
-      prisma.jurorEdition.createMany.mockResolvedValue({ count: 2 });
-
-      const result = await service.importPrevious({}, ACTOR);
-
-      expect(result).toEqual({
-        sourceEditionId: 4,
-        created: 2,
-        skipped: 0,
-        fallback: true,
-      });
-      expect(callArg<{ where: unknown }>(prisma.user.findMany).where).toEqual({
-        isActive: true,
-        role: { name: 'Jurado' },
-      });
-      const data = callArg<{ data: { type: string }[] }>(
-        prisma.jurorEdition.createMany,
-      ).data;
-      expect(data.map((row) => row.type)).toEqual(['BACKUP', 'OFFICIAL']);
-    });
-
-    it('sin candidatos no llama a createMany', async () => {
-      prisma.jurorEdition.count.mockResolvedValue(3);
-      prisma.jurorEdition.findMany.mockResolvedValue([]);
-
-      const result = await service.importPrevious({}, ACTOR);
-
-      expect(result).toMatchObject({ created: 0, skipped: 0 });
-      expect(prisma.jurorEdition.createMany).not.toHaveBeenCalled();
-    });
-
-    it('404 si no hay edición anterior', async () => {
-      prisma.edition.findFirst.mockReset();
-      prisma.edition.findFirst
-        .mockResolvedValueOnce(active)
-        .mockResolvedValueOnce(null);
-      await expect(service.importPrevious({}, ACTOR)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('400 si la edición está archivada', async () => {
-      prisma.edition.findUnique.mockResolvedValue(archived);
-      await expect(
-        service.importPrevious({ editionId: 3 }, ACTOR),
-      ).rejects.toThrow(BadRequestException);
-      expect(prisma.jurorEdition.createMany).not.toHaveBeenCalled();
-    });
-  });
-
   describe('updateStatus', () => {
     beforeEach(() => {
       prisma.jurorEdition.findMany.mockResolvedValue([
@@ -476,7 +368,6 @@ describe('JurorEditionController (HU-25)', () => {
 
   it.each([
     ['list', 'ListEditionJurors'],
-    ['importPrevious', 'ManageEditionJurors'],
     ['updateStatus', 'ManageEditionJurors'],
     ['enroll', 'ManageEditionJurors'],
   ])('%s exige el servicio %s', (handler, serviceName) => {

@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: importar jurados de la edición desde Excel (HU-49, ARK-280)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror-edition/import` (multipart `file`, xlsx de hasta 2 MB y 500 filas) y `GET /juror-edition/import/template`, permiso `ManageEditionJurors` (solo Administrador), solo la edición activa. Se retira `POST /juror-edition/import-previous` (ahora 404).
+- [arquitectura-modulos](../02-backend/arquitectura-modulos.md): carpeta `jurors/juror-edition/import/`.
+- Los correos para crear la contraseña salen en una cola con pausa (`JUROR_IMPORT_EMAIL_DELAY_MS`, en `.env.example`). Sin migración ni permiso nuevo.
+- Contratos `docs/frontend/HU-25-*.md` y `HU-28-*.md`: marcado como retirado el endpoint `import-previous`.
+
 ## 2026-11-20: asignar varios equipos a un jurado (HU-42, ARK-275)
 - [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror/assignments/bulk` (`jurorId`, `teamIds[]` 1 a 50, `confirmWarnings`), permiso `AssignJurors` (solo Administrador). Mismas reglas de HU-08 por equipo; un equipo bloqueado no frena a los demás (resultado por equipo `ASSIGNED` / `ASSIGNED_WITH_WARNINGS` / `BLOCKED`); advertencias juntas en un 409 `ASSIGNMENT_WARNINGS` con `blocked`; una transacción, una fila de bitácora por equipo y un solo aviso push. `POST /juror/assignments` no cambia.
 - Contrato nuevo `docs/frontend/HU-42-asignar-varios-equipos.md`. Sin migración ni permiso nuevo.

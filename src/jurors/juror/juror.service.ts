@@ -193,13 +193,18 @@ export class JurorService {
     };
   }
 
-  async create(dto: CreateJurorDto): Promise<JurorListItem> {
+  async create(
+    dto: CreateJurorDto,
+    options?: { sendVerificationEmail?: boolean },
+  ): Promise<JurorListItem> {
     let user: User;
 
     try {
-      user = await this.auth.registerUser({
-        email: dto.email,
-      });
+      // HU-49 (ARK-280): la importación crea la cuenta sin enviar el correo y lo manda después, con pausa.
+      user = await this.auth.registerUser(
+        { email: dto.email },
+        ...(options ? [options] : []),
+      );
 
       if (!user?.id) {
         throw new InternalServerErrorException(

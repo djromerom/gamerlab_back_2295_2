@@ -24,7 +24,7 @@ El nivel de acceso (público / sesión / permiso por servicio y roles) de **cada
 | `/final-grade` | `GET release`, `PATCH release` (Administrador), `GET me` (Estudiante): nota final liberada a los estudiantes (HU-20) |
 | `/ranking` | `GET /`, `GET winners`, `GET ties`, `GET decisions` (historial), `POST finalize`. `GET my-ties` y `POST ties/decision` se quitaron con HU-47 (desempate siempre por inscripción) |
 | `/juror` | `POST /`, `GET /`, `GET :id`, `PATCH :id`, `DELETE :id`, `GET evaluators`, `GET evaluations-assignment`, `POST resend-confirmation`, `POST assignments`, `POST assignments/bulk` (varios equipos a un jurado, HU-42, ARK-275; contrato: `docs/frontend/HU-42-asignar-varios-equipos.md`), `POST assignments/substitutes/bulk` (suplentes en lote, HU-09, ARK-215; contrato: `docs/frontend/HU-09-suplentes-en-lote.md`), `PATCH assignments/reassign`, `DELETE assignments`, `DELETE assignments/all`, `DELETE :id/assignments`, `GET assignments/audit`, `GET evaluation-tracking`, `GET :id/teams`, `GET teams/:teamId/evaluation-stats`, `GET teams/:teamId/jurors-status` |
-| `/juror-edition` | `GET /`, `POST import-previous`, `PATCH status`, `POST enroll` |
+| `/juror-edition` | `GET /`, `PATCH status`, `POST enroll`, `POST import` (xlsx, HU-49), `GET import/template` |
 | `/juror-badges` | `POST generate`, `GET /`, `GET pdf`, `POST :jurorId/regenerate` |
 | `/juror-checkin` | `GET badge` (vista previa del QR sin registrar, BG-49), `POST scan`, `GET search`, `POST manual` |
 | `/staff` | `POST /` (alta de cuentas Staff) |
