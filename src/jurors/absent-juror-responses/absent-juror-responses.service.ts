@@ -60,8 +60,10 @@ function parseEstimatedArrival(
 
 /**
  * HU-13: el administrador registra lo que los profesores averiguan de los jurados que no llegaron.
- * Cada registro es una fila nueva con hora y autor. Es informativo: este servicio no toca
- * asignaciones ni asistencia, así que no cambia las reglas de cobertura (HU-14).
+ * Cada registro es una fila nueva con hora y autor. Este servicio no toca asignaciones
+ * ni asistencia. HU-44: la última respuesta «No podrá asistir» (sin check-in después) deja al
+ * jurado como ausente confirmado en la alerta y en Contingencia (`not-coming.ts`); las demás
+ * respuestas son informativas.
  */
 @Injectable()
 export class AbsentJurorResponsesService {
