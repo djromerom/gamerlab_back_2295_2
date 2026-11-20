@@ -46,6 +46,7 @@ describeIfDb('Podio público sin notas (HU-48, HTTP + PostgreSQL)', () => {
   const runId = Date.now().toString(36).slice(-5);
   const userIds: string[] = [];
   const team: Record<string, number> = {};
+  const videogameOf: Record<string, number> = {};
   let app: INestApplication;
   let editionId: number;
   let adminId: string;
@@ -93,6 +94,7 @@ describeIfDb('Podio público sin notas (HU-48, HTTP + PostgreSQL)', () => {
       include: { videogame: true },
     });
     team[key] = t.id;
+    videogameOf[key] = t.videogame!.id;
     if (score === null) return;
     const evaluators = [
       ...jurors.map((j) => [j, false] as const),
@@ -246,6 +248,38 @@ describeIfDb('Podio público sin notas (HU-48, HTTP + PostgreSQL)', () => {
       [team.D, 4],
       [team.E, 3],
     ]);
+  });
+
+  // Revisión de #321: estas dos rutas eran públicas y devolvían la nota de cualquier equipo.
+  describe.each([
+    ['final-score/team', () => `/teams/final-score/team/${team.A}`],
+    [
+      'final-score/videogame',
+      () => `/teams/final-score/videogame/${videogameOf.A}`,
+    ],
+  ])('%s: solo el Administrador', (_name, path) => {
+    it('sin sesión responde 401 y no trae ninguna nota', async () => {
+      const res = await server().get(path()).expect(401);
+      expect(JSON.stringify(res.body)).not.toContain('finalScore');
+    });
+
+    it.each([
+      ['estudiante', () => studentId],
+      ['profesor', () => professorId],
+    ])('%s responde 403 y no trae ninguna nota', async (_n, who) => {
+      const res = await server().get(path()).set(as(who())).expect(403);
+      expect(JSON.stringify(res.body)).not.toContain('finalScore');
+    });
+
+    it('el Administrador recibe la nota final', async () => {
+      const res = await server().get(path()).set(as(adminId)).expect(200);
+      expect(
+        (res.body as { teamId: number; finalScore: number }[]).map((r) => [
+          r.teamId,
+          r.finalScore,
+        ]),
+      ).toEqual([[team.A, 4.9]]);
+    });
   });
 
   it('con el ranking oculto, sin sesión responde [] y el Administrador ve el podio', async () => {

@@ -14,7 +14,7 @@
   calculan con el catálogo (`servicio → permiso → rol`). El Administrador siempre pasa.
 - Las notas describen reglas de propiedad (p. ej. "solo su equipo") que se verifican en el servicio.
 
-**Total: 203 rutas** — 145 con permiso, 48 públicas, 10 solo sesión, 0 sin decidir.
+**Total: 203 rutas** — 145 con permiso, 46 públicas, 12 solo sesión, 0 sin decidir.
 
 ## AppController
 
@@ -329,8 +329,8 @@
 | GET | `/teams/:id` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
 | GET | `/teams/:id/full` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
 | GET | `/teams/final-score/by-n/:n` | Pública | Cualquiera (sin sesión) | Solo el podio (3 primeros) de cada nivel y sin notas (HU-48, ARK-306); `[]` si el ranking no está publicado, salvo al Administrador. |
-| GET | `/teams/final-score/team/:teamId` | Pública | Cualquiera (sin sesión) |  |
-| GET | `/teams/final-score/videogame/:videogameId` | Pública | Cualquiera (sin sesión) |  |
+| GET | `/teams/final-score/team/:teamId` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): notas finales de un equipo. Era pública y devolvía la nota de cualquier equipo; se cerró en HU-48 (ARK-306). Sin sesión 401, otros roles 403. El estudiante ve su nota en `GET /final-grade/me`. |
+| GET | `/teams/final-score/videogame/:videogameId` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): notas finales de los equipos de un videojuego. Era pública; se cerró en HU-48 (ARK-306). Sin sesión 401, otros roles 403. |
 | GET | `/teams/incomplete-jurors` | Permiso `AssignJurors` | Administrador |  |
 | GET | `/teams/leader/:email/status` | Permiso `ViewTeamLeaderStatus` | Administrador |  |
 | GET | `/teams/name/:teamName` | Pública | Cualquiera (sin sesión) |  |

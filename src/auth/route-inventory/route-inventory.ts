@@ -45,6 +45,10 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
     'Solo el Administrador (AdminRoleGuard): define el ranking final (HU-04).',
   'GET /students':
     'Solo el Administrador (AdminRoleGuard): evaluaciones individuales del equipo. El estudiante recibe 403 y ve solo la nota final (HU-30, ARK-154).',
+  'GET /teams/final-score/team/:teamId':
+    'Solo el Administrador (AdminRoleGuard): nota final de un equipo. Era pública; se cerró en HU-48 (ARK-306) para que la nota no se lea recorriendo ids. El estudiante usa GET /final-grade/me.',
+  'GET /teams/final-score/videogame/:videogameId':
+    'Solo el Administrador (AdminRoleGuard): notas finales de un videojuego. Era pública; se cerró en HU-48 (ARK-306).',
   'GET /final-grade/release':
     'Solo el Administrador (AdminRoleGuard): estado de la liberación de la nota final y equipos con datos incompletos (HU-20, ARK-80).',
   'PATCH /final-grade/release':
