@@ -232,6 +232,44 @@ describe('SubstituteNoticesService (HU-22)', () => {
     });
   });
 
+  describe('reenviar el correo (BG-74)', () => {
+    it('un aviso FAILED pasa a PENDING, limpia el motivo y encola el correo', async () => {
+      const queued = jest.spyOn(service, 'sendEmailAfterCommit').mockImplementation();
+
+      await expect(service.resendEmail(99)).resolves.toEqual({
+        noticeId: 99,
+        emailStatus: 'PENDING',
+      });
+      expect(prisma.substituteNotice.updateMany).toHaveBeenCalledWith({
+        where: { id: 99, emailStatus: 'FAILED' },
+        data: { emailStatus: 'PENDING', emailError: null },
+      });
+      expect(queued).toHaveBeenCalledWith([99]);
+    });
+
+    it('409 si el correo no está en FAILED (un segundo clic no lo duplica)', async () => {
+      const queued = jest.spyOn(service, 'sendEmailAfterCommit').mockImplementation();
+      prisma.substituteNotice.updateMany.mockResolvedValue({ count: 0 });
+      prisma.substituteNotice.findUnique.mockResolvedValue({ emailStatus: 'PENDING' });
+
+      await expect(service.resendEmail(99)).rejects.toMatchObject({
+        status: 409,
+        response: { code: 'SUBSTITUTE_NOTICE_EMAIL_NOT_FAILED', emailStatus: 'PENDING' },
+      });
+      expect(queued).not.toHaveBeenCalled();
+    });
+
+    it('404 si el aviso no existe', async () => {
+      prisma.substituteNotice.updateMany.mockResolvedValue({ count: 0 });
+      prisma.substituteNotice.findUnique.mockResolvedValue(null);
+
+      await expect(service.resendEmail(404)).rejects.toMatchObject({
+        status: 404,
+        response: { code: 'SUBSTITUTE_NOTICE_NOT_FOUND' },
+      });
+    });
+  });
+
   describe('marcar como leído', () => {
     const row = {
       id: 99,
