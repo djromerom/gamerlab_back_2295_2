@@ -13,7 +13,7 @@ NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con contro
 |---|---|---|
 | Plataforma | `prisma`, `cache`, `common`, `settings`, `app.*` | Cliente Prisma, caché en memoria, utilidades (`common/throttle`, `common/utils`), configuración del evento y ponderados |
 | Acceso | `auth`, `email`, `staff` | Login/refresh/logout/reset, Entra ID, guards; envío de correos; alta de cuentas Staff |
-| Ediciones y landing | `editions`, `educational-focuses`, `testimonials`, `highlighted-games`, `historicals` | Ciclo de vida de la edición (crear, activar, archivar), contenido público por edición, histórico |
+| Ediciones y landing | `editions`, `educational-focuses`, `testimonials`, `highlighted-games`, `historicals`, `minigame-records` | Ciclo de vida de la edición (crear, activar, archivar), contenido público por edición, histórico, récords de los minijuegos de la landing (HU-52) |
 | Inscripción | `teams`, `team-verification`, `students`, `videogames`, `upload` | Equipos e integrantes, código de verificación, panel del estudiante, videojuegos y multimedia, archivos (Azure Blob) |
 | Académico | `subjects`, `nrcs`, `professors`, `criterion` | Materias, NRC, panel del profesor (notas, reportes, filtros), criterios de evaluación |
 | Jurados | `jurors/juror`, `jurors/juror-edition`, `jurors/juror-badges`, `jurors/juror-checkin`, `jurors/juror-attendance`, `jurors/juror-presence`, `jurors/juror-survey`, `jurors/absence-alert`, `jurors/absent-juror-responses`, `evaluation-tracking` | Alta y asignación de jurados (con validación y bitácora), jurados por edición, escarapelas QR, check-in, seguimiento por hora |

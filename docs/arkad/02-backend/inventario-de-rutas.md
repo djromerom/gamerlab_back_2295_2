@@ -204,6 +204,13 @@
 | POST | `/juror-edition/enroll` | Permiso `ManageEditionJurors` | Administrador |  |
 | POST | `/juror-edition/import-previous` | Permiso `ManageEditionJurors` | Administrador |  |
 
+## MinigameRecordsController
+
+| Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
+|---|---|---|---|---|
+| GET | `/minigame-records` | Pública | Cualquiera (sin sesión) |  |
+| POST | `/minigame-records` | Pública | Cualquiera (sin sesión) |  |
+
 ## NrcsController
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |

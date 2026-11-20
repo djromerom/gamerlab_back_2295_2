@@ -28,6 +28,7 @@ import { EditionsModule } from './editions/editions.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
 import { EducationalFocusesModule } from './educational-focuses/educational-focuses.module';
 import { HighlightedGamesModule } from './highlighted-games/highlighted-games.module';
+import { MinigameRecordsModule } from './minigame-records/minigame-records.module';
 import { FinalGradeModule } from './final-grade/final-grade.module';
 import { HistoricalsModule } from './historicals/historicals.module';
 import { JurorBadgesModule } from './jurors/juror-badges/juror-badges.module';
@@ -80,6 +81,7 @@ import { RankingModule } from './ranking/ranking.module';
     RankingModule,
     FinalGradeModule,
     HighlightedGamesModule,
+    MinigameRecordsModule,
     HistoricalsModule,
     JurorBadgesModule,
     JurorCheckinModule,

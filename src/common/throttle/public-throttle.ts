@@ -30,6 +30,10 @@ export const PUBLIC_LIMITS = {
   loginIp: { limit: 100, ttl: 60_000 }, // 100 attempts per minute per IP (any email)
   resetPassword: { limit: 5, ttl: 10 * 60_000 }, // 5 reset emails per 10 minutes
   resendConfirmation: { limit: 5, ttl: 10 * 60_000 }, // 5 confirmation emails per 10 minutes
+  // HU-52: landing minigame records. At the fair many visitors share the campus IP, so the top
+  // is generous; saving is stricter because a game lasts at least half a minute.
+  minigameRecordsTop: { limit: 300, ttl: 60_000 }, // 300 top queries per minute
+  minigameRecordsSave: { limit: 20, ttl: 60_000 }, // 20 saved scores per minute
 } as const;
 
 /** Applies the ThrottlerGuard with the given limit to a single route. */
