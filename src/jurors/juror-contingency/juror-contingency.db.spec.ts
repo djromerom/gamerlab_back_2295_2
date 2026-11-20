@@ -48,7 +48,10 @@ maybe('HU-14: contingencia con suplentes (BD real)', () => {
     { get: () => undefined } as unknown as ConfigService,
   );
   notices.sendEmailAfterCommit = jest.fn();
-  const push = { notifyAssignmentChanged: jest.fn() };
+  const push = {
+    notifyAssignmentChanged: jest.fn(),
+    notifyTeamsAssigned: jest.fn(),
+  };
   const assignments = new ContingencyAssignmentService(
     prisma,
     contingency,
@@ -345,7 +348,9 @@ maybe('HU-14: contingencia con suplentes (BD real)', () => {
         where: { jurorId: ids.s2, editionId },
       }),
     ).toBe(1);
-    expect(push.notifyAssignmentChanged).toHaveBeenCalledWith([ids.s2]);
+    expect(push.notifyTeamsAssigned).toHaveBeenCalledWith([
+      { jurorId: ids.s2, teamId },
+    ]);
 
     // Ya cubierto: sale de los grupos en riesgo
     expect(

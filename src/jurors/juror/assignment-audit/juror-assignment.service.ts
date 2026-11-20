@@ -412,7 +412,7 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
-      this.pushNotifier.notifyAssignmentChanged([jurorId]);
+      this.pushNotifier.notifyTeamsAssigned([{ jurorId, teamId }]);
       this.substituteNotices.sendEmailAfterCommit([substituteNoticeId]);
 
       return {

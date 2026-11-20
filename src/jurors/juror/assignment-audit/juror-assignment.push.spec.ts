@@ -1,6 +1,9 @@
 import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { AssignmentPushNotifier } from 'src/push-notifications/assignment-push-notifier.service';
-import { ASSIGNMENT_CHANGED_NOTICE } from 'src/push-notifications/push-messages';
+import {
+  ASSIGNMENT_CHANGED_NOTICE,
+  teamsAssignedNotice,
+} from 'src/push-notifications/push-messages';
 import { JurorAssignmentService } from './juror-assignment.service';
 
 /**
@@ -99,6 +102,7 @@ describe('JurorAssignmentService: aviso push (HU-37)', () => {
 
   describe('avisa al jurado afectado, después de la transacción', () => {
     it('assign', async () => {
+      prisma.team.findMany.mockResolvedValue([{ id: 7, teamCode: 'N1-A-01' }]);
       await service.assign('b', 7, ADMIN);
 
       expect(await sentTo()).toEqual([['b']]);
@@ -138,16 +142,31 @@ describe('JurorAssignmentService: aviso push (HU-37)', () => {
       expect(await sentTo()).toEqual([['a']]);
     });
 
-    it('el aviso no lleva el nombre del equipo ni del jurado', async () => {
+    it('HU-51: al asignar dice el grupo nuevo por su código, sin el nombre del equipo', async () => {
+      prisma.team.findMany.mockResolvedValue([{ id: 7, teamCode: 'N1-A-01' }]);
       await service.assign('b', 7, ADMIN);
       await flush();
 
-      expect(sender.sendToUsers).toHaveBeenCalledWith(
-        ['b'],
+      const notice = teamsAssignedNotice(['N1-A-01']);
+      expect(sender.sendToUsers).toHaveBeenCalledWith(['b'], notice);
+      expect(notice.body).toContain('Te asignaron 1 grupo nuevo: N1-A-01.');
+      expect(JSON.stringify(notice)).not.toContain('Nombre secreto');
+    });
+
+    it('HU-51: al quitar o reasignar sigue el aviso genérico', async () => {
+      await service.unassign('a', 7, ADMIN);
+      await service.reassign('a', 'b', 7, ADMIN);
+      await flush();
+
+      expect(sender.sendToUsers).toHaveBeenNthCalledWith(
+        1,
+        ['a'],
         ASSIGNMENT_CHANGED_NOTICE,
       );
-      expect(JSON.stringify(ASSIGNMENT_CHANGED_NOTICE)).not.toContain(
-        'Nombre secreto',
+      expect(sender.sendToUsers).toHaveBeenNthCalledWith(
+        2,
+        ['a', 'b'],
+        ASSIGNMENT_CHANGED_NOTICE,
       );
     });
   });

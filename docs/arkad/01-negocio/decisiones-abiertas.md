@@ -11,7 +11,7 @@
 | P-28 | ¿La Épica V (TA-06) sigue obligatoria y se aceptan los recortes? | Abierta |
 | — | ¿Los equipos externos tienen su propio podio? | Decisión de Allison del 7-nov (por confirmar con el profesor): sí compiten, con un podio propio, separado de los niveles (HU-38, en el backlog) |
 | — | ¿Qué equipos llevan la marca «externo» y qué nota tienen los colegios (N0), que solo califican seniors? | Propuesta del 7-nov: el colegio tiene el promedio de los seniors al 100 %. Santiago cuenta los casos en `Arkad-test`; confirmar con los profesores |
-| — | ¿Qué avisos exactos envía el push (HU-37)? ¿La PWA funciona bien en iPhone (HU-36)? | Avisos implementados: cambio de equipos, recordatorio de llegada y equipos pendientes; faltan pruebas en iPhone |
+| — | ¿Qué avisos exactos envía el push (HU-37)? ¿La PWA funciona bien en iPhone (HU-36)? | Avisos implementados: cambio de equipos (al asignar grupos nuevos dice cuántos y sus códigos y abre «Pendientes por calificar», HU-51; al quitar o reasignar, el texto genérico), recordatorio de llegada y equipos pendientes; faltan pruebas en iPhone |
 | — | BG-41: ¿fue el reasignar equipos lo que sacó al jurado de ARKAD? | La sospecha del profesor Daniel no se confirmó; se revisan los logs de `Arkad-test` |
 | — | Resultado de ARK-98: notas junior de N10-PRF-1001/2/3 pasan de ~3,5 a 5 | Dudoso, sin resolver |
 

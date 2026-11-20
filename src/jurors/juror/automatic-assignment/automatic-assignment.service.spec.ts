@@ -96,7 +96,7 @@ describe('AutomaticAssignmentService (HU-07)', () => {
   let prisma: PrismaMock;
   let tx: TxMock;
   let service: AutomaticAssignmentService;
-  let pushNotifier: { notifyAssignmentChanged: jest.Mock };
+  let pushNotifier: { notifyTeamsAssigned: jest.Mock };
 
   const teams = [dbTeam(1, 'N1-A-01'), dbTeam(2, 'N1-A-02')];
   const users = [
@@ -131,7 +131,7 @@ describe('AutomaticAssignmentService (HU-07)', () => {
       },
       $transaction: jest.fn((fn: (client: TxMock) => unknown) => fn(tx)),
     };
-    pushNotifier = { notifyAssignmentChanged: jest.fn() };
+    pushNotifier = { notifyTeamsAssigned: jest.fn() };
     service = new AutomaticAssignmentService(
       prisma as unknown as PrismaService,
       pushNotifier as unknown as AssignmentPushNotifier,
@@ -254,12 +254,13 @@ describe('AutomaticAssignmentService (HU-07)', () => {
 
       await service.confirm({ assignments }, 'admin-1');
 
-      expect(pushNotifier.notifyAssignmentChanged).toHaveBeenCalledTimes(1);
-      expect(pushNotifier.notifyAssignmentChanged).toHaveBeenCalledWith(
-        assignments.map((assignment) => assignment.jurorId),
+      expect(pushNotifier.notifyTeamsAssigned).toHaveBeenCalledTimes(1);
+      // HU-51: con los grupos nuevos de cada jurado.
+      expect(pushNotifier.notifyTeamsAssigned).toHaveBeenCalledWith(
+        assignments.map(({ jurorId, teamId }) => ({ jurorId, teamId })),
       );
       expect(
-        pushNotifier.notifyAssignmentChanged.mock.invocationCallOrder[0],
+        pushNotifier.notifyTeamsAssigned.mock.invocationCallOrder[0],
       ).toBeGreaterThan(prisma.$transaction.mock.invocationCallOrder[0]);
     });
 
@@ -277,7 +278,7 @@ describe('AutomaticAssignmentService (HU-07)', () => {
         service.confirm({ assignments }, 'admin-1'),
       ).rejects.toBeInstanceOf(InternalServerErrorException);
 
-      expect(pushNotifier.notifyAssignmentChanged).not.toHaveBeenCalled();
+      expect(pushNotifier.notifyTeamsAssigned).not.toHaveBeenCalled();
     });
 
     it('acepta las asignaciones en otro orden', async () => {

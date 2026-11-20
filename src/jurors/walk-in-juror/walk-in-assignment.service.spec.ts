@@ -66,7 +66,10 @@ describe('WalkInAssignmentService (HU-24)', () => {
     recordAssignment: jest.fn(),
     sendEmailAfterCommit: jest.fn(),
   };
-  const push = { notifyAssignmentChanged: jest.fn() };
+  const push = {
+    notifyAssignmentChanged: jest.fn(),
+    notifyTeamsAssigned: jest.fn(),
+  };
   let service: WalkInAssignmentService;
 
   beforeEach(() => {
@@ -294,7 +297,9 @@ describe('WalkInAssignmentService (HU-24)', () => {
         teamIds: [12],
         editionId: 5,
       });
-      expect(push.notifyAssignmentChanged).toHaveBeenCalledWith([JUROR_ID]);
+      expect(push.notifyTeamsAssigned).toHaveBeenCalledWith([
+        { jurorId: JUROR_ID, teamId: 12 },
+      ]);
       expect(notices.sendEmailAfterCommit).toHaveBeenCalledWith([77]);
     });
 
@@ -343,7 +348,7 @@ describe('WalkInAssignmentService (HU-24)', () => {
 
       expect(result.message).toContain('No había grupos nuevos');
       expect(prisma.$transaction).not.toHaveBeenCalled();
-      expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+      expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
     });
 
     it('un bloqueo de HU-08 (colegio para un junior) responde 400 y no guarda nada', async () => {
@@ -437,7 +442,7 @@ describe('WalkInAssignmentService (HU-24)', () => {
 
       expect(error).toBeInstanceOf(InternalServerErrorException);
       expect(error.message).toContain('no cambió ninguna asignación');
-      expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+      expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
       expect(notices.sendEmailAfterCommit).not.toHaveBeenCalled();
     });
   });
