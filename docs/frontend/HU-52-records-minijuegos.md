@@ -3,7 +3,7 @@
 **Back:** ARK-315, rama `fix/ARK-315-records-minijuegos`, PR a `dev`.
 **Front:** ARK-316 (Jorge), sobre `dev-deploy`, en `src/features/public/components/minigames/` (`arkadash.ts`, `arkadJam.ts`).
 
-Las dos rutas son **públicas** (sin sesión) y tienen límite de peticiones por IP. Solo guardan el alias y el puntaje: ningún dato de quien juega.
+`GET` y `POST` son **públicas** (sin sesión) y tienen límite de peticiones por IP. Solo guardan el alias y el puntaje: ningún dato de quien juega. `DELETE` es solo del Administrador (sección 4).
 
 ## 1. Juegos y pistas
 
@@ -31,6 +31,7 @@ Instrumentos: `guitarra`, `piano`, `bateria`. Índice de 0 a 49.
 - `top` tiene de 0 a 5 filas. El récord global es `top[0]` (si existe).
 - Arkad Jam **sin `track`**: top 5 de todas las canciones (`track: null`); cada fila dice su canción. Sirve para la landing.
 - `400` con `code: "MINIGAME_RECORD_INVALID"` si el juego o la canción no existen.
+- Si quien consulta es el **Administrador** (con su sesión), cada fila trae además su `id`, para poder borrarla. A los demás no les llega.
 
 ## 3. `POST /minigame-records`: guardar un puntaje
 
@@ -54,6 +55,7 @@ Errores `400` (campo `code`):
 |---|---|---|
 | `MINIGAME_ALIAS_INVALID` | Alias de menos de 3 o más de 12 caracteres, o con algo distinto de letras, números, espacio, punto, guion o guion bajo. | «El alias lleva de 3 a 12 letras o números.» |
 | `MINIGAME_ALIAS_PERSONAL_DATA` | 6 dígitos o más seguidos, o algo con forma de teléfono. | «No uses tu código, documento ni teléfono.» |
+| `MINIGAME_ALIAS_OFFENSIVE` | El alias tiene una grosería (también escrita con puntos, espacios, mayúsculas, letras repetidas o números: `p.u.t.a`, `Mi3rda`). | El que manda el back: «Elige otro alias: este no se puede mostrar en la pantalla principal». |
 | `MINIGAME_SCORE_IMPOSSIBLE` | Puntaje que no es entero, menor que 1 o mayor que el tope: Arkadash 10 000, Arkad Jam 100 000. | No mostrar en el top. |
 | `MINIGAME_RECORD_INVALID` | Juego o canción que no existe, o Arkadash con `track`. | No mostrar en el top. |
 
@@ -61,7 +63,16 @@ Errores `400` (campo `code`):
 
 El alias llega sin espacios al inicio ni al final y con los espacios repetidos unidos: mostrar el `alias` de la respuesta.
 
-## 4. Qué hacer en el front (criterios de HU-52)
+## 4. `DELETE /minigame-records/:id`: borrar un récord (solo Administrador)
+
+Para quitar un alias grosero o un puntaje falso de la pantalla principal durante la feria.
+
+- Con sesión de Administrador. Sin sesión `401`; otro rol `403`.
+- Respuesta `200`: el top de ese juego o canción ya sin el récord, con el `id` de cada fila (los demás suben un puesto; el top queda con uno menos hasta que entre otro puntaje).
+- `404` con `code: "MINIGAME_RECORD_NOT_FOUND"` si no existe o ya se borró: refrescar el top.
+- El `id` sale del `GET` hecho con la sesión del Administrador. Dónde poner el botón (por ejemplo, una «x» junto a cada fila del top cuando quien mira es Administrador) lo decide el front; si no entra en ARK-316, el back ya lo deja listo.
+
+## 5. Qué hacer en el front (criterios de HU-52)
 
 1. Al terminar una partida, pedir el top (`GET`) y mostrar el récord global (`top[0]`) y el mejor personal (el `localStorage` de siempre).
 2. Si el puntaje supera el top (hay menos de 5 o es mayor que `top[4].score`), ofrecer guardar un alias de 3 a 12 caracteres y enviarlo con `POST`. Validar el largo en el front también.
@@ -70,9 +81,10 @@ El alias llega sin espacios al inicio ni al final y con los espacios repetidos u
 5. Si el back no responde, da `429` o cualquier error: el juego sigue igual con el récord local y no se muestra el top global.
 6. No guardar nada de la persona además del alias.
 
-## 5. Cómo probarlo en Arkad-test
+## 6. Cómo probarlo en Arkad-test
 
 1. Terminar una partida de Arkadash con un puntaje: aparece la opción de guardar el alias; al guardarlo, sale en el top con su puesto.
 2. Con 5 récords en una canción de Arkad Jam, un puntaje menor que el quinto no ofrece guardar.
 3. Un alias de 2 caracteres o con un número de 6 dígitos muestra el mensaje y no se guarda.
 4. Con el back apagado, el juego funciona y guarda el récord local.
+5. Un alias como `p.u.t.a` muestra el mensaje de «Elige otro alias» y no se guarda.

@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { MinigameGame, PrismaClient } from '@prisma/client';
 import cookieParser from 'cookie-parser';
@@ -34,6 +35,7 @@ type RecordsBody = {
   saved?: boolean;
   position?: number | null;
   top: {
+    id?: number;
     position: number;
     alias: string;
     score: number;
@@ -251,5 +253,131 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
     }
     expect(statuses.at(-1)).toBe(429);
     expect(statuses.filter((s) => s === 429)).toHaveLength(1);
+  });
+
+  // Revisión de #330: el Administrador puede quitar un alias grosero o un puntaje falso, y el
+  // alias no puede llevar groserías.
+  describe('moderación', () => {
+    const jwt = new JwtService({ secret: process.env.JWT_SECRET });
+    const runId = Date.now().toString(36).slice(-5);
+    const userIds: string[] = [];
+    let adminId: string;
+    let studentId: string;
+    const as = (sub: string) => ({
+      Cookie: `access-token=${jwt.sign(
+        { sub, email: `${sub}@uninorte.edu.co`, type: 'access' },
+        { expiresIn: 900 },
+      )}`,
+    });
+    const user = async (suffix: string, role: string) => {
+      const r = await prisma.role.findUniqueOrThrow({ where: { name: role } });
+      const u = await prisma.user.create({
+        data: {
+          id: `it-ark315-${runId}-${suffix}`,
+          email: `it-ark315-${runId}-${suffix}@uninorte.edu.co`,
+          roleId: r.id,
+          firstName: 'IT',
+          lastName: suffix,
+        },
+      });
+      userIds.push(u.id);
+      return u.id;
+    };
+    const topOf = (who?: string) => {
+      const req = server()
+        .get('/minigame-records')
+        .query({ game: 'ARKAD_JAM', track: OTHER_TRACK });
+      return who ? req.set(as(who)) : req;
+    };
+    const remove = (id: number, who?: string) => {
+      const req = server().delete(`/minigame-records/${id}`);
+      return who ? req.set(as(who)) : req;
+    };
+
+    beforeAll(async () => {
+      await app.close();
+      app = await createApp(); // el test anterior agotó el límite de guardados
+      adminId = await user('admin', 'Administrador');
+      studentId = await user('student', 'Estudiante');
+      await prisma.minigameRecord.deleteMany({
+        where: { game: MinigameGame.ARKAD_JAM, track: OTHER_TRACK },
+      });
+      for (const [alias, score] of [
+        ['Uno', 500],
+        ['Falso', 400],
+        ['Tres', 300],
+      ] as const) {
+        await prisma.minigameRecord.create({
+          data: {
+            game: MinigameGame.ARKAD_JAM,
+            track: OTHER_TRACK,
+            alias,
+            score,
+          },
+        });
+      }
+    });
+
+    afterAll(async () => {
+      await prisma.refreshToken.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    });
+
+    it.each(['p.u.t.a', 'PUTA', 'Mi3rda'])(
+      'POST con el alias %p responde 400 MINIGAME_ALIAS_OFFENSIVE y no guarda',
+      async (alias) => {
+        const res = await jam(alias, 9999, OTHER_TRACK);
+        expect(res.status).toBe(400);
+        expect(bodyOf(res).code).toBe('MINIGAME_ALIAS_OFFENSIVE');
+        expect(
+          await prisma.minigameRecord.count({
+            where: { track: OTHER_TRACK, score: 9999 },
+          }),
+        ).toBe(0);
+      },
+    );
+
+    it('solo el Administrador recibe el id de cada récord en el top', async () => {
+      expect(bodyOf(await topOf()).top[0]).not.toHaveProperty('id');
+      expect(bodyOf(await topOf(studentId)).top[0]).not.toHaveProperty('id');
+      const admin = bodyOf(await topOf(adminId).expect(200));
+      expect(admin.top.map((r) => [r.alias, typeof r.id])).toEqual([
+        ['Uno', 'number'],
+        ['Falso', 'number'],
+        ['Tres', 'number'],
+      ]);
+    });
+
+    it('DELETE sin sesión responde 401 y con estudiante 403, sin borrar', async () => {
+      const [, falso] = bodyOf(await topOf(adminId)).top;
+      await remove(falso.id!).expect(401);
+      await remove(falso.id!, studentId).expect(403);
+      expect(
+        await prisma.minigameRecord.count({ where: { id: falso.id } }),
+      ).toBe(1);
+    });
+
+    it('DELETE de un récord que no existe responde 404 con su code', async () => {
+      const res = await remove(2_000_000_000, adminId).expect(404);
+      expect(bodyOf(res).code).toBe('MINIGAME_RECORD_NOT_FOUND');
+    });
+
+    it('el Administrador lo borra y el top se recalcula', async () => {
+      const [, falso] = bodyOf(await topOf(adminId)).top;
+      const res = await remove(falso.id!, adminId).expect(200);
+      expect(bodyOf(res).top.map((r) => [r.position, r.alias])).toEqual([
+        [1, 'Uno'],
+        [2, 'Tres'],
+      ]);
+      expect(
+        bodyOf(await topOf()).top.map((r) => [r.position, r.alias]),
+      ).toEqual([
+        [1, 'Uno'],
+        [2, 'Tres'],
+      ]);
+      await remove(falso.id!, adminId).expect(404);
+    });
   });
 });

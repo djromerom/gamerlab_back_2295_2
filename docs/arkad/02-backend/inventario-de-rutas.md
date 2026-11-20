@@ -14,7 +14,7 @@
   calculan con el catálogo (`servicio → permiso → rol`). El Administrador siempre pasa.
 - Las notas describen reglas de propiedad (p. ej. "solo su equipo") que se verifican en el servicio.
 
-**Total: 203 rutas** — 145 con permiso, 46 públicas, 12 solo sesión, 0 sin decidir.
+**Total: 204 rutas** — 145 con permiso, 46 públicas, 13 solo sesión, 0 sin decidir.
 
 ## AppController
 
@@ -210,7 +210,8 @@
 
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
-| GET | `/minigame-records` | Pública | Cualquiera (sin sesión) |  |
+| DELETE | `/minigame-records/:id` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): borra un récord de los minijuegos (alias grosero o puntaje falso) y devuelve el top recalculado (HU-52, ARK-315). |
+| GET | `/minigame-records` | Pública | Cualquiera (sin sesión) | El `id` de cada récord solo le llega al Administrador (para borrarlo). |
 | POST | `/minigame-records` | Pública | Cualquiera (sin sesión) |  |
 
 ## NrcsController

@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { MinigameGame } from '@prisma/client';
+import { isOffensiveAlias } from './minigame-alias-offensive';
 
 /*
  HU-52 (ARK-315): reglas de los récords globales de los minijuegos de la landing.
@@ -37,6 +38,8 @@ export const MINIGAME_RECORD_INVALID = 'MINIGAME_RECORD_INVALID';
 export const MINIGAME_ALIAS_INVALID = 'MINIGAME_ALIAS_INVALID';
 export const MINIGAME_ALIAS_PERSONAL_DATA = 'MINIGAME_ALIAS_PERSONAL_DATA';
 export const MINIGAME_SCORE_IMPOSSIBLE = 'MINIGAME_SCORE_IMPOSSIBLE';
+export const MINIGAME_ALIAS_OFFENSIVE = 'MINIGAME_ALIAS_OFFENSIVE';
+export const MINIGAME_RECORD_NOT_FOUND = 'MINIGAME_RECORD_NOT_FOUND';
 
 function invalid(code: string, message: string): BadRequestException {
   return new BadRequestException({ statusCode: 400, code, message });
@@ -67,7 +70,10 @@ export function normalizeTrack(
   return `${match[1]}-${Number(match[2])}`;
 }
 
-/** Limpia el alias (espacios repetidos) y lo valida: 3 a 12 caracteres y sin datos personales. */
+/**
+ * Limpia el alias (espacios repetidos) y lo valida: 3 a 12 caracteres, sin datos personales y sin
+ * palabras ofensivas (minigame-alias-offensive.ts).
+ */
 export function normalizeAlias(alias: string): string {
   const value = (alias ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
   const length = [...value].length;
@@ -85,6 +91,12 @@ export function normalizeAlias(alias: string): string {
     throw invalid(
       MINIGAME_ALIAS_PERSONAL_DATA,
       'El alias se ve en la pantalla principal: no uses códigos, documentos ni teléfonos',
+    );
+  }
+  if (isOffensiveAlias(value)) {
+    throw invalid(
+      MINIGAME_ALIAS_OFFENSIVE,
+      'Elige otro alias: este no se puede mostrar en la pantalla principal',
     );
   }
   return value;

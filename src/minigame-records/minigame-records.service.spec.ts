@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MinigameGame } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MinigameRecordsService } from './minigame-records.service';
@@ -44,14 +44,24 @@ function fakePrisma() {
       rows.push(row);
       return Promise.resolve({ id: row.id });
     }),
-    deleteMany: jest.fn(({ where }: { where: { id: { in: number[] } } }) => {
-      for (const id of where.id.in)
-        rows.splice(
-          rows.findIndex((r) => r.id === id),
-          1,
-        );
-      return Promise.resolve({ count: where.id.in.length });
+    findUnique: jest.fn(({ where }: { where: { id: number } }) => {
+      const row = rows.find((r) => r.id === where.id);
+      return Promise.resolve(row ? { game: row.game, track: row.track } : null);
     }),
+    deleteMany: jest.fn(
+      ({ where }: { where: { id: number | { in: number[] } } }) => {
+        const ids = typeof where.id === 'number' ? [where.id] : where.id.in;
+        let count = 0;
+        for (const id of ids) {
+          const index = rows.findIndex((r) => r.id === id);
+          if (index >= 0) {
+            rows.splice(index, 1);
+            count++;
+          }
+        }
+        return Promise.resolve({ count });
+      },
+    ),
   };
   const client: {
     minigameRecord: typeof minigameRecord;
@@ -178,7 +188,56 @@ describe('HU-52: MinigameRecordsService', () => {
     ]);
   });
 
+  it('el Administrador recibe el id de cada récord para poder borrarlo', async () => {
+    await dash('Pixel', 5);
+    const { top } = await service.top({ game: MinigameGame.ARKADASH }, true);
+    expect(typeof top[0].id).toBe('number');
+    expect(top[0].alias).toBe('Pixel');
+  });
+
+  describe('borrar un récord (solo Administrador)', () => {
+    it('lo borra y devuelve el top de esa pista recalculado, con ids', async () => {
+      for (const [alias, score] of [
+        ['Top1', 50],
+        ['Grosero', 40],
+        ['Top3', 30],
+        ['Top4', 20],
+        ['Top5', 10],
+      ] as const) {
+        await dash(alias, score);
+      }
+      await jam('piano-0', 'Otra', 99);
+      const id = db.rows.find((r) => r.alias === 'Grosero')!.id;
+
+      const result = await service.remove(id);
+
+      expect(result.game).toBe('ARKADASH');
+      expect(result.track).toBe('global');
+      expect(result.top.map((r) => [r.position, r.alias])).toEqual([
+        [1, 'Top1'],
+        [2, 'Top3'],
+        [3, 'Top4'],
+        [4, 'Top5'],
+      ]);
+      expect(result.top.every((r) => typeof r.id === 'number')).toBe(true);
+      // La otra pista no se toca.
+      expect(db.rows.map((r) => r.alias)).toContain('Otra');
+      const after = await service.top({ game: MinigameGame.ARKADASH });
+      expect(after.top.map((r) => r.alias)).not.toContain('Grosero');
+    });
+
+    it('responde 404 con su code si el récord no existe', async () => {
+      const error = await service.remove(999).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(NotFoundException);
+      expect((error as NotFoundException).getResponse()).toMatchObject({
+        code: 'MINIGAME_RECORD_NOT_FOUND',
+      });
+      expect(db.client.minigameRecord.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
   it.each([
+    [{ game: MinigameGame.ARKADASH, alias: 'p.u.t.a', score: 5 }],
     [{ game: MinigameGame.ARKADASH, alias: 'ab', score: 5 }],
     [{ game: MinigameGame.ARKADASH, alias: 'Pixel', score: 10_001 }],
     [{ game: MinigameGame.ARKAD_JAM, alias: 'Pixel', score: 5 }],

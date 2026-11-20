@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { MinigameGame } from '@prisma/client';
 import {
   MINIGAME_ALIAS_INVALID,
+  MINIGAME_ALIAS_OFFENSIVE,
   MINIGAME_ALIAS_PERSONAL_DATA,
   MINIGAME_RECORD_INVALID,
   MINIGAME_SCORE_IMPOSSIBLE,
@@ -93,6 +94,50 @@ describe('HU-52: reglas de los récords de los minijuegos', () => {
         );
       },
     );
+
+    it.each([
+      'PUTA',
+      'p.u.t.a',
+      'Pu-Ta 22',
+      'puuuta',
+      'hijueputa',
+      'mierd4',
+      'M I E R D A',
+      'Perra',
+      'zorra_x',
+      'Malparido',
+      'gonorrea',
+      'Huevón',
+      'Imbécil',
+      'F.U.C.K',
+      'shit lord',
+      'b1tch',
+    ])('rechaza %p por ofensivo, con un mensaje neutro', (alias) => {
+      expect(codeOf(() => normalizeAlias(alias))).toBe(
+        MINIGAME_ALIAS_OFFENSIVE,
+      );
+      expect(() => normalizeAlias(alias)).toThrow(
+        'Elige otro alias: este no se puede mostrar en la pantalla principal',
+      );
+    });
+
+    it.each([
+      'Computador',
+      'Cómputo',
+      'Disputa',
+      'Diputado',
+      'Mari Carmen',
+      'Vergara',
+      'Pera',
+      'Perro',
+      'Esperanza',
+      'Zorro',
+      'Superrápido',
+      'Pixel',
+      'Ñoño Gamer',
+    ])('acepta %p aunque contenga letras de una grosería', (alias) => {
+      expect(() => normalizeAlias(alias)).not.toThrow();
+    });
 
     it('acepta números cortos, como un año', () => {
       expect(normalizeAlias('Neo 2026')).toBe('Neo 2026');

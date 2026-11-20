@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { MinigameGame, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMinigameRecordDto } from './dto/create-minigame-record.dto';
 import { ListMinigameRecordsDto } from './dto/list-minigame-records.dto';
 import {
+  MINIGAME_RECORD_NOT_FOUND,
   TOP_SIZE,
   assertPossibleScore,
   normalizeAlias,
@@ -11,6 +12,8 @@ import {
 } from './minigame-record-rules';
 
 export interface MinigameRecordRow {
+  /** Solo para el Administrador, que lo usa para borrar el récord (DELETE /minigame-records/:id). */
+  id?: number;
   position: number;
   alias: string;
   score: number;
@@ -58,7 +61,11 @@ type StoredRow = Prisma.MinigameRecordGetPayload<{ select: typeof ROW_SELECT }>;
 export class MinigameRecordsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async top(query: ListMinigameRecordsDto): Promise<MinigameTop> {
+  /** `withIds`: solo el Administrador recibe el id de cada récord. */
+  async top(
+    query: ListMinigameRecordsDto,
+    withIds = false,
+  ): Promise<MinigameTop> {
     const allSongs =
       query.game === MinigameGame.ARKAD_JAM && !query.track?.trim();
     const track = allSongs ? null : normalizeTrack(query.game, query.track);
@@ -68,7 +75,39 @@ export class MinigameRecordsService {
       take: TOP_SIZE,
       select: ROW_SELECT,
     });
-    return { game: query.game, track, top: this.rank(rows) };
+    return { game: query.game, track, top: this.rank(rows, withIds) };
+  }
+
+  /**
+   * Borra un récord (un alias grosero o un puntaje falso). Solo el Administrador. Devuelve el top
+   * de esa pista ya sin él: los demás suben un puesto. Como solo se guardan los 5 mejores, el top
+   * queda con uno menos hasta que entre otro puntaje.
+   */
+  async remove(id: number): Promise<MinigameTop> {
+    const record = await this.prisma.minigameRecord.findUnique({
+      where: { id },
+      select: { game: true, track: true },
+    });
+    if (!record) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: MINIGAME_RECORD_NOT_FOUND,
+        message: 'Ese récord no existe o ya se borró',
+      });
+    }
+    // deleteMany: si otro administrador lo borró al mismo tiempo, no falla.
+    await this.prisma.minigameRecord.deleteMany({ where: { id } });
+    const rows = await this.prisma.minigameRecord.findMany({
+      where: record,
+      orderBy: TOP_ORDER,
+      take: TOP_SIZE,
+      select: ROW_SELECT,
+    });
+    return {
+      game: record.game,
+      track: record.track,
+      top: this.rank(rows, true),
+    };
   }
 
   async save(dto: CreateMinigameRecordDto): Promise<SavedMinigameRecord> {
@@ -120,8 +159,9 @@ export class MinigameRecordsService {
     });
   }
 
-  private rank(rows: StoredRow[]): MinigameRecordRow[] {
+  private rank(rows: StoredRow[], withIds = false): MinigameRecordRow[] {
     return rows.map((row, index) => ({
+      ...(withIds ? { id: row.id } : {}),
       position: index + 1,
       alias: row.alias,
       score: row.score,
