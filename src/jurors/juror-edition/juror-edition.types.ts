@@ -44,14 +44,6 @@ export interface PaginatedEditionJurors
   counts: EditionJurorCounts;
 }
 
-export interface ImportPreviousResult {
-  sourceEditionId: number;
-  created: number;
-  skipped: number;
-  /** true cuando la edición anterior no tenía lista y se trajo a todos los jurados activos. */
-  fallback: boolean;
-}
-
 /**
  * NOT_ENROLLED: no tiene fila en la edición (un profesor sin NRC se inscribe por correo, HU-28).
  * IS_PROFESSOR: profesor automático (NRC activo en la edición); no se confirma ni declina.

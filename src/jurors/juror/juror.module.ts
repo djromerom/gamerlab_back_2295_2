@@ -32,6 +32,11 @@ import { SubstituteAssignmentService } from './substitute-assignment/substitute-
     SubstituteAssignmentService,
   ],
   // HU-24: el suplente de último momento usa las mismas reglas (HU-08) y la misma bitácora.
-  exports: [AssignmentValidationService, JurorAssignmentAuditService],
+  // HU-49 (ARK-280): la importación de jurados de la edición crea las cuentas con `JurorService.create`.
+  exports: [
+    AssignmentValidationService,
+    JurorAssignmentAuditService,
+    JurorService,
+  ],
 })
 export class JurorModule {}

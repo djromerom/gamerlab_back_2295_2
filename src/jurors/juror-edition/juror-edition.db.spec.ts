@@ -91,22 +91,14 @@ maybe('Jurados por edición (BD real)', () => {
     await nrc(user.profeNrcInactivo, ids.current, false);
     await nrc(user.profeOtraEdicion, ids.other);
 
-    await prisma.jurorEdition.createMany({
-      data: [
-        // edición anterior: dos confirmados (uno ya inactivo) y un declinado
-        {
-          jurorId: user.confirmado,
-          editionId: ids.previous,
-          status: 'CONFIRMED',
-          type: 'BACKUP',
-        },
-        {
-          jurorId: user.inactivo,
-          editionId: ids.previous,
-          status: 'CONFIRMED',
-        },
-        { jurorId: user.declino, editionId: ids.previous, status: 'DECLINED' },
-      ],
+    // Estado de partida: «confirmado» ya está en la edición actual como Pendiente (BACKUP).
+    await prisma.jurorEdition.create({
+      data: {
+        jurorId: user.confirmado,
+        editionId: ids.current,
+        status: 'PENDING',
+        type: 'BACKUP',
+      },
     });
   });
 
@@ -122,32 +114,6 @@ maybe('Jurados por edición (BD real)', () => {
       where: { id: { in: [ids.previous, ids.current, ids.other] } },
     });
     await prisma.$disconnect();
-  });
-
-  it('trae de la anterior solo a los confirmados activos, como Pendientes y con su tipo', async () => {
-    const first = await service.importPrevious(
-      { editionId: ids.current },
-      user.profe,
-    );
-    expect(first).toEqual({
-      sourceEditionId: ids.previous,
-      created: 1,
-      skipped: 0,
-      fallback: false,
-    });
-
-    const again = await service.importPrevious(
-      { editionId: ids.current },
-      user.profe,
-    );
-    expect(again).toMatchObject({ created: 0, skipped: 1 });
-
-    const row = await prisma.jurorEdition.findUniqueOrThrow({
-      where: {
-        jurorId_editionId: { jurorId: user.confirmado, editionId: ids.current },
-      },
-    });
-    expect(row).toMatchObject({ status: 'PENDING', type: 'BACKUP' });
   });
 
   it('jurorsOfEdition: confirmados y profesores con NRC activo en la edición, nadie más', async () => {

@@ -203,7 +203,8 @@
 | GET | `/juror-edition` | Permiso `ListEditionJurors` | Administrador |  |
 | PATCH | `/juror-edition/status` | Permiso `ManageEditionJurors` | Administrador |  |
 | POST | `/juror-edition/enroll` | Permiso `ManageEditionJurors` | Administrador |  |
-| POST | `/juror-edition/import-previous` | Permiso `ManageEditionJurors` | Administrador |  |
+| POST | `/juror-edition/import` | Permiso `ManageEditionJurors` | Administrador | HU-49 (ARK-280): importa el Excel de jurados de la edición activa |
+| GET | `/juror-edition/import/template` | Permiso `ManageEditionJurors` | Administrador | HU-49: plantilla del Excel |
 
 ## NrcsController
 

@@ -250,47 +250,4 @@ describe('JurorEditionService · profesores sin NRC (HU-28)', () => {
       expect(prisma.jurorEdition.update).toHaveBeenCalledTimes(1);
     });
   });
-
-  describe('importPrevious', () => {
-    it('trae también a los profesores confirmados en la anterior; el fallback sigue siendo solo Jurado', async () => {
-      prisma.edition.findFirst
-        .mockResolvedValueOnce(active)
-        .mockResolvedValueOnce({ ...active, id: 4, semester: 10 });
-      prisma.jurorEdition.count.mockResolvedValue(3);
-      prisma.jurorEdition.findMany.mockResolvedValue([
-        { jurorId: 'p1', type: 'OFFICIAL' },
-      ]);
-      prisma.jurorEdition.createMany.mockResolvedValue({ count: 1 });
-
-      const result = await service.importPrevious({}, ACTOR);
-
-      expect(result).toMatchObject({ created: 1, fallback: false });
-      expect(
-        callArg<{ where: unknown }>(prisma.jurorEdition.findMany).where,
-      ).toEqual({
-        editionId: 4,
-        status: 'CONFIRMED',
-        juror: {
-          isActive: true,
-          role: { name: { in: ['Jurado', 'Profesor'] } },
-        },
-      });
-    });
-
-    it('fallback (anterior sin lista): solo cuentas de rol Jurado', async () => {
-      prisma.edition.findFirst
-        .mockResolvedValueOnce(active)
-        .mockResolvedValueOnce({ ...active, id: 4, semester: 10 });
-      prisma.jurorEdition.count.mockResolvedValue(0);
-      prisma.user.findMany.mockResolvedValue([]);
-
-      const result = await service.importPrevious({}, ACTOR);
-
-      expect(result.fallback).toBe(true);
-      expect(callArg<{ where: unknown }>(prisma.user.findMany).where).toEqual({
-        isActive: true,
-        role: { name: 'Jurado' },
-      });
-    });
-  });
 });
