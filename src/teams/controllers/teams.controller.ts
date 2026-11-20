@@ -22,7 +22,10 @@ import { Public } from '../../auth/decorators/public.decorator';
 import { RolePermissionGuard } from '../../auth/guards/role-permission.guard';
 import { RequiredService } from '../../auth/decorators/required-service.decorator';
 import { OptionalJwtAuthGuard } from '../../auth/guards/optional-jwt-auth.guard';
-import { OptionalAdminRoleGuard } from '../../auth/guards/admin-role.guard';
+import {
+  AdminRoleGuard,
+  OptionalAdminRoleGuard,
+} from '../../auth/guards/admin-role.guard';
 import { IsAdmin } from '../../auth/decorators/is-admin.decorator';
 import { PUBLIC_LIMITS, PublicThrottle } from '../../common/throttle/public-throttle';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
@@ -146,10 +149,13 @@ export class TeamsController {
     return this.teamsService.findByVideogameName(videogameName.trim());
   }
 
-  @Public()
-  @UseGuards(OptionalJwtAuthGuard)
+  // HU-48 (ARK-306): solo el Administrador. Era pública y devolvía la nota de cualquier equipo
+  // recorriendo los ids; el ranking público (`by-n`) ya no muestra notas. El front no la usa.
+  @UseGuards(AdminRoleGuard)
   @Get('final-score/videogame/:videogameId')
-  @ApiOperation({ summary: 'Get final scores for all teams for a videogame' })
+  @ApiOperation({
+    summary: 'Final scores of the teams of a videogame (Administrator only)',
+  })
   @ApiOkResponse({
     description: 'Array of team final scores for the videogame',
     schema: {
@@ -175,10 +181,13 @@ export class TeamsController {
     return this.teamsService.getFinalScoreByVideogame(videogameId, user);
   }
 
-  @Public()
-  @UseGuards(OptionalJwtAuthGuard)
+  // HU-48 (ARK-306): solo el Administrador, como `final-score/videogame`. El estudiante ve su
+  // nota en `GET /final-grade/me` (HU-20).
+  @UseGuards(AdminRoleGuard)
   @Get('final-score/team/:teamId')
-  @ApiOperation({ summary: 'Get final score(s) for a specific team' })
+  @ApiOperation({
+    summary: 'Final score(s) of a team (Administrator only)',
+  })
   @ApiOkResponse({
     description: 'Final score(s) for the team (one row per videogame)',
     schema: {
@@ -207,27 +216,32 @@ export class TeamsController {
   @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @Get('final-score/by-n/:n')
-  @ApiOperation({ summary: 'Get final scores for teams filtered by teamCode prefix (e.g., N1, N0, N2)' })
-  @ApiParam({ name: 'n', required: true, description: "Team code prefix to filter by (N0..N4). Example: 'N1' or 'N1-'" })
+  @ApiOperation({
+    summary:
+      'Ranking público: podio (3 primeros) de un nivel, sin notas (HU-48). `all` trae el podio de cada nivel',
+  })
+  @ApiParam({ name: 'n', required: true, description: "Nivel (N0..N4, N10) o 'all'. Ejemplo: 'N1' o 'N1-'" })
   @ApiOkResponse({
-    description: 'Array of TeamFinalScore rows whose teamCode starts with the given prefix',
+    description:
+      'Podio del nivel ordenado por puesto, sin finalScore ni ningún otro puntaje. [] si el ranking no está publicado (salvo Administrador) o no hay edición activa',
     schema: {
       example: [
         {
           teamId: 1,
           teamCode: 'N1-IST-101',
+          teamName: 'Team1',
           isExternal: false,
           videogameId: 24,
           videogameName: 'Stella',
+          logoUrl: 'https://…',
+          videogameLogoUrl: 'https://…',
           editionId: 3,
-          avgJunior: null,
-          avgSenior: 5,
-          finalScore: 2,
-          teamName: "Team1",
-          logoUrl: "loguito"
-        }
-      ]
-    }
+          level: 1,
+          levelPosition: 1,
+          position: 1,
+        },
+      ],
+    },
   })
   getFinalScoresByN(@Param('n') n: string, @GetUser() user?: AppUser) {
     return this.teamsService.getFinalScoreByTeamCodePrefix(n, user);
