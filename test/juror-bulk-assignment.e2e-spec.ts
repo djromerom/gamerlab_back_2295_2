@@ -182,7 +182,7 @@ describeIfDb(
       await app.init();
       pushSpy = jest.spyOn(
         AssignmentPushNotifier.prototype,
-        'notifyAssignmentChanged',
+        'notifyTeamsAssigned',
       );
     });
 
@@ -284,8 +284,12 @@ describeIfDb(
       expect(await auditRows('s')).toHaveLength(0);
 
       // UN solo aviso push al jurado, no uno por equipo.
+      // HU-51: con los dos grupos asignados, para «Te asignaron 2 grupos nuevos: …».
       expect(pushSpy).toHaveBeenCalledTimes(1);
-      expect(pushSpy).toHaveBeenCalledWith([jurorId]);
+      expect(pushSpy).toHaveBeenCalledWith([
+        { jurorId, teamId: teamIds.a },
+        { jurorId, teamId: teamIds.b },
+      ]);
     });
 
     it('si todos los equipos quedan bloqueados responde 200 con todos BLOCKED y no guarda ni avisa', async () => {
@@ -351,6 +355,10 @@ describeIfDb(
         'Asignación manual en lote desde módulo admin. Advertencias aceptadas: JUROR_OVER_LIMIT.',
       );
       expect(pushSpy).toHaveBeenCalledTimes(1);
+      expect(pushSpy).toHaveBeenCalledWith([
+        { jurorId, teamId: teamIds.x },
+        { jurorId, teamId: teamIds.y },
+      ]);
     });
 
     it('repetir la operación no duplica: los equipos ya asignados salen bloqueados por duplicado', async () => {
@@ -378,6 +386,7 @@ describeIfDb(
       });
       expect(await assignedTo('z')).toContain(jurorId);
       expect(pushSpy).toHaveBeenCalledTimes(1);
+      expect(pushSpy).toHaveBeenCalledWith([{ jurorId, teamId: teamIds.z }]);
     });
   },
 );

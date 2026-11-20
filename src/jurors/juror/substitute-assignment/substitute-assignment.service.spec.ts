@@ -67,7 +67,10 @@ describe('SubstituteAssignmentService (HU-09)', () => {
     Promise<AssignmentValidationResult>,
     [AssignmentRulesInput]
   >;
-  let push: { notifyAssignmentChanged: jest.Mock };
+  let push: {
+    notifyAssignmentChanged: jest.Mock;
+    notifyTeamsAssigned: jest.Mock;
+  };
   let notices: { recordAssignment: jest.Mock; sendEmailAfterCommit: jest.Mock };
   let service: SubstituteAssignmentService;
 
@@ -107,7 +110,10 @@ describe('SubstituteAssignmentService (HU-09)', () => {
     validate = jest
       .spyOn(validation, 'validate')
       .mockResolvedValue({ blockers: [], warnings: [] });
-    push = { notifyAssignmentChanged: jest.fn() };
+    push = {
+      notifyAssignmentChanged: jest.fn(),
+      notifyTeamsAssigned: jest.fn(),
+    };
     notices = {
       recordAssignment: jest.fn(
         (_tx: unknown, { jurorId }: { jurorId: string }) =>
@@ -144,7 +150,7 @@ describe('SubstituteAssignmentService (HU-09)', () => {
     expect(tx.team.update).not.toHaveBeenCalled();
     expect(audit.create).not.toHaveBeenCalled();
     expect(notices.recordAssignment).not.toHaveBeenCalled();
-    expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+    expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
     expect(notices.sendEmailAfterCommit).not.toHaveBeenCalled();
   };
 
@@ -266,7 +272,13 @@ describe('SubstituteAssignmentService (HU-09)', () => {
       editionId: EDITION.id,
     });
     expect(notices.sendEmailAfterCommit).toHaveBeenCalledWith([101, 102]);
-    expect(push.notifyAssignmentChanged).toHaveBeenCalledWith(['s1', 's2']);
+    // HU-51: un solo aviso con los grupos nuevos de cada suplente.
+    expect(push.notifyTeamsAssigned).toHaveBeenCalledTimes(1);
+    expect(push.notifyTeamsAssigned.mock.calls[0][0]).toEqual(
+      ['s1', 's2'].flatMap((jurorId) =>
+        [1, 2, 3].map((teamId) => ({ jurorId, teamId })),
+      ),
+    );
     expect(
       notices.sendEmailAfterCommit.mock.invocationCallOrder[0],
     ).toBeGreaterThan(prisma.$transaction.mock.invocationCallOrder[0]);
@@ -318,7 +330,9 @@ describe('SubstituteAssignmentService (HU-09)', () => {
       tx,
       expect.objectContaining({ jurorId: 's2' }),
     );
-    expect(push.notifyAssignmentChanged).toHaveBeenCalledWith(['s2']);
+    expect(push.notifyTeamsAssigned).toHaveBeenCalledWith([
+      { jurorId: 's2', teamId: 1 },
+    ]);
   });
 
   it(`400 ${NOT_A_SUBSTITUTE} si algún id no es suplente confirmado de la edición; nada cambia`, async () => {
@@ -477,7 +491,7 @@ describe('SubstituteAssignmentService (HU-09)', () => {
     );
 
     await expect(run()).rejects.toMatchObject({ status: 500 });
-    expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+    expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
     expect(notices.sendEmailAfterCommit).not.toHaveBeenCalled();
   });
 

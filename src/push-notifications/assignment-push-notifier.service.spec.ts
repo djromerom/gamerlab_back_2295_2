@@ -5,6 +5,8 @@ import {
   ARRIVAL_REMINDER_NOTICE,
   ASSIGNMENT_CHANGED_NOTICE,
   PENDING_EVALUATIONS_NOTICE,
+  PENDING_GRADING_PATH,
+  teamsAssignedNotice,
 } from './push-messages';
 import { buildPushNotice } from './push-notice';
 
@@ -14,6 +16,7 @@ describe('AssignmentPushNotifier (HU-37)', () => {
   let prisma: {
     edition: { findFirst: jest.Mock };
     user: { findMany: jest.Mock };
+    team: { findMany: jest.Mock };
   };
   let sender: { isEnabled: jest.Mock; sendToUsers: jest.Mock };
   let notifier: AssignmentPushNotifier;
@@ -30,6 +33,14 @@ describe('AssignmentPushNotifier (HU-37)', () => {
       user: {
         findMany: jest.fn(({ where }: { where: { id: { in: string[] } } }) =>
           Promise.resolve(where.id.in.map((id) => ({ id }))),
+        ),
+      },
+      // Código de cada equipo: «N1-T<id>».
+      team: {
+        findMany: jest.fn(({ where }: { where: { id: { in: number[] } } }) =>
+          Promise.resolve(
+            where.id.in.map((id) => ({ id, teamCode: `N1-T${id}` })),
+          ),
         ),
       },
     };
@@ -144,5 +155,97 @@ describe('AssignmentPushNotifier (HU-37)', () => {
     ['pendientes', PENDING_EVALUATIONS_NOTICE],
   ])('el texto de %s pasa el filtro de avisos', (_name, notice) => {
     expect(() => buildPushNotice(notice)).not.toThrow();
+  });
+
+  describe('grupos nuevos (HU-51)', () => {
+    it('un solo aviso por jurado con sus grupos nuevos, aunque sean varios', async () => {
+      notifier.notifyTeamsAssigned([
+        { jurorId: 'a', teamId: 2 },
+        { jurorId: 'b', teamId: 3 },
+        { jurorId: 'a', teamId: 1 },
+        { jurorId: 'a', teamId: 2 },
+      ]);
+      await flush();
+
+      expect(sender.sendToUsers).toHaveBeenCalledTimes(2);
+      expect(sender.sendToUsers).toHaveBeenCalledWith(
+        ['a'],
+        teamsAssignedNotice(['N1-T1', 'N1-T2']),
+      );
+      expect(sender.sendToUsers).toHaveBeenCalledWith(
+        ['b'],
+        teamsAssignedNotice(['N1-T3']),
+      );
+    });
+
+    it('dice cuántos y cuáles, y abre la lista de equipos por calificar', () => {
+      expect(teamsAssignedNotice(['N2-ISI-014', 'N1-AYP-07'])).toEqual({
+        title: 'Te asignaron 2 grupos nuevos',
+        body: 'Te asignaron 2 grupos nuevos: N1-AYP-07, N2-ISI-014. Entra a ARKAD para calificarlos.',
+        url: PENDING_GRADING_PATH,
+      });
+      expect(teamsAssignedNotice(['N1-AYP-07']).title).toBe(
+        'Te asignaron 1 grupo nuevo',
+      );
+    });
+
+    it('con muchos grupos muestra los primeros y «y N más» sin pasarse del límite', () => {
+      const codes = Array.from(
+        { length: 30 },
+        (_, i) => `N2-AYP-${String(i + 10)}`,
+      );
+      const notice = teamsAssignedNotice(codes);
+      expect(notice.title).toBe('Te asignaron 30 grupos nuevos');
+      expect(notice.body).toMatch(
+        / y \d+ más\. Entra a ARKAD para calificarlos\.$/,
+      );
+      expect(() => buildPushNotice(notice)).not.toThrow();
+    });
+
+    it('solo avisa a los jurados de la edición activa', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'b' }]);
+
+      notifier.notifyTeamsAssigned([
+        { jurorId: 'a', teamId: 1 },
+        { jurorId: 'b', teamId: 2 },
+      ]);
+      await flush();
+
+      expect(sender.sendToUsers).toHaveBeenCalledTimes(1);
+      expect(sender.sendToUsers).toHaveBeenCalledWith(
+        ['b'],
+        teamsAssignedNotice(['N1-T2']),
+      );
+    });
+
+    it('si un código no pasa el filtro de datos sensibles, envía el aviso genérico', async () => {
+      prisma.team.findMany.mockResolvedValue([
+        { id: 1, teamCode: 'N1-1234567' },
+      ]);
+
+      notifier.notifyTeamsAssigned([{ jurorId: 'a', teamId: 1 }]);
+      await flush();
+
+      expect(sender.sendToUsers).toHaveBeenCalledWith(
+        ['a'],
+        ASSIGNMENT_CHANGED_NOTICE,
+      );
+    });
+
+    it('sin VAPID no consulta nada; si falla, no afecta a quien asigna', async () => {
+      sender.isEnabled.mockReturnValue(false);
+      notifier.notifyTeamsAssigned([{ jurorId: 'a', teamId: 1 }]);
+      await flush();
+      expect(prisma.team.findMany).not.toHaveBeenCalled();
+
+      sender.isEnabled.mockReturnValue(true);
+      prisma.team.findMany.mockRejectedValue(new Error('BD caída'));
+      expect(() =>
+        notifier.notifyTeamsAssigned([{ jurorId: 'a', teamId: 1 }]),
+      ).not.toThrow();
+      await flush();
+      expect(sender.sendToUsers).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -124,8 +124,8 @@ export class ContingencyAssignmentService {
           (tx) => this.save(tx, added, actorUserId, accepted, edition),
           { maxWait: 10_000, timeout: 60_000 },
         );
-        this.pushNotifier.notifyAssignmentChanged(
-          added.map((p) => p.substituteId),
+        this.pushNotifier.notifyTeamsAssigned(
+          added.map((p) => ({ jurorId: p.substituteId, teamId: p.teamId })),
         );
         this.substituteNotices.sendEmailAfterCommit(noticeIds);
       }

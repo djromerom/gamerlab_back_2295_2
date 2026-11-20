@@ -187,7 +187,9 @@ export class WalkInAssignmentService {
           (tx) => this.save(tx, jurorId, added, actorUserId, accepted, edition),
           { maxWait: 10_000, timeout: 60_000 },
         );
-        this.pushNotifier.notifyAssignmentChanged([jurorId]);
+        this.pushNotifier.notifyTeamsAssigned(
+          added.map((team) => ({ jurorId, teamId: team.id })),
+        );
         this.substituteNotices.sendEmailAfterCommit([noticeId]);
       }
 

@@ -177,7 +177,10 @@ describeIfDb(
         .overrideProvider(AzureStorageService)
         .useValue({})
         .overrideProvider(AssignmentPushNotifier)
-        .useValue({ notifyAssignmentChanged: notify })
+        .useValue({
+          notifyAssignmentChanged: notify,
+          notifyTeamsAssigned: jest.fn(),
+        })
         .compile();
       app = moduleRef.createNestApplication();
       app.use(cookieParser());

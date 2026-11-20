@@ -203,10 +203,13 @@ export class SubstituteAssignmentService {
           { maxWait: 10_000, timeout: 60_000 },
         );
 
-        this.pushNotifier.notifyAssignmentChanged(
-          plans
-            .filter((plan) => plan.added.length > 0)
-            .map((plan) => plan.substitute.id),
+        this.pushNotifier.notifyTeamsAssigned(
+          plans.flatMap((plan) =>
+            plan.added.map((team) => ({
+              jurorId: plan.substitute.id,
+              teamId: team.id,
+            })),
+          ),
         );
         this.substituteNotices.sendEmailAfterCommit(noticeIds);
       }
