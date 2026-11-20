@@ -2,11 +2,6 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
-## 2026-11-20: desempate siempre por fecha de inscripción (HU-47, ARK-304)
-- [reglas de negocio](../01-negocio/reglas-de-negocio.md#4-ranking-y-desempate): decisión del profesor del 19-nov, reemplaza P-05. Todo empate se resuelve por `fecha_registro` y, si coincide, por el id del equipo. Los profesores ya no eligen; no hay empates pendientes ni resolución manual.
-- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md#ranking-por-nivel-hu-04): cada empate sale con `rule: "REGISTRATION"`, `status: "RESOLVED"`, `deciders: []` y `decision: null` (campos que se conservan por compatibilidad con el front). Las decisiones guardadas antes en `decision_desempate` quedan como historial (`GET /ranking/decisions`) y no cambian el orden. `POST /ranking/finalize` ya no responde 409 y `registeredDecisions` cuenta solo las filas nuevas.
-- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): se quitan `GET /ranking/my-ties` y `POST /ranking/ties/decision` (ahora 404). Se editan a mano. Sin migración ni cambios de permisos. El front (quitar «Mis empates» y dejar `/tiebreaker` en solo lectura) va en ARK-305.
-
 ## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
 - [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
 - [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.
