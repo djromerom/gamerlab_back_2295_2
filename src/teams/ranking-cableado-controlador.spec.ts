@@ -67,7 +67,7 @@ describe('Cableado de controladores con el ranking oculto (ARK-SP1)', () => {
             prisma as any,
             settings as any,
             blobRefsPassthrough(),
-            { orderRows: async (rows: any[]) => rows } as any, // RankingService (HU-04)
+            { orderRows: async (rows: any[]) => rows.map((r, i) => ({ ...r, levelPosition: i + 1 })) } as any, // RankingService (HU-04)
           ),
         },
         { provide: SettingsService, useValue: settings },

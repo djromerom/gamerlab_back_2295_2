@@ -1,5 +1,6 @@
 // src/teams/services/teams.service.ts
 import { withoutScoreBreakdown } from '../final-score-breakdown';
+import { toPublicPodium } from '../public-podium';
 import {
   Injectable,
   Optional,
@@ -120,6 +121,12 @@ export class TeamsService {
     }
   }
 
+  /**
+   * Ranking público (`GET /teams/final-score/by-n/:n`). HU-48 (ARK-306): para todos, también el
+   * Administrador, devuelve solo el podio (3 primeros) de cada nivel y sin notas
+   * (`toPublicPodium`); `all` trae el podio de todos los niveles. El ranking completo con notas
+   * está en `GET /ranking` (`/tiebreaker`). Con el ranking oculto responde [] salvo al Administrador.
+   */
   async getFinalScoreByTeamCodePrefix(prefix: string, user?: AppUser): Promise<any[]> {
     if (!prefix || typeof prefix !== 'string') {
       throw new BadRequestException('Invalid prefix');
@@ -170,11 +177,10 @@ export class TeamsService {
       );
 
       if (!missingTeamName && !missingLogo) {
-        return withoutScoreBreakdown(
+        return toPublicPodium(
           await this.signRankingLogos(
             await this.ranking.orderRows(rows, activeEdition.id),
           ),
-          user,
         );
       }
 
@@ -249,11 +255,10 @@ export class TeamsService {
         return rr;
       });
 
-      return withoutScoreBreakdown(
+      return toPublicPodium(
         await this.signRankingLogos(
           await this.ranking.orderRows(enrichedRows, activeEdition.id),
         ),
-        user,
       );
     } catch (error) {
       this.logger.error(`Error fetching final scores by prefix ${prefix}: ${error}`);

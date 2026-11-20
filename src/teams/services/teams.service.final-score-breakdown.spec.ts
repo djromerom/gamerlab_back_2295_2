@@ -25,7 +25,7 @@ describe('TeamsService — final-score sin desglose para el estudiante (ARK-154)
     prisma as any,
     settings as any,
     blobRefsPassthrough(),
-    { orderRows: async (rows: any[]) => rows } as any,
+    { orderRows: async (rows: any[]) => rows.map((r, i) => ({ ...r, levelPosition: i + 1 })) } as any,
   );
 
   const as = (roleId: number) => ({ id: `u${roleId}`, roleId }) as any;
@@ -58,10 +58,6 @@ describe('TeamsService — final-score sin desglose para el estudiante (ARK-154)
       'final-score/videogame/:id',
       (u) => service.getFinalScoreByVideogame(2, u),
     ],
-    [
-      'final-score/by-n/:n',
-      (u) => service.getFinalScoreByTeamCodePrefix('N1', u),
-    ],
   ];
 
   describe.each(routes)('%s', (_route, call) => {
@@ -85,6 +81,23 @@ describe('TeamsService — final-score sin desglose para el estudiante (ARK-154)
       const [result] = (await call(as(roleId)))!;
       expect(result).toEqual(row);
     });
+  });
+
+  // HU-48 (ARK-306): el ranking público no envía ninguna nota, a ningún rol.
+  it.each([
+    ['sin sesión', undefined],
+    ['Estudiante', ROLE_IDS.STUDENT],
+    ['Profesor', ROLE_IDS.PROFESSOR],
+    ['Jurado', ROLE_IDS.JUROR],
+    ['Administrador', ROLE_IDS.ADMIN],
+  ])('final-score/by-n/:n no envía notas (%s)', async (_name, roleId) => {
+    const [result] = await service.getFinalScoreByTeamCodePrefix(
+      'N1',
+      roleId === undefined ? undefined : as(roleId),
+    );
+    expect(result).toMatchObject({ teamId: 1, levelPosition: 1, level: 1 });
+    for (const field of ['finalScore', 'avgJunior', 'avgSenior'])
+      expect(result).not.toHaveProperty(field);
   });
 
   it('withoutScoreBreakdown no modifica las filas originales', () => {

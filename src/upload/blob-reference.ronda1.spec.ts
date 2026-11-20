@@ -115,7 +115,7 @@ describe('Task 28 ronda 1', () => {
     let service: TeamsService;
     beforeEach(() => {
       prisma.edition.findFirst.mockResolvedValue({ id: 5, title: 'E5', status: 'ACTIVE' });
-      service = new TeamsService({} as any, repository as any, {} as any, prisma as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, { orderRows: async (rows: any[]) => rows } as any);
+      service = new TeamsService({} as any, repository as any, {} as any, prisma as any, { isRankingVisible: jest.fn().mockResolvedValue(true) } as any, blobRefs, { orderRows: async (rows: any[]) => rows.map((r, i) => ({ ...r, levelPosition: i + 1 })) } as any);
     });
 
     it('GET /teams firma additionalImages', async () => {
@@ -135,7 +135,7 @@ describe('Task 28 ronda 1', () => {
     it('el ranking por prefijo firma videogameLogoUrl ademas de logoUrl', async () => {
       (prisma as any).edition = { findFirst: jest.fn().mockResolvedValue({ id: 1 }) };
       prisma.teamFinalScore.findMany.mockResolvedValue([
-        { teamId: 1, teamName: 'T', logoUrl: 'upload:L1', videogameLogoUrl: 'upload:L2', finalScore: 1 },
+        { teamId: 1, teamCode: 'N1-A-1', teamName: 'T', logoUrl: 'upload:L1', videogameLogoUrl: 'upload:L2', finalScore: 1 },
       ]);
       const [r]: any = await service.getFinalScoreByTeamCodePrefix('all');
       expect(r.logoUrl).toBe(SIGNED('L1'));

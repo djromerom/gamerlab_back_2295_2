@@ -328,7 +328,7 @@
 | GET | `/teams` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/teams/:id` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
 | GET | `/teams/:id/full` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
-| GET | `/teams/final-score/by-n/:n` | Pública | Cualquiera (sin sesión) |  |
+| GET | `/teams/final-score/by-n/:n` | Pública | Cualquiera (sin sesión) | Solo el podio (3 primeros) de cada nivel y sin notas (HU-48, ARK-306); `[]` si el ranking no está publicado, salvo al Administrador. |
 | GET | `/teams/final-score/team/:teamId` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/teams/final-score/videogame/:videogameId` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/teams/incomplete-jurors` | Permiso `AssignJurors` | Administrador |  |
