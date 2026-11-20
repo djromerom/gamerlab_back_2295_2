@@ -60,6 +60,7 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
     user: { findUnique: jest.fn() },
     criterion: { findMany: jest.fn() },
     videogame: { findMany: jest.fn() },
+    jurorAttendance: { findFirst: jest.fn() },
     evaluation: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -101,6 +102,8 @@ describe('EvaluationService - verificación del grupo (HU-19)', () => {
       jurorCategory: 'JUNIOR',
     });
     prismaMock.criterion.findMany.mockResolvedValue([{ id: 1, weight: 1 }]);
+    // BG-71 (ARK-285): por defecto el jurado ya hizo check-in; evaluation-check-in.spec.ts cubre lo demás.
+    prismaMock.jurorAttendance.findFirst.mockResolvedValue({ id: 1 });
     criterionServiceMock.findForSelect.mockResolvedValue([
       { id: 1, weight: 1 },
     ]);
@@ -889,6 +892,7 @@ describe('EvaluationService batch idempotency', () => {
         findFirst: jest.fn().mockResolvedValue({ evaluationsOpen: true }),
       },
       edition: { findFirst: jest.fn().mockResolvedValue({ id: 1 }) },
+      jurorAttendance: { findFirst: jest.fn().mockResolvedValue({ id: 1 }) },
       role: { findUnique: jest.fn().mockResolvedValue({ id: 1 }) },
       user: {
         findUnique: jest

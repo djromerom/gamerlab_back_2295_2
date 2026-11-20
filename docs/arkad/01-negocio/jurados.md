@@ -57,6 +57,7 @@ Para quien llega a la feria sin estar registrado. Lo hace **solo el Administrado
 ## Calificar un grupo
 - El jurado debe digitar el **código de verificación** del grupo (lo ve el estudiante) para calificar; N0 no lo lleva (HU-19, P-25).
 - Quién puede calificar (decisión U1 del 30-oct): actor asignado al grupo, o Profesor dueño de un NRC del equipo en su edición; N0 exige además senior; el juego debe ser de la edición activa.
+- Check-in obligatorio (BG-71, ARK-285): el jurado asignado solo califica si registró su llegada en la mesa; si no, ve «Registra tu llegada en la mesa de ARKAD para poder calificar». Si al administrador se le olvidó, la registra por búsqueda manual en el check-in. El jurado de último momento (HU-24) ya queda con la llegada al darlo de alta.
 - Lote: `evaluations` de 1 a 50 filas; escritura todo o nada (U2).
 
 ## Asignación automática y manual
