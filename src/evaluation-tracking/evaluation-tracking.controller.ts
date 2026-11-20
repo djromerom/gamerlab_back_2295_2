@@ -44,7 +44,7 @@ export class EvaluationTrackingController {
   @ApiOperation({
     summary: 'Seguimiento por hora de las evaluaciones de cada grupo (HU-21)',
     description:
-      'Grupos de la feria activa con jurados asignados, presentes (check-in), evaluaciones recibidas y las que cuentan (las 3 primeras por hora de envío). `byHour` es acumulado: cuántas tenía el grupo a cada hora (Bogotá). Ordenado de menos a más evaluaciones que cuentan. Solo lectura y sin datos personales.',
+      'Grupos de la feria activa con jurados asignados, presentes (check-in), evaluaciones recibidas y las que cuentan (las 3 primeras por hora de envío). Solo se cuentan evaluaciones de jurado: la nota que el profesor pone a sus NRC no suma a «Recibidas», «Cuentan» ni «Faltan» (BG-73). `byHour` es acumulado: cuántas tenía el grupo a cada hora (Bogotá). Ordenado de menos a más evaluaciones que cuentan. Solo lectura y sin datos personales.',
   })
   @ApiResponse({ status: 200, schema: { example: trackingExample } })
   @ApiResponse({ status: 400, description: 'Nivel o fecha no válidos' })

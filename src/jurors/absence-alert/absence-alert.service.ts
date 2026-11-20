@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { requireActiveEdition } from 'src/editions/active-edition';
 import { MAX_COUNTED_EVALUATIONS } from 'src/evaluation/counted-evaluations';
+import { JUROR_EVALUATION_FILTER } from 'src/evaluation/juror-evaluation';
 import { EvaluationTrackingService } from 'src/evaluation-tracking/evaluation-tracking.service';
 import { compareRows } from 'src/jurors/juror-attendance/attendance-page';
 import { JurorAttendanceService } from 'src/jurors/juror-attendance/juror-attendance.service';
@@ -164,7 +165,9 @@ export class AbsenceAlertService {
         },
       }),
       this.prisma.evaluation.findMany({
-        where: { editionId, isActive: true },
+        // BG-73 (ARK-284): «ya evaluó» es haber enviado una evaluación de jurado; la nota del
+        // profesor a sus NRC (sin detalles) no lo cuenta.
+        where: { editionId, ...JUROR_EVALUATION_FILTER },
         select: { videogameId: true, jurorId: true },
       }),
     ]);

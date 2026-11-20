@@ -2,6 +2,9 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: el seguimiento cuenta solo evaluaciones de jurado (BG-73, ARK-284)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): «Recibidas», «Cuentan», «Faltan», la tabla por hora y la alerta de HU-12 excluyen la nota del profesor a sus NRC (filtro único `JUROR_EVALUATION_FILTER`). Sin migración ni cambio de contrato (mismos campos). Queda anotada la diferencia con la marca «Menos de 3 evaluaciones» del ranking (BG-68), que la vista cuenta con la nota del profesor.
+
 ## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
 - [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
 - [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.
