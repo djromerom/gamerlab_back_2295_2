@@ -48,7 +48,7 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
   'GET /final-grade/release':
     'Solo el Administrador (AdminRoleGuard): estado de la liberación de la nota final y equipos con datos incompletos (HU-20, ARK-80).',
   'PATCH /final-grade/release':
-    'Solo el Administrador (AdminRoleGuard): libera (desde las 12:00 del día de la feria) u oculta la nota final a los estudiantes (HU-20, ARK-80).',
+    'Solo el Administrador (AdminRoleGuard): libera (desde la hora de cierre del día de la feria: la del cronograma o, sin cronograma, las 12:00) u oculta la nota final a los estudiantes; ocultarla también oculta el ranking público (HU-20, ARK-80; BG-67; HU-46, ARK-301).',
 };
 
 /**

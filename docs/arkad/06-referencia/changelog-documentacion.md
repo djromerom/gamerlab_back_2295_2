@@ -2,6 +2,11 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: liberar la nota final, método y respuesta de /final-grade/me confirmados (HU-46, ARK-301)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md#nota-final-para-los-estudiantes-hu-20): `PATCH /final-grade/release` es el método que usa el front (`PUT` responde 404). `GET /final-grade/me` documenta todos sus `status`, incluidos `NOT_GRADABLE` (HU-39) y `REJECTED` (BG-43), y que `IN_PROCESS` cubre al equipo sin nota completa (BG-48).
+- Inventario de rutas en código (`route-inventory.ts`): la nota de `PATCH /final-grade/release` dice la hora de cierre del cronograma en lugar de «las 12:00» fijas.
+- Prueba nueva `test/final-grade-release-http.e2e-spec.ts` (HTTP con la app completa). Sin cambios de comportamiento, migración ni permisos.
+
 ## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
 - [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
 - [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.
