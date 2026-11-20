@@ -193,6 +193,7 @@
 | PATCH | `/juror/assignments/reassign` | Permiso `AssignJurors` | Administrador |  |
 | POST | `/juror` | Permiso `CreateJuror` | Administrador |  |
 | POST | `/juror/assignments` | Permiso `AssignJurors` | Administrador |  |
+| POST | `/juror/assignments/bulk` | Permiso `AssignJurors` | Administrador | Agregada a mano (HU-42, ARK-275): varios equipos a un jurado |
 | POST | `/juror/resend-confirmation` | Permiso `SendEmail` | Administrador |  |
 
 ## JurorEditionController

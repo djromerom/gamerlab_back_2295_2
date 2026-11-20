@@ -6,6 +6,8 @@ import { PushNotificationsModule } from 'src/push-notifications/push-notificatio
 import { SubstituteNoticesModule } from 'src/jurors/substitute-notices/substitute-notices.module';
 import { JurorAssignmentService } from './assignment-audit/juror-assignment.service';
 import { JurorAssignmentAuditService } from './assignment-audit/juror-assignment-audit.service';
+import { JurorAssignmentBulkController } from './assignment-audit/juror-assignment-bulk.controller';
+import { JurorAssignmentBulkService } from './assignment-audit/juror-assignment-bulk.service';
 import { AssignmentValidationService } from './assignment-validation/assignment-validation.service';
 import { AutomaticAssignmentController } from './automatic-assignment/automatic-assignment.controller';
 import { AutomaticAssignmentService } from './automatic-assignment/automatic-assignment.service';
@@ -18,11 +20,13 @@ import { SubstituteAssignmentService } from './substitute-assignment/substitute-
     JurorController,
     AutomaticAssignmentController,
     SubstituteAssignmentController,
+    JurorAssignmentBulkController,
   ],
   providers: [
     JurorService,
     JurorAssignmentService,
     JurorAssignmentAuditService,
+    JurorAssignmentBulkService,
     AssignmentValidationService,
     AutomaticAssignmentService,
     SubstituteAssignmentService,
