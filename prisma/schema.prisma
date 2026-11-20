@@ -1030,3 +1030,24 @@ model TieBreakDecision {
   @@index([editionId, level])
   @@map("decision_desempate")
 }
+
+/// HU-52 (ARK-315): juegos de la landing con récord global.
+enum MinigameGame {
+  ARKADASH // un solo récord global
+  ARKAD_JAM // un récord por canción
+}
+
+/// HU-52 (ARK-315): récords globales de los minijuegos de la landing. Solo se guardan los 5 mejores
+/// de cada pista (`global` en Arkadash, `<instrumento>-<índice>` en Arkad Jam). Sin datos de quien
+/// juega: solo el alias que escribió.
+model MinigameRecord {
+  id        Int          @id @default(autoincrement()) @map("id_record")
+  game      MinigameGame @map("juego")
+  track     String       @map("pista") @db.VarChar(20)
+  alias     String       @db.VarChar(12)
+  score     Int          @map("puntaje")
+  createdAt DateTime     @default(now()) @map("creado_en")
+
+  @@index([game, track, score(sort: Desc), createdAt])
+  @@map("record_minijuego")
+}

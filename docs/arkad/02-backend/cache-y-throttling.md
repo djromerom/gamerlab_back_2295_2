@@ -14,6 +14,8 @@
 | Login | 10 por minuto por **IP + correo normalizado**, y además 100 por minuto por IP (contra credential stuffing) |
 | `reset-password` | 5 por 10 min |
 | `resend-confirmation` | 5 por 10 min |
+| Récords de los minijuegos (HU-52): `GET /minigame-records` | 300 por minuto |
+| Récords de los minijuegos (HU-52): `POST /minigame-records` | 20 por minuto |
 
 Generosos a propósito: muchos estudiantes se registran desde la red de la universidad y comparten IP pública.
 
