@@ -417,6 +417,19 @@ describe('AbsenceAlertService (HU-12)', () => {
       expect(panel.data[0].jurors[0].hasEvaluated).toBe(false);
     });
 
+    it('BG-73: «ya evaluó» solo cuenta evaluaciones de jurado (con detalles), no la nota del profesor a sus NRC', async () => {
+      await service.getPanel({}, at('10:00'));
+
+      // La nota del profesor a sus NRC no tiene detalles: el filtro la deja fuera de la consulta.
+      expect(prisma.evaluation.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          isActive: true,
+          details: { some: {} },
+        }) as unknown,
+        select: { videogameId: true, jurorId: true },
+      });
+    });
+
     it('filtra por estado y quita los grupos que quedan vacíos', async () => {
       const panel = await service.getPanel(
         { attendance: 'ABSENT' },

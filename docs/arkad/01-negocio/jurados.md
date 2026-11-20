@@ -63,6 +63,6 @@ Para quien llega a la feria sin estar registrado. Lo hace **solo el Administrado
 Reglas en [reglas-de-negocio §5](reglas-de-negocio.md). Existe bitácora de cambios (`JurorAssignmentAuditLog`). «Quitar todas las asignaciones» debe afectar solo la edición activa (BG-20).
 
 ## Panel de seguimiento
-Se actualiza cada 10 s. Lo ven Administrador y, en solo lectura, profesores senior (P-16, P-26). Asistencia visible también para Staff en solo lectura (HU-29).
+Se actualiza cada 10 s. Lo ven Administrador y, en solo lectura, profesores senior (P-16, P-26). Asistencia visible también para Staff en solo lectura (HU-29). «Recibidas», «Cuentan» y «Faltan» cuentan solo las evaluaciones de los jurados; la nota que el profesor pone a sus NRC no se incluye (BG-73).
 
 > PENDIENTE: confirmar en producción qué jurados figuran hoy como senior sin ser profesores (subtarea de HU-07) y qué tickets de esta lista ya están mergeados (ver [backlog-y-epicas](../05-scrum-y-proceso/backlog-y-epicas.md)).
