@@ -61,7 +61,8 @@ export const ROUTE_NOTES: Record<string, string> = {
     'Estudiante: solo el líder, solo el nombre del equipo y el contenido del juego, y solo con las inscripciones abiertas; integrantes, externo, nombre del juego y estado de aprobación responden 403 (ARK-161, BG-38).',
   'PATCH /teams/:teamId/members/:memberId':
     'Solo el Administrador cambia el correo de un integrante (ARK-161, BG-38).',
-  'POST /teams/:id/member': 'Solo el Administrador agrega integrantes (ARK-161, BG-38).',
+  'POST /teams/:id/member':
+    'Solo el Administrador agrega integrantes (ARK-161, BG-38).',
   'DELETE /teams/:id/members/:memberId':
     'Solo el Administrador quita integrantes, y el integrante debe pertenecer a ese equipo (ARK-161, BG-38).',
   'PATCH /videogames/:id':
@@ -92,10 +93,6 @@ export const ROUTE_NOTES: Record<string, string> = {
     'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
   'GET /reports/JuradosData':
     'Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol.',
-  'POST /ranking/ties/decision':
-    'Profesor: solo empates entre grupos de sus NRC (RankingService.decide); el Administrador, cualquier empate pendiente (HU-04).',
-  'GET /ranking/my-ties':
-    'Profesor: solo los empates que le toca decidir (HU-04).',
   'GET /substitute-notices/me':
     'Solo los avisos del propio suplente en la edición activa (HU-22, ARK-84).',
   'PATCH /substitute-notices/:id/read':
