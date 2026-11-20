@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: desactivar el código de verificación por equipo y en toda la edición (HU-50, ARK-314)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `PATCH /team-verification/:teamId/required` (`ManageTeamVerificationCode`) y `GET|PATCH /settings/verification-codes` (`UpdateSettings`), solo Administrador; `GET /team-verification/status?includeLocks=true` trae además `required`.
+- [modelo-de-datos](../02-backend/modelo-de-datos.md): `Team.verificationRequired` y `EventConfiguration.verificationCodesEnabled` (con quién y cuándo), por defecto `true`; acciones `CODE_DISABLED`/`CODE_ENABLED` en la bitácora. Migración `20261122000000_add_verification_code_switches`.
+- [equipos-y-verificacion](../01-negocio/equipos-y-verificacion.md) y [jurados](../01-negocio/jurados.md): cuándo se pide el código; el interruptor global manda.
+- Contrato `docs/frontend/HU-50-desactivar-codigo-verificacion.md` para el front (ARK-311).
+
 ## 2026-11-20: importar jurados de la edición desde Excel (HU-49, ARK-280)
 - [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror-edition/import` (multipart `file`, xlsx de hasta 2 MB y 500 filas) y `GET /juror-edition/import/template`, permiso `ManageEditionJurors` (solo Administrador), solo la edición activa. Se retira `POST /juror-edition/import-previous` (ahora 404).
 - [arquitectura-modulos](../02-backend/arquitectura-modulos.md): carpeta `jurors/juror-edition/import/`.

@@ -284,12 +284,14 @@
 | GET | `/settings/registrations` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/show-evaluations` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/show-ranking` | Pública | Cualquiera (sin sesión) | `true` solo con el ranking publicado y la nota final liberada (BG-67). |
+| GET | `/settings/verification-codes` | Permiso `UpdateSettings` | Administrador |  |
 | GET | `/settings/weights` | Permiso `GetWeight` | Administrador |  |
 | GET | `/settings/weights/:editionId` | Permiso `GetWeight` | Administrador |  |
 | PATCH | `/settings/evaluations-status` | Permiso `UpdateSettings` | Administrador |  |
 | PATCH | `/settings/registrations` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): abre o cierra las inscripciones. |
 | PATCH | `/settings/show-evaluations` | Permiso `UpdateSettings` | Administrador |  |
 | PATCH | `/settings/show-ranking` | Permiso `UpdateSettings` | Administrador | 400 `RANKING_REQUIRES_FINAL_GRADE` si se publica sin la nota final liberada (BG-67). |
+| PATCH | `/settings/verification-codes` | Permiso `UpdateSettings` | Administrador | Exigir o no el código de verificación en toda la edición activa (HU-50). |
 | POST | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 | PUT | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 
@@ -352,6 +354,7 @@
 | GET | `/team-verification/:teamId` | Permiso `ManageTeamVerificationCode` | Administrador |  |
 | GET | `/team-verification/my-code` | Permiso `MyTeamMembers` | Administrador, Estudiante |  |
 | GET | `/team-verification/status` | Permiso `Create Evaluation` | Administrador, Jurado, Profesor |  |
+| PATCH | `/team-verification/:teamId/required` | Permiso `ManageTeamVerificationCode` | Administrador | Desactivar o activar el código del equipo (HU-50). |
 | POST | `/team-verification/:teamId/regenerate` | Permiso `ManageTeamVerificationCode` | Administrador |  |
 | POST | `/team-verification/verify` | Permiso `Create Evaluation` | Administrador, Jurado, Profesor |  |
 
