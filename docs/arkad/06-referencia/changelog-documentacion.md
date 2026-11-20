@@ -2,6 +2,10 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: asignar varios equipos a un jurado (HU-42, ARK-275)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror/assignments/bulk` (`jurorId`, `teamIds[]` 1 a 50, `confirmWarnings`), permiso `AssignJurors` (solo Administrador). Mismas reglas de HU-08 por equipo; un equipo bloqueado no frena a los demás (resultado por equipo `ASSIGNED` / `ASSIGNED_WITH_WARNINGS` / `BLOCKED`); advertencias juntas en un 409 `ASSIGNMENT_WARNINGS` con `blocked`; una transacción, una fila de bitácora por equipo y un solo aviso push. `POST /juror/assignments` no cambia.
+- Contrato nuevo `docs/frontend/HU-42-asignar-varios-equipos.md`. Sin migración ni permiso nuevo.
+
 ## 2026-11-20: check-in obligatorio para calificar (BG-71, ARK-285)
 - [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): `findEvaluationBlockers` agrega el bloqueo «sin check-in» (409 `JUROR_NOT_CHECKED_IN`) para el envío individual, el lote (de toda la petición) y el guardado de borradores; la lista de borradores no lo aplica. El Profesor que califica solo por su NRC (sin estar asignado) queda exento. Sin migración ni permiso nuevo.
 - Contrato nuevo `docs/frontend/BG-71-check-in-para-calificar.md`.
