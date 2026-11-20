@@ -8,6 +8,9 @@ import { JurorCategory } from '@prisma/client';
  * - Antes de la hora de control (11:00) cuentan todos los asignados (aún pueden llegar).
  * - Desde la hora de control cuentan los presentes (con llegada registrada). Un jurado que llega
  *   tarde vuelve a contar: conserva todos sus grupos.
+ * - HU-44 (ARK-293): el que «No podrá asistir» (respuesta de HU-13 vigente, sin check-in después)
+ *   deja de contar de inmediato, sin esperar la hora de control: sus grupos quedan en riesgo y se
+ *   cubren con suplentes, sin quitarle las asignaciones. Si al final llega, vuelve a contar.
  * - Un presente que se retiró deja de contar en los grupos que aún no evaluó: esos grupos quedan
  *   en riesgo y se cubren sumando un suplente, sin quitarle nada. «Se retiró» = las dos señales de
  *   HU-23 a la vez: «posible salida» (sin actividad) y «presencia sin confirmar» (no respondió
@@ -40,6 +43,8 @@ export interface GroupJurorInput {
   checkedIn: boolean;
   /** Se retiró: «posible salida» y «presencia sin confirmar» de HU-23 a la vez. */
   possibleLeft: boolean;
+  /** HU-44: «No podrá asistir» vigente (ausente confirmado). */
+  notComing: boolean;
   /** Ya envió su evaluación de este grupo. */
   evaluated: boolean;
 }
@@ -68,6 +73,8 @@ export interface GroupJurorView {
   nombre: string;
   categoria: JurorCategory | null;
   estado: GroupJurorStatus;
+  /** HU-44: ausente confirmado («No podrá asistir»). */
+  noVendra: boolean;
   evaluo: boolean;
   cuenta: boolean;
 }
@@ -115,6 +122,7 @@ export function countsForGroup(
   basis: ContingencyBasis,
 ): boolean {
   if (juror.evaluated) return true;
+  if (juror.notComing && !juror.checkedIn) return false;
   if (basis === 'ASSIGNED') return true;
   return statusOf(juror) === 'PRESENT';
 }
@@ -131,6 +139,7 @@ export function groupsAtRisk(
         nombre: juror.name,
         categoria: juror.category,
         estado: statusOf(juror),
+        noVendra: juror.notComing && !juror.checkedIn,
         evaluo: juror.evaluated,
         cuenta: countsForGroup(juror, options.basis),
       }));
