@@ -19,7 +19,9 @@ maybe('HU-23: presencia del jurado (BD real)', () => {
     edition: 0,
     createdEdition: false,
     users: [] as string[],
-    evaluation: 0,
+    teams: [] as number[],
+    videogames: [] as number[],
+    evaluations: [] as number[],
     config: null as null | Record<string, unknown>,
   };
   const user: Record<string, string> = {};
@@ -78,18 +80,20 @@ maybe('HU-23: presencia del jurado (BD real)', () => {
 
     await createUser('activo', 'Jurado');
     await createUser('ausente', 'Jurado');
+    await createUser('termino', 'Jurado');
     await createUser('sinllegada', 'Jurado');
     await createUser('mesa', 'Staff');
     await prisma.jurorEdition.createMany({
-      data: ['activo', 'ausente', 'sinllegada'].map((k) => ({
+      data: ['activo', 'ausente', 'termino', 'sinllegada'].map((k) => ({
         jurorId: user[k],
         editionId: ids.edition,
         status: 'CONFIRMED' as const,
       })),
     });
-    // Llegaron hace 2 horas. "activo" calificó hace 10 minutos; "ausente" nada desde que llegó.
+    // Llegaron hace 2 horas. "activo" calificó hace 10 minutos; "ausente" nada desde que llegó;
+    // "termino" ya calificó su único equipo (BG-72).
     await prisma.jurorAttendance.createMany({
-      data: ['activo', 'ausente'].map((k) => ({
+      data: ['activo', 'ausente', 'termino'].map((k) => ({
         jurorId: user[k],
         editionId: ids.edition,
         checkedInAt: minutesAgo(120),
@@ -97,25 +101,58 @@ maybe('HU-23: presencia del jurado (BD real)', () => {
         method: CheckInMethod.MANUAL,
       })),
     });
-    const videogame = await prisma.videogame.findFirstOrThrow({
-      select: { id: true },
-    });
-    ids.evaluation = (
-      await prisma.evaluation.create({
-        data: {
-          jurorId: user.activo,
-          videogameId: videogame.id,
-          editionId: ids.edition,
-          date: minutesAgo(10),
-          totalScore: 4,
-        },
-        select: { id: true },
-      })
-    ).id;
+    // Equipos 1 y 2: "activo" tiene los dos, "ausente" el 1 y "termino" el 2.
+    await createTeam(1, ['activo', 'ausente']);
+    await createTeam(2, ['activo', 'termino']);
+    await evaluate('activo', 0, minutesAgo(10));
+    await evaluate('termino', 1, minutesAgo(30));
   });
 
+  const createTeam = async (n: number, jurors: string[]) => {
+    // Un líder por equipo: un estudiante solo tiene un equipo por edición.
+    await createUser(`lider${n}`, 'Estudiante');
+    const status = await prisma.videogameStatus.findUniqueOrThrow({
+      where: { status: 'CONFIRMADO' },
+    });
+    const team = await prisma.team.create({
+      data: {
+        teamName: `hu23-${tag}-${n}`,
+        teamCode: `N1-T${tag.slice(0, 4)}${n}`,
+        userId: user[`lider${n}`],
+        editionId: ids.edition,
+        videogame: {
+          create: { name: `hu23-${tag}-${n}`, videogameStatusId: status.id },
+        },
+        assignedJurors: { connect: jurors.map((k) => ({ id: user[k] })) },
+      },
+      select: { id: true, videogame: { select: { id: true } } },
+    });
+    ids.teams.push(team.id);
+    ids.videogames.push(team.videogame!.id);
+  };
+
+  const evaluate = async (key: string, game: number, date: Date) => {
+    const created = await prisma.evaluation.create({
+      data: {
+        jurorId: user[key],
+        videogameId: ids.videogames[game],
+        editionId: ids.edition,
+        date,
+        totalScore: 4,
+      },
+      select: { id: true },
+    });
+    ids.evaluations.push(created.id);
+  };
+
   afterAll(async () => {
-    await prisma.evaluation.deleteMany({ where: { id: ids.evaluation } });
+    await prisma.evaluation.deleteMany({
+      where: { id: { in: ids.evaluations } },
+    });
+    await prisma.team.deleteMany({ where: { id: { in: ids.teams } } });
+    await prisma.videogame.deleteMany({
+      where: { id: { in: ids.videogames } },
+    });
     await prisma.jurorAttendance.deleteMany({
       where: { jurorId: { in: ids.users } },
     });
@@ -176,6 +213,25 @@ maybe('HU-23: presencia del jurado (BD real)', () => {
       [user.activo, []],
     ]);
     expect(rows[1].lastActivityAt).toEqual(minutesAgo(10));
+  });
+
+  it('BG-72: solo lista a quien tiene equipos por calificar, con cuántos le faltan', async () => {
+    const result = await service.list({}, now);
+    const rows = mine(result.data);
+    expect(rows.map((r) => [r.jurorId, r.pendingTeams])).toEqual([
+      [user.ausente, 1],
+      [user.activo, 1],
+    ]);
+    expect(result.totals.finished).toBeGreaterThanOrEqual(1);
+    expect(result.totals.checkedIn).toBe(
+      result.totals.withPendingTeams + result.totals.finished,
+    );
+  });
+
+  it('BG-72: el que terminó vuelve a aparecer si le asignan un equipo nuevo', async () => {
+    await createTeam(3, ['termino']);
+    const rows = mine((await service.list({}, now)).data);
+    expect(rows.find((r) => r.jurorId === user.termino)?.pendingTeams).toBe(1);
   });
 
   it('los parámetros se guardan por edición y cambian el cálculo', async () => {
