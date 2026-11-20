@@ -35,6 +35,11 @@ export class EvaluationController {
   @Post('with-details')
   @UseGuards(RolePermissionGuard)
   @RequiredService('Create Evaluation')
+  @ApiResponse({
+    status: 409,
+    description:
+      'El jurado no registró su llegada en la mesa (`code: JUROR_NOT_CHECKED_IN`, BG-71). El administrador puede registrarla por búsqueda manual en el check-in.',
+  })
   async createEvaluationWithDetails(
     @Body() evaluationPayload: CreateEvaluationDto,
     @GetUser() user: AppUser,
@@ -69,6 +74,11 @@ export class EvaluationController {
   @ApiResponse({
     status: 403,
     description: 'Las evaluaciones no están habilitadas en este momento.',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'El jurado no registró su llegada en la mesa (`code: JUROR_NOT_CHECKED_IN`, BG-71). Responde 409 de toda la petición y no guarda ninguna fila.',
   })
   async createBatchEvaluations(
     @Body() batchPayload: BatchEvaluationDto,

@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { EditionStatus } from '@prisma/client';
 import {
+  JUROR_NOT_CHECKED_IN,
+  NOT_CHECKED_IN_MESSAGE,
+} from '../evaluation-blockers';
+import {
   DRAFT_VERSION_CONFLICT,
   EVALUATION_ALREADY_SUBMITTED,
   EvaluationDraftsService,
@@ -187,6 +191,23 @@ describe('EvaluationDraftsService (HU-18)', () => {
       expect(prisma.evaluationDraft.updateMany).not.toHaveBeenCalled();
     });
 
+    it('BG-71: sin check-in no guarda el borrador: 409 JUROR_NOT_CHECKED_IN (no 403) y no escribe', async () => {
+      const { service, prisma } = setup(new Map([[VG, NOT_CHECKED_IN_MESSAGE]]));
+
+      const error = await service
+        .save(JUROR, VG, { version: 0 })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toEqual({
+        statusCode: 409,
+        code: JUROR_NOT_CHECKED_IN,
+        message: NOT_CHECKED_IN_MESSAGE,
+      });
+      expect(prisma.evaluationDraft.updateMany).not.toHaveBeenCalled();
+      expect(prisma.evaluationDraft.create).not.toHaveBeenCalled();
+    });
+
     it('si ya envió la evaluación: 409 EVALUATION_ALREADY_SUBMITTED y no escribe', async () => {
       const { service, prisma } = setup();
       prisma.evaluation.findUnique.mockResolvedValue({ id: 99 });
@@ -273,6 +294,20 @@ describe('EvaluationDraftsService (HU-18)', () => {
         [11, 'ALREADY_SUBMITTED', undefined],
         [12, 'NOT_ASSIGNED', 'Este grupo no está asignado al evaluador'],
       ]);
+    });
+
+    it('BG-71: la lista no aplica el bloqueo de check-in (el borrador sigue pendiente, sin ofrecer descartarlo)', async () => {
+      const { service, evaluations } = setup();
+
+      await service.list(JUROR);
+
+      expect(evaluations.findEvaluationBlockers).toHaveBeenCalledWith(
+        expect.anything(),
+        [VG],
+        7,
+        2,
+        { requireCheckIn: false },
+      );
     });
 
     it('sin edición activa la lista es vacía', async () => {

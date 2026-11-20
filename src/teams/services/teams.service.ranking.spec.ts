@@ -22,7 +22,7 @@ describe('TeamsService — ranking oculto (ARK-SP1 #1)', () => {
     prisma as any,
     settings as any,
     blobRefsPassthrough(),
-    { orderRows: async (rows: any[]) => rows } as any, // RankingService (HU-04)
+    { orderRows: async (rows: any[]) => rows.map((r, i) => ({ ...r, levelPosition: i + 1 })) } as any, // RankingService (HU-04)
   );
 
   const admin = { id: 'a', roleId: ROLE_IDS.ADMIN } as any;

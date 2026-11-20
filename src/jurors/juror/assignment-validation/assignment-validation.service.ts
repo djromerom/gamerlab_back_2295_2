@@ -62,6 +62,8 @@ export class AssignmentValidationService {
   enforce(
     result: AssignmentValidationResult,
     confirmWarnings = false,
+    // HU-42: datos que se agregan al cuerpo del 409 (la asignación en lote suma `blocked`).
+    conflictExtras: Record<string, unknown> = {},
   ): AssignmentWarning[] {
     const [blocker] = result.blockers;
     if (blocker) {
@@ -93,6 +95,7 @@ export class AssignmentValidationService {
           ...result.warnings.map((warning) => `- ${warning.message}`),
         ].join('\n'),
         warnings: result.warnings,
+        ...conflictExtras,
       });
     }
 

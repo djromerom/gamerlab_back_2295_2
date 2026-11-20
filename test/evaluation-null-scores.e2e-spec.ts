@@ -112,6 +112,10 @@ describeIfDb(
       await prisma.jurorEdition.create({
         data: { jurorId, editionId, status: JurorEditionStatus.CONFIRMED },
       });
+      // BG-71 (ARK-285): solo califica quien hizo check-in; cada jurado ya llegó a la mesa.
+      await prisma.jurorAttendance.create({
+        data: { jurorId, editionId, checkedInById: jurorId, method: 'MANUAL' },
+      });
       const team = await prisma.team.create({
         data: {
           teamName: `it-ark250-${runId}`,
@@ -179,6 +183,7 @@ describeIfDb(
       await prisma.evaluationIdempotency.deleteMany({ where: { jurorId } });
       await prisma.teamVerificationLog.deleteMany({ where: { teamId } });
       await prisma.teamVerification.deleteMany({ where: { teamId } });
+      await prisma.jurorAttendance.deleteMany({ where: { jurorId } });
       await prisma.jurorEdition.deleteMany({ where: { jurorId } });
       await prisma.team.deleteMany({ where: { id: teamId } });
       await prisma.refreshToken.deleteMany({

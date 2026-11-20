@@ -7,6 +7,9 @@ export const SUBSTITUTE_NOTICE_MESSAGE = 'Te asignaron grupos';
 /** Código del 404 cuando el aviso no existe o no es del usuario. */
 export const SUBSTITUTE_NOTICE_NOT_FOUND = 'SUBSTITUTE_NOTICE_NOT_FOUND';
 
+/** BG-74: código del 409 cuando se pide reenviar un correo que no está en FAILED. */
+export const SUBSTITUTE_NOTICE_EMAIL_NOT_FAILED = 'SUBSTITUTE_NOTICE_EMAIL_NOT_FAILED';
+
 /** Largo máximo del motivo guardado cuando el correo falla (columna `error_correo`). */
 export const EMAIL_ERROR_MAX_LENGTH = 200;
 

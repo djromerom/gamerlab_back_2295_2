@@ -14,6 +14,11 @@ import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ListPresenceQueryDto } from './dto/list-presence-query.dto';
 import { UpdatePresenceSettingsDto } from './dto/update-presence-settings.dto';
+import {
+  countPendingTeams,
+  evaluatedKeys,
+  pendingTeamsWhere,
+} from './pending-teams';
 import { lastActivityByJuror } from './presence-activity';
 import {
   DEFAULT_PRESENCE_SETTINGS,
@@ -135,10 +140,24 @@ export class JurorPresenceService {
     return this.getMine(userId, now);
   }
 
-  /** Jurados de la edición activa que ya llegaron, con sus indicadores (panel, HU-12). */
+  /**
+   * Jurados de la edición activa que ya llegaron y todavía tienen equipos por calificar, con sus
+   * indicadores (panel, HU-12). BG-72 (ARK-283): el que ya calificó todos sus equipos no se lista;
+   * si le asignan uno nuevo, vuelve a aparecer.
+   */
   async list(query: ListPresenceQueryDto, now: Date = new Date()) {
     const { edition, evaluationsOpen, settings } = await this.context();
-    const jurors = await this.findCheckedInJurors(edition);
+    const arrived = await this.findCheckedInJurors(edition);
+    const arrivedIds = arrived.map((j) => j.id);
+    const evaluated = await evaluatedKeys(this.prisma, edition.id, arrivedIds);
+    const jurors = arrived.flatMap((juror) => {
+      const pendingTeams = countPendingTeams(
+        juror.id,
+        juror.teamsToEvaluate,
+        evaluated,
+      );
+      return pendingTeams > 0 ? [{ ...juror, pendingTeams }] : [];
+    });
     const activity = await lastActivityByJuror(
       this.prisma,
       edition.id,
@@ -174,6 +193,7 @@ export class JurorPresenceService {
         lastConfirmedAt: attendance.lastPresenceConfirmedAt,
         lastActivityAt,
         nextPromptAt: state.nextPromptAt,
+        pendingTeams: juror.pendingTeams,
         indicators,
       };
     });
@@ -181,7 +201,9 @@ export class JurorPresenceService {
     const has = (i: (typeof items)[number], k: PresenceIndicator) =>
       i.indicators.includes(k);
     const totals = {
-      checkedIn: items.length,
+      checkedIn: arrived.length,
+      withPendingTeams: items.length,
+      finished: arrived.length - items.length,
       presenceUnconfirmed: items.filter((i) => has(i, 'PRESENCE_UNCONFIRMED'))
         .length,
       possibleLeft: items.filter((i) => has(i, 'POSSIBLE_LEFT')).length,
@@ -226,6 +248,10 @@ export class JurorPresenceService {
           where: attendanceWhere,
           select: { checkedInAt: true, lastPresenceConfirmedAt: true },
           take: 1,
+        },
+        teamsToEvaluate: {
+          where: pendingTeamsWhere(edition.id),
+          select: { videogame: { select: { id: true } } },
         },
       },
     });

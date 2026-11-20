@@ -6,8 +6,8 @@ import { blobRefsPassthrough } from '../src/upload/blob-reference.mock';
 
 /**
  * HU-04 (ARK-98) contra PostgreSQL real: la vista `vw_team_final_scores` (3 primeras evaluaciones,
- * sin penalizar notas faltantes, ponderación de la edición, 2 decimales), los empates por nivel,
- * la decisión del profesor y el cierre en `resultado_ranking`.
+ * sin penalizar notas faltantes, ponderación de la edición, 2 decimales), los empates por nivel
+ * resueltos siempre por inscripción (HU-47, ARK-304) y el cierre en `resultado_ranking`.
  *
  * Solo corre si INTEGRATION_DATABASE_URL apunta a una base DESECHABLE con migraciones y seed
  * (necesita los roles Profesor, Jurado y Estudiante). Crea su propia edición (inactiva) con sus
@@ -157,7 +157,8 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     await evaluate('A', jurors[1], 4, 20);
     await evaluate('A', jurors[2], 3, 30);
     await evaluate('A', profA, 3, 50, true);
-    // B: solo jurados (3.4); sin nota del profesor no se cuenta como 0. Empata con A (mismo profesor).
+    // B: solo jurados (3.4); sin nota del profesor no se cuenta como 0. Empata con A (mismo profesor:
+    //    desde HU-47 igual se resuelve por inscripción, B el día 3 antes que A el día 5).
     await evaluate('B', jurors[0], 3.4, 11);
     await evaluate('B', jurors[1], 3.4, 12);
     await evaluate('B', jurors[2], 3.4, 13);
@@ -224,7 +225,7 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     expect(await scoreOf('D')).toMatchObject({ finalScore: 3, avgSenior: 5 });
   });
 
-  it('arma el ranking por nivel con los empates y su regla', async () => {
+  it('arma el ranking por nivel con los empates resueltos por inscripción', async () => {
     const r = await service.getRanking({ editionId });
     expect(r.weighting).toEqual({
       configured: true,
@@ -240,12 +241,15 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     ]);
     expect(n1.ties).toHaveLength(1);
     expect(n1.ties[0]).toMatchObject({
-      rule: 'PROFESSOR',
-      status: 'PENDING',
+      rule: 'REGISTRATION',
+      status: 'RESOLVED',
       score: 3.4,
       positions: [2, 3],
-      deciders: [{ id: profA, name: 'IT pa' }],
+      deciders: [],
+      decision: null,
+      order: [team.B.id, team.A.id],
     });
+    expect(r.pendingTies).toBe(0);
     expect(n1.teams[0]).toMatchObject({
       lessThanMinEvaluations: true,
       missingProfessorScore: false,
@@ -262,22 +266,30 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
     expect(n2.withoutScore.map((t) => t.teamId)).toEqual([team.E.id]);
   });
 
-  it('la decisión se registra y el cierre guarda las posiciones por nivel', async () => {
+  it('una decisión guardada antes no cambia el orden y el cierre guarda las posiciones por nivel', async () => {
     const [n1] = (await service.getRanking({ editionId, level: 1 })).levels;
     const admin = { id: profB, roleId: ROLE_IDS.ADMIN } as any; // cualquier usuario real sirve de autor
 
-    // El profesor solo decide en la edición activa (lo cubre ranking.service.spec.ts); esta prueba
-    // usa su propia edición inactiva, así que decide el administrador indicando la edición.
-    await expect(service.finalize(admin, editionId)).rejects.toMatchObject({
-      status: 409,
+    // Decisión de un profesor guardada antes de HU-47 (A antes que B): queda como historial.
+    await prisma.tieBreakDecision.create({
+      data: {
+        editionId,
+        level: 1,
+        score: 3.4,
+        tieKey: n1.ties[0].tieKey,
+        teamIds: [team.A.id, team.B.id],
+        orderedTeamIds: [team.A.id, team.B.id],
+        method: 'PROFESSOR',
+        reason: 'Decisión anterior a HU-47',
+        decidedById: profA,
+      },
     });
-    const decision = await service.decide(admin, {
-      tieKey: n1.ties[0].tieKey,
-      orderedTeamIds: [team.A.id, team.B.id],
-      reason: 'Prueba de integración',
-      editionId,
-    });
-    expect(decision.method).toBe('ADMIN');
+    const [again] = (await service.getRanking({ editionId, level: 1 })).levels;
+    expect(again.teams.map((t) => t.teamId)).toEqual([
+      team.C.id,
+      team.B.id,
+      team.A.id,
+    ]);
 
     const done = await service.finalize(admin, editionId);
     expect(done).toMatchObject({ editionId, teams: 5, registeredDecisions: 1 });
@@ -296,17 +308,21 @@ describeIfDb('Ranking por nivel y desempate (PostgreSQL)', () => {
       ]),
     ).toEqual([
       [1, team.C.id, 1, false, 4.56],
-      [1, team.A.id, 2, true, 3.4],
-      [1, team.B.id, 3, true, 3.4],
+      [1, team.B.id, 2, true, 3.4],
+      [1, team.A.id, 3, true, 3.4],
       [2, team.F.id, 1, true, 3],
       [2, team.D.id, 2, true, 3],
     ]);
 
     const decisions = await service.getDecisions(editionId);
     expect(decisions.map((d) => d.method).sort()).toEqual([
-      'ADMIN',
+      'PROFESSOR',
       'REGISTRATION',
     ]);
+    // Repetir el cierre no duplica decisiones
+    expect((await service.finalize(admin, editionId)).registeredDecisions).toBe(
+      0,
+    );
     expect((await service.getRanking({ editionId })).finalized).toMatchObject({
       matchesCurrent: true,
     });

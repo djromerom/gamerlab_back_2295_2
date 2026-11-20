@@ -1,21 +1,12 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { EditionStatus, Prisma, TieBreakMethod } from '@prisma/client';
-import { ROLE_IDS } from '../auth/constants/roles';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { TieBreakMethod } from '@prisma/client';
 import { AppUser } from '../auth/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import { snapshotWeighting } from '../evaluation/final-score';
 import { BlobReferenceService } from '../upload/blob-reference.service';
-import { DecideTieDto } from './dto/decide-tie.dto';
 import { RankingQueryDto, TiesQueryDto } from './dto/ranking-query.dto';
 import {
   DEFAULT_PODIUM_SIZE,
-  DecisionRef,
   LevelRanking,
   PersonRef,
   ScoreRow,
@@ -25,7 +16,6 @@ import {
   teamsWithoutLevel,
   parseLevel,
   registrationReason,
-  validateOrder,
 } from './ranking.logic';
 import { findActiveEdition } from '../editions/active-edition';
 
@@ -46,6 +36,8 @@ export interface RankingSnapshot {
 /**
  * HU-04 (ARK-98): ranking oficial por nivel, empates y su registro.
  * La nota final sale de `vw_team_final_scores` (único cálculo); aquí solo se ordena y se desempata.
+ * HU-47 (ARK-304): el desempate es siempre por fecha de inscripción (y por id si coincide); las
+ * decisiones guardadas antes en `decision_desempate` ya no se leen para ordenar.
  */
 @Injectable()
 export class RankingService {
@@ -91,18 +83,6 @@ export class RankingService {
       .filter((t) => !query.podiumOnly || t.affectsPodium);
   }
 
-  /** Empates de la edición activa que el profesor puede decidir (pendientes y ya decididos). */
-  async getMyTies(user: AppUser): Promise<TieGroup[]> {
-    const editionId = await this.resolveEditionId();
-    const snapshot = await this.buildSnapshot(editionId);
-    return snapshot.levels
-      .flatMap((l) => l.ties)
-      .filter(
-        (t) =>
-          t.rule === 'PROFESSOR' && t.deciders.some((d) => d.id === user.id),
-      );
-  }
-
   async getDecisions(editionId?: number) {
     const id = await this.resolveEditionId(editionId);
     const rows = await this.prisma.tieBreakDecision.findMany({
@@ -128,149 +108,15 @@ export class RankingService {
   }
 
   /**
-   * Registra la decisión sobre un empate.
-   * - Profesor: solo empates de la regla PROFESSOR en los que es profesor común; elige el orden
-   *   o prefiere el criterio de inscripción (`useRegistration`).
-   * - Administrador: cualquier empate pendiente; si elige el orden a mano debe dar el motivo.
-   */
-  async decide(user: AppUser, dto: DecideTieDto) {
-    const isAdmin = user.roleId === ROLE_IDS.ADMIN;
-    const editionId = await this.resolveEditionId(
-      isAdmin ? dto.editionId : undefined,
-    );
-    const snapshot = await this.buildSnapshot(editionId);
-    const tie = snapshot.levels
-      .flatMap((l) => l.ties)
-      .find((t) => t.tieKey === dto.tieKey);
-
-    if (!tie) {
-      throw new NotFoundException(
-        'Ese empate ya no existe: las notas cambiaron. Vuelve a cargar el ranking.',
-      );
-    }
-    if (tie.decision) {
-      throw new ConflictException(
-        'Este empate ya tiene una decisión registrada.',
-      );
-    }
-    if (tie.rule === 'REGISTRATION') {
-      throw new ConflictException(
-        'Este empate se resuelve por fecha de inscripción; no necesita decisión.',
-      );
-    }
-    if (
-      !isAdmin &&
-      !(tie.rule === 'PROFESSOR' && tie.deciders.some((d) => d.id === user.id))
-    ) {
-      throw new ForbiddenException(
-        'Solo el profesor de los grupos empatados puede decidir este empate.',
-      );
-    }
-
-    const note = dto.reason?.trim();
-    let method: TieBreakMethod;
-    let orderedTeamIds: number[];
-    let reason: string;
-
-    if (dto.useRegistration) {
-      if (tie.rule === 'MANUAL') {
-        throw new BadRequestException(
-          'Hay grupos con la misma fecha de inscripción; indica el orden a mano.',
-        );
-      }
-      method = TieBreakMethod.REGISTRATION;
-      orderedTeamIds = [...tie.teams]
-        .sort(
-          (a, b) =>
-            Date.parse(a.registrationDate) - Date.parse(b.registrationDate) ||
-            a.teamId - b.teamId,
-        )
-        .map((t) => t.teamId);
-      reason = [
-        isAdmin
-          ? 'El administrador aplicó el criterio de inscripción.'
-          : 'El profesor prefirió no elegir.',
-        registrationReason(tie.teams),
-        note,
-      ]
-        .filter(Boolean)
-        .join(' ');
-    } else {
-      if (!dto.orderedTeamIds?.length) {
-        throw new BadRequestException(
-          'Indica el orden de los equipos (orderedTeamIds) o useRegistration.',
-        );
-      }
-      const error = validateOrder(tie, dto.orderedTeamIds);
-      if (error) throw new BadRequestException(error);
-      if (isAdmin && !note) {
-        throw new BadRequestException(
-          'El administrador debe indicar el motivo de la decisión.',
-        );
-      }
-      method = isAdmin ? TieBreakMethod.ADMIN : TieBreakMethod.PROFESSOR;
-      orderedTeamIds = dto.orderedTeamIds;
-      reason = note ?? 'Orden elegido por el profesor.';
-    }
-
-    try {
-      const created = await this.prisma.tieBreakDecision.create({
-        data: {
-          editionId,
-          level: tie.level,
-          score: tie.score,
-          tieKey: tie.tieKey,
-          teamIds: tie.teams.map((t) => t.teamId),
-          orderedTeamIds,
-          method,
-          reason: reason.slice(0, 500),
-          decidedById: user.id,
-        },
-      });
-      return {
-        id: created.id,
-        tieKey: created.tieKey,
-        method: created.method,
-        orderedTeamIds: created.orderedTeamIds,
-        reason: created.reason,
-        decidedAt: created.createdAt.toISOString(),
-      };
-    } catch (e) {
-      if (
-        e instanceof Prisma.PrismaClientKnownRequestError &&
-        e.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          'Este empate ya tiene una decisión registrada.',
-        );
-      }
-      throw e;
-    }
-  }
-
-  /**
-   * Define el ranking final de la edición: exige que no haya empates pendientes, registra como
-   * decisión los empates resueltos por inscripción y guarda las posiciones por nivel en
-   * `resultado_ranking` (reemplaza lo guardado antes para esa edición).
+   * Define el ranking final de la edición: registra como decisión (método REGISTRATION) los empates,
+   * que desde HU-47 siempre se resuelven por inscripción, y guarda las posiciones por nivel en
+   * `resultado_ranking` (reemplaza lo guardado antes para esa edición). Un empate que ya tenía una
+   * decisión guardada (por ejemplo, de un profesor antes de HU-47) conserva esa fila como historial.
    */
   async finalize(user: AppUser, editionId?: number) {
     const id = await this.resolveEditionId(editionId);
     const snapshot = await this.buildSnapshot(id);
     const ties = snapshot.levels.flatMap((l) => l.ties);
-    const pending = ties.filter((t) => t.status === 'PENDING');
-    if (pending.length > 0) {
-      throw new ConflictException({
-        message:
-          'Hay empates sin resolver; resuélvelos antes de definir el ranking final.',
-        pendingTies: pending.map((t) => ({
-          tieKey: t.tieKey,
-          level: t.level,
-          rule: t.rule,
-        })),
-      });
-    }
-
-    const automatic = ties.filter((t) => !t.decision);
     const results = snapshot.levels.flatMap((l) =>
       l.teams.map((t) => ({
         teamId: t.teamId,
@@ -284,10 +130,11 @@ export class RankingService {
       })),
     );
 
-    await this.prisma.$transaction(async (tx) => {
-      if (automatic.length > 0) {
-        await tx.tieBreakDecision.createMany({
-          data: automatic.map((t) => ({
+    const registeredDecisions = await this.prisma.$transaction(async (tx) => {
+      let registered = 0;
+      if (ties.length > 0) {
+        const created = await tx.tieBreakDecision.createMany({
+          data: ties.map((t) => ({
             editionId: id,
             level: t.level,
             score: t.score,
@@ -300,10 +147,12 @@ export class RankingService {
           })),
           skipDuplicates: true,
         });
+        registered = created.count;
       }
       await tx.rankingResult.deleteMany({ where: { editionId: id } });
       if (results.length > 0)
         await tx.rankingResult.createMany({ data: results });
+      return registered;
     });
 
     return {
@@ -314,13 +163,13 @@ export class RankingService {
         label: l.label,
         teams: l.teams.length,
       })),
-      registeredDecisions: automatic.length,
+      registeredDecisions,
     };
   }
 
   /**
    * Ordena filas de `vw_team_final_scores` (cualquier mezcla de niveles) para la ruta pública
-   * `final-score/by-n`: dentro de un nivel usa el orden oficial (decisiones e inscripción); entre
+   * `final-score/by-n`: dentro de un nivel usa el orden oficial (inscripción, HU-47); entre
    * niveles distintos con la misma nota, la inscripción. Sin escrituras.
    */
   async orderRows<T extends Partial<ScoreRow>>(rows: T[], editionId: number) {
@@ -328,15 +177,11 @@ export class RankingService {
       .map((r) => Number(r.teamId))
       .filter((n) => Number.isInteger(n) && n > 0);
     if (rows.length === 0) return [];
-    const [teams, decisions] = await Promise.all([
-      this.loadTeams(editionId, ids),
-      this.loadDecisions(editionId),
-    ]);
+    const teams = await this.loadTeams(editionId, ids);
     const levels = buildLevelRankings({
       editionId,
       rows: rows.map((r) => this.toScoreRow(r)),
       teams,
-      decisions,
     });
     const official = new Map<
       number,
@@ -395,10 +240,9 @@ export class RankingService {
     top?: number,
   ): Promise<RankingSnapshot> {
     const podiumSize = top ?? DEFAULT_PODIUM_SIZE;
-    const [rows, teams, decisions, weighting, saved] = await Promise.all([
+    const [rows, teams, weighting, saved] = await Promise.all([
       this.prisma.teamFinalScore.findMany({ where: { editionId } }),
       this.loadTeams(editionId),
-      this.loadDecisions(editionId),
       this.prisma.weighting.findUnique({ where: { editionId } }),
       this.prisma.rankingResult.findMany({
         where: { editionId, level: { not: null } },
@@ -418,7 +262,6 @@ export class RankingService {
       editionId,
       rows: scoreRows,
       teams,
-      decisions,
       podiumSize,
     });
 
@@ -525,31 +368,6 @@ export class RankingService {
       });
     }
     return map;
-  }
-
-  private async loadDecisions(
-    editionId: number,
-  ): Promise<Map<string, DecisionRef>> {
-    const rows = await this.prisma.tieBreakDecision.findMany({
-      where: { editionId },
-      include: {
-        decidedBy: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
-    return new Map(
-      rows.map((d) => [
-        d.tieKey,
-        {
-          id: d.id,
-          tieKey: d.tieKey,
-          method: d.method,
-          reason: d.reason,
-          orderedTeamIds: d.orderedTeamIds,
-          decidedBy: { id: d.decidedBy.id, name: personName(d.decidedBy) },
-          decidedAt: d.createdAt,
-        },
-      ]),
-    );
   }
 
   private async resolveEditionId(editionId?: number): Promise<number> {

@@ -2,6 +2,23 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: importar jurados de la edición desde Excel (HU-49, ARK-280)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror-edition/import` (multipart `file`, xlsx de hasta 2 MB y 500 filas) y `GET /juror-edition/import/template`, permiso `ManageEditionJurors` (solo Administrador), solo la edición activa. Se retira `POST /juror-edition/import-previous` (ahora 404).
+- [arquitectura-modulos](../02-backend/arquitectura-modulos.md): carpeta `jurors/juror-edition/import/`.
+- Los correos para crear la contraseña salen en una cola con pausa (`JUROR_IMPORT_EMAIL_DELAY_MS`, en `.env.example`). Sin migración ni permiso nuevo.
+- Contratos `docs/frontend/HU-25-*.md` y `HU-28-*.md`: marcado como retirado el endpoint `import-previous`.
+
+## 2026-11-20: asignar varios equipos a un jurado (HU-42, ARK-275)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror/assignments/bulk` (`jurorId`, `teamIds[]` 1 a 50, `confirmWarnings`), permiso `AssignJurors` (solo Administrador). Mismas reglas de HU-08 por equipo; un equipo bloqueado no frena a los demás (resultado por equipo `ASSIGNED` / `ASSIGNED_WITH_WARNINGS` / `BLOCKED`); advertencias juntas en un 409 `ASSIGNMENT_WARNINGS` con `blocked`; una transacción, una fila de bitácora por equipo y un solo aviso push. `POST /juror/assignments` no cambia.
+- Contrato nuevo `docs/frontend/HU-42-asignar-varios-equipos.md`. Sin migración ni permiso nuevo.
+
+## 2026-11-20: check-in obligatorio para calificar (BG-71, ARK-285)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): `findEvaluationBlockers` agrega el bloqueo «sin check-in» (409 `JUROR_NOT_CHECKED_IN`) para el envío individual, el lote (de toda la petición) y el guardado de borradores; la lista de borradores no lo aplica. El Profesor que califica solo por su NRC (sin estar asignado) queda exento. Sin migración ni permiso nuevo.
+- Contrato nuevo `docs/frontend/BG-71-check-in-para-calificar.md`.
+
+## 2026-11-20: el seguimiento cuenta solo evaluaciones de jurado (BG-73, ARK-284)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): «Recibidas», «Cuentan», «Faltan», la tabla por hora y la alerta de HU-12 excluyen la nota del profesor a sus NRC (filtro único `JUROR_EVALUATION_FILTER`). Sin migración ni cambio de contrato (mismos campos). Queda anotada la diferencia con la marca «Menos de 3 evaluaciones» del ranking (BG-68), que la vista cuenta con la nota del profesor.
+
 ## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
 - [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
 - [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.

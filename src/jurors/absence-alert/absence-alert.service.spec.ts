@@ -65,6 +65,8 @@ describe('AbsenceAlertService (HU-12)', () => {
     jurorEdition: { findMany: jest.fn() },
     team: { findMany: jest.fn() },
     evaluation: { findMany: jest.fn() },
+    absentJurorResponse: { findMany: jest.fn() },
+    jurorAttendance: { findMany: jest.fn() },
   };
   const attendance = { rowsOfEdition: jest.fn() };
   const tracking = { getTracking: jest.fn() };
@@ -74,6 +76,8 @@ describe('AbsenceAlertService (HU-12)', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     prisma.edition.findFirst.mockResolvedValue(EDITION);
+    prisma.absentJurorResponse.findMany.mockResolvedValue([]);
+    prisma.jurorAttendance.findMany.mockResolvedValue([]);
     schedules.findForEdition.mockResolvedValue(SCHEDULE);
     attendance.rowsOfEdition.mockResolvedValue([
       row('present-1', 'Zapata', ARRIVAL),
@@ -124,7 +128,12 @@ describe('AbsenceAlertService (HU-12)', () => {
 
       expect(alert.phase).toBe('BEFORE_ALERT');
       expect(alert.alertActive).toBe(false);
-      expect(alert.totals).toEqual({ present: 1, missing: 2, total: 3 });
+      expect(alert.totals).toEqual({
+        present: 1,
+        missing: 2,
+        notComing: 0,
+        total: 3,
+      });
       expect(alert.missingJurors).toEqual([]);
       expect(alert.groups).toEqual([]);
       expect(tracking.getTracking).not.toHaveBeenCalled();
@@ -228,18 +237,154 @@ describe('AbsenceAlertService (HU-12)', () => {
       expect(Object.keys(alert.missingJurors[0]).sort()).toEqual([
         'category',
         'checkedInAt',
+        'groups',
         'isProfessor',
         'jurorId',
         'name',
+        'notComing',
+        'notComingSince',
+        'pendingGroups',
         'state',
         'type',
       ]);
+    });
+
+    it('cada jurado que falta trae sus grupos y cuántos le faltan por calificar (HU-44)', async () => {
+      const alert = await service.getAlert(at('10:00'));
+
+      expect(
+        alert.missingJurors.map((j) => [j.jurorId, j.groups, j.pendingGroups]),
+      ).toEqual([
+        [
+          'missing-1',
+          [{ teamId: 1, teamCode: 'N2-A', level: 'N2', evaluated: false }],
+          1,
+        ],
+        [
+          'missing-2',
+          [{ teamId: 2, teamCode: 'N2-B', level: 'N2', evaluated: false }],
+          1,
+        ],
+      ]);
+      expect(alert.notComingJurors).toEqual([]);
     });
 
     it('indica si es oficial o suplente; el profesor automático no tiene tipo', async () => {
       const alert = await service.getAlert(at('10:00'));
 
       expect(alert.missingJurors.map((j) => j.type)).toEqual(['BACKUP', null]);
+    });
+  });
+
+  describe('«No podrá asistir» (HU-44)', () => {
+    const response = (
+      id: number,
+      jurorId: string,
+      result: 'ON_THE_WAY' | 'CANNOT_ATTEND' | 'NO_RESPONSE',
+      recordedAt: Date,
+    ) => ({ id, jurorId, result, recordedAt });
+
+    beforeEach(() => {
+      prisma.absentJurorResponse.findMany.mockResolvedValue([
+        response(1, 'missing-1', 'CANNOT_ATTEND', at('09:30')),
+      ]);
+    });
+
+    it('sale de «Faltan por llegar» y pasa a «No vendrán» con sus grupos, aun antes de la alerta', async () => {
+      const alert = await service.getAlert(at('09:45'));
+
+      expect(alert.totals).toEqual({
+        present: 1,
+        missing: 1,
+        notComing: 1,
+        total: 3,
+      });
+      expect(alert.missingJurors).toEqual([]);
+      expect(alert.notComingJurors).toEqual([
+        expect.objectContaining({
+          jurorId: 'missing-1',
+          state: 'ABSENT',
+          notComing: true,
+          notComingSince: at('09:30'),
+          groups: [
+            { teamId: 1, teamCode: 'N2-A', level: 'N2', evaluated: false },
+          ],
+          pendingGroups: 1,
+        }),
+      ]);
+    });
+
+    it('desde la alerta, «Faltan por llegar» solo tiene a los demás', async () => {
+      const alert = await service.getAlert(at('10:00'));
+
+      expect(alert.alertActive).toBe(true);
+      expect(alert.missingJurors.map((j) => j.jurorId)).toEqual(['missing-2']);
+      expect(alert.notComingJurors.map((j) => j.jurorId)).toEqual([
+        'missing-1',
+      ]);
+    });
+
+    it('una respuesta posterior «Viene en camino» o «Sin respuesta» lo devuelve a «Faltan por llegar»', async () => {
+      for (const result of ['ON_THE_WAY', 'NO_RESPONSE'] as const) {
+        prisma.absentJurorResponse.findMany.mockResolvedValue([
+          response(1, 'missing-1', 'CANNOT_ATTEND', at('09:30')),
+          response(2, 'missing-1', result, at('09:40')),
+        ]);
+        const alert = await service.getAlert(at('10:00'));
+        expect(alert.notComingJurors).toEqual([]);
+        expect(alert.missingJurors.map((j) => j.jurorId)).toEqual([
+          'missing-1',
+          'missing-2',
+        ]);
+      }
+    });
+
+    it('si al final llega y hace check-in, queda presente', async () => {
+      attendance.rowsOfEdition.mockResolvedValue([
+        row('present-1', 'Zapata', ARRIVAL),
+        row('missing-2', 'Mora', null, true),
+        row('missing-1', 'Gómez', at('10:15')),
+      ]);
+      prisma.jurorAttendance.findMany.mockResolvedValue([
+        { jurorId: 'missing-1', checkedInAt: at('10:15'), isActive: true },
+      ]);
+
+      const alert = await service.getAlert(at('10:30'));
+
+      expect(alert.totals.notComing).toBe(0);
+      expect(alert.notComingJurors).toEqual([]);
+      expect(alert.missingJurors.map((j) => j.jurorId)).toEqual(['missing-2']);
+    });
+
+    it('un check-in posterior anulado también deja la respuesta sin efecto', async () => {
+      prisma.jurorAttendance.findMany.mockResolvedValue([
+        { jurorId: 'missing-1', checkedInAt: at('10:15'), isActive: false },
+      ]);
+
+      const alert = await service.getAlert(at('10:30'));
+
+      expect(alert.notComingJurors).toEqual([]);
+      expect(alert.missingJurors.map((j) => j.jurorId)).toEqual([
+        'missing-1',
+        'missing-2',
+      ]);
+    });
+
+    it('en el panel aparece como ausente antes de la hora de control', async () => {
+      const panel = await service.getPanel(
+        { attendance: 'ABSENT' },
+        at('10:30'),
+      );
+
+      expect(panel.data.map((g) => g.teamId)).toEqual([1]);
+      expect(panel.data[0].jurors).toEqual([
+        expect.objectContaining({
+          jurorId: 'missing-1',
+          state: 'ABSENT',
+          notComing: true,
+          hasEvaluated: false,
+        }),
+      ]);
     });
   });
 
@@ -254,7 +399,12 @@ describe('AbsenceAlertService (HU-12)', () => {
         ['present-1', 'PRESENT', true],
         ['missing-1', 'ABSENT', false],
       ]);
-      expect(panel.totals).toEqual({ present: 1, missing: 2, total: 3 });
+      expect(panel.totals).toEqual({
+        present: 1,
+        missing: 2,
+        notComing: 0,
+        total: 3,
+      });
     });
 
     it('la evaluación de otro juego no cuenta como evaluado en este grupo', async () => {
@@ -265,6 +415,19 @@ describe('AbsenceAlertService (HU-12)', () => {
       const panel = await service.getPanel({}, at('10:00'));
 
       expect(panel.data[0].jurors[0].hasEvaluated).toBe(false);
+    });
+
+    it('BG-73: «ya evaluó» solo cuenta evaluaciones de jurado (con detalles), no la nota del profesor a sus NRC', async () => {
+      await service.getPanel({}, at('10:00'));
+
+      // La nota del profesor a sus NRC no tiene detalles: el filtro la deja fuera de la consulta.
+      expect(prisma.evaluation.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          isActive: true,
+          details: { some: {} },
+        }) as unknown,
+        select: { videogameId: true, jurorId: true },
+      });
     });
 
     it('filtra por estado y quita los grupos que quedan vacíos', async () => {
