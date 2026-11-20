@@ -69,7 +69,10 @@ describe('JurorAssignmentBulkService (HU-42)', () => {
   let tx: { team: { update: jest.Mock } };
   let audit: { create: jest.Mock };
   let notices: { recordAssignment: jest.Mock; sendEmailAfterCommit: jest.Mock };
-  let push: { notifyAssignmentChanged: jest.Mock };
+  let push: {
+    notifyTeamsAssigned: jest.Mock;
+    notifyAssignmentChanged: jest.Mock;
+  };
   let service: JurorAssignmentBulkService;
 
   const run = (teamIds: number[], confirmWarnings?: boolean) =>
@@ -123,7 +126,10 @@ describe('JurorAssignmentBulkService (HU-42)', () => {
       recordAssignment: jest.fn().mockResolvedValue(77),
       sendEmailAfterCommit: jest.fn(),
     };
-    push = { notifyAssignmentChanged: jest.fn() };
+    push = {
+      notifyTeamsAssigned: jest.fn(),
+      notifyAssignmentChanged: jest.fn(),
+    };
     const validation = new AssignmentValidationService(prisma as never);
     const assignments = new JurorAssignmentService(
       prisma as never,
@@ -193,10 +199,16 @@ describe('JurorAssignmentBulkService (HU-42)', () => {
     it('avisa UNA sola vez al jurado y UNA vez al suplente con todos sus equipos, después de confirmar', async () => {
       await run([1, 2, 3]);
 
-      expect(push.notifyAssignmentChanged).toHaveBeenCalledTimes(1);
-      expect(push.notifyAssignmentChanged).toHaveBeenCalledWith([JUROR]);
+      // HU-51: un solo aviso con los tres grupos, no el genérico.
+      expect(push.notifyTeamsAssigned).toHaveBeenCalledTimes(1);
+      expect(push.notifyTeamsAssigned).toHaveBeenCalledWith([
+        { jurorId: JUROR, teamId: 1 },
+        { jurorId: JUROR, teamId: 2 },
+        { jurorId: JUROR, teamId: 3 },
+      ]);
+      expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
       expect(
-        push.notifyAssignmentChanged.mock.invocationCallOrder[0],
+        push.notifyTeamsAssigned.mock.invocationCallOrder[0],
       ).toBeGreaterThan(prisma.$transaction.mock.invocationCallOrder[0]);
       expect(notices.recordAssignment).toHaveBeenCalledTimes(1);
       expect(notices.recordAssignment).toHaveBeenCalledWith(tx, {
@@ -319,7 +331,7 @@ describe('JurorAssignmentBulkService (HU-42)', () => {
         'No se asignó ningún equipo: 3 equipos tienen un bloqueo.',
       );
       expect(prisma.$transaction).not.toHaveBeenCalled();
-      expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+      expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
       expect(notices.sendEmailAfterCommit).not.toHaveBeenCalled();
     });
   });
@@ -359,7 +371,7 @@ describe('JurorAssignmentBulkService (HU-42)', () => {
       });
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(audit.create).not.toHaveBeenCalled();
-      expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+      expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
       expect(notices.recordAssignment).not.toHaveBeenCalled();
     });
 
@@ -382,7 +394,11 @@ describe('JurorAssignmentBulkService (HU-42)', () => {
       ).toBe(
         'Asignación manual en lote desde módulo admin. Advertencias aceptadas: JUROR_OVER_LIMIT.',
       );
-      expect(push.notifyAssignmentChanged).toHaveBeenCalledTimes(1);
+      expect(push.notifyTeamsAssigned).toHaveBeenCalledTimes(1);
+      expect(push.notifyTeamsAssigned).toHaveBeenCalledWith([
+        { jurorId: JUROR, teamId: 1 },
+        { jurorId: JUROR, teamId: 2 },
+      ]);
     });
 
     it('si todos los equipos están bloqueados no hay advertencias que confirmar (200, sin 409)', async () => {
@@ -438,7 +454,7 @@ describe('JurorAssignmentBulkService (HU-42)', () => {
 
       // La transacción es una sola: el rollback deja todo como estaba.
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+      expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
       expect(notices.sendEmailAfterCommit).not.toHaveBeenCalled();
     });
 

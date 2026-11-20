@@ -222,8 +222,11 @@ export class JurorAssignmentBulkService {
           { maxWait: 10_000, timeout: 60_000 },
         );
 
-        // Un solo aviso por operación, no uno por equipo (HU-37 / HU-22).
-        this.pushNotifier.notifyAssignmentChanged([jurorId]);
+        // Un solo aviso por operación, no uno por equipo (HU-37 / HU-22), con los grupos
+        // asignados: «Te asignaron N grupos nuevos: códigos» (HU-51).
+        this.pushNotifier.notifyTeamsAssigned(
+          remaining.map((team) => ({ jurorId, teamId: team.id })),
+        );
         this.substituteNotices.sendEmailAfterCommit([noticeId]);
       }
 
