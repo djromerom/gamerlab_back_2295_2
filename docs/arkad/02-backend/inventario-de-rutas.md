@@ -257,12 +257,10 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | GET | `/ranking` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): ranking oficial por nivel con empates (HU-04). |
-| GET | `/ranking/decisions` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): decisiones de desempate registradas (HU-04). |
-| GET | `/ranking/my-ties` | Permiso `MySubjects` | Administrador, Profesor | Profesor: solo los empates que le toca decidir (HU-04). |
+| GET | `/ranking/decisions` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): historial de decisiones de desempate; desde HU-47 no cambian el orden. |
 | GET | `/ranking/ties` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): empates detectados (HU-04). |
 | GET | `/ranking/winners` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): ganadores de cada nivel (HU-04). |
 | POST | `/ranking/finalize` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): define el ranking final (HU-04). |
-| POST | `/ranking/ties/decision` | Permiso `MySubjects` | Administrador, Profesor | Profesor: solo empates entre grupos de sus NRC (RankingService.decide); el Administrador, cualquier empate pendiente (HU-04). |
 
 ## ReportsController
 

@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HttpCode,
@@ -9,19 +8,14 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiConflictResponse,
-  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
-import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { AppUser } from '../auth/jwt.strategy';
-import { DecideTieDto } from './dto/decide-tie.dto';
 import {
   EditionQueryDto,
   RankingQueryDto,
@@ -30,9 +24,9 @@ import {
 import { RankingService } from './ranking.service';
 
 /**
- * HU-04 (ARK-98): ranking oficial por nivel, ganadores, empates y decisiones de desempate.
- * Consulta y cierre: solo Administrador. Decidir un empate: el profesor de los grupos empatados
- * (servicio MySubjects, el mismo del panel de profesores) o el Administrador.
+ * HU-04 (ARK-98): ranking oficial por nivel, ganadores y empates. Solo Administrador.
+ * HU-47 (ARK-304): los empates se resuelven siempre por fecha de inscripción; se quitaron
+ * `GET /ranking/my-ties` y `POST /ranking/ties/decision` (los profesores ya no eligen).
  */
 @ApiTags('Ranking')
 @ApiBearerAuth()
@@ -78,7 +72,8 @@ export class RankingController {
   @Get('decisions')
   @UseGuards(AdminRoleGuard)
   @ApiOperation({
-    summary: 'Decisiones de desempate registradas (administrador)',
+    summary:
+      'Historial de decisiones de desempate; no cambian el orden desde HU-47 (administrador)',
   })
   getDecisions(@Query() query: EditionQueryDto) {
     return this.ranking.getDecisions(query.editionId);
@@ -91,40 +86,7 @@ export class RankingController {
     summary:
       'Definir el ranking final: guarda posiciones por nivel (administrador)',
   })
-  @ApiConflictResponse({
-    description: 'Hay empates pendientes; la respuesta los lista',
-  })
   finalize(@Query() query: EditionQueryDto, @GetUser() user: AppUser) {
     return this.ranking.finalize(user, query.editionId);
-  }
-
-  @Get('my-ties')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('MySubjects')
-  @ApiOperation({
-    summary: 'Empates de la edición activa que decide el profesor autenticado',
-  })
-  getMyTies(@GetUser() user: AppUser) {
-    return this.ranking.getMyTies(user);
-  }
-
-  @Post('ties/decision')
-  @UseGuards(RolePermissionGuard)
-  @RequiredService('MySubjects')
-  @ApiOperation({
-    summary:
-      'Registrar la decisión de un empate (profesor de los grupos o administrador)',
-  })
-  @ApiForbiddenResponse({
-    description: 'El usuario no es el profesor común de los grupos empatados',
-  })
-  @ApiNotFoundResponse({
-    description: 'El empate ya no existe (cambiaron las notas)',
-  })
-  @ApiConflictResponse({
-    description: 'El empate ya tiene decisión o se resuelve por inscripción',
-  })
-  decide(@Body() dto: DecideTieDto, @GetUser() user: AppUser) {
-    return this.ranking.decide(user, dto);
   }
 }

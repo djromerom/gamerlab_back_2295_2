@@ -40,17 +40,17 @@ Vista SQL `vw_team_final_scores` (`TeamFinalScore`): `avgJunior`, `avgSenior`, `
 ## Ranking por nivel (HU-04)
 - Lógica pura en `src/ranking/ranking.logic.ts`; el servicio la une a la BD. `DEFAULT_PODIUM_SIZE = 3`, `MIN_EVALUATIONS = 3`.
 - El **nivel** sale del prefijo del código del equipo (`N{n}-…`). Empate = misma nota, mismo nivel y edición.
-- **Desempate (P-05):** (1) todos los empatados comparten profesor → decide ese profesor (mientras no decida, orden provisional por inscripción); (2) si no comparten profesor, o el empate mezcla grupos del mismo profesor con otros → primero el inscrito antes; (3) misma fecha de inscripción → **resolución manual del administrador**.
-- Endpoints: `GET /ranking`, `GET /ranking/winners`, `GET /ranking/ties`, `GET /ranking/decisions`, `GET /ranking/my-ties` (empates del profesor), `POST /ranking/ties/decision`, `POST /ranking/finalize`.
-- `TieBreakDecision`: `tieKey` único (edición, nivel, nota y equipos): **si cambian las notas, el empate es otro y la decisión deja de aplicar**. `method`: `PROFESSOR | REGISTRATION | ADMIN`; guarda `orderedTeamIds`, motivo y quién decidió.
+- **Desempate (HU-47, ARK-304; decisión del profesor del 19-nov que reemplaza P-05):** siempre por **fecha de inscripción** (`Team.registrationDate`), primero el inscrito antes; si la fecha coincide, **el id del equipo** (menor primero). Nadie decide: cada empate sale con `rule: "REGISTRATION"`, `status: "RESOLVED"`, `deciders: []`, `decision: null` y `explanation` («Resuelto por fecha de inscripción…», con las fechas y, si aplica, el aviso de fecha repetida). `pendingTies` siempre es 0. `registrationDate` es obligatoria en la BD, así que no hay equipos sin fecha.
+- Endpoints: `GET /ranking`, `GET /ranking/winners`, `GET /ranking/ties`, `GET /ranking/decisions` (historial), `POST /ranking/finalize`. **Se quitaron** `GET /ranking/my-ties` y `POST /ranking/ties/decision` (responden 404).
+- `TieBreakDecision`: `tieKey` único (edición, nivel, nota y equipos). `method`: `PROFESSOR | REGISTRATION | ADMIN`; guarda `orderedTeamIds`, motivo y quién decidió. **Desde HU-47 es solo historial:** las decisiones guardadas antes (de un profesor o del administrador) ya no cambian el orden. El cierre solo agrega filas `REGISTRATION`.
 - `RankingResult` guarda la posición final por nivel cuando se finaliza.
 - Visibilidad: el administrador controla `showRanking` (`/settings/show-ranking`, que exige la nota final liberada: BG-67) y `showEvaluations`. `GET /reports/videojuegoData`, `/reports/NRCData` y `/reports/DatosGraficoMateria` (integrantes, notas, promedios junior/senior y promedio por NRC) son solo del Administrador (`ExportAdminReports`, BG-67) y las usa `/estadisticas`; `GET /reports/materiaData` sigue pública. Histórico con notas es público (ediciones archivadas).
 
 ## Pendiente
 ### `POST /ranking/finalize` (leído de `ranking.service.ts`)
 1. Resuelve la edición (la indicada o la activa) y arma el ranking.
-2. Si queda algún empate `PENDING` responde **409** con la lista (`pendingTies`: `tieKey`, nivel, regla): hay que resolverlos antes.
-3. En **una transacción**: guarda como `TieBreakDecision` (método `REGISTRATION`, `skipDuplicates`) los empates resueltos automáticamente por inscripción; **borra** los `RankingResult` de esa edición y **los vuelve a crear** con la posición final por nivel (`baseScore`, `rankingScore`, `wasTied`, `finalPosition`).
-4. Responde equipos por nivel y cuántas decisiones registró.
+2. Desde HU-47 ya no hay empates pendientes, así que no responde 409.
+3. En **una transacción**: guarda como `TieBreakDecision` (método `REGISTRATION`, `skipDuplicates`) cada empate; si ese empate ya tenía una fila (por ejemplo, una decisión de un profesor anterior a HU-47), se conserva como historial y no se duplica. **Borra** los `RankingResult` de esa edición y **los vuelve a crear** con la posición final por nivel (`baseScore`, `rankingScore`, `wasTied`, `finalPosition`).
+4. Responde equipos por nivel y cuántas decisiones registró de verdad (`registeredDecisions`, 0 al repetir el cierre).
 - **Es repetible:** reemplaza lo guardado antes para esa edición; las decisiones duplicadas se ignoran.
-- `GET /teams/final-score/by-n/:n` usa `orderRows`: dentro de un nivel aplica el orden oficial (decisiones e inscripción); entre niveles con la misma nota, la inscripción. No escribe.
+- `GET /teams/final-score/by-n/:n` usa `orderRows`: dentro de un nivel aplica el orden oficial (inscripción y id, HU-47); entre niveles con la misma nota, la inscripción. `tiePending` siempre es `false`. No escribe.
