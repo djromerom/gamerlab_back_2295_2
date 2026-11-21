@@ -46,7 +46,8 @@ type RecordsBody = {
 };
 const bodyOf = (res: request.Response) => res.body as RecordsBody;
 
-const DASH_ALIAS = `e2e${Date.now().toString(36).slice(-6)}`;
+// 3 caracteres: Q y dos al azar, para no chocar con récords de otras corridas.
+const DASH_ALIAS = `Q${Date.now().toString(36).slice(-2).toUpperCase()}`;
 
 describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
   const prisma = new PrismaClient({
@@ -109,7 +110,7 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
   });
 
   it('POST sin sesión guarda el puntaje y devuelve su puesto', async () => {
-    const res = await jam('  Pixel  ', 4200);
+    const res = await jam('  PIX  ', 4200);
     expect(res.status).toBe(200);
     expect(bodyOf(res)).toMatchObject({
       game: 'ARKAD_JAM',
@@ -120,7 +121,7 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
     expect(bodyOf(res).top).toEqual([
       {
         position: 1,
-        alias: 'Pixel',
+        alias: 'PIX',
         score: 4200,
         track: TRACK,
         createdAt: expect.any(String) as string,
@@ -129,25 +130,25 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
   });
 
   it('guarda solo los 5 mejores de la canción y no toca las otras', async () => {
-    await jam('Otra', 10, OTHER_TRACK);
+    await jam('OTR', 10, OTHER_TRACK);
     for (const [alias, score] of [
-      ['Nova', 3000],
-      ['Byte', 2000],
-      ['Luna', 1000],
-      ['Zeta', 500],
+      ['NOV', 3000],
+      ['BYT', 2000],
+      ['LUN', 1000],
+      ['ZET', 500],
     ] as const) {
       expect(bodyOf(await jam(alias, score)).saved).toBe(true);
     }
-    const better = await jam('Rayo', 2500);
+    const better = await jam('RAY', 2500);
     expect(bodyOf(better)).toMatchObject({ saved: true, position: 3 });
     expect(bodyOf(better).top.map((r) => r.alias)).toEqual([
-      'Pixel',
-      'Nova',
-      'Rayo',
-      'Byte',
-      'Luna',
+      'PIX',
+      'NOV',
+      'RAY',
+      'BYT',
+      'LUN',
     ]);
-    const worse = await jam('Lento', 1000);
+    const worse = await jam('LEN', 1000);
     expect(bodyOf(worse)).toMatchObject({ saved: false, position: null });
 
     expect(await prisma.minigameRecord.count({ where: { track: TRACK } })).toBe(
@@ -185,16 +186,13 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
 
   it.each([
     [{ game: 'TETRIS', alias: 'Pixel', score: 5 }, undefined],
+    [{ game: 'ARKAD_JAM', alias: 'PIX', score: 5 }, 'MINIGAME_RECORD_INVALID'],
     [
-      { game: 'ARKAD_JAM', alias: 'Pixel', score: 5 },
+      { game: 'ARKADASH', track: TRACK, alias: 'PIX', score: 5 },
       'MINIGAME_RECORD_INVALID',
     ],
     [
-      { game: 'ARKADASH', track: TRACK, alias: 'Pixel', score: 5 },
-      'MINIGAME_RECORD_INVALID',
-    ],
-    [
-      { game: 'ARKAD_JAM', track: TRACK, alias: 'yo', score: 5 },
+      { game: 'ARKAD_JAM', track: TRACK, alias: 'abcd', score: 5 },
       'MINIGAME_ALIAS_INVALID',
     ],
     [
@@ -202,19 +200,19 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
       'MINIGAME_ALIAS_INVALID',
     ],
     [
-      { game: 'ARKAD_JAM', track: TRACK, alias: '200123456', score: 5 },
-      'MINIGAME_ALIAS_PERSONAL_DATA',
+      { game: 'ARKAD_JAM', track: TRACK, alias: 'Pixel', score: 5 },
+      'MINIGAME_ALIAS_INVALID',
     ],
     [
-      { game: 'ARKADASH', alias: 'Pixel', score: 10_001 },
+      { game: 'ARKADASH', alias: 'PIX', score: 10_001 },
       'MINIGAME_SCORE_IMPOSSIBLE',
     ],
     [
-      { game: 'ARKAD_JAM', track: TRACK, alias: 'Pixel', score: 100_001 },
+      { game: 'ARKAD_JAM', track: TRACK, alias: 'PIX', score: 100_001 },
       'MINIGAME_SCORE_IMPOSSIBLE',
     ],
     [
-      { game: 'ARKAD_JAM', track: TRACK, alias: 'Pixel', score: 0 },
+      { game: 'ARKAD_JAM', track: TRACK, alias: 'PIX', score: 0 },
       'MINIGAME_SCORE_IMPOSSIBLE',
     ],
   ])('POST %p responde 400 (%s)', async (body, code) => {
@@ -249,7 +247,7 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
     app = await createApp(); // contadores en cero
     const statuses: number[] = [];
     for (let i = 0; i <= PUBLIC_LIMITS.minigameRecordsSave.limit; i++) {
-      statuses.push((await jam('Spam', 1, OTHER_TRACK)).status);
+      statuses.push((await jam('SPM', 1, OTHER_TRACK)).status);
     }
     expect(statuses.at(-1)).toBe(429);
     expect(statuses.filter((s) => s === 429)).toHaveLength(1);
@@ -325,7 +323,7 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     });
 
-    it.each(['p.u.t.a', 'PUTA', 'Mi3rda'])(
+    it.each(['PTA', 'HP2', 'F4G', 'wtf'])(
       'POST con el alias %p responde 400 MINIGAME_ALIAS_OFFENSIVE y no guarda',
       async (alias) => {
         const res = await jam(alias, 9999, OTHER_TRACK);
