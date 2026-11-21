@@ -884,7 +884,8 @@ export class AuthService {
       });
 
       // Redirect to error page with specific error info
-      const errorType = error instanceof UnauthorizedException ? 'unauthorized' : 'server_error';
+      // El front (AuthErrorPage) reconoce `server-error` con guion; con `server_error` mostraba la pantalla genérica.
+      const errorType = error instanceof UnauthorizedException ? 'unauthorized' : 'server-error';
       const REDIRECT_TO = this.configService.get<string>(
         'FRONTEND_URL',
         `http://localhost:5173`,
