@@ -3,7 +3,6 @@ import { MinigameGame } from '@prisma/client';
 import {
   MINIGAME_ALIAS_INVALID,
   MINIGAME_ALIAS_OFFENSIVE,
-  MINIGAME_ALIAS_PERSONAL_DATA,
   MINIGAME_RECORD_INVALID,
   MINIGAME_SCORE_IMPOSSIBLE,
   SCORE_CAP,
@@ -63,56 +62,72 @@ describe('HU-52: reglas de los récords de los minijuegos', () => {
 
   describe('alias', () => {
     it.each([
-      ['Pixel', 'Pixel'],
-      ['  Ñoño   Gamer ', 'Ñoño Gamer'],
-      ['ana_99', 'ana_99'],
-      ['J.D-2026', 'J.D-2026'],
-      ['abc', 'abc'],
-      ['abcdefghijkl', 'abcdefghijkl'],
+      ['PIX', 'PIX'],
+      [' ana ', 'ana'],
+      ['Ñoñ', 'Ñoñ'],
+      ['J23', 'J23'],
+      ['007', '007'],
     ])('acepta %p como %p', (alias, expected) => {
       expect(normalizeAlias(alias)).toBe(expected);
     });
 
     it.each([
       'ab',
-      '  a  ',
-      'abcdefghijklm',
-      'ana@uni',
-      '<script>',
-      'hola!',
+      'a',
+      'Pixel',
+      'abcd',
+      'a b',
+      'J.D',
+      'a-b',
+      'a_b',
+      'ab@',
       '😀😀😀',
       '',
-    ])('rechaza %p (largo o caracteres)', (alias) => {
+    ])('rechaza %p (3 caracteres: letras o números)', (alias) => {
       expect(codeOf(() => normalizeAlias(alias))).toBe(MINIGAME_ALIAS_INVALID);
     });
 
-    it.each(['200123456', 'yo 300123', '300 123 4567', '30-01-23-45'])(
-      'rechaza %p porque parece un código, documento o teléfono',
-      (alias) => {
-        expect(codeOf(() => normalizeAlias(alias))).toBe(
-          MINIGAME_ALIAS_PERSONAL_DATA,
-        );
-      },
-    );
-
     it.each([
-      'PUTA',
-      'p.u.t.a',
-      'Pu-Ta 22',
-      'puuuta',
-      'hijueputa',
-      'mierd4',
-      'M I E R D A',
-      'Perra',
-      'zorra_x',
-      'Malparido',
-      'gonorrea',
-      'Huevón',
-      'Imbécil',
-      'F.U.C.K',
-      'shit lord',
-      'b1tch',
-    ])('rechaza %p por ofensivo, con un mensaje neutro', (alias) => {
+      // Colombia y general
+      'HPT',
+      'hdp',
+      'HP2',
+      'xHP',
+      'PTA',
+      'P7A',
+      'pto',
+      'MRD',
+      'VRG',
+      'MLP',
+      'GNR',
+      'GVN',
+      'MRC',
+      'PRR',
+      'QLO',
+      'Ql9',
+      'MMG',
+      // México, Cono Sur y Perú
+      'PTM',
+      'ALV',
+      'CTM',
+      'CSM',
+      'LPM',
+      'TMR',
+      // Inglés
+      'FCK',
+      'Fuk',
+      'WTF',
+      'KYS',
+      'ASS',
+      '4SS',
+      'CUM',
+      'FAG',
+      'NIG',
+      'SH7',
+      'S3X',
+      'XXX',
+      'KKK',
+    ])('rechaza la abreviatura grosera %p con un mensaje neutro', (alias) => {
       expect(codeOf(() => normalizeAlias(alias))).toBe(
         MINIGAME_ALIAS_OFFENSIVE,
       );
@@ -122,25 +137,22 @@ describe('HU-52: reglas de los récords de los minijuegos', () => {
     });
 
     it.each([
-      'Computador',
-      'Cómputo',
-      'Disputa',
-      'Diputado',
-      'Mari Carmen',
-      'Vergara',
-      'Pera',
-      'Perro',
-      'Esperanza',
-      'Zorro',
-      'Superrápido',
-      'Pixel',
-      'Ñoño Gamer',
-    ])('acepta %p aunque contenga letras de una grosería', (alias) => {
-      expect(() => normalizeAlias(alias)).not.toThrow();
-    });
-
-    it('acepta números cortos, como un año', () => {
-      expect(normalizeAlias('Neo 2026')).toBe('Neo 2026');
+      'ANA',
+      'LEO',
+      'MAX',
+      'SOL',
+      'PTS',
+      'GG1',
+      'LOL',
+      'OPA',
+      'ACE',
+      'RAY',
+      'CAT',
+      'ZOE',
+      'PER',
+      'ZOR',
+    ])('acepta %p, que no es una abreviatura grosera', (alias) => {
+      expect(normalizeAlias(alias)).toBe(alias);
     });
   });
 
