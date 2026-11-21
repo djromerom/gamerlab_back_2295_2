@@ -475,6 +475,20 @@ describe('AuthService: sesión revocable', () => {
     expect(res.cookie).not.toHaveBeenCalled();
   });
 
+  it('Microsoft: si falla el canje del código redirige con error=server-error (el valor que conoce el front)', async () => {
+    jest
+      .spyOn(service as any, 'exchangeCodeForToken')
+      .mockRejectedValue(new Error('Request failed with status code 401'));
+    const res = createResponse();
+
+    await service.handleMicrosoftCallback('code', res);
+
+    expect(res.redirect).toHaveBeenCalledWith(
+      expect.stringContaining('/auth-error?error=server-error'),
+    );
+    expect(res.cookie).not.toHaveBeenCalled();
+  });
+
   it('registrar a_b@ no choca con axb@ (no es un patrón)', async () => {
     users.push({ ...users[0], id: 'axb', email: 'axb@uninorte.edu.co' });
 
