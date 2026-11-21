@@ -90,7 +90,7 @@ describe('HU-52: MinigameRecordsService', () => {
     service.save({ game: MinigameGame.ARKADASH, alias, score });
 
   it('guarda el primer puntaje con su puesto y devuelve el top', async () => {
-    const result = await dash('  Pixel ', 42);
+    const result = await dash('  PIX ', 42);
     expect(result).toMatchObject({
       game: 'ARKADASH',
       track: 'global',
@@ -100,7 +100,7 @@ describe('HU-52: MinigameRecordsService', () => {
     expect(result.top).toEqual([
       expect.objectContaining({
         position: 1,
-        alias: 'Pixel',
+        alias: 'PIX',
         score: 42,
         track: 'global',
       }),
@@ -108,44 +108,44 @@ describe('HU-52: MinigameRecordsService', () => {
   });
 
   it('ordena por puntaje y, en un empate, primero el que llegó antes', async () => {
-    await dash('Uno', 10);
-    await dash('Dos', 30);
-    const tie = await dash('Tres', 10);
+    await dash('UNO', 10);
+    await dash('DOS', 30);
+    const tie = await dash('TRE', 10);
     expect(tie.position).toBe(3);
     expect(tie.top.map((r) => [r.position, r.alias])).toEqual([
-      [1, 'Dos'],
-      [2, 'Uno'],
-      [3, 'Tres'],
+      [1, 'DOS'],
+      [2, 'UNO'],
+      [3, 'TRE'],
     ]);
   });
 
   it('solo conserva los 5 mejores: borra el sexto al entrar uno mejor', async () => {
     for (const [alias, score] of [
-      ['Top1', 50],
-      ['Top2', 40],
-      ['Top3', 30],
-      ['Top4', 20],
-      ['Top5', 10],
+      ['TP1', 50],
+      ['TP2', 40],
+      ['TP3', 30],
+      ['TP4', 20],
+      ['TP5', 10],
     ] as const) {
       await dash(alias, score);
     }
-    const better = await dash('Nuevo', 35);
+    const better = await dash('NEW', 35);
     expect(better).toMatchObject({ saved: true, position: 3 });
     expect(better.top.map((r) => r.alias)).toEqual([
-      'Top1',
-      'Top2',
-      'Nuevo',
-      'Top3',
-      'Top4',
+      'TP1',
+      'TP2',
+      'NEW',
+      'TP3',
+      'TP4',
     ]);
     expect(db.rows).toHaveLength(5);
-    expect(db.rows.find((r) => r.alias === 'Top5')).toBeUndefined();
+    expect(db.rows.find((r) => r.alias === 'TP5')).toBeUndefined();
   });
 
   it('con el top lleno, un puntaje igual o menor al quinto no se guarda', async () => {
     for (const score of [50, 40, 30, 20, 10]) await dash(`J${score}`, score);
     for (const score of [10, 3]) {
-      const result = await dash('Tarde', score);
+      const result = await dash('TAR', score);
       expect(result).toMatchObject({ saved: false, position: null });
       expect(result.top).toHaveLength(5);
     }
@@ -155,21 +155,21 @@ describe('HU-52: MinigameRecordsService', () => {
   it('Arkad Jam lleva un top por canción, y sin pista el de todas', async () => {
     await jam('guitarra-0', 'Gui', 900);
     await jam('piano-0', 'Pia', 1200);
-    await jam('piano-0', 'Pia2', 300);
+    await jam('piano-0', 'PI2', 300);
 
     const piano = await service.top({
       game: MinigameGame.ARKAD_JAM,
       track: 'piano-0',
     });
     expect(piano.track).toBe('piano-0');
-    expect(piano.top.map((r) => r.alias)).toEqual(['Pia', 'Pia2']);
+    expect(piano.top.map((r) => r.alias)).toEqual(['Pia', 'PI2']);
 
     const all = await service.top({ game: MinigameGame.ARKAD_JAM });
     expect(all.track).toBeNull();
     expect(all.top.map((r) => [r.alias, r.track])).toEqual([
       ['Pia', 'piano-0'],
       ['Gui', 'guitarra-0'],
-      ['Pia2', 'piano-0'],
+      ['PI2', 'piano-0'],
     ]);
 
     const dashTop = await service.top({ game: MinigameGame.ARKADASH });
@@ -177,7 +177,7 @@ describe('HU-52: MinigameRecordsService', () => {
   });
 
   it('el top no devuelve el id interno', async () => {
-    await dash('Pixel', 5);
+    await dash('PIX', 5);
     const { top } = await service.top({ game: MinigameGame.ARKADASH });
     expect(Object.keys(top[0]).sort()).toEqual([
       'alias',
@@ -189,41 +189,41 @@ describe('HU-52: MinigameRecordsService', () => {
   });
 
   it('el Administrador recibe el id de cada récord para poder borrarlo', async () => {
-    await dash('Pixel', 5);
+    await dash('PIX', 5);
     const { top } = await service.top({ game: MinigameGame.ARKADASH }, true);
     expect(typeof top[0].id).toBe('number');
-    expect(top[0].alias).toBe('Pixel');
+    expect(top[0].alias).toBe('PIX');
   });
 
   describe('borrar un récord (solo Administrador)', () => {
     it('lo borra y devuelve el top de esa pista recalculado, con ids', async () => {
       for (const [alias, score] of [
-        ['Top1', 50],
-        ['Grosero', 40],
-        ['Top3', 30],
-        ['Top4', 20],
-        ['Top5', 10],
+        ['TP1', 50],
+        ['GRO', 40],
+        ['TP3', 30],
+        ['TP4', 20],
+        ['TP5', 10],
       ] as const) {
         await dash(alias, score);
       }
-      await jam('piano-0', 'Otra', 99);
-      const id = db.rows.find((r) => r.alias === 'Grosero')!.id;
+      await jam('piano-0', 'OTR', 99);
+      const id = db.rows.find((r) => r.alias === 'GRO')!.id;
 
       const result = await service.remove(id);
 
       expect(result.game).toBe('ARKADASH');
       expect(result.track).toBe('global');
       expect(result.top.map((r) => [r.position, r.alias])).toEqual([
-        [1, 'Top1'],
-        [2, 'Top3'],
-        [3, 'Top4'],
-        [4, 'Top5'],
+        [1, 'TP1'],
+        [2, 'TP3'],
+        [3, 'TP4'],
+        [4, 'TP5'],
       ]);
       expect(result.top.every((r) => typeof r.id === 'number')).toBe(true);
       // La otra pista no se toca.
-      expect(db.rows.map((r) => r.alias)).toContain('Otra');
+      expect(db.rows.map((r) => r.alias)).toContain('OTR');
       const after = await service.top({ game: MinigameGame.ARKADASH });
-      expect(after.top.map((r) => r.alias)).not.toContain('Grosero');
+      expect(after.top.map((r) => r.alias)).not.toContain('GRO');
     });
 
     it('responde 404 con su code si el récord no existe', async () => {
@@ -237,10 +237,10 @@ describe('HU-52: MinigameRecordsService', () => {
   });
 
   it.each([
-    [{ game: MinigameGame.ARKADASH, alias: 'p.u.t.a', score: 5 }],
-    [{ game: MinigameGame.ARKADASH, alias: 'ab', score: 5 }],
-    [{ game: MinigameGame.ARKADASH, alias: 'Pixel', score: 10_001 }],
-    [{ game: MinigameGame.ARKAD_JAM, alias: 'Pixel', score: 5 }],
+    [{ game: MinigameGame.ARKADASH, alias: 'PTA', score: 5 }],
+    [{ game: MinigameGame.ARKADASH, alias: 'abcd', score: 5 }],
+    [{ game: MinigameGame.ARKADASH, alias: 'PIX', score: 10_001 }],
+    [{ game: MinigameGame.ARKAD_JAM, alias: 'PIX', score: 5 }],
     [
       {
         game: MinigameGame.ARKAD_JAM,

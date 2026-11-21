@@ -32,14 +32,14 @@ const TOP_EXAMPLE = {
   top: [
     {
       position: 1,
-      alias: 'Pixel',
+      alias: 'PIX',
       score: 41250,
       track: 'guitarra-3',
       createdAt: '2026-11-26T15:02:11.000Z',
     },
     {
       position: 2,
-      alias: 'Nova',
+      alias: 'NOV',
       score: 38900,
       track: 'guitarra-3',
       createdAt: '2026-11-26T14:40:03.000Z',
@@ -112,7 +112,7 @@ export class MinigameRecordsController {
   @ApiResponse({
     status: 400,
     description:
-      'Invalid data: MINIGAME_RECORD_INVALID (game or track), MINIGAME_ALIAS_INVALID (3 to 12 characters), MINIGAME_ALIAS_PERSONAL_DATA (codes, documents or phones), MINIGAME_ALIAS_OFFENSIVE (offensive words) or MINIGAME_SCORE_IMPOSSIBLE (over the cap of the game).',
+      'Invalid data: MINIGAME_RECORD_INVALID (game or track), MINIGAME_ALIAS_INVALID (3 letters or numbers), MINIGAME_ALIAS_PERSONAL_DATA (codes, documents or phones), MINIGAME_ALIAS_OFFENSIVE (offensive words or abbreviations) or MINIGAME_SCORE_IMPOSSIBLE (over the cap of the game).',
   })
   @ApiResponse({ status: 429, description: 'Too many requests from this IP.' })
   save(@Body() dto: CreateMinigameRecordDto) {
