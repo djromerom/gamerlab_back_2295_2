@@ -108,7 +108,7 @@ const WORDS = [...SPANISH, ...ENGLISH].map(compact);
 const SAFE = SAFE_WORDS.map(compact);
 
 /**
- * Abreviaturas groseras de 3 letras o menos, ya que el alias es de 3 caracteres (como en las
+ * Abreviaturas groseras de 3 letras o menos, ya que el alias es de 1 a 3 caracteres (como en las
  * máquinas arcade). Se comparan con el alias sin tildes, en minúsculas y con los números típicos
  * cambiados por letras (`P7A` → `pta`). Las de 2 letras bloquean cualquier alias que las contenga
  * (`HPX`, `QLO`).

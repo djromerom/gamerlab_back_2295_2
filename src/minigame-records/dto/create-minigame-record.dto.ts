@@ -27,7 +27,7 @@ export class CreateMinigameRecordDto {
 
   @ApiProperty({
     example: 'PIX',
-    description: '3 caracteres: letras o números, sin groserías.',
+    description: 'De 1 a 3 caracteres: letras o números, sin groserías.',
   })
   @IsString({ message: 'alias es obligatorio.' })
   @MaxLength(40)

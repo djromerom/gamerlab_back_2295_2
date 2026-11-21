@@ -27,10 +27,10 @@ export const JAM_INSTRUMENTS = ['guitarra', 'piano', 'bateria'] as const;
 export const JAM_MAX_SONGS = 50;
 const JAM_TRACK_PATTERN = /^(guitarra|piano|bateria)-(\d{1,2})$/;
 
-// Alias de 3 caracteres, como las iniciales de las máquinas arcade: letras (con tildes y ñ) y
+// Alias de 1 a 3 caracteres, como las iniciales de las máquinas arcade: letras (con tildes y ñ) y
 // números, sin espacios ni signos. Así cabe en la pantalla principal y deja poco espacio para
 // groserías (las abreviaturas se bloquean en minigame-alias-offensive.ts).
-export const ALIAS_MIN_LENGTH = 3;
+export const ALIAS_MIN_LENGTH = 1;
 export const ALIAS_MAX_LENGTH = 3;
 const ALIAS_PATTERN = /^[\p{L}\p{N}]+$/u;
 // Como en los avisos push: 6 dígitos o más seguidos son un código estudiantil, una cédula o un teléfono.
@@ -73,7 +73,7 @@ export function normalizeTrack(
 }
 
 /**
- * Limpia el alias (espacios al inicio y al final) y lo valida: 3 caracteres (letras o números),
+ * Limpia el alias (espacios al inicio y al final) y lo valida: de 1 a 3 caracteres (letras o números),
  * sin datos personales y sin groserías ni abreviaturas groseras (minigame-alias-offensive.ts).
  */
 export function normalizeAlias(alias: string): string {
@@ -86,7 +86,7 @@ export function normalizeAlias(alias: string): string {
   ) {
     throw invalid(
       MINIGAME_ALIAS_INVALID,
-      `El alias lleva ${ALIAS_MAX_LENGTH} caracteres: letras o números`,
+      `El alias lleva de ${ALIAS_MIN_LENGTH} a ${ALIAS_MAX_LENGTH} caracteres: letras o números`,
     );
   }
   if (DOCUMENT_OR_PHONE_PATTERN.test(value)) {

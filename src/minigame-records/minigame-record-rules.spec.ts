@@ -67,13 +67,14 @@ describe('HU-52: reglas de los récords de los minijuegos', () => {
       ['Ñoñ', 'Ñoñ'],
       ['J23', 'J23'],
       ['007', '007'],
+      ['A', 'A'],
+      ['ab', 'ab'],
+      ['7', '7'],
     ])('acepta %p como %p', (alias, expected) => {
       expect(normalizeAlias(alias)).toBe(expected);
     });
 
     it.each([
-      'ab',
-      'a',
       'Pixel',
       'abcd',
       'a b',
@@ -81,9 +82,11 @@ describe('HU-52: reglas de los récords de los minijuegos', () => {
       'a-b',
       'a_b',
       'ab@',
+      '@',
+      ' ',
       '😀😀😀',
       '',
-    ])('rechaza %p (3 caracteres: letras o números)', (alias) => {
+    ])('rechaza %p (de 1 a 3 caracteres: letras o números)', (alias) => {
       expect(codeOf(() => normalizeAlias(alias))).toBe(MINIGAME_ALIAS_INVALID);
     });
 
@@ -92,6 +95,8 @@ describe('HU-52: reglas de los récords de los minijuegos', () => {
       'HPT',
       'hdp',
       'HP2',
+      'HP',
+      'ql',
       'xHP',
       'PTA',
       'P7A',

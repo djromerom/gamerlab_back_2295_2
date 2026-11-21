@@ -192,7 +192,7 @@ describeIfDb('Récords de los minijuegos (HU-52, HTTP + PostgreSQL)', () => {
       'MINIGAME_RECORD_INVALID',
     ],
     [
-      { game: 'ARKAD_JAM', track: TRACK, alias: 'yo', score: 5 },
+      { game: 'ARKAD_JAM', track: TRACK, alias: 'abcd', score: 5 },
       'MINIGAME_ALIAS_INVALID',
     ],
     [

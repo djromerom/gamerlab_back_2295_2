@@ -238,7 +238,7 @@ describe('HU-52: MinigameRecordsService', () => {
 
   it.each([
     [{ game: MinigameGame.ARKADASH, alias: 'PTA', score: 5 }],
-    [{ game: MinigameGame.ARKADASH, alias: 'ab', score: 5 }],
+    [{ game: MinigameGame.ARKADASH, alias: 'abcd', score: 5 }],
     [{ game: MinigameGame.ARKADASH, alias: 'PIX', score: 10_001 }],
     [{ game: MinigameGame.ARKAD_JAM, alias: 'PIX', score: 5 }],
     [
