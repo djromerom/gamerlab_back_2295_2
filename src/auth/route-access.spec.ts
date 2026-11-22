@@ -85,6 +85,13 @@ const EXPECTED_ACCESS: Record<string, string[]> = {
   ManageWalkInJurors: [],
   // BG-49 (ARK-251): anular una llegada es solo del Administrador; el Staff la registra pero no la anula
   AnnulJurorArrival: [],
+  // HU-53 (ARK-324): el jurado (externo o profesor) consulta las rúbricas; escribirlas es solo del Administrador
+  ListCriterion: ['Profesor', 'Jurado'],
+  GetCriterion: ['Profesor', 'Jurado'],
+  CreateCriterion: [],
+  UpdateCriterion: [],
+  DeleteCriterion: [],
+  RestoreCriterion: [],
   // Con regla de propiedad adicional en el servicio (ver *.ownership.spec.ts)
   UpdateVideogame: ['Estudiante'],
   ViewTeamEvaluationStats: ['Estudiante', 'Profesor', 'Jurado'],
