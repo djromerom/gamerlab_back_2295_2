@@ -9,7 +9,12 @@ import { toDataURL } from 'qrcode';
 import { CertificatesService } from 'src/certificates/certificates.service';
 import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { buildBadgesHtml } from './badge-template';
+import {
+  BADGE_LAYOUTS,
+  BadgePaperSize,
+  buildBadgesHtml,
+  DEFAULT_BADGE_PAPER_SIZE,
+} from './badge-template';
 import {
   LabeledJuror,
   jurorCategoryLabel,
@@ -177,8 +182,11 @@ export class JurorBadgesService {
     return { jurorId, editionId: edition.id, token };
   }
 
-  /** PDF imprimible con las escarapelas (QR generado con el token). */
-  async generatePdf(jurorIds?: string[]): Promise<Buffer> {
+  /** PDF imprimible con las escarapelas (QR generado con el token) en la hoja elegida. */
+  async generatePdf(
+    jurorIds?: string[],
+    paper: BadgePaperSize = DEFAULT_BADGE_PAPER_SIZE,
+  ): Promise<Buffer> {
     const edition = await this.getActiveEdition();
     const badges = await this.findBadges(edition.id, jurorIds);
     if (badges.length === 0) {
@@ -193,13 +201,16 @@ export class JurorBadgesService {
         qrDataUri: await toDataURL(b.token, {
           errorCorrectionLevel: 'M',
           margin: 1,
-          width: 300,
+          // 600 px en 5 cm ≈ 300 ppp: el QR impreso sale nítido.
+          width: 600,
         }),
       })),
     );
 
+    const layout = BADGE_LAYOUTS[paper];
     return this.certificates.convertHtmlToPdf(
-      buildBadgesHtml(cards, edition.title),
+      buildBadgesHtml(cards, layout),
+      layout.page,
     );
   }
 

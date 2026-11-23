@@ -222,6 +222,24 @@ describe('CertificatesService (ARK-170)', () => {
       const form = fetchMock.mock.calls[0][1].body as FormData;
       expect(form.get('waitDelay')).toBeNull();
       expect(form.get('skipNetworkIdleEvent')).toBe('false');
+      // Sin opciones de página, los certificados siguen como antes
+      expect(form.get('paperWidth')).toBeNull();
+      expect(form.get('marginTop')).toBeNull();
+    });
+
+    it('envía el tamaño de página y los márgenes cuando se piden', async () => {
+      const { service } = build();
+      await service.convertHtmlToPdf('<p>x</p>', {
+        paperWidth: '11in',
+        paperHeight: '17in',
+        margin: '0',
+      });
+      const form = fetchMock.mock.calls[0][1].body as FormData;
+      expect(form.get('paperWidth')).toBe('11in');
+      expect(form.get('paperHeight')).toBe('17in');
+      for (const side of ['Top', 'Bottom', 'Left', 'Right']) {
+        expect(form.get(`margin${side}`)).toBe('0');
+      }
     });
   });
 

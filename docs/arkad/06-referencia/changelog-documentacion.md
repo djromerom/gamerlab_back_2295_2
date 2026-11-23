@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-23: PDF de escarapelas en tabloide o carta, solo nombre y QR de 5 cm
+- `GET /juror-badges/pdf` acepta `paper=TABLOID|LETTER` (opcional, por defecto `TABLOID`; otro valor → 400 «paper debe ser TABLOID o LETTER.»). Tabloide vertical (11 × 17 in): 5 columnas × 7 filas = 35 por hoja. Carta horizontal (11 × 8,5 in): 5 × 3 = 15 por hoja (en vertical solo cabrían 12). El archivo se llama `escarapelas-tabloide.pdf` o `escarapelas-carta.pdf`.
+- La escarapela mide 5,4 × 6 cm en los dos tamaños: solo el nombre (7 pt, máximo 2 líneas) y el QR de 5 cm de ancho (imagen de 600 px, ≈300 ppp) con 2 mm alrededor; ya no muestra la edición ni «Jurado». Van pegadas (los cortes coinciden), centradas y con borde gris fino de corte. Antes salía en carta (Gotenberg ignoraba el `@page` A4 del HTML), 6 por hoja y QR de 3 cm.
+- `CertificatesService.convertHtmlToPdf` acepta un tamaño de página opcional (`paperWidth`, `paperHeight` y márgenes para Gotenberg); los certificados no lo usan y no cambian.
+- [integraciones](../02-backend/integraciones.md): nota en la fila de Gotenberg. Contrato para el front en `docs/frontend/escarapelas-tamano-de-hoja.md` (selector de tamaño). Sin migración ni permisos nuevos.
+
 ## 2026-11-20: récord global de los minijuegos de la landing (HU-52, ARK-315)
 - Nuevas rutas públicas `GET /minigame-records` (top 5 de Arkadash o de una canción de Arkad Jam; sin canción, el de todas) y `POST /minigame-records` (guarda el puntaje solo si entra en el top 5), y `DELETE /minigame-records/:id` solo para el Administrador (borra un récord y devuelve el top recalculado; el `id` de cada récord solo se le entrega a él). Alias de 3 a 12 caracteres sin datos personales ni groserías (400 `MINIGAME_ALIAS_OFFENSIVE`, `minigame-alias-offensive.ts`), tope por juego (Arkadash 10 000, Arkad Jam 100 000) y límite por IP (300 consultas y 20 guardados por minuto).
 - Migración `20261120215000_add_minigame_records`: tabla `record_minijuego` (solo alias, puntaje y fecha; sin datos de quien juega) con CHECK del puntaje. Se guardan solo los 5 mejores de cada pista.
