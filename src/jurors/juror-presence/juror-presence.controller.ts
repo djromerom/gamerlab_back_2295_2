@@ -88,7 +88,7 @@ export class JurorPresenceController {
   @ApiOperation({
     summary: 'Indicadores de presencia de los jurados que llegaron (HU-23)',
     description:
-      'Jurados de la edición activa con llegada registrada. `indicators` puede traer PRESENCE_UNCONFIRMED (no respondió "Sigo aquí" a tiempo) y POSSIBLE_LEFT (sin enviar evaluaciones en el tiempo configurado). Son solo indicadores: no cambian asignaciones. Vacíos mientras las evaluaciones estén cerradas. Primero los que tienen indicadores.',
+      'Jurados de la edición activa con llegada registrada que todavía tienen equipos asignados sin calificar (BG-72): el que ya calificó todos no sale, y vuelve a salir si le asignan uno nuevo. `pendingTeams` dice cuántos le faltan. `totals.checkedIn` cuenta a todos los que llegaron, `withPendingTeams` a los listados y `finished` a los que ya terminaron; los demás totales son de los listados. `indicators` puede traer PRESENCE_UNCONFIRMED (no respondió "Sigo aquí" a tiempo) y POSSIBLE_LEFT (sin enviar evaluaciones en el tiempo configurado). Son solo indicadores: no cambian asignaciones. Vacíos mientras las evaluaciones estén cerradas. Primero los que tienen indicadores.',
   })
   @ApiResponse({
     status: 200,
@@ -100,6 +100,8 @@ export class JurorPresenceController {
         settings,
         totals: {
           checkedIn: 42,
+          withPendingTeams: 30,
+          finished: 12,
           presenceUnconfirmed: 3,
           possibleLeft: 2,
           withAnyIndicator: 4,
@@ -114,6 +116,7 @@ export class JurorPresenceController {
             lastConfirmedAt: '2026-11-26T14:06:00.000Z',
             lastActivityAt: '2026-11-26T14:20:41.000Z',
             nextPromptAt: '2026-11-26T15:06:00.000Z',
+            pendingTeams: 2,
             indicators: ['PRESENCE_UNCONFIRMED', 'POSSIBLE_LEFT'],
           },
         ],

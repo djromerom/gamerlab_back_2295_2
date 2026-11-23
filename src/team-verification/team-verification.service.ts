@@ -20,6 +20,10 @@ import {
   NOT_GRADABLE_NO_CODE_MESSAGE,
   TEAM_NOT_GRADABLE,
 } from '../teams/team-gradable';
+import {
+  VERIFICATION_RULE_SELECT,
+  requiresVerificationCode,
+} from './verification-rule';
 
 export const MAX_FAILED_ATTEMPTS = 5;
 export const ATTEMPT_WINDOW_MINUTES = 10;
@@ -45,8 +49,7 @@ export class TeamVerificationService {
       },
       select: {
         id: true,
-        teamCode: true,
-        verificationCode: true,
+        ...VERIFICATION_RULE_SELECT,
         assignedJurors: { where: { id: jurorId }, select: { id: true } },
       },
     });
@@ -55,7 +58,8 @@ export class TeamVerificationService {
       throw new NotFoundException('Equipo no encontrado en la edición activa');
     }
 
-    if (!team.verificationCode || isCollegeTeamCode(team.teamCode)) {
+    // HU-50: N0, sin código, o código desactivado (en el equipo o en toda la edición).
+    if (!requiresVerificationCode(team) || !team.verificationCode) {
       return { verified: true, required: false };
     }
 
@@ -142,8 +146,7 @@ export class TeamVerificationService {
         team: {
           select: {
             id: true,
-            teamCode: true,
-            verificationCode: true,
+            ...VERIFICATION_RULE_SELECT,
             verifications: { where: { jurorId }, select: { id: true } },
           },
         },
@@ -152,9 +155,7 @@ export class TeamVerificationService {
 
     const unverified = new Set<number>();
     for (const { id, team } of videogames) {
-      const requiresCode =
-        !!team.verificationCode && !isCollegeTeamCode(team.teamCode);
-      if (requiresCode && team.verifications.length === 0) {
+      if (requiresVerificationCode(team) && team.verifications.length === 0) {
         unverified.add(id);
       }
     }
@@ -169,6 +170,20 @@ export class TeamVerificationService {
     jurorId: string,
     teamIds: number[],
   ): Promise<Record<number, boolean>> {
+    return (await this.getStatusWithRequired(jurorId, teamIds)).status;
+  }
+
+  /**
+   * `status` como en getStatus y, por equipo, `required`: si hoy se le pide el código al jurado
+   * (HU-50). Un id que no existe en la edición activa sale `status: false`, `required: true`.
+   */
+  async getStatusWithRequired(
+    jurorId: string,
+    teamIds: number[],
+  ): Promise<{
+    status: Record<number, boolean>;
+    required: Record<number, boolean>;
+  }> {
     const teams = await this.prisma.team.findMany({
       where: {
         id: { in: teamIds },
@@ -177,20 +192,58 @@ export class TeamVerificationService {
       },
       select: {
         id: true,
-        teamCode: true,
-        verificationCode: true,
+        ...VERIFICATION_RULE_SELECT,
         verifications: { where: { jurorId }, select: { id: true } },
       },
     });
 
     const status: Record<number, boolean> = {};
-    for (const id of teamIds) status[id] = false;
+    const required: Record<number, boolean> = {};
+    for (const id of teamIds) {
+      status[id] = false;
+      required[id] = true;
+    }
     for (const team of teams) {
-      const requiresCode =
-        !!team.verificationCode && !isCollegeTeamCode(team.teamCode);
+      const requiresCode = requiresVerificationCode(team);
+      required[team.id] = requiresCode;
       status[team.id] = !requiresCode || team.verifications.length > 0;
     }
-    return status;
+    return { status, required };
+  }
+
+  /**
+   * HU-50 (ARK-314): el Administrador desactiva o vuelve a activar el código de un equipo.
+   * Volver a activarlo no regenera el código ni borra las verificaciones hechas. Solo registra
+   * (quién y cuándo) si el valor cambia; repetir el mismo valor no hace nada.
+   */
+  async setRequired(teamId: number, required: boolean, adminId: string) {
+    const team = await this.findTeamForAdmin(teamId);
+    assertEditionWritable(team.edition, 'el equipo');
+
+    if (team.verificationRequired === required) {
+      return { teamId, verificationRequired: required, changed: false };
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.team.update({
+        where: { id: teamId },
+        data: { verificationRequired: required },
+      }),
+      this.prisma.teamVerificationLog.create({
+        data: {
+          action: required
+            ? TeamVerificationAction.CODE_ENABLED
+            : TeamVerificationAction.CODE_DISABLED,
+          teamId,
+          userId: adminId,
+        },
+      }),
+    ]);
+
+    this.logger.log(
+      `Código del equipo ${teamId} ${required ? 'activado' : 'desactivado'} por ${adminId}`,
+    );
+    return { teamId, verificationRequired: required, changed: true };
   }
 
   /**
@@ -312,6 +365,7 @@ export class TeamVerificationService {
         editionId: true,
         teamCode: true,
         verificationCode: true,
+        verificationRequired: true,
         notGradable: true,
         edition: { select: { status: true, title: true } },
       },

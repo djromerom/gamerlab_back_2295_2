@@ -112,6 +112,19 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
     await prisma.teamVerification.createMany({
       data: verify.map((teamId) => ({ teamId, jurorId: juror.id })),
     });
+    // BG-71 (ARK-285): solo califica quien hizo check-in en la edición activa
+    const activeEdition = await prisma.edition.findFirstOrThrow({
+      where: { status: EditionStatus.ACTIVE },
+      orderBy: { id: 'desc' },
+    });
+    await prisma.jurorAttendance.create({
+      data: {
+        jurorId: juror.id,
+        editionId: activeEdition.id,
+        checkedInById: juror.id,
+        method: 'MANUAL',
+      },
+    });
     return juror.id;
   }
 
@@ -289,6 +302,9 @@ describeIfDb('EvaluationService batch idempotency (PostgreSQL)', () => {
       where: { jurorId: { in: jurorIds } },
     });
     await prisma.teamVerification.deleteMany({
+      where: { jurorId: { in: jurorIds } },
+    });
+    await prisma.jurorAttendance.deleteMany({
       where: { jurorId: { in: jurorIds } },
     });
     // Equipos creados aquí: borran en cascada integrantes, sus vínculos con NRC y el videojuego

@@ -80,7 +80,7 @@ export class StudentsController {
   @ApiOperation({
     summary: 'Evaluaciones individuales del equipo (solo Administrador)',
     description:
-      'ARK-154 (HU-30): el estudiante recibe 403. Su nota es solo la final: GET /teams/final-score/team/:teamId.',
+      'ARK-154 (HU-30): el estudiante recibe 403. Su nota es solo la final: GET /final-grade/me.',
   })
   findAll(
     @GetUser('id') id: string,

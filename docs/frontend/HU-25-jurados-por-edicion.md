@@ -118,7 +118,8 @@ Orden: Pendientes primero, luego por apellido y nombre.
 | 400 | Filtro inválido | El `message` |
 | 404 | La edición no existe o no hay edición activa | "No hay una edición activa" + selector de edición |
 
-### 2. Traer jurados de la edición anterior — `POST /juror-edition/import-previous`
+### 2. Traer jurados de la edición anterior — `POST /juror-edition/import-previous` (RETIRADO en HU-49 / ARK-280)
+> Este endpoint se eliminó: ahora responde 404. Se reemplazó por la importación desde Excel (`POST /juror-edition/import`, ver `HU-49-importar-jurados-excel.md`).
 Rol: Administrador.
 
 ```json

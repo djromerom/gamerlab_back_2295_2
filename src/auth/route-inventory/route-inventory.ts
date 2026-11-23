@@ -45,10 +45,16 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
     'Solo el Administrador (AdminRoleGuard): define el ranking final (HU-04).',
   'GET /students':
     'Solo el Administrador (AdminRoleGuard): evaluaciones individuales del equipo. El estudiante recibe 403 y ve solo la nota final (HU-30, ARK-154).',
+  'GET /teams/final-score/team/:teamId':
+    'Solo el Administrador (AdminRoleGuard): nota final de un equipo. Era pública; se cerró en HU-48 (ARK-306) para que la nota no se lea recorriendo ids. El estudiante usa GET /final-grade/me.',
+  'GET /teams/final-score/videogame/:videogameId':
+    'Solo el Administrador (AdminRoleGuard): notas finales de un videojuego. Era pública; se cerró en HU-48 (ARK-306).',
+  'DELETE /minigame-records/:id':
+    'Solo el Administrador (AdminRoleGuard): borra un récord de los minijuegos (alias grosero o puntaje falso) de la pantalla principal (HU-52, ARK-315).',
   'GET /final-grade/release':
     'Solo el Administrador (AdminRoleGuard): estado de la liberación de la nota final y equipos con datos incompletos (HU-20, ARK-80).',
   'PATCH /final-grade/release':
-    'Solo el Administrador (AdminRoleGuard): libera (desde las 12:00 del día de la feria) u oculta la nota final a los estudiantes (HU-20, ARK-80).',
+    'Solo el Administrador (AdminRoleGuard): libera (desde la hora de cierre del día de la feria: la del cronograma o, sin cronograma, las 12:00) u oculta la nota final a los estudiantes; ocultarla también oculta el ranking público (HU-20, ARK-80; BG-67; HU-46, ARK-301).',
 };
 
 /**
@@ -61,7 +67,8 @@ export const ROUTE_NOTES: Record<string, string> = {
     'Estudiante: solo el líder, solo el nombre del equipo y el contenido del juego, y solo con las inscripciones abiertas; integrantes, externo, nombre del juego y estado de aprobación responden 403 (ARK-161, BG-38).',
   'PATCH /teams/:teamId/members/:memberId':
     'Solo el Administrador cambia el correo de un integrante (ARK-161, BG-38).',
-  'POST /teams/:id/member': 'Solo el Administrador agrega integrantes (ARK-161, BG-38).',
+  'POST /teams/:id/member':
+    'Solo el Administrador agrega integrantes (ARK-161, BG-38).',
   'DELETE /teams/:id/members/:memberId':
     'Solo el Administrador quita integrantes, y el integrante debe pertenecer a ese equipo (ARK-161, BG-38).',
   'PATCH /videogames/:id':
@@ -92,10 +99,6 @@ export const ROUTE_NOTES: Record<string, string> = {
     'Solo Administrador (ExportAdminReports): trae integrantes, notas, promedios junior/senior y promedio por NRC para /estadisticas (BG-67, ARK-268).',
   'GET /reports/JuradosData':
     'Antes era pública; desde ARK-60 exige sesión y filtra los jurados según el rol.',
-  'POST /ranking/ties/decision':
-    'Profesor: solo empates entre grupos de sus NRC (RankingService.decide); el Administrador, cualquier empate pendiente (HU-04).',
-  'GET /ranking/my-ties':
-    'Profesor: solo los empates que le toca decidir (HU-04).',
   'GET /substitute-notices/me':
     'Solo los avisos del propio suplente en la edición activa (HU-22, ARK-84).',
   'PATCH /substitute-notices/:id/read':

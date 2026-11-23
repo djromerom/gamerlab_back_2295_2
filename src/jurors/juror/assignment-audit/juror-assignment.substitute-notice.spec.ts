@@ -69,7 +69,7 @@ describe('JurorAssignmentService: aviso al suplente (HU-22)', () => {
         validate: jest.fn().mockResolvedValue({ blockers: [], warnings: [] }),
         enforce: jest.fn().mockReturnValue([]),
       } as any,
-      { notifyAssignmentChanged: jest.fn() } as any,
+      { notifyAssignmentChanged: jest.fn(), notifyTeamsAssigned: jest.fn() } as any,
       notices as any,
     );
     Object.assign(service, { professorRoleId: 3, jurorRoleId: 4 });

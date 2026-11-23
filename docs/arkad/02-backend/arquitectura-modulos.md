@@ -13,7 +13,7 @@ NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con contro
 |---|---|---|
 | Plataforma | `prisma`, `cache`, `common`, `settings`, `app.*` | Cliente Prisma, caché en memoria, utilidades (`common/throttle`, `common/utils`), configuración del evento y ponderados |
 | Acceso | `auth`, `email`, `staff` | Login/refresh/logout/reset, Entra ID, guards; envío de correos; alta de cuentas Staff |
-| Ediciones y landing | `editions`, `educational-focuses`, `testimonials`, `highlighted-games`, `historicals` | Ciclo de vida de la edición (crear, activar, archivar), contenido público por edición, histórico |
+| Ediciones y landing | `editions`, `educational-focuses`, `testimonials`, `highlighted-games`, `historicals`, `minigame-records` | Ciclo de vida de la edición (crear, activar, archivar), contenido público por edición, histórico, récords de los minijuegos de la landing (HU-52) |
 | Inscripción | `teams`, `team-verification`, `students`, `videogames`, `upload` | Equipos e integrantes, código de verificación, panel del estudiante, videojuegos y multimedia, archivos (Azure Blob) |
 | Académico | `subjects`, `nrcs`, `professors`, `criterion` | Materias, NRC, panel del profesor (notas, reportes, filtros), criterios de evaluación |
 | Jurados | `jurors/juror`, `jurors/juror-edition`, `jurors/juror-badges`, `jurors/juror-checkin`, `jurors/juror-attendance`, `jurors/juror-presence`, `jurors/juror-survey`, `jurors/absence-alert`, `jurors/absent-juror-responses`, `evaluation-tracking` | Alta y asignación de jurados (con validación y bitácora), jurados por edición, escarapelas QR, check-in, seguimiento por hora |
@@ -46,6 +46,7 @@ NestJS clásico: cada carpeta de `src/` es un módulo (`*.module.ts`) con contro
 | `jurors/juror/assignment-validation/` | Reglas de coherencia (`assignment-rules.ts`, `findEvaluatorBlocker`, `hasNrcConflict`, `isSeniorEvaluator`) que usan tanto la asignación manual como la automática | HU-08 |
 | `jurors/juror-attendance/` | `GET /juror-attendance`: asistencia de los jurados de la edición (`PRESENT` / `MISSING`), con hora, método y quién hizo el check-in; no devuelve correos ni códigos | HU-29 |
 | `jurors/juror-edition/juror-edition-enroll.ts` | Inscribir a un profesor senior sin NRC como jurado de la edición, por correo | HU-28 |
+| `jurors/juror-edition/import/` | Importar desde Excel los jurados de la edición activa: lectura del xlsx (`*.xlsx.ts`), reglas por fila (`*.logic.ts`), alta de cuentas con `JurorService.create`, confirmación en `jurado_edicion` y cola de correos con pausa (`*-mail.queue.ts`). Reemplaza a `import-previous` | HU-49 |
 | `professors/professor-juror-profile.ts` | Un profesor creado desde el panel queda Senior y Oficial en la tabla de jurados | BG-26 |
 | `teams/final-score-breakdown.ts` | El estudiante ve solo la nota general final de su grupo, sin desglose | HU-30 |
 | `editions/list-edition.ts`, `settings/active-edition-config.ts` | Filtro por edición de las listas y configuración de la edición activa | HU-27, BG-18..23 |

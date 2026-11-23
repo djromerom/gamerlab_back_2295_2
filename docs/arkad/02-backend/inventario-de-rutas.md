@@ -14,7 +14,7 @@
   calculan con el catálogo (`servicio → permiso → rol`). El Administrador siempre pasa.
 - Las notas describen reglas de propiedad (p. ej. "solo su equipo") que se verifican en el servicio.
 
-**Total: 203 rutas** — 145 con permiso, 48 públicas, 10 solo sesión, 0 sin decidir.
+**Total: 204 rutas** — 145 con permiso, 46 públicas, 13 solo sesión, 0 sin decidir.
 
 ## AppController
 
@@ -193,6 +193,7 @@
 | PATCH | `/juror/assignments/reassign` | Permiso `AssignJurors` | Administrador |  |
 | POST | `/juror` | Permiso `CreateJuror` | Administrador |  |
 | POST | `/juror/assignments` | Permiso `AssignJurors` | Administrador |  |
+| POST | `/juror/assignments/bulk` | Permiso `AssignJurors` | Administrador | Agregada a mano (HU-42, ARK-275): varios equipos a un jurado |
 | POST | `/juror/resend-confirmation` | Permiso `SendEmail` | Administrador |  |
 
 ## JurorEditionController
@@ -202,7 +203,16 @@
 | GET | `/juror-edition` | Permiso `ListEditionJurors` | Administrador |  |
 | PATCH | `/juror-edition/status` | Permiso `ManageEditionJurors` | Administrador |  |
 | POST | `/juror-edition/enroll` | Permiso `ManageEditionJurors` | Administrador |  |
-| POST | `/juror-edition/import-previous` | Permiso `ManageEditionJurors` | Administrador |  |
+| POST | `/juror-edition/import` | Permiso `ManageEditionJurors` | Administrador | HU-49 (ARK-280): importa el Excel de jurados de la edición activa |
+| GET | `/juror-edition/import/template` | Permiso `ManageEditionJurors` | Administrador | HU-49: plantilla del Excel |
+
+## MinigameRecordsController
+
+| Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
+|---|---|---|---|---|
+| DELETE | `/minigame-records/:id` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): borra un récord de los minijuegos (alias grosero o puntaje falso) y devuelve el top recalculado (HU-52, ARK-315). |
+| GET | `/minigame-records` | Pública | Cualquiera (sin sesión) | El `id` de cada récord solo le llega al Administrador (para borrarlo). |
+| POST | `/minigame-records` | Pública | Cualquiera (sin sesión) |  |
 
 ## NrcsController
 
@@ -257,12 +267,10 @@
 | Método | Ruta | Acceso | Roles que pueden ejecutarla | Notas |
 |---|---|---|---|---|
 | GET | `/ranking` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): ranking oficial por nivel con empates (HU-04). |
-| GET | `/ranking/decisions` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): decisiones de desempate registradas (HU-04). |
-| GET | `/ranking/my-ties` | Permiso `MySubjects` | Administrador, Profesor | Profesor: solo los empates que le toca decidir (HU-04). |
+| GET | `/ranking/decisions` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): historial de decisiones de desempate; desde HU-47 no cambian el orden. |
 | GET | `/ranking/ties` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): empates detectados (HU-04). |
 | GET | `/ranking/winners` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): ganadores de cada nivel (HU-04). |
 | POST | `/ranking/finalize` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): define el ranking final (HU-04). |
-| POST | `/ranking/ties/decision` | Permiso `MySubjects` | Administrador, Profesor | Profesor: solo empates entre grupos de sus NRC (RankingService.decide); el Administrador, cualquier empate pendiente (HU-04). |
 
 ## ReportsController
 
@@ -284,12 +292,14 @@
 | GET | `/settings/registrations` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/show-evaluations` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/settings/show-ranking` | Pública | Cualquiera (sin sesión) | `true` solo con el ranking publicado y la nota final liberada (BG-67). |
+| GET | `/settings/verification-codes` | Permiso `UpdateSettings` | Administrador |  |
 | GET | `/settings/weights` | Permiso `GetWeight` | Administrador |  |
 | GET | `/settings/weights/:editionId` | Permiso `GetWeight` | Administrador |  |
 | PATCH | `/settings/evaluations-status` | Permiso `UpdateSettings` | Administrador |  |
 | PATCH | `/settings/registrations` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): abre o cierra las inscripciones. |
 | PATCH | `/settings/show-evaluations` | Permiso `UpdateSettings` | Administrador |  |
 | PATCH | `/settings/show-ranking` | Permiso `UpdateSettings` | Administrador | 400 `RANKING_REQUIRES_FINAL_GRADE` si se publica sin la nota final liberada (BG-67). |
+| PATCH | `/settings/verification-codes` | Permiso `UpdateSettings` | Administrador | Exigir o no el código de verificación en toda la edición activa (HU-50). |
 | POST | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 | PUT | `/settings/weights` | Permiso `ManageWeight` | Administrador |  |
 
@@ -330,9 +340,9 @@
 | GET | `/teams` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/teams/:id` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo). Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
 | GET | `/teams/:id/full` | Permiso `GetTeam` | Administrador, Estudiante | Estudiante: solo su propio equipo (líder o integrante activo), sin el correo de los jurados. Otros roles con GetTeam lo reciben sin correos, códigos estudiantiles ni código de verificación (ARK-112). |
-| GET | `/teams/final-score/by-n/:n` | Pública | Cualquiera (sin sesión) |  |
-| GET | `/teams/final-score/team/:teamId` | Pública | Cualquiera (sin sesión) |  |
-| GET | `/teams/final-score/videogame/:videogameId` | Pública | Cualquiera (sin sesión) |  |
+| GET | `/teams/final-score/by-n/:n` | Pública | Cualquiera (sin sesión) | Solo el podio (3 primeros) de cada nivel y sin notas (HU-48, ARK-306); `[]` si el ranking no está publicado, salvo al Administrador. |
+| GET | `/teams/final-score/team/:teamId` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): notas finales de un equipo. Era pública y devolvía la nota de cualquier equipo; se cerró en HU-48 (ARK-306). Sin sesión 401, otros roles 403. El estudiante ve su nota en `GET /final-grade/me`. |
+| GET | `/teams/final-score/videogame/:videogameId` | Solo sesión | Cualquier usuario con sesión | Solo el Administrador (AdminRoleGuard): notas finales de los equipos de un videojuego. Era pública; se cerró en HU-48 (ARK-306). Sin sesión 401, otros roles 403. |
 | GET | `/teams/incomplete-jurors` | Permiso `AssignJurors` | Administrador |  |
 | GET | `/teams/leader/:email/status` | Permiso `ViewTeamLeaderStatus` | Administrador |  |
 | GET | `/teams/name/:teamName` | Pública | Cualquiera (sin sesión) |  |
@@ -352,6 +362,7 @@
 | GET | `/team-verification/:teamId` | Permiso `ManageTeamVerificationCode` | Administrador |  |
 | GET | `/team-verification/my-code` | Permiso `MyTeamMembers` | Administrador, Estudiante |  |
 | GET | `/team-verification/status` | Permiso `Create Evaluation` | Administrador, Jurado, Profesor |  |
+| PATCH | `/team-verification/:teamId/required` | Permiso `ManageTeamVerificationCode` | Administrador | Desactivar o activar el código del equipo (HU-50). |
 | POST | `/team-verification/:teamId/regenerate` | Permiso `ManageTeamVerificationCode` | Administrador |  |
 | POST | `/team-verification/verify` | Permiso `Create Evaluation` | Administrador, Jurado, Profesor |  |
 

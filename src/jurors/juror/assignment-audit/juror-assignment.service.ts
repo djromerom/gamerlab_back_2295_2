@@ -144,8 +144,10 @@ export class JurorAssignmentService implements OnModuleInit {
     );
   }
 
+  // HU-42 (ARK-275): estos cinco helpers son públicos porque `JurorAssignmentBulkService` los reutiliza.
+
   /** Traduce el usuario al formato de las reglas de HU-08. */
-  private toRuleEvaluator(evaluator: EvaluatorForValidation): RuleEvaluator {
+  toRuleEvaluator(evaluator: EvaluatorForValidation): RuleEvaluator {
     const kind =
       evaluator.roleId === this.professorRoleId
         ? 'PROFESSOR'
@@ -162,7 +164,7 @@ export class JurorAssignmentService implements OnModuleInit {
     };
   }
 
-  private toRuleTeam(team: TeamForValidation): RuleTeam {
+  toRuleTeam(team: TeamForValidation): RuleTeam {
     return {
       id: team.id,
       teamCode: team.teamCode,
@@ -248,7 +250,7 @@ export class JurorAssignmentService implements OnModuleInit {
   }
 
   /** Evaluador activo que se agrega, con su participación en la edición activa. */
-  private async findEvaluatorToAdd(
+  async findEvaluatorToAdd(
     evaluatorId: string,
     activeEdition: ActiveEdition,
   ) {
@@ -266,7 +268,7 @@ export class JurorAssignmentService implements OnModuleInit {
    * BG-35 (ARK-158): asignar y reasignar exigen equipo confirmado; quitar no.
    * HU-39 (ARK-209): ni a un equipo no calificable (presentador externo).
    */
-  private assertTeamConfirmed(
+  assertTeamConfirmed(
     team: Parameters<typeof findTeamNotConfirmedBlocker>[0] &
       Parameters<typeof findTeamNotGradableBlocker>[0],
   ) {
@@ -277,7 +279,7 @@ export class JurorAssignmentService implements OnModuleInit {
     }
   }
 
-  private async findActiveTeam(teamId: number, activeEdition: ActiveEdition) {
+  async findActiveTeam(teamId: number, activeEdition: ActiveEdition) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
       include: {
@@ -412,7 +414,7 @@ export class JurorAssignmentService implements OnModuleInit {
         );
       }
 
-      this.pushNotifier.notifyAssignmentChanged([jurorId]);
+      this.pushNotifier.notifyTeamsAssigned([{ jurorId, teamId }]);
       this.substituteNotices.sendEmailAfterCommit([substituteNoticeId]);
 
       return {

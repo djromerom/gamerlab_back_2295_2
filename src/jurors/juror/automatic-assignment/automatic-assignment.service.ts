@@ -151,8 +151,8 @@ export class AutomaticAssignmentService {
         { maxWait: 10_000, timeout: 60_000 },
       );
       // `sameAssignments` ya comprobó que la lista recibida es el plan que se guardó.
-      this.pushNotifier.notifyAssignmentChanged(
-        dto.assignments.map((assignment) => assignment.jurorId),
+      this.pushNotifier.notifyTeamsAssigned(
+        dto.assignments.map(({ jurorId, teamId }) => ({ jurorId, teamId })),
       );
       return result;
     } catch (error) {

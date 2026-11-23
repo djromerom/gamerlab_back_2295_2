@@ -2,6 +2,63 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-20: récord global de los minijuegos de la landing (HU-52, ARK-315)
+- Nuevas rutas públicas `GET /minigame-records` (top 5 de Arkadash o de una canción de Arkad Jam; sin canción, el de todas) y `POST /minigame-records` (guarda el puntaje solo si entra en el top 5), y `DELETE /minigame-records/:id` solo para el Administrador (borra un récord y devuelve el top recalculado; el `id` de cada récord solo se le entrega a él). Alias de 3 a 12 caracteres sin datos personales ni groserías (400 `MINIGAME_ALIAS_OFFENSIVE`, `minigame-alias-offensive.ts`), tope por juego (Arkadash 10 000, Arkad Jam 100 000) y límite por IP (300 consultas y 20 guardados por minuto).
+- Migración `20261120215000_add_minigame_records`: tabla `record_minijuego` (solo alias, puntaje y fecha; sin datos de quien juega) con CHECK del puntaje. Se guardan solo los 5 mejores de cada pista.
+- [endpoints](../02-backend/endpoints.md), [modelo de datos](../02-backend/modelo-de-datos.md), [arquitectura de módulos](../02-backend/arquitectura-modulos.md), [caché y límites](../02-backend/cache-y-throttling.md) e [inventario de rutas](../02-backend/inventario-de-rutas.md) actualizados. Contrato para el front en `docs/frontend/HU-52-records-minijuegos.md` (ARK-316).
+
+## 2026-11-20: el push al jurado dice cuántos grupos nuevos se le asignaron y cuáles (HU-51, ARK-292)
+- Al asignar grupos (manual, varios equipos a la vez, automática, suplentes, contingencia y último momento) el aviso dice «Te asignaron N grupos nuevos: códigos» y abre `/pendientes-calificar`; un solo aviso por jurado y operación. Si los códigos no caben, muestra los primeros y «y N más». Quitar o reasignar sigue con el aviso genérico «Cambios en tus equipos».
+- [decisiones abiertas](../01-negocio/decisiones-abiertas.md): fila de los avisos push actualizada. Sin migración ni permisos nuevos.
+
+## 2026-11-20: presencia solo de los jurados con equipos por calificar (BG-72, ARK-283)
+- [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): «Presencia de los jurados» lista solo a los que llegaron y todavía tienen equipos sin calificar; vuelve a salir quien recibe un equipo nuevo.
+- `GET /juror-presence`: cada fila trae `pendingTeams`; `totals` suma `withPendingTeams` y `finished` (`checkedIn` sigue contando a todos los que llegaron; los totales de indicadores cuentan solo a los listados).
+- Contrato `docs/frontend/HU-23-presencia-jurado.md` actualizado. Sin migración ni permisos nuevos.
+
+## 2026-11-20: «No podrá asistir» como ausente confirmado y grupos de cada ausente (HU-44, ARK-293)
+- [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): «No podrá asistir» deja al jurado en «No vendrán» y Contingencia lo trata como ausente de inmediato, sin quitarle los grupos; un check-in o una respuesta informativa posterior lo devuelven a la normalidad.
+- `GET /absence-alert`: cada jurado trae `groups` (`teamId`, `teamCode`, `level`, `evaluated`), `pendingGroups`, `notComing` y `notComingSince`; nueva lista `notComingJurors` (a cualquier hora) y `totals.notComing`. `missingJurors` y `totals.missing` ya no cuentan a los que no vendrán. En `GET /absence-alert/panel` el que no vendrá sale `ABSENT` también antes de la hora de control.
+- `GET /juror/contingency/groups-at-risk` y `suggestions`: el que no vendrá deja de contar en los grupos que no ha calificado (`noVendra: true`, `cuenta: false`) y no se propone como suplente.
+- Regla en `src/jurors/absent-juror-responses/not-coming.ts`. Sin migración ni permisos nuevos. Contrato para el front en `docs/frontend/HU-44-no-podra-asistir.md` (ARK-294).
+
+## 2026-11-20: liberar la nota final, método y respuesta de /final-grade/me confirmados (HU-46, ARK-301)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md#nota-final-para-los-estudiantes-hu-20): `PATCH /final-grade/release` es el método que usa el front (`PUT` responde 404). `GET /final-grade/me` documenta todos sus `status`, incluidos `NOT_GRADABLE` (HU-39) y `REJECTED` (BG-43), y que `IN_PROCESS` cubre al equipo sin nota completa (BG-48).
+- Inventario de rutas en código (`route-inventory.ts`): la nota de `PATCH /final-grade/release` dice la hora de cierre del cronograma en lugar de «las 12:00» fijas.
+- Prueba nueva `test/final-grade-release-http.e2e-spec.ts` (HTTP con la app completa). Sin cambios de comportamiento, migración ni permisos.
+
+## 2026-11-20: ranking público solo con el podio y sin notas (HU-48, ARK-306)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md): `GET /teams/final-score/by-n/:n` devuelve solo los 3 primeros de cada nivel (ya desempatados por inscripción, HU-47) con una lista blanca de campos, sin `finalScore` ni ningún otro puntaje, para todos los roles. Campos nuevos `level` y `levelPosition`; `position` = `levelPosition`. `all` trae el podio de todos los niveles. El Administrador sigue viendo todo con notas en `GET /ranking`.
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): nota en la ruta. Se edita a mano. Sin migración. El front (quitar «Todos», la lista, la nota del podio y el texto 60/40) va en ARK-307.
+
+## 2026-11-20: desempate siempre por fecha de inscripción (HU-47, ARK-304)
+- [reglas de negocio](../01-negocio/reglas-de-negocio.md#4-ranking-y-desempate): decisión del profesor del 19-nov, reemplaza P-05. Todo empate se resuelve por `fecha_registro` y, si coincide, por el id del equipo. Los profesores ya no eligen; no hay empates pendientes ni resolución manual.
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md#ranking-por-nivel-hu-04): cada empate sale con `rule: "REGISTRATION"`, `status: "RESOLVED"`, `deciders: []` y `decision: null` (campos que se conservan por compatibilidad con el front). Las decisiones guardadas antes en `decision_desempate` quedan como historial (`GET /ranking/decisions`) y no cambian el orden. `POST /ranking/finalize` ya no responde 409 y `registeredDecisions` cuenta solo las filas nuevas.
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): se quitan `GET /ranking/my-ties` y `POST /ranking/ties/decision` (ahora 404). Se editan a mano. Sin migración ni cambios de permisos. El front (quitar «Mis empates» y dejar `/tiebreaker` en solo lectura) va en ARK-305.
+
+## 2026-11-20: desactivar el código de verificación por equipo y en toda la edición (HU-50, ARK-314)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `PATCH /team-verification/:teamId/required` (`ManageTeamVerificationCode`) y `GET|PATCH /settings/verification-codes` (`UpdateSettings`), solo Administrador; `GET /team-verification/status?includeLocks=true` trae además `required`.
+- [modelo-de-datos](../02-backend/modelo-de-datos.md): `Team.verificationRequired` y `EventConfiguration.verificationCodesEnabled` (con quién y cuándo), por defecto `true`; acciones `CODE_DISABLED`/`CODE_ENABLED` en la bitácora. Migración `20261122000000_add_verification_code_switches`.
+- [equipos-y-verificacion](../01-negocio/equipos-y-verificacion.md) y [jurados](../01-negocio/jurados.md): cuándo se pide el código; el interruptor global manda.
+- Contrato `docs/frontend/HU-50-desactivar-codigo-verificacion.md` para el front (ARK-311).
+
+## 2026-11-20: importar jurados de la edición desde Excel (HU-49, ARK-280)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror-edition/import` (multipart `file`, xlsx de hasta 2 MB y 500 filas) y `GET /juror-edition/import/template`, permiso `ManageEditionJurors` (solo Administrador), solo la edición activa. Se retira `POST /juror-edition/import-previous` (ahora 404).
+- [arquitectura-modulos](../02-backend/arquitectura-modulos.md): carpeta `jurors/juror-edition/import/`.
+- Los correos para crear la contraseña salen en una cola con pausa (`JUROR_IMPORT_EMAIL_DELAY_MS`, en `.env.example`). Sin migración ni permiso nuevo.
+- Contratos `docs/frontend/HU-25-*.md` y `HU-28-*.md`: marcado como retirado el endpoint `import-previous`.
+
+## 2026-11-20: asignar varios equipos a un jurado (HU-42, ARK-275)
+- [endpoints](../02-backend/endpoints.md) e [inventario-de-rutas](../02-backend/inventario-de-rutas.md): `POST /juror/assignments/bulk` (`jurorId`, `teamIds[]` 1 a 50, `confirmWarnings`), permiso `AssignJurors` (solo Administrador). Mismas reglas de HU-08 por equipo; un equipo bloqueado no frena a los demás (resultado por equipo `ASSIGNED` / `ASSIGNED_WITH_WARNINGS` / `BLOCKED`); advertencias juntas en un 409 `ASSIGNMENT_WARNINGS` con `blocked`; una transacción, una fila de bitácora por equipo y un solo aviso push. `POST /juror/assignments` no cambia.
+- Contrato nuevo `docs/frontend/HU-42-asignar-varios-equipos.md`. Sin migración ni permiso nuevo.
+
+## 2026-11-20: check-in obligatorio para calificar (BG-71, ARK-285)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): `findEvaluationBlockers` agrega el bloqueo «sin check-in» (409 `JUROR_NOT_CHECKED_IN`) para el envío individual, el lote (de toda la petición) y el guardado de borradores; la lista de borradores no lo aplica. El Profesor que califica solo por su NRC (sin estar asignado) queda exento. Sin migración ni permiso nuevo.
+- Contrato nuevo `docs/frontend/BG-71-check-in-para-calificar.md`.
+
+## 2026-11-20: el seguimiento cuenta solo evaluaciones de jurado (BG-73, ARK-284)
+- [evaluación y ranking](../02-backend/evaluacion-y-ranking.md) y [jurados](../01-negocio/jurados.md): «Recibidas», «Cuentan», «Faltan», la tabla por hora y la alerta de HU-12 excluyen la nota del profesor a sus NRC (filtro único `JUROR_EVALUATION_FILTER`). Sin migración ni cambio de contrato (mismos campos). Queda anotada la diferencia con la marca «Menos de 3 evaluaciones» del ranking (BG-68), que la vista cuenta con la nota del profesor.
+
 ## 2026-11-17: ver de quién es un QR antes de registrar la llegada (BG-49, ARK-251)
 - [endpoints](../02-backend/endpoints.md): `GET /juror-checkin/badge?token=` (permiso `JurorCheckIn`, Staff y Administrador). Misma validación que `POST scan` (404 «Código QR no válido o de otra edición»), devuelve `juror` (id, nombre, categoría, grupos) y `checkedInAt` de la llegada activa (una anulada no cuenta) sin crear ni cambiar la asistencia. Pedido del front para ARK-252.
 - [jurados](../01-negocio/jurados.md#flujo-del-día-de-la-feria): al leer un QR la mesa confirma con el nombre antes de registrar.

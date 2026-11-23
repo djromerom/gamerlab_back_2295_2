@@ -12,11 +12,21 @@ import { Prisma } from '@prisma/client';
  * jurado) deben usar este filtro; si no, al profesor le aparecen los equipos de sus NRC que solo
  * calificó como docente. Ninguna ruta borra detalles, así que una evaluación de jurado nunca
  * queda sin ellos.
+ *
+ * BG-73 (ARK-284): el panel de seguimiento (HU-21) y la alerta de HU-12 cuentan «Recibidas»,
+ * «Cuentan» y «Faltan» solo con evaluaciones de jurado: usan el mismo filtro, para no tener dos
+ * reglas de qué es una evaluación de jurado.
  */
-export function jurorEvaluationsOf(jurorId: string): Prisma.EvaluationWhereInput {
+export const JUROR_EVALUATION_FILTER = {
+  isActive: true,
+  details: { some: {} },
+} satisfies Prisma.EvaluationWhereInput;
+
+export function jurorEvaluationsOf(
+  jurorId: string,
+): Prisma.EvaluationWhereInput {
   return {
     jurorId,
-    isActive: true,
-    details: { some: {} },
+    ...JUROR_EVALUATION_FILTER,
   };
 }

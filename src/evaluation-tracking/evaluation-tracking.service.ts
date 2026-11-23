@@ -8,6 +8,7 @@ import {
   MAX_COUNTED_EVALUATIONS,
   countedTotal,
 } from '../evaluation/counted-evaluations';
+import { JUROR_EVALUATION_FILTER } from '../evaluation/juror-evaluation';
 import { PrismaService } from '../prisma/prisma.service';
 import { CONFIRMED_VIDEOGAME, GRADABLE_TEAM } from '../teams/team-status';
 import {
@@ -65,7 +66,8 @@ function byFewestEvaluations(a: GroupTracking, b: GroupTracking): number {
 
 /**
  * HU-21: avance de las evaluaciones de cada grupo de la feria activa, con
- * cortes acumulados por hora. Solo lectura y sin datos personales: lo ven el
+ * cortes acumulados por hora. Solo cuentan las evaluaciones de jurado (BG-73): la nota que el
+ * profesor pone a sus NRC no suma a «Recibidas» ni a «Cuentan». Solo lectura y sin datos personales: lo ven el
  * Administrador y los profesores (P-26). HU-12 reutiliza este servicio.
  */
 @Injectable()
@@ -122,9 +124,11 @@ export class EvaluationTrackingService {
     const [evaluations, attendance] = await Promise.all([
       videogameIds.length
         ? this.prisma.evaluation.findMany({
+            // BG-73 (ARK-284): solo evaluaciones de jurado; la nota del profesor a sus NRC (sin
+            // detalles) no es una evaluación recibida del grupo.
             where: {
               editionId,
-              isActive: true,
+              ...JUROR_EVALUATION_FILTER,
               videogameId: { in: videogameIds },
             },
             select: { videogameId: true, date: true },

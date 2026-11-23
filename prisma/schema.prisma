@@ -82,6 +82,11 @@ model EventConfiguration {
   // HU-14 (ARK-213): mínimo de evaluaciones por grupo para la contingencia (grupos en riesgo y
   // cuántos suplentes sugerir). No cambia que solo cuenten las 3 primeras en la nota (P-10).
   minEvaluationsPerTeam   Int @default(3) @map("minimo_evaluaciones")
+  // HU-50 (ARK-314): «Exigir código de verificación a los jurados». false = ningún equipo de la
+  // edición lo pide. Quién y cuándo lo cambió por última vez (null si nunca se cambió).
+  verificationCodesEnabled   Boolean   @default(true) @map("exigir_codigo_verificacion")
+  verificationCodesChangedAt DateTime? @map("exigir_codigo_verificacion_cambiado_en")
+  verificationCodesChangedBy String?   @map("exigir_codigo_verificacion_cambiado_por")
   edition         Edition  @relation(fields: [editionId], references: [id])
 
   @@map("configuracion_evento")
@@ -273,6 +278,9 @@ model Team {
   teamCode         String          @map("codigo_equipo") @db.VarChar(12)
   // Código que el estudiante ve en su panel y el jurado digita para calificar (HU-19). Null en equipos N0 (colegios).
   verificationCode String?         @map("codigo_verificacion") @db.VarChar(8)
+  // HU-50 (ARK-314): false = el Administrador desactivó el código de este equipo y los jurados lo
+  // califican sin digitarlo. No borra el código ni las verificaciones hechas.
+  verificationRequired Boolean     @default(true) @map("codigo_verificacion_requerido")
   edition          Edition         @relation(fields: [editionId], references: [id])
   user             User            @relation("createdTeam", fields: [userId], references: [id])
   members          Member[]        @relation("TeamMembers")
@@ -308,6 +316,9 @@ enum TeamVerificationAction {
   ATTEMPT_FAILED
   CODE_VIEWED
   CODE_REGENERATED
+  // HU-50 (ARK-314): el Administrador desactivó o volvió a activar el código del equipo.
+  CODE_DISABLED
+  CODE_ENABLED
 }
 
 // Registro de intentos y acciones del administrador sobre el código de verificación.
@@ -1018,4 +1029,25 @@ model TieBreakDecision {
 
   @@index([editionId, level])
   @@map("decision_desempate")
+}
+
+/// HU-52 (ARK-315): juegos de la landing con récord global.
+enum MinigameGame {
+  ARKADASH // un solo récord global
+  ARKAD_JAM // un récord por canción
+}
+
+/// HU-52 (ARK-315): récords globales de los minijuegos de la landing. Solo se guardan los 5 mejores
+/// de cada pista (`global` en Arkadash, `<instrumento>-<índice>` en Arkad Jam). Sin datos de quien
+/// juega: solo el alias que escribió.
+model MinigameRecord {
+  id        Int          @id @default(autoincrement()) @map("id_record")
+  game      MinigameGame @map("juego")
+  track     String       @map("pista") @db.VarChar(20)
+  alias     String       @db.VarChar(12)
+  score     Int          @map("puntaje")
+  createdAt DateTime     @default(now()) @map("creado_en")
+
+  @@index([game, track, score(sort: Desc), createdAt])
+  @@map("record_minijuego")
 }

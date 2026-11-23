@@ -84,29 +84,6 @@ export function assertWritable(
   if (reason) throw new BadRequestException(reason);
 }
 
-/** La edición inmediatamente anterior por año y semestre (10, 20, 30). 404 si no hay. */
-export async function findPreviousEdition(
-  prisma: EditionClient,
-  edition: ResolvedEdition,
-): Promise<{ id: number }> {
-  const previous = await prisma.edition.findFirst({
-    where: {
-      OR: [
-        { year: { lt: edition.year } },
-        { year: edition.year, semester: { lt: edition.semester } },
-      ],
-    },
-    orderBy: [{ year: 'desc' }, { semester: 'desc' }],
-    select: { id: true },
-  });
-  if (!previous) {
-    throw new NotFoundException(
-      'No hay una edición anterior de la cual traer jurados',
-    );
-  }
-  return previous;
-}
-
 export function toEditionSummary(edition: ResolvedEdition): EditionSummary {
   return {
     id: edition.id,

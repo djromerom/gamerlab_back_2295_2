@@ -393,7 +393,10 @@ export class AuthService {
   }
 
   // done locally
-  async registerUser(registerDto: RegisterDto): Promise<User> {
+  async registerUser(
+    registerDto: RegisterDto,
+    options: { sendVerificationEmail?: boolean } = {},
+  ): Promise<User> {
     this.logger.log(`Attempting to register user: ${registerDto.email}`);
 
     try {
@@ -402,14 +405,17 @@ export class AuthService {
       });
 
       // Transaction is fully committed at this point — $transaction only returns after commit
-      // Safe to send the verification email now.
-      setImmediate(() => {
-        this.sendVerificationEmail(user.email, verificationToken).catch((err) => {
-          this.logger.error(
-            `Failed to send verification email after registration: ${err instanceof Error ? err.message : String(err)}`,
-          );
+      // Safe to send the verification email now. HU-49 (ARK-280) passes
+      // `sendVerificationEmail: false` and sends it later, paced, to stay under the ACS quota.
+      if (options.sendVerificationEmail !== false) {
+        setImmediate(() => {
+          this.sendVerificationEmail(user.email, verificationToken).catch((err) => {
+            this.logger.error(
+              `Failed to send verification email after registration: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         });
-      });
+      }
 
       return user;
     } catch (error) {
@@ -878,7 +884,8 @@ export class AuthService {
       });
 
       // Redirect to error page with specific error info
-      const errorType = error instanceof UnauthorizedException ? 'unauthorized' : 'server_error';
+      // El front (AuthErrorPage) reconoce `server-error` con guion; con `server_error` mostraba la pantalla genérica.
+      const errorType = error instanceof UnauthorizedException ? 'unauthorized' : 'server-error';
       const REDIRECT_TO = this.configService.get<string>(
         'FRONTEND_URL',
         `http://localhost:5173`,

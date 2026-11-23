@@ -24,6 +24,7 @@ const juror = (
   firstName: string,
   attendance: { checkedInAt: Date; lastPresenceConfirmedAt: Date | null },
   role = 'Jurado',
+  videogameIds: number[] = [100],
 ) => ({
   id,
   firstName,
@@ -31,6 +32,7 @@ const juror = (
   jurorCategory: role === 'Jurado' ? 'JUNIOR' : null,
   role: { name: role },
   attendances: [attendance],
+  teamsToEvaluate: videogameIds.map((id) => ({ videogame: { id } })),
 });
 
 describe('JurorPresenceService (HU-23)', () => {
@@ -39,7 +41,7 @@ describe('JurorPresenceService (HU-23)', () => {
     eventConfiguration: { findUnique: jest.fn(), upsert: jest.fn() },
     jurorAttendance: { findFirst: jest.fn(), updateMany: jest.fn() },
     user: { findMany: jest.fn() },
-    evaluation: { groupBy: jest.fn() },
+    evaluation: { groupBy: jest.fn(), findMany: jest.fn() },
   };
   const service = new JurorPresenceService(prisma as unknown as PrismaService);
 
@@ -48,6 +50,7 @@ describe('JurorPresenceService (HU-23)', () => {
     prisma.edition.findFirst.mockResolvedValue(EDITION);
     prisma.eventConfiguration.findUnique.mockResolvedValue(config());
     prisma.evaluation.groupBy.mockResolvedValue([]);
+    prisma.evaluation.findMany.mockResolvedValue([]);
   });
 
   describe('getMine', () => {
@@ -170,6 +173,8 @@ describe('JurorPresenceService (HU-23)', () => {
       const result = await service.list({}, at(100));
       expect(result.totals).toEqual({
         checkedIn: 3,
+        withPendingTeams: 3,
+        finished: 0,
         presenceUnconfirmed: 1,
         possibleLeft: 1,
         withAnyIndicator: 1,
@@ -240,6 +245,91 @@ describe('JurorPresenceService (HU-23)', () => {
       const result = await service.list({}, at(100));
       expect(result.data).toEqual([]);
       expect(prisma.evaluation.groupBy).not.toHaveBeenCalled();
+      expect(prisma.evaluation.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('list: solo jurados con equipos por calificar (BG-72)', () => {
+    const arrival = { checkedInAt: ARRIVAL, lastPresenceConfirmedAt: null };
+    // Ana tiene 3 equipos y calificó 1; Beto calificó los 2 suyos; Dora no tiene equipos.
+    const ana = juror('ana', 'Ana', arrival, 'Jurado', [100, 101, 102]);
+    const beto = juror('beto', 'Beto', arrival, 'Jurado', [200, 201]);
+    const dora = juror('dora', 'Dora', arrival, 'Jurado', []);
+
+    beforeEach(() => {
+      prisma.user.findMany.mockResolvedValue([ana, beto, dora]);
+      prisma.evaluation.findMany.mockResolvedValue([
+        { jurorId: 'ana', videogameId: 101 },
+        { jurorId: 'beto', videogameId: 200 },
+        { jurorId: 'beto', videogameId: 201 },
+        // De otro jurado: no le cuenta a Ana.
+        { jurorId: 'beto', videogameId: 100 },
+      ]);
+    });
+
+    it('excluye a quien ya calificó todo o no tiene equipos y dice cuántos le faltan', async () => {
+      const result = await service.list({}, at(10));
+      expect(result.data.map((r) => [r.jurorId, r.pendingTeams])).toEqual([
+        ['ana', 2],
+      ]);
+      expect(result.totals).toMatchObject({
+        checkedIn: 3,
+        withPendingTeams: 1,
+        finished: 2,
+      });
+    });
+
+    it('los indicadores solo cuentan a los listados', async () => {
+      const result = await service.list({}, at(100));
+      expect(result.totals).toMatchObject({
+        presenceUnconfirmed: 1,
+        possibleLeft: 1,
+        withAnyIndicator: 1,
+      });
+      const any = await service.list({ indicator: 'ANY' }, at(100));
+      expect(any.data.map((r) => r.jurorId)).toEqual(['ana']);
+    });
+
+    it('si le asignan un equipo nuevo, vuelve a aparecer', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        juror('beto', 'Beto', arrival, 'Jurado', [200, 201, 202]),
+      ]);
+      const result = await service.list({}, at(10));
+      expect(result.data.map((r) => [r.jurorId, r.pendingTeams])).toEqual([
+        ['beto', 1],
+      ]);
+    });
+
+    it('cuenta solo evaluaciones activas de la edición y equipos calificables', async () => {
+      await service.list({}, at(10));
+      expect(prisma.evaluation.findMany).toHaveBeenCalledWith({
+        where: {
+          editionId: EDITION.id,
+          isActive: true,
+          jurorId: { in: ['ana', 'beto', 'dora'] },
+        },
+        select: { jurorId: true, videogameId: true },
+      });
+      const [args] = prisma.user.findMany.mock.calls[0] as [
+        { select: { teamsToEvaluate: { where: unknown } } },
+      ];
+      expect(args.select.teamsToEvaluate.where).toEqual({
+        editionId: EDITION.id,
+        isActive: true,
+        videogame: {
+          is: {
+            isActive: true,
+            videogameStatus: { status: 'CONFIRMADO' },
+          },
+        },
+        notGradable: false,
+      });
+      // La última actividad solo se pide para los listados.
+      expect(prisma.evaluation.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { editionId: EDITION.id, jurorId: { in: ['ana'] } },
+        }),
+      );
     });
   });
 

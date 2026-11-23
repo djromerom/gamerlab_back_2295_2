@@ -34,7 +34,10 @@ maybe('HU-09: suplentes en lote (BD real)', () => {
   const prisma = new PrismaService();
   const audit = new JurorAssignmentAuditService(prisma);
   const validation = new AssignmentValidationService(prisma);
-  const push = { notifyAssignmentChanged: jest.fn() };
+  const push = {
+    notifyAssignmentChanged: jest.fn(),
+    notifyTeamsAssigned: jest.fn(),
+  };
   const notices = new SubstituteNoticesService(
     prisma,
     { sendEmail: jest.fn(), isConfigured: () => false } as any,
@@ -279,7 +282,7 @@ maybe('HU-09: suplentes en lote (BD real)', () => {
     failing.mockRestore();
 
     expect(await snapshot()).toEqual(before);
-    expect(push.notifyAssignmentChanged).not.toHaveBeenCalled();
+    expect(push.notifyTeamsAssigned).not.toHaveBeenCalled();
   });
 
   it(`un oficial en substituteIds: 400 ${NOT_A_SUBSTITUTE} y nada cambia`, async () => {
@@ -376,10 +379,23 @@ maybe('HU-09: suplentes en lote (BD real)', () => {
     expect((email.mock.calls[0][0] as number[]).filter(Boolean)).toHaveLength(
       2,
     );
-    expect(push.notifyAssignmentChanged).toHaveBeenCalledWith([
-      user.sup1,
-      user.sup2,
-    ]);
+    // HU-51: un solo aviso con los grupos nuevos de cada suplente.
+    expect(push.notifyTeamsAssigned).toHaveBeenCalledTimes(1);
+    const pairs = push.notifyTeamsAssigned.mock.calls[0][0] as {
+      jurorId: string;
+      teamId: number;
+    }[];
+    const teamsOf = (jurorId: string) =>
+      pairs
+        .filter((p) => p.jurorId === jurorId)
+        .map((p) => p.teamId)
+        .sort((a, b) => a - b);
+    expect(teamsOf(user.sup1)).toEqual(
+      [team.T1, team.T2].sort((a, b) => a - b),
+    );
+    expect(teamsOf(user.sup2)).toEqual(
+      [team.T1, team.T2, team.T3].sort((a, b) => a - b),
+    );
     email.mockRestore();
   });
 

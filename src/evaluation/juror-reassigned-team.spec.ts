@@ -131,6 +131,8 @@ function createDb() {
       findFirst: jest.fn(async () => ({ evaluationsOpen: true })),
     },
     criterion: { findMany: jest.fn(async () => [{ id: 1, weight: 1 }]) },
+    // BG-71 (ARK-285): el jurado ya hizo check-in.
+    jurorAttendance: { findFirst: jest.fn(async () => ({ id: 1 })) },
     videogame: {
       findMany: jest.fn(async ({ where, select }) => {
         if (where.AND) {
@@ -337,7 +339,10 @@ describe('Jurado y equipo reasignado por HTTP (ARK-190)', () => {
       db.prisma,
       new JurorAssignmentAuditService(db.prisma),
       { validate: async () => ({}), enforce: () => [] } as any,
-      { notifyAssignmentChanged: () => undefined } as any,
+      {
+        notifyAssignmentChanged: () => undefined,
+        notifyTeamsAssigned: () => undefined,
+      } as any,
       // HU-22 (ARK-84): avisos a suplentes (no aplican en estas pruebas).
       { recordAssignment: async () => null, sendEmailAfterCommit: () => undefined } as any,
     );

@@ -22,8 +22,16 @@ import * as handlebars from 'handlebars';
 import { randomUUID } from 'node:crypto';
 import { CertEmailType, CERT_EMAIL_CONFIG } from './types/cert-email.type';
 
-import { EmailClient } from '@azure/communication-email';
+import { EmailClient, EmailMessage, EmailSendResponse } from '@azure/communication-email';
 import { RestError } from '@azure/core-rest-pipeline';
+import {
+  acsOperationFailure,
+  acsRetryDelayMs,
+  isAzureManagedSender,
+  isRateLimitError,
+  retryAfterMs,
+} from './acs-retry';
+import { SendQueue } from './send-queue';
 import { findUserByEmailCaseInsensitive } from '../common/utils/find-user-by-email';
 import { ActiveEdition, findActiveEdition } from '../editions/active-edition';
 import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
@@ -38,6 +46,8 @@ export class EmailService {
 
   private emailClient: EmailClient | null = null;
   private senderAddress: string = '';
+  /** BG-74 (ARK-289): todos los envíos a ACS pasan por aquí, de a uno y con pausa. */
+  private sendQueue: SendQueue | null = null;
 
   // Auth-related token IDs (will be set in onModuleInit)
   private verificationTokenId: number;
@@ -163,9 +173,20 @@ export class EmailService {
         acsConnectionString &&
         acsSenderAddress
       ) {
-        this.emailClient = new EmailClient(acsConnectionString);
+        // BG-74: sin reintentos internos del SDK. Los hace sendThroughAcs, que respeta Retry-After
+        // dentro de la cola y nunca reenvía un correo que ACS ya aceptó.
+        this.emailClient = new EmailClient(acsConnectionString, {
+          retryOptions: { maxRetries: 0 },
+        });
         this.senderAddress = acsSenderAddress;
-        this.logger.log('ACS EmailClient successfully initialized');
+        this.logger.log(
+          `ACS EmailClient successfully initialized (pausa entre correos: ${this.minSendIntervalMs()} ms)`,
+        );
+        if (isAzureManagedSender(acsSenderAddress)) {
+          this.logger.warn(
+            'El remitente de ACS usa un dominio administrado por Azure (azurecomm.net): el cupo es de 5 correos por minuto y 10 por hora para toda la suscripción, y no se puede subir. Para envíos masivos hace falta un dominio propio.',
+          );
+        }
       } else {
         this.logger.warn(
           'ACS credentials not fully configured. EmailService will run in SIMULATION mode.',
@@ -584,26 +605,17 @@ export class EmailService {
 
       if (this.emailClient) {
         const client = this.emailClient;
-        this.logger.log(`Enviando carga útil a ACS apuntando a ${to}...`);
-
-        const result = await this.withRetry(
-          async () => {
-            const poller = await client.beginSend(message, {
-              abortSignal: AbortSignal.timeout(15_000), // 15 segundos máximo
-            });
-            return poller.pollUntilDone();
-          },
-          to,
-        );
-
-        if (!result || result.status !== 'Succeeded') {
-          this.logger.error(`[ACS] Envío no exitoso: ${result?.status}`);
-          throw new ServiceUnavailableException(
-            `ACS terminó con estado: ${result?.status ?? 'unknown'}`,
-          );
+        const queue = this.getSendQueue();
+        if (queue.size > 0) {
+          this.logger.log(`[ACS] Correo a ${to} en cola detrás de ${queue.size} envío(s).`);
         }
 
-        this.logger.log(`✅ Correo disparado vía Azure ACS (operación ${result.id}).`);
+        const operationId = await queue.run(() => {
+          this.logger.log(`Enviando carga útil a ACS apuntando a ${to}...`);
+          return this.sendThroughAcs(client, message, to);
+        });
+
+        this.logger.log(`✅ Correo disparado vía Azure ACS (operación ${operationId}).`);
       } else if (this.configService.get<string>('NODE_ENV') !== 'development') {
         // Fuera de desarrollo, simular un envío haría que el usuario crea que el correo salió.
         this.logger.error(
@@ -616,9 +628,12 @@ export class EmailService {
         );
       }
     } catch (error) {
-      if ((error as any)?.statusCode === 429) {
-        this.logger.warn(`[ACS] Rate limit alcanzado al enviar correo a ${to}. Reintenta más tarde.`);
-        throw new ServiceUnavailableException('RATE_LIMIT_EXCEEDED');
+      if (isRateLimitError(error)) {
+        // El tiempo que pide ACS queda en el motivo (p. ej. aviso_suplente.error_correo).
+        const waitMs = retryAfterMs(error);
+        const hint = waitMs === null ? '' : ` (ACS pide esperar ${Math.ceil(waitMs / 1_000)} s)`;
+        this.logger.warn(`[ACS] Rate limit alcanzado al enviar correo a ${to}${hint}. Reintenta más tarde.`);
+        throw new ServiceUnavailableException(`RATE_LIMIT_EXCEEDED${hint}`);
       }
 
       if (error instanceof Error && error.name === 'AbortError') {
@@ -643,39 +658,123 @@ export class EmailService {
         `Error inesperado enviando correo: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new InternalServerErrorException('Error inesperado enviando correo');
+      // BG-74: el tipo y el inicio del mensaje (sin correos) quedan en el motivo guardado; los
+      // logs del contenedor se pierden en cada despliegue.
+      const detail =
+        error instanceof Error
+          ? `${error.name}: ${error.message}`
+              .replace(/[^\s@<>"']+@[^\s@<>"']+/g, '[correo]')
+              .slice(0, 120)
+          : 'desconocido';
+      throw new InternalServerErrorException(`Error inesperado enviando correo (${detail})`);
     }
   }
 
+  /** Milisegundos de una variable de entorno; el valor por defecto si falta o no es válida. */
+  private readMs(name: string, fallback: number): number {
+    const raw = this.configService.get<string>(name);
+    if (raw === undefined || raw === null || String(raw).trim() === '') return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
+  }
+
   /**
-   * Reintenta solo fallos transitorios de ACS (429, timeout, 5xx) con backoff exponencial.
-   * Cada intento fallido queda en el log; el último error se propaga a sendEmail.
+   * BG-74: pausa entre correos (`ACS_MIN_INTERVAL_MS`). Por defecto 12 s con dominio de Azure
+   * (5 por minuto) y 2 s con dominio propio (30 por minuto).
    */
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    to: string,
-    maxAttempts = 3,
-    baseDelayMs = 1_000,
-  ): Promise<T> {
+  private minSendIntervalMs(): number {
+    return this.readMs(
+      'ACS_MIN_INTERVAL_MS',
+      isAzureManagedSender(this.senderAddress) ? 12_000 : 2_000,
+    );
+  }
+
+  private getSendQueue(): SendQueue {
+    this.sendQueue ??= new SendQueue({ minIntervalMs: this.minSendIntervalMs() });
+    return this.sendQueue;
+  }
+
+  /**
+   * BG-74 (ARK-289): un envío a ACS, ya dentro de su turno en la cola.
+   *
+   * Reintenta solo mientras ACS no haya aceptado el correo (429 respetando `Retry-After`, 5xx,
+   * timeout o error de red); los demás envíos esperan en la cola mientras tanto. El límite de
+   * tiempo (`ACS_REQUEST_TIMEOUT_MS`) cubre solo la entrega a ACS: el SDK reusa la señal de
+   * `beginSend` en las consultas de estado, y antes un `Running` de más de 15 s se tomaba como
+   * fallo y el correo se volvía a enviar. Desde el 202 del POST no se vuelve a llamar a
+   * `beginSend`: si la confirmación tarda o falla, se registra y no se duplica el correo. Cada
+   * intento lleva el mismo `Operation-Id`.
+   *
+   * Devuelve el id de la operación de ACS.
+   */
+  private async sendThroughAcs(client: EmailClient, message: EmailMessage, to: string): Promise<string> {
+    const operationId = randomUUID();
+    const retry = {
+      maxAttempts: 3,
+      baseDelayMs: 1_000,
+      maxWaitMs: this.readMs('ACS_MAX_RETRY_WAIT_MS', 60_000),
+    };
+
     for (let attempt = 1; ; attempt++) {
+      let accepted = false;
+      const abort = new AbortController();
+      const deadline = AbortSignal.timeout(this.readMs('ACS_REQUEST_TIMEOUT_MS', 15_000));
+      const onDeadline = () => {
+        if (!accepted) abort.abort();
+      };
+      deadline.addEventListener('abort', onDeadline, { once: true });
+
+      let result: EmailSendResponse;
       try {
-        return await operation();
+        const poller = await client.beginSend(message, {
+          operationId,
+          abortSignal: abort.signal,
+          onResponse: (response) => {
+            if (response.request.method === 'POST' && response.status === 202) accepted = true;
+          },
+        });
+        result = await poller.pollUntilDone({
+          abortSignal: AbortSignal.timeout(this.readMs('ACS_CONFIRM_TIMEOUT_MS', 60_000)),
+        });
       } catch (error) {
-        const statusCode = (error as any)?.statusCode;
-        const transient =
-          statusCode === 429 ||
-          (typeof statusCode === 'number' && statusCode >= 500) ||
-          (error instanceof Error && error.name === 'AbortError') ||
-          (error instanceof RestError && error.code === 'ETIMEDOUT');
-
-        if (!transient || attempt >= maxAttempts) throw error;
-
-        const delay = baseDelayMs * 2 ** (attempt - 1);
+        // ACS aceptó el correo y luego lo rechazó (estado Failed): es definitivo, no se reintenta.
+        // El código de ACS queda en el motivo (antes caía como "Error inesperado enviando correo").
+        const rejected = acsOperationFailure(error);
+        if (rejected !== null) {
+          this.logger.error(
+            `[ACS] ACS rechazó el correo para ${to} (operación ${operationId}): ${rejected}`,
+          );
+          throw new ServiceUnavailableException(`ACS rechazó el correo: ${rejected}`);
+        }
+        const label =
+          (error as { statusCode?: number } | null)?.statusCode ??
+          (error as Error | null)?.name ??
+          'unknown';
+        if (accepted) {
+          this.logger.warn(
+            `[ACS] ACS aceptó el correo para ${to} (operación ${operationId}) pero no confirmó el envío (${label}). No se reenvía para no duplicarlo.`,
+          );
+          return operationId;
+        }
+        const delay = acsRetryDelayMs(error, attempt, retry);
+        if (delay === null) throw error;
         this.logger.warn(
-          `[ACS] Intento ${attempt}/${maxAttempts} falló para ${to} (${statusCode ?? (error as Error)?.name ?? 'unknown'}). Reintentando en ${delay} ms.`,
+          `[ACS] Intento ${attempt}/${retry.maxAttempts} falló para ${to} (${label}). Reintentando en ${delay} ms.`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      } finally {
+        deadline.removeEventListener('abort', onDeadline);
       }
+
+      // Un estado final distinto de Succeeded es definitivo: no se reintenta.
+      if (!result || result.status !== 'Succeeded') {
+        this.logger.error(`[ACS] Envío no exitoso: ${result?.status}`);
+        throw new ServiceUnavailableException(
+          `ACS terminó con estado: ${result?.status ?? 'unknown'}`,
+        );
+      }
+      return result.id ?? operationId;
     }
   }
 
