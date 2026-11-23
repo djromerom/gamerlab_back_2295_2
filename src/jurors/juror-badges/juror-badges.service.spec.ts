@@ -7,6 +7,10 @@ import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JurorBadgesController } from './juror-badges.controller';
 import { JurorBadgesService } from './juror-badges.service';
+import { BadgePaperSize } from './badge-template';
+import { BadgesPdfQueryDto } from './dto/generate-badges.dto';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
 
 // Compilar el módulo de pruebas puede tardar más de 5 s cuando corre toda la suite en paralelo.
 jest.setTimeout(30000);
@@ -288,7 +292,37 @@ describe('JurorBadgesService', () => {
       expect(html).not.toContain('<b>Ana');
     });
 
-    it('imprime «Jurado» sin junior ni senior, también para profesores (HU-35)', async () => {
+    it('por defecto pide a Gotenberg la hoja tabloide sin márgenes', async () => {
+      prisma.jurorBadge.findMany.mockResolvedValue([
+        { jurorId: 'u1', token: 'tok', juror: juror('u1') },
+      ]);
+      certificates.convertHtmlToPdf.mockResolvedValue(Buffer.from('pdf'));
+
+      await service.generatePdf();
+
+      expect(certificates.convertHtmlToPdf).toHaveBeenCalledWith(
+        expect.any(String),
+        { paperWidth: '11in', paperHeight: '17in', margin: '0' },
+      );
+    });
+
+    it('con LETTER pide a Gotenberg carta horizontal', async () => {
+      prisma.jurorBadge.findMany.mockResolvedValue([
+        { jurorId: 'u1', token: 'tok', juror: juror('u1') },
+      ]);
+      certificates.convertHtmlToPdf.mockResolvedValue(Buffer.from('pdf'));
+
+      await service.generatePdf(undefined, BadgePaperSize.LETTER);
+
+      const html = callArg<string>(certificates.convertHtmlToPdf);
+      expect(html).toContain('@page { size: 279.4mm 215.9mm;');
+      expect(certificates.convertHtmlToPdf).toHaveBeenCalledWith(
+        expect.any(String),
+        { paperWidth: '11in', paperHeight: '8.5in', margin: '0' },
+      );
+    });
+
+    it('imprime solo nombre y QR, sin junior ni senior, también para profesores (HU-35)', async () => {
       prisma.jurorBadge.findMany.mockResolvedValue([
         {
           jurorId: 'u1',
@@ -314,10 +348,9 @@ describe('JurorBadgesService', () => {
       await service.generatePdf();
 
       const html = callArg<string>(certificates.convertHtmlToPdf);
-      expect(html.match(/<div class="category">Jurado<\/div>/g)).toHaveLength(
-        3,
-      );
-      expect(html).not.toMatch(/junior|senior|sin categor/i);
+      expect(html.match(/<div class="name">/g)).toHaveLength(3);
+      expect(html.match(/<img class="qr"/g)).toHaveLength(3);
+      expect(html).not.toMatch(/junior|senior|sin categor|class="category"/i);
     });
   });
 });
@@ -332,5 +365,49 @@ describe('JurorBadgesController: permisos', () => {
     expect(
       Reflect.getMetadata(REQUIRED_SERVICE_KEY, JurorBadgesController),
     ).toBe('ManageJurorBadges');
+  });
+});
+
+describe('JurorBadgesController: PDF', () => {
+  const pdfFor = async (query: BadgesPdfQueryDto) => {
+    const generatePdf = jest.fn().mockResolvedValue(Buffer.from('pdf'));
+    const controller = new JurorBadgesController({
+      generatePdf,
+    } as unknown as JurorBadgesService);
+    const file = await controller.pdf(query);
+    return { generatePdf, headers: file.getHeaders() };
+  };
+
+  it('sin paper usa tabloide y lo dice en el nombre del archivo', async () => {
+    const { generatePdf, headers } = await pdfFor({});
+    expect(generatePdf).toHaveBeenCalledWith(undefined, BadgePaperSize.TABLOID);
+    expect(headers.disposition).toBe(
+      'attachment; filename="escarapelas-tabloide.pdf"',
+    );
+  });
+
+  it('con LETTER genera en carta', async () => {
+    const { generatePdf, headers } = await pdfFor({
+      paper: BadgePaperSize.LETTER,
+      jurorIds: ['id-1'],
+    });
+    expect(generatePdf).toHaveBeenCalledWith(['id-1'], BadgePaperSize.LETTER);
+    expect(headers.disposition).toBe(
+      'attachment; filename="escarapelas-carta.pdf"',
+    );
+  });
+});
+
+describe('BadgesPdfQueryDto: paper', () => {
+  const errorsFor = (paper: unknown) =>
+    validateSync(plainToInstance(BadgesPdfQueryDto, { paper }));
+
+  it.each(['TABLOID', 'LETTER'])('acepta %s', (paper) => {
+    expect(errorsFor(paper)).toHaveLength(0);
+  });
+
+  it('rechaza otro tamaño con un mensaje en español', () => {
+    const [error] = errorsFor('A4');
+    expect(error.constraints?.isEnum).toBe('paper debe ser TABLOID o LETTER.');
   });
 });

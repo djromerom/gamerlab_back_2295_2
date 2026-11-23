@@ -48,6 +48,16 @@ const PDF_RETRY_BASE_MS = 1000;
 const PDF_ATTEMPT_TIMEOUT_MS = 45_000;
 const RETRYABLE_GOTENBERG_STATUS = new Set([429, 502, 503, 504]);
 
+/**
+ * Tamaño de página y márgenes para Gotenberg (acepta unidades: `11in`, `0mm`). Sin esto,
+ * Gotenberg imprime en carta con sus márgenes por defecto e ignora el `@page` del HTML.
+ */
+export interface PdfPageOptions {
+  paperWidth: string;
+  paperHeight: string;
+  margin: string;
+}
+
 const TEMPLATE_BY_PLACE: Record<number, string> = {
   1: 'certificate-First.html',
   2: 'certificate-Second.html',
@@ -262,14 +272,22 @@ export class CertificatesService {
   }
 
   /** ARK-170 (TA-19): un lote no puede saturar Gotenberg, venga de donde venga. */
-  convertHtmlToPdf(htmlContent: string): Promise<Buffer> {
-    return this.pdfLimiter.run(() => this.requestPdfWithRetry(htmlContent));
+  convertHtmlToPdf(
+    htmlContent: string,
+    page?: PdfPageOptions,
+  ): Promise<Buffer> {
+    return this.pdfLimiter.run(() =>
+      this.requestPdfWithRetry(htmlContent, page),
+    );
   }
 
-  private async requestPdfWithRetry(htmlContent: string): Promise<Buffer> {
+  private async requestPdfWithRetry(
+    htmlContent: string,
+    page?: PdfPageOptions,
+  ): Promise<Buffer> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.requestPdf(htmlContent);
+        return await this.requestPdf(htmlContent, page);
       } catch (error) {
         if (!(error instanceof RetryablePdfError)) throw error;
         if (attempt >= PDF_MAX_ATTEMPTS) {
@@ -286,7 +304,10 @@ export class CertificatesService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private async requestPdf(htmlContent: string): Promise<Buffer> {
+  private async requestPdf(
+    htmlContent: string,
+    page?: PdfPageOptions,
+  ): Promise<Buffer> {
     const gotenbergUrl = this.configService.get<string>('GOTENBERG_URL');
 
     if (!gotenbergUrl) {
@@ -302,6 +323,13 @@ export class CertificatesService {
     // Gotenberg espera a que la red quede inactiva (imágenes y fuentes). Una espera fija adicional
     // de 4 s no cambiaba el PDF y triplicaba el tiempo de cada uno.
     formData.append('skipNetworkIdleEvent', 'false');
+    if (page) {
+      formData.append('paperWidth', page.paperWidth);
+      formData.append('paperHeight', page.paperHeight);
+      for (const side of ['Top', 'Bottom', 'Left', 'Right']) {
+        formData.append(`margin${side}`, page.margin);
+      }
+    }
 
     let response: Response;
     try {

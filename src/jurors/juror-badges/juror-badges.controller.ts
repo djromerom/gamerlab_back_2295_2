@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { RolePermissionGuard } from 'src/auth/guards/role-permission.guard';
+import { BADGE_LAYOUTS, DEFAULT_BADGE_PAPER_SIZE } from './badge-template';
 import {
   BadgesPdfQueryDto,
   GenerateBadgesDto,
@@ -69,10 +70,11 @@ export class JurorBadgesController {
   @ApiOperation({ summary: 'PDF imprimible con las escarapelas y su QR' })
   @ApiProduces('application/pdf')
   async pdf(@Query() query: BadgesPdfQueryDto) {
-    const pdf = await this.badgesService.generatePdf(query.jurorIds);
+    const paper = query.paper ?? DEFAULT_BADGE_PAPER_SIZE;
+    const pdf = await this.badgesService.generatePdf(query.jurorIds, paper);
     return new StreamableFile(pdf, {
       type: 'application/pdf',
-      disposition: 'attachment; filename="escarapelas.pdf"',
+      disposition: `attachment; filename="escarapelas-${BADGE_LAYOUTS[paper].fileLabel}.pdf"`,
     });
   }
 

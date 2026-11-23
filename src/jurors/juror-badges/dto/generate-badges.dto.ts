@@ -4,9 +4,11 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsEnum,
   IsOptional,
   IsUUID,
 } from 'class-validator';
+import { BadgePaperSize, DEFAULT_BADGE_PAPER_SIZE } from '../badge-template';
 
 export class GenerateBadgesDto {
   @ApiPropertyOptional({
@@ -42,4 +44,16 @@ export class BadgesPdfQueryDto {
   @ArrayMaxSize(500)
   @IsUUID('all', { each: true })
   jurorIds?: string[];
+
+  @ApiPropertyOptional({
+    enum: BadgePaperSize,
+    default: DEFAULT_BADGE_PAPER_SIZE,
+    description:
+      'Tamaño de la hoja: TABLOID (11 x 17 in, 35 escarapelas por hoja) o LETTER (carta horizontal, 15 por hoja). La escarapela mide lo mismo en los dos (5,4 x 6 cm, QR de 5 cm).',
+  })
+  @IsOptional()
+  @IsEnum(BadgePaperSize, {
+    message: 'paper debe ser TABLOID o LETTER.',
+  })
+  paper?: BadgePaperSize;
 }
