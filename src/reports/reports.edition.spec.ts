@@ -146,8 +146,11 @@ describe('Reportes por edición (ARK-135)', () => {
     it('JuradosData: el admin pasa la edición; el líder siempre ve su equipo de la activa', async () => {
       await controller.getJuradosData(true, 'admin', '4');
       expect(reports.getJuradosData).toHaveBeenCalledWith(4);
-      await controller.getJuradosData(false, 'student-1', '4');
-      expect(reports.getJuradosDataForTeamLeader).toHaveBeenCalledWith('student-1');
+      await controller.getJuradosData(false, 'student-1', '4', 'matias@uninorte.edu.co');
+      expect(reports.getJuradosDataForTeamLeader).toHaveBeenCalledWith(
+        'student-1',
+        'matias@uninorte.edu.co',
+      );
     });
   });
 });

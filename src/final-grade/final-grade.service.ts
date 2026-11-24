@@ -9,7 +9,7 @@ import {
 } from '../editions/active-edition';
 import { PrismaService } from '../prisma/prisma.service';
 import { EVENT_CONFIGURATION_NOT_FOUND } from '../settings/active-edition-config';
-import { activeEditionTeamOf } from '../teams/active-edition-team';
+import { activeEditionTeamOfLeaderOrMember } from '../teams/active-edition-team';
 import { REJECTED_VIDEOGAME_STATUS } from '../teams/team-status';
 import {
   checkTeamGrade,
@@ -177,10 +177,13 @@ export class FinalGradeService {
     return this.getReleaseStatus(now);
   }
 
-  /** Nota final del equipo del estudiante (líder) en la edición activa, sin desglose. */
-  async getStudentFinalGrade(userId: string): Promise<StudentFinalGrade> {
+  /**
+   * Nota final del equipo del estudiante en la edición activa, sin desglose. Con `email`, también
+   * la del equipo en el que es integrante activo sin ser el líder (solo lectura).
+   */
+  async getStudentFinalGrade(userId: string, email?: string | null): Promise<StudentFinalGrade> {
     const team = await this.prisma.team.findFirst({
-      where: activeEditionTeamOf(userId),
+      where: activeEditionTeamOfLeaderOrMember(userId, email),
       orderBy: { editionId: 'desc' },
       select: {
         id: true,

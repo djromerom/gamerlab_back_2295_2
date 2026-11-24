@@ -193,6 +193,29 @@ describe('FinalGradeService', () => {
       );
     });
 
+    it('con correo también busca el equipo en el que es integrante activo', async () => {
+      prisma.team.findFirst.mockResolvedValue(team(false));
+      await service.getStudentFinalGrade('integrante-1', 'Matias@Uninorte.edu.co');
+      expect(prisma.team.findFirst).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: {
+            edition: { status: 'ACTIVE' },
+            OR: [
+              { userId: 'integrante-1' },
+              {
+                members: {
+                  some: {
+                    isActive: true,
+                    email: { equals: 'matias@uninorte.edu.co', mode: 'insensitive' },
+                  },
+                },
+              },
+            ],
+          },
+        }),
+      );
+    });
+
     it('no liberada: ninguna nota y no consulta la vista', async () => {
       prisma.team.findFirst.mockResolvedValue(team(false));
       await expect(service.getStudentFinalGrade('u-1')).resolves.toEqual({
