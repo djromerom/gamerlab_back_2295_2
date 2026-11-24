@@ -258,6 +258,7 @@ describe('HighlightedGamesService', () => {
         name,
         logoUrl: `upload:logo-${id}`,
         gameFileUrl,
+        allowMobile: true, // TA-36 (ARK-326)
         team: { teamName: `Equipo ${id}` },
       },
       historicalVideogame: null,
@@ -276,6 +277,7 @@ describe('HighlightedGamesService', () => {
         name,
         logoUrl: null,
         gameFileUrl,
+        allowMobile: false,
         historicalTeam: { teamName: `Histórico ${id}` },
       },
     });
@@ -301,6 +303,7 @@ describe('HighlightedGamesService', () => {
           edition: edition2026,
           logoUrl: 'https://signed/upload:logo-12',
           hasGameFile: true,
+          allowMobile: true,
           play: { type: 'live', id: 412 },
         },
         {
@@ -310,11 +313,13 @@ describe('HighlightedGamesService', () => {
           edition: edition2025,
           logoUrl: null,
           hasGameFile: true,
+          allowMobile: false,
           play: { type: 'historical', id: 95 },
         },
       ]);
       for (const game of result) {
         expect(Object.keys(game).sort()).toEqual([
+          'allowMobile',
           'edition',
           'hasGameFile',
           'id',

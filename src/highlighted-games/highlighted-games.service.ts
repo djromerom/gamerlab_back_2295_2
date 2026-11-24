@@ -20,6 +20,7 @@ const PUBLIC_GAME_SELECT = {
   name: true,
   logoUrl: true,
   gameFileUrl: true,
+  allowMobile: true, // TA-36 (ARK-326)
 } as const;
 const PUBLIC_HIGHLIGHT_SELECT = {
   id: true,
@@ -326,6 +327,7 @@ export class HighlightedGamesService {
       edition: row.edition,
       logoUrl: logoUrl ?? null,
       hasGameFile: !!game.gameFileUrl?.trim(),
+      allowMobile: game.allowMobile,
       play: { type, id: game.id },
     };
   }

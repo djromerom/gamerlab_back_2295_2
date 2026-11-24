@@ -2,6 +2,13 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-24: «Se puede jugar en celular» como campo del videojuego (TA-36, ARK-326)
+- Reemplaza la lista fija de ids del front (`mobileFriendly.ts`, arreglo rápido de ARK-317 para Brainrot Breakout).
+- Migración `20261124000000_add_videogame_allow_mobile`: columna `permite_celular` (`allowMobile`, booleano, por defecto `false`) en `videojuegos` y `videojuegos_historico`. Aditiva; no marca ningún juego (el id de Brainrot Breakout cambia entre Arkad-test y producción).
+- `PATCH /teams/:id` (`videogame.allowMobile`), `PATCH /videogames/:id` y `PATCH /historicals/update-historical-videogame/:id` lo cambian. Solo el Administrador: un estudiante que envía un valor distinto al guardado recibe 403 (enviar el mismo valor no es cambio). Al inscribir el equipo no se acepta.
+- Lo devuelven `GET /videogames/:id`, `GET /historicals/videogames/:id/game-file`, `GET /highlighted-games` (pública), `GET /teams/:id/full` y los listados de equipos. Al archivar la edición se copia al videojuego histórico.
+- [endpoints](../02-backend/endpoints.md) y [modelo de datos](../02-backend/modelo-de-datos.md) actualizados. Contrato para el front en `docs/frontend/TA-36-juegos-en-celular.md`. Al desplegar: el Administrador activa el interruptor de Brainrot Breakout en producción **antes** de que llegue el front que borra la lista fija.
+
 ## 2026-11-23: PDF de escarapelas en tabloide o carta, solo nombre y QR de 5 cm
 - `GET /juror-badges/pdf` acepta `paper=TABLOID|LETTER` (opcional, por defecto `TABLOID`; otro valor → 400 «paper debe ser TABLOID o LETTER.»). Tabloide vertical (11 × 17 in): 5 columnas × 7 filas = 35 por hoja. Carta horizontal (11 × 8,5 in): 5 × 3 = 15 por hoja (en vertical solo cabrían 12). El archivo se llama `escarapelas-tabloide.pdf` o `escarapelas-carta.pdf`.
 - La escarapela mide 5,4 × 6 cm en los dos tamaños: solo el nombre (7 pt, máximo 2 líneas) y el QR de 5 cm de ancho (imagen de 600 px, ≈300 ppp) con 2 mm alrededor; ya no muestra la edición ni «Jurado». Van pegadas (los cortes coinciden), centradas y con borde gris fino de corte. Antes salía en carta (Gotenberg ignoraba el `@page` A4 del HTML), 6 por hoja y QR de 3 cm.

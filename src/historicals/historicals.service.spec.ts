@@ -85,6 +85,7 @@ describe('HistoricalsService.getHistoricalGameFile (HU-40)', () => {
         name: true,
         gameFileUrl: true,
         entry: true,
+        allowMobile: true, // TA-36 (ARK-326)
         historicalTeam: { select: { teamName: true, editionId: true } },
       },
     });

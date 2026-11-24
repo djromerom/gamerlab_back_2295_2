@@ -60,7 +60,7 @@ Actualizadas con las decisiones de la Scrum Master del 15 y 16-nov (TA-28, ARK-2
 
 **Cómo se entrega**
 - **No subes el zip a ARKAD.** Súbelo a tu OneDrive o Google Drive, compártelo como «Cualquier persona con el vínculo puede ver» y pega el enlace en el formulario, junto con el nombre del equipo y el motor. La administración lo descarga, lo monta y te avisa si hay que corregir algo.
-- Tu juego se jugará **solo en computador** (Chrome, Edge o Firefox). En el celular, ARKAD muestra un aviso en lugar del juego.
+- Tu juego se jugará **solo en computador** (Chrome, Edge o Firefox). En el celular, ARKAD muestra un aviso en lugar del juego. Si tu juego trae controles táctiles propios, pídele al administrador que active «Se puede jugar en celular» (TA-36).
 
 **Para todos**
 - Entrega **un solo .zip** de **máximo 200 MB**. Mientras más liviano mejor: lo ideal es **50 MB o menos**, porque carga más rápido.

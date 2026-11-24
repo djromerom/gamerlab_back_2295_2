@@ -2,7 +2,7 @@
 
 > **Audiencia:** Administradora de ARKAD, Scrum Master · **Actualizado:** 2026-11-16 · **Estado:** completo; probado en Arkad-test el 16-nov · **Fuente:** TA-28 (ARK-232 y ARK-234, Samuel Tilano), decisiones de Allison del 15 y 16-nov, [juegos web por motor](juegos-web-por-motor.md) (SP-03) y código de `dev` (back) del 16-nov.
 
-Los equipos **no suben el zip**. Lo comparten como un enlace de su OneDrive o Drive, con permiso de lectura, en un formulario. La administradora lo descarga, lo revisa, lo sube a ARKAD y prueba «Jugar» en el computador. Los juegos se juegan **solo en computador** (Chrome, Edge o Firefox); en el celular se muestra un aviso.
+Los equipos **no suben el zip**. Lo comparten como un enlace de su OneDrive o Drive, con permiso de lectura, en un formulario. La administradora lo descarga, lo revisa, lo sube a ARKAD y prueba «Jugar» en el computador. Los juegos se juegan **solo en computador** (Chrome, Edge o Firefox); en el celular se muestra un aviso, salvo los que la administradora marque con «Se puede jugar en celular» en Editar equipo → paso 3 (juegos con controles táctiles propios, TA-36).
 
 ## Antes de empezar
 - **Límite:** 200 MB por zip; se recomienda 50 MB o menos, porque carga más rápido. Lo acepta el back desde HU-40 (ARK-226) y el nginx del API (210m, ARK-227).

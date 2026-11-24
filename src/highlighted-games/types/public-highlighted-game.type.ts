@@ -9,6 +9,8 @@ export interface PublicHighlightedGame {
   logoUrl: string | null;
   /** El juego tiene archivo (.zip) para jugarlo. */
   hasGameFile: boolean;
+  /** TA-36 (ARK-326): se puede jugar en celular (lo activa el administrador). */
+  allowMobile: boolean;
   /** Qué abrir para jugar: el videojuego en vivo o el histórico. */
   play: { type: 'live' | 'historical'; id: number };
 }

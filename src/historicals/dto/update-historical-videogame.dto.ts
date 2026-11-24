@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsNotEmpty, MaxLength, IsInt, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsString, IsOptional, IsNotEmpty, MaxLength, IsInt, Min, IsBoolean } from 'class-validator';
 
 export class UpdateHistoricalVideogameDto {
     //Validaciones para la actualización de videojuegos históricos
@@ -54,4 +54,10 @@ export class UpdateHistoricalVideogameDto {
     @IsOptional()
     @Min(0)
     likes: number;
+
+    // TA-36 (ARK-326): se puede jugar en celular. Se valida el valor original (sin conversión implícita).
+    @Transform(({ obj, key }: { obj: Record<string, unknown>; key: string }) => obj[key])
+    @IsBoolean({ message: 'allowMobile debe ser true o false' })
+    @IsOptional()
+    allowMobile?: boolean;
 }
