@@ -81,7 +81,7 @@ export class ReportsController {
   // El administrador ve todos; cualquier otro usuario solo los jurados de su propio equipo (página "Mis jurados").
   @Get('JuradosData')
   @UseGuards(OptionalAdminRoleGuard)
-  @ApiOperation({ summary: 'Get jurors data (admin: all jurors; team leader: only the jurors of their team)' })
+  @ApiOperation({ summary: 'Get jurors data (admin: all jurors; team leader or active member: only the jurors of their team)' })
   @ApiQuery({
     name: 'editionId',
     required: false,
@@ -92,11 +92,13 @@ export class ReportsController {
     @IsAdmin() isAdmin: boolean,
     @GetUser('id') userId: string,
     @Query('editionId') editionIdParam?: string,
+    @GetUser('email') email?: string,
   ) {
     if (isAdmin) {
       return this.reportsService.getJuradosData(editionIdQuery(editionIdParam));
     }
-    return this.reportsService.getJuradosDataForTeamLeader(userId);
+    // El líder o un integrante activo ven los jurados de su equipo
+    return this.reportsService.getJuradosDataForTeamLeader(userId, email);
   }
 
   @Get('exportExcel')

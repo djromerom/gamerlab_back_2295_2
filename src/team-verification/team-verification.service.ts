@@ -16,7 +16,7 @@ import {
   isCollegeTeamCode,
 } from './verification-code.util';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
-import { activeMemberByEmail } from '../teams/team-membership';
+import { activeEditionTeamOfLeaderOrMember } from '../teams/active-edition-team';
 import {
   NOT_GRADABLE_NO_CODE_MESSAGE,
   TEAM_NOT_GRADABLE,
@@ -297,13 +297,10 @@ export class TeamVerificationService {
    * jurado en el stand.
    */
   async getCodeForStudent(userId: string, email?: string | null) {
-    const owner: Prisma.TeamWhereInput[] = [{ userId }];
-    if (email?.trim()) owner.push({ members: { some: activeMemberByEmail(email) } });
     const team = await this.prisma.team.findFirst({
       where: {
-        OR: owner,
+        ...activeEditionTeamOfLeaderOrMember(userId, email),
         isActive: true,
-        edition: ACTIVE_EDITION_WHERE,
       },
       select: {
         id: true,

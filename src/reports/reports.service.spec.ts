@@ -75,6 +75,34 @@ describe('ReportsService', () => {
       ]);
     });
 
+    it('con correo también busca el equipo en el que es integrante activo', async () => {
+      mockPrismaService.team.findFirst.mockResolvedValue(team);
+      mockPrismaService.user.findMany.mockResolvedValue([jurado('j1', false)]);
+
+      const result = await service.getJuradosDataForTeamLeader('integrante-1', 'Matias@Uninorte.edu.co');
+
+      expect(mockPrismaService.team.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            isActive: true,
+            edition: { status: 'ACTIVE' },
+            OR: [
+              { userId: 'integrante-1' },
+              {
+                members: {
+                  some: {
+                    isActive: true,
+                    email: { equals: 'matias@uninorte.edu.co', mode: 'insensitive' },
+                  },
+                },
+              },
+            ],
+          },
+        }),
+      );
+      expect(result).toHaveLength(1);
+    });
+
     it('no usa el nombre del juego, así que otro juego con el mismo nombre no se mezcla', async () => {
       mockPrismaService.team.findFirst.mockResolvedValue(team);
       mockPrismaService.user.findMany.mockResolvedValue([]);
