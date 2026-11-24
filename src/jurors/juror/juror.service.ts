@@ -16,6 +16,7 @@ import {
 import { resolveListEdition } from 'src/editions/list-edition';
 import { jurorsOfEdition } from 'src/jurors/juror-edition/jurors-of-edition';
 import { AppUser } from 'src/auth/jwt.strategy';
+import { isActiveMemberOfTeam } from 'src/teams/team-membership';
 import { ROLE_IDS } from 'src/auth/constants/roles';
 import {
   JurorCategory,
@@ -1168,7 +1169,13 @@ export class JurorService {
       select: { userId: true },
     });
 
-    if (!team || team.userId !== user.id) {
+    // El líder o un integrante activo del equipo (solo lectura del conteo).
+    const ownsTeam =
+      !!team &&
+      (team.userId === user.id ||
+        (await isActiveMemberOfTeam(this.prisma, user.email, teamId)));
+
+    if (!ownsTeam) {
       throw new ForbiddenException(
         'You do not have permission to access this resource.',
       );
