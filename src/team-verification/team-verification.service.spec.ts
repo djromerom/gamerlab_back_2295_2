@@ -510,6 +510,51 @@ describe('TeamVerificationService', () => {
         notGradable: false,
       });
     });
+
+    it('busca el equipo que lidera o en el que es integrante activo (por correo)', async () => {
+      prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+
+      await expect(
+        service.getCodeForStudent('student-2', 'Integrante@Uninorte.edu.co'),
+      ).resolves.toMatchObject({ verificationCode: 'K7M2QX' });
+      expect(prismaMock.team.findFirst).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            isActive: true,
+            OR: [
+              { userId: 'student-2' },
+              {
+                members: {
+                  some: {
+                    isActive: true,
+                    email: { equals: 'integrante@uninorte.edu.co', mode: 'insensitive' },
+                  },
+                },
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('sin correo solo busca el equipo que lidera', async () => {
+      prismaMock.team.findFirst.mockResolvedValue(universityTeam);
+
+      await service.getCodeForStudent('student-1');
+      expect(prismaMock.team.findFirst).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ OR: [{ userId: 'student-1' }] }),
+        }),
+      );
+    });
+
+    it('404 si no lidera ni integra un equipo de la edición activa', async () => {
+      prismaMock.team.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getCodeForStudent('x', 'otro@uninorte.edu.co'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });
 

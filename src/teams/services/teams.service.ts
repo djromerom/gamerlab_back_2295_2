@@ -41,6 +41,7 @@ import { ReleasedJuror, rejectionNotice } from '../team-status';
 import { resolveListEdition } from '../../editions/list-edition';
 import { TeamListFilters } from '../repositories/team-list-filter';
 import { assertTeamWritable, findActiveEdition } from '../../editions/active-edition';
+import { findMemberTeamId } from '../team-membership';
 import {
   assertAdminOnly,
   assertStudentEditWindowOpen,
@@ -782,24 +783,45 @@ export class TeamsService {
   }
 
   /**
-   * Con sesión, agrega `isMine` (el usuario autenticado es el líder). Sin sesión no agrega nada.
+   * Con sesión, agrega `isMine` (el usuario autenticado es el líder) e `isMember` (es el líder o
+   * un integrante activo). Sin sesión no agrega nada.
    * Reemplaza al cruce `team.userId === user.id` que hacía el front con el UUID del líder.
    * ARK-128: el líder puede tener equipos de ediciones anteriores; "mi equipo" es solo el de la
    * edición activa (el panel del estudiante no debe mostrar el de la edición pasada).
+   * `isMember` es solo para mostrar: el integrante ve su equipo en el inicio, pero editar sigue
+   * siendo del líder (`isMine`).
    */
-  private async markOwnTeams<T extends { userId?: string; editionId?: number }>(
+  private async markOwnTeams<T extends { id?: number; userId?: string; editionId?: number }>(
     teams: T[],
     currentUserId?: string,
   ) {
     if (!currentUserId) return teams;
     const activeEditionId = (await findActiveEdition(this.prisma))?.id;
-    return teams.map((team) => ({
-      ...team,
-      isMine:
-        team.userId === currentUserId &&
-        activeEditionId !== undefined &&
-        team.editionId === activeEditionId,
-    }));
+    const memberTeamId =
+      activeEditionId === undefined
+        ? null
+        : await this.findMemberTeamIdOf(currentUserId, activeEditionId);
+    return teams.map((team) => {
+      const inActiveEdition =
+        activeEditionId !== undefined && team.editionId === activeEditionId;
+      const isMine = team.userId === currentUserId && inActiveEdition;
+      return {
+        ...team,
+        isMine,
+        isMember:
+          isMine ||
+          (inActiveEdition && memberTeamId !== null && team.id === memberTeamId),
+      };
+    });
+  }
+
+  /** Equipo de la edición en el que el usuario es integrante activo (por su correo), o null. */
+  private async findMemberTeamIdOf(userId: string, editionId: number): Promise<number | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    return findMemberTeamId(this.prisma, user?.email, editionId);
   }
 
   async getLeaderStatus(email: string) {
