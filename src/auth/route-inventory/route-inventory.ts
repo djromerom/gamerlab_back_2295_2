@@ -76,7 +76,7 @@ export const ROUTE_NOTES: Record<string, string> = {
   'PATCH /students/members/:memberId/nrcs':
     'Solo el Administrador cambia los NRC de un integrante, aunque el Estudiante tenga el permiso EditMemberNrc (ARK-161, BG-38).',
   'GET /juror/teams/:teamId/evaluation-stats':
-    'Estudiante: solo las estadísticas de su propio equipo (BG-01). Solo devuelve conteos, sin datos de los jurados (ARK-110).',
+    'Estudiante: solo las estadísticas de su propio equipo, como líder o integrante activo (BG-01). Solo devuelve conteos, sin datos de los jurados (ARK-110).',
   'GET /juror/teams/:teamId/jurors-status':
     'Solo Administrador (ListJurors no está concedido a ningún otro rol). El correo de cada jurado solo se incluye para el Administrador (ARK-110).',
   'GET /teams/:id':

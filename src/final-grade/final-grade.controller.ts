@@ -7,6 +7,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { AppUser } from '../auth/jwt.strategy';
 import { RequiredService } from '../auth/decorators/required-service.decorator';
 import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
@@ -130,7 +131,8 @@ export class FinalGradeController {
     status: 404,
     description: 'El usuario no tiene equipo en la edición activa',
   })
-  getMyFinalGrade(@GetUser('id') userId: string): Promise<StudentFinalGrade> {
-    return this.finalGradeService.getStudentFinalGrade(userId);
+  getMyFinalGrade(@GetUser() user: AppUser): Promise<StudentFinalGrade> {
+    // El líder o un integrante activo del equipo (solo lectura)
+    return this.finalGradeService.getStudentFinalGrade(user.id, user.email);
   }
 }

@@ -16,6 +16,7 @@ import {
   isCollegeTeamCode,
 } from './verification-code.util';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { activeEditionTeamOfLeaderOrMember } from '../teams/active-edition-team';
 import {
   NOT_GRADABLE_NO_CODE_MESSAGE,
   TEAM_NOT_GRADABLE,
@@ -286,16 +287,17 @@ export class TeamVerificationService {
 
   /**
    * Panel del estudiante: el código de su equipo (null en equipos de colegios).
+   * El equipo es el que lidera en la edición activa o, si no es líder, aquel en el que es
+   * integrante activo (por su correo): el integrante también se lo dice al jurado en el stand.
    * ARK-257 (BG-57): un equipo no calificable es un presentador externo; nadie le dice el código a
    * un jurado, así que no se entrega (`verificationCode: null`) y `notGradable: true` deja que el
    * front muestre el aviso en lugar del panel.
    */
-  async getCodeForStudent(userId: string) {
+  async getCodeForStudent(userId: string, email?: string | null) {
     const team = await this.prisma.team.findFirst({
       where: {
-        userId,
+        ...activeEditionTeamOfLeaderOrMember(userId, email),
         isActive: true,
-        edition: ACTIVE_EDITION_WHERE,
       },
       select: {
         id: true,
