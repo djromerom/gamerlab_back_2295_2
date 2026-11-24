@@ -16,6 +16,7 @@ import {
   isCollegeTeamCode,
 } from './verification-code.util';
 import { ACTIVE_EDITION_WHERE } from '../editions/active-edition';
+import { activeMemberByEmail } from '../teams/team-membership';
 import {
   NOT_GRADABLE_NO_CODE_MESSAGE,
   TEAM_NOT_GRADABLE,
@@ -290,10 +291,17 @@ export class TeamVerificationService {
    * un jurado, así que no se entrega (`verificationCode: null`) y `notGradable: true` deja que el
    * front muestre el aviso en lugar del panel.
    */
-  async getCodeForStudent(userId: string) {
+  /**
+   * Código del equipo del estudiante en la edición activa: el que lidera o, si no es líder, el
+   * equipo en el que es integrante activo (por su correo). El integrante también se lo dice al
+   * jurado en el stand.
+   */
+  async getCodeForStudent(userId: string, email?: string | null) {
+    const owner: Prisma.TeamWhereInput[] = [{ userId }];
+    if (email?.trim()) owner.push({ members: { some: activeMemberByEmail(email) } });
     const team = await this.prisma.team.findFirst({
       where: {
-        userId,
+        OR: owner,
         isActive: true,
         edition: ACTIVE_EDITION_WHERE,
       },

@@ -9,7 +9,7 @@ import { normalizeEmail } from '../common/utils/find-user-by-email';
  */
 type MemberClient = Pick<Prisma.TransactionClient, 'member'>;
 
-const activeMemberByEmail = (email: string): Prisma.MemberWhereInput => ({
+export const activeMemberByEmail = (email: string): Prisma.MemberWhereInput => ({
   isActive: true,
   email: { equals: escapeLike(normalizeEmail(email)), mode: 'insensitive' },
 });

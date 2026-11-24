@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { AppUser } from 'src/auth/jwt.strategy';
 import { RequiredService } from 'src/auth/decorators/required-service.decorator';
 import { RolePermissionGuard } from '../auth/guards/role-permission.guard';
 import { SetVerificationRequiredDto } from './dto/set-verification-required.dto';
@@ -46,10 +47,10 @@ export class TeamVerificationController {
   @ApiOperation({
     summary: 'Código de verificación del equipo del estudiante (panel)',
     description:
-      'Devuelve { teamId, teamCode, verificationCode, notGradable }. En un equipo no calificable (presentador externo, HU-39) `verificationCode` es null y `notGradable` es true: no se entrega código. En equipos de colegios (N0) `verificationCode` también es null.',
+      'Devuelve { teamId, teamCode, verificationCode, notGradable } del equipo que el estudiante lidera o en el que es integrante activo. En un equipo no calificable (presentador externo, HU-39) `verificationCode` es null y `notGradable` es true: no se entrega código. En equipos de colegios (N0) `verificationCode` también es null.',
   })
-  getMyCode(@GetUser('id') userId: string) {
-    return this.service.getCodeForStudent(userId);
+  getMyCode(@GetUser() user: AppUser) {
+    return this.service.getCodeForStudent(user.id, user.email);
   }
 
   // Debe ir antes de `:teamId`, o Express interpreta "status" como un id.
