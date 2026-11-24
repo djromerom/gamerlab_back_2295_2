@@ -287,14 +287,11 @@ export class TeamVerificationService {
 
   /**
    * Panel del estudiante: el código de su equipo (null en equipos de colegios).
+   * El equipo es el que lidera en la edición activa o, si no es líder, aquel en el que es
+   * integrante activo (por su correo): el integrante también se lo dice al jurado en el stand.
    * ARK-257 (BG-57): un equipo no calificable es un presentador externo; nadie le dice el código a
    * un jurado, así que no se entrega (`verificationCode: null`) y `notGradable: true` deja que el
    * front muestre el aviso en lugar del panel.
-   */
-  /**
-   * Código del equipo del estudiante en la edición activa: el que lidera o, si no es líder, el
-   * equipo en el que es integrante activo (por su correo). El integrante también se lo dice al
-   * jurado en el stand.
    */
   async getCodeForStudent(userId: string, email?: string | null) {
     const team = await this.prisma.team.findFirst({

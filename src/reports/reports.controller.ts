@@ -86,7 +86,7 @@ export class ReportsController {
     name: 'editionId',
     required: false,
     type: Number,
-    description: `Solo administrador. ${EDITION_QUERY_DESCRIPTION} El líder siempre ve los jurados de su equipo de la edición activa.`,
+    description: `Solo administrador. ${EDITION_QUERY_DESCRIPTION} El líder o un integrante activo siempre ven los jurados de su equipo de la edición activa.`,
   })
   async getJuradosData(
     @IsAdmin() isAdmin: boolean,
