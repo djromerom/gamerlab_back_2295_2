@@ -9,7 +9,7 @@ import { ROLE_IDS } from '../auth/constants/roles';
 import { countProgress } from '../evaluation/evaluation-progress';
 import { loadFinalScores, reportedFairScore, scoreForNrcAverage } from '../evaluation/final-score';
 import { EditionStatus } from '@prisma/client';
-import { activeEditionTeamOf } from '../teams/active-edition-team';
+import { activeEditionTeamOfLeaderOrMember } from '../teams/active-edition-team';
 import { ASSIGNABLE_TEAM, CONFIRMED_VIDEOGAME, GRADABLE_TEAM, SCORED_TEAM } from '../teams/team-status';
 import {
   JUROR_EDITION_STATUS_LABEL,
@@ -645,10 +645,11 @@ async getJuradosData(editionId?: number): Promise<
    * Jurados asignados al equipo que lidera el usuario (página "Mis jurados" del estudiante).
    * Mismo formato que getJuradosData, pero sin los jurados de otros equipos (BG-02).
    */
-  async getJuradosDataForTeamLeader(userId: string) {
-    // ARK-128: el equipo que lidera en la edición activa, no uno de una edición anterior
+  async getJuradosDataForTeamLeader(userId: string, email?: string | null) {
+    // ARK-128: el equipo de la edición activa, no uno de una edición anterior. Con `email`,
+    // también el equipo en el que es integrante activo sin ser el líder (solo lectura).
     const team = await this.prisma.team.findFirst({
-      where: { ...activeEditionTeamOf(userId), isActive: true },
+      where: { ...activeEditionTeamOfLeaderOrMember(userId, email), isActive: true },
       orderBy: { editionId: 'desc' },
       select: { id: true, videogame: { select: { id: true, name: true, isActive: true } } },
     });

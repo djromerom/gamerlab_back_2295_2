@@ -543,7 +543,7 @@ describe('TeamVerificationService', () => {
       await service.getCodeForStudent('student-1');
       expect(prismaMock.team.findFirst).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ OR: [{ userId: 'student-1' }] }),
+          where: expect.objectContaining({ userId: 'student-1', isActive: true }),
         }),
       );
     });
