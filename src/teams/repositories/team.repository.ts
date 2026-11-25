@@ -371,6 +371,7 @@ export class TeamRepository implements ITeamRepository {
         videoUrl: true,
         repoUrl: true,
         additionalImages: true,
+        allowMobile: true, // TA-36 (ARK-326)
         _count: {
           select: { likedBy: true },
         },
@@ -579,6 +580,10 @@ export class TeamRepository implements ITeamRepository {
         }
         if (videogame.entry !== undefined) {
           videogameUpdateData.entry = videogame.entry;
+        }
+        // TA-36 (ARK-326): un estudiante solo llega aquí con el valor actual (student-edit-policy.ts)
+        if (videogame.allowMobile !== undefined) {
+          videogameUpdateData.allowMobile = videogame.allowMobile;
         }
 
         if (Object.keys(videogameUpdateData).length > 0) {

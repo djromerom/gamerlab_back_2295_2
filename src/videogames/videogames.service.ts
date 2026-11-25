@@ -17,7 +17,10 @@ import { Prisma } from '@prisma/client';
 import { AppUser } from '../auth/jwt.strategy';
 import { ROLE_IDS } from '../auth/constants/roles';
 import { BlobReferenceService } from '../upload/blob-reference.service';
-import { assertStudentEditWindowOpen } from '../teams/student-edit-policy';
+import {
+  assertAllowMobileUnchanged,
+  assertStudentEditWindowOpen,
+} from '../teams/student-edit-policy';
 import { AssignmentPushNotifier } from '../push-notifications/assignment-push-notifier.service';
 import { ReleasedJuror, rejectionNotice, releaseJurorsIfRejected } from '../teams/team-status';
 
@@ -245,7 +248,8 @@ export class VideogamesService {
       teamName: vg.team.teamName,
       status: vg.videogameStatus.status,
       gameFileURL: (await this.blobRefs.resolve(vg.gameFileUrl)) || '',
-      entry: vg.entry || ''
+      entry: vg.entry || '',
+      allowMobile: vg.allowMobile, // TA-36 (ARK-326): /play-game decide si muestra el aviso de computador
     };
   }
 
@@ -292,6 +296,9 @@ export class VideogamesService {
         'Only an administrator can change the status of a videogame.',
       );
     }
+
+    // TA-36 (ARK-326): «se puede jugar en celular» lo cambia solo el administrador
+    if (!isAdmin) assertAllowMobileUnchanged(videogameData.allowMobile, vg.allowMobile);
 
     // El nombre del juego solo lo cambia un administrador, llegue como `name` (la columna)
     // o como `vgName` (el campo del DTO que se guarda en `name`). Un no administrador que

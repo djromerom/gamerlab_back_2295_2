@@ -423,6 +423,9 @@ model Videogame {
   videogameStatus   VideogameStatus @relation(fields: [videogameStatusId], references: [id])
   gameFileUrl       String?         @map("archivo_videojuego_url")
   entry             String?
+  // TA-36 (ARK-326): el admin marca los juegos con controles táctiles; los demás muestran
+  // «Este juego se juega en computador» en celulares y tabletas (HU-40).
+  allowMobile       Boolean         @default(false) @map("permite_celular")
 
   highlightedGames HighlightedGame[]
   evaluations      Evaluation[]
@@ -447,6 +450,7 @@ model HistoricalVideogame {
   entry            String?
   likes            Int            @default(0) @map("likes")
   finalScore       Float?         @map("puntaje_final")
+  allowMobile      Boolean        @default(false) @map("permite_celular") // TA-36: se copia al archivar
 
   highlightedGames HighlightedGame[]
 

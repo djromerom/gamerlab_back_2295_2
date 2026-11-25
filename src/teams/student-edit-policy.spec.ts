@@ -18,6 +18,7 @@ const current: TeamEditSnapshot = {
   teamName: 'Los Pixeles',
   videogameName: 'Juego actual',
   logoUrl: 'upload:logo-1',
+  allowMobile: false,
 };
 
 describe('assertStudentTeamPatch', () => {
@@ -26,6 +27,8 @@ describe('assertStudentTeamPatch', () => {
     ['si el equipo es externo', { isExternal: true }],
     ['el estado de aprobación', { videogame: { videogameStatusId: 1 } }],
     ['el nombre del juego', { videogame: { vgName: 'Otro juego' } }],
+    // TA-36 (ARK-326)
+    ['si el juego se puede jugar en celular', { videogame: { allowMobile: true } }],
   ])('responde 403 si el estudiante cambia %s', (what, dto) => {
     expect(() => assertStudentTeamPatch(dto as any, current)).toThrow(
       new ForbiddenException(

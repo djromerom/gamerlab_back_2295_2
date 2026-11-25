@@ -4,8 +4,9 @@
  *
  * - El líder edita el nombre del equipo y el contenido del juego (descripción, logo, video,
  *   repositorio, fotos, archivo y `entry`) solo mientras las inscripciones estén abiertas.
- * - El nombre del juego, el estado de aprobación, si el equipo es externo, los integrantes,
- *   sus NRC, nombres, códigos y correos los cambia solo el administrador.
+ * - El nombre del juego, el estado de aprobación, si el equipo es externo, si el juego se puede
+ *   jugar en celular (TA-36), los integrantes, sus NRC, nombres, códigos y correos los cambia
+ *   solo el administrador.
  * - Editar el contenido no devuelve el juego a PENDIENTE; cambiar el logo o el nombre del
  *   equipo sí, para que el administrador los revise.
  *
@@ -29,6 +30,7 @@ export interface TeamEditSnapshot {
   teamName: string;
   videogameName: string | null;
   logoUrl: string | null;
+  allowMobile: boolean;
 }
 
 const sameText = (a?: string | null, b?: string | null) =>
@@ -42,6 +44,20 @@ export function assertAdminOnly(
   if (isAdmin(user)) return;
   throw new ForbiddenException(
     `Solo el administrador puede cambiar ${what}. ${ASK_ADMIN}`,
+  );
+}
+
+/**
+ * TA-36 (ARK-326): 403 si un estudiante intenta cambiar «se puede jugar en celular». Enviar el
+ * valor actual (el formulario lo puede mandar siempre) no cuenta como cambio.
+ */
+export function assertAllowMobileUnchanged(
+  requested: boolean | undefined,
+  current: boolean,
+): void {
+  if (requested === undefined || requested === current) return;
+  throw new ForbiddenException(
+    `Solo el administrador puede cambiar si el juego se puede jugar en celular. ${ASK_ADMIN}`,
   );
 }
 
@@ -70,6 +86,7 @@ export function assertStudentTeamPatch(
     throw new ForbiddenException(
       `Solo el administrador puede cambiar el nombre del juego. ${ASK_ADMIN}`,
     );
+  assertAllowMobileUnchanged(vg?.allowMobile, current.allowMobile);
 }
 
 /**
@@ -120,15 +137,20 @@ export async function loadTeamEditSnapshot(
     where: { id: teamId },
     select: {
       teamName: true,
-      videogame: { select: { name: true, logoUrl: true } },
+      videogame: { select: { name: true, logoUrl: true, allowMobile: true } },
     },
   })) as {
     teamName: string;
-    videogame: { name: string; logoUrl: string | null } | null;
+    videogame: {
+      name: string;
+      logoUrl: string | null;
+      allowMobile: boolean;
+    } | null;
   } | null;
   return {
     teamName: team?.teamName ?? '',
     videogameName: team?.videogame?.name ?? null,
     logoUrl: team?.videogame?.logoUrl ?? null,
+    allowMobile: team?.videogame?.allowMobile ?? false,
   };
 }

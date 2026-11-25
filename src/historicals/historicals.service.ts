@@ -112,6 +112,7 @@ export class HistoricalsService {
         name: true,
         gameFileUrl: true,
         entry: true,
+        allowMobile: true,
         historicalTeam: { select: { teamName: true, editionId: true } },
       },
     });
@@ -125,6 +126,7 @@ export class HistoricalsService {
       editionId: game.historicalTeam.editionId,
       gameFileURL: (await this.blobRefs.resolve(game.gameFileUrl)) || '',
       entry: game.entry || '',
+      allowMobile: game.allowMobile, // TA-36 (ARK-326)
     };
   }
 
@@ -227,6 +229,7 @@ export class HistoricalsService {
                 additionalImages: team.videogame.additionalImages,
                 gameFileUrl: team.videogame.gameFileUrl,
                 entry: team.videogame.entry,
+                allowMobile: team.videogame.allowMobile, // TA-36 (ARK-326)
                 likes: team.videogame._count.likedBy,
                 finalScore,
               },
