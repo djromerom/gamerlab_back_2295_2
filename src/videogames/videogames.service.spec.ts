@@ -49,7 +49,7 @@ const p2025 = () =>
     meta: {},
   });
 
-  const mockVideogamesGateway = {};
+  const mockVideogamesGateway = { emitLikesUpdate: jest.fn() };
 
 // ============================================================================
 // toggleLike
@@ -96,25 +96,22 @@ describe('VideogamesService', () => {
   });
 
 
-  // ─── LÍMITES POR CONTENIDO (10 y 20 likes) ────────────────────────────────
+  // ─── SIN TOPES POR CONTENIDO (26-nov, feria) ──────────────────────────────
 
 
-  it('throws BadRequestException at 10-like cap when game has no content and no logo', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(
-      makeVideogame({ _count: { likedBy: 10 }, logoUrl: null, videoUrl: null, additionalImages: [] }),
-    );
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    await expect(service.toggleLike(1, { userId: 'user-1' })).rejects.toThrow(BadRequestException);
-    expect(prisma.videogameLike.create).not.toHaveBeenCalled();
-  });
-
-  it('throws BadRequestException at 20-like cap when game has logo but no video/images', async () => {
-    prisma.videogame.findUnique.mockResolvedValue(
-      makeVideogame({ _count: { likedBy: 20 }, logoUrl: 'logo.png', videoUrl: null, additionalImages: [] }),
-    );
-    prisma.videogameLike.findUnique.mockResolvedValue(null);
-    await expect(service.toggleLike(1, { userId: 'user-1' })).rejects.toThrow(BadRequestException);
-    expect(prisma.videogameLike.create).not.toHaveBeenCalled();
+  it('a game without video, photos or logo still gets likes past 10 and 20', async () => {
+    for (const likes of [10, 20, 500]) {
+      prisma.videogame.findUnique.mockResolvedValue(
+        makeVideogame({ _count: { likedBy: likes } }),
+      );
+      prisma.videogameLike.findUnique.mockResolvedValue(null);
+      prisma.videogameLike.create.mockResolvedValue({ id: 1 });
+      await expect(service.toggleLike(1, { visitorId: 'v-1' })).resolves.toEqual({
+        liked: true,
+        likeCount: likes + 1,
+      });
+    }
+    expect(prisma.videogameLike.create).toHaveBeenCalledTimes(3);
   });
 
 
