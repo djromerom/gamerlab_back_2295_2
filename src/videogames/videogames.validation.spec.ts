@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { VideogamesController } from './videogames.controller';
@@ -12,6 +13,8 @@ describe('VideogamesController — validación (M3, M9)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
+      // toggle-like lleva LikeThrottlerGuard, que necesita la configuración del ThrottlerModule
+      imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }])],
       controllers: [VideogamesController],
       providers: [{ provide: VideogamesService, useValue: service }],
     })

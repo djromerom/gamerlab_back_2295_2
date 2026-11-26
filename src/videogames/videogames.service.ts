@@ -20,6 +20,7 @@ import { BlobReferenceService } from '../upload/blob-reference.service';
 import { assertStudentEditWindowOpen } from '../teams/student-edit-policy';
 import { AssignmentPushNotifier } from '../push-notifications/assignment-push-notifier.service';
 import { ReleasedJuror, rejectionNotice, releaseJurorsIfRejected } from '../teams/team-status';
+import { Liker, likeWhere } from './like-visitor';
 
 @Injectable()
 export class VideogamesService {
@@ -98,20 +99,22 @@ export class VideogamesService {
   }
 
   /**
-   * Returns whether the authenticated user has liked the given videogame.
+   * Returns whether the user (or the anonymous visitor) has liked the given videogame.
+   * Without user nor visitor cookie there is nobody to look up: not liked.
    */
   async getMyLike(
     videogameId: number,
-    userId: string,
+    liker: Liker | undefined,
   ): Promise<{ liked: boolean }> {
+    if (!liker) return { liked: false };
     const like = await this.prisma.videogameLike.findUnique({
-      where: { videogameId_userId: { videogameId, userId } },
+      where: likeWhere(videogameId, liker),
     });
     return { liked: !!like };
   }
 
   /**
-   * Toggle like for an authenticated user on a videogame.
+   * Toggle like for a user with session or an anonymous visitor (cookie) on a videogame.
    *
    * - No denormalized counter: the like count is always read via COUNT().
    * - No application-level transaction needed — a single INSERT or DELETE
@@ -120,7 +123,7 @@ export class VideogamesService {
    */
   async toggleLike(
     videogameId: number,
-    userId: string,
+    liker: Liker,
   ): Promise<{ liked: boolean; likeCount: number }> {
     const videogame = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
@@ -138,10 +141,11 @@ export class VideogamesService {
       throw new NotFoundException(`Videogame with ID ${videogameId} not found`);
     }
 
-    // Check whether this user already liked this game
-    const existingLike = await this.prisma.videogameLike.findUnique({
-      where: { videogameId_userId: { videogameId, userId } },
-    });
+    // Check whether this user (or visitor) already liked this game
+    const where = likeWhere(videogameId, liker);
+    const existingLike = await this.prisma.videogameLike.findUnique({ where });
+    // Only users with session get their own events across tabs (opaque key); visitors don't.
+    const triggerUserId = 'userId' in liker ? liker.userId : undefined;
 
     const hasContent =
       videogame.videoUrl ||
@@ -152,12 +156,10 @@ export class VideogamesService {
 
     // ── UNLIKE ────────────────────────────────────────────────────────────
     if (existingLike) {
-      await this.prisma.videogameLike.delete({
-        where: { videogameId_userId: { videogameId, userId } },
-      });
+      await this.prisma.videogameLike.delete({ where });
 
       const newCount = currentLikes - 1;
-      this.gateway.emitLikesUpdate(videogameId, newCount, userId, false);
+      this.gateway.emitLikesUpdate(videogameId, newCount, triggerUserId, false);
       return { liked: false, likeCount: newCount };
     }
 
@@ -183,11 +185,11 @@ export class VideogamesService {
 
     try {
       await this.prisma.videogameLike.create({
-        data: { videogameId, userId },
+        data: { videogameId, ...liker },
       });
 
       const newCount = currentLikes + 1;
-      this.gateway.emitLikesUpdate(videogameId, newCount, userId, true);
+      this.gateway.emitLikesUpdate(videogameId, newCount, triggerUserId, true);
       return { liked: true, likeCount: newCount };
     } catch (error) {
       // Two simultaneous requests passed findUnique check — DB unique constraint wins
