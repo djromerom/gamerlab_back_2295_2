@@ -1,4 +1,4 @@
-import { fairNameOf } from './fair-name';
+import { fairNameOf, fairRomanOf } from './fair-name';
 
 describe('fairNameOf (ARK-170)', () => {
   it.each([
@@ -15,7 +15,11 @@ describe('fairNameOf (ARK-170)', () => {
 
   it('no usa el título de la edición cuando el periodo es de una feria', () => {
     expect(
-      fairNameOf({ year: 2026, semester: 30, title: 'Edición de Prueba - Viernes' }),
+      fairNameOf({
+        year: 2026,
+        semester: 30,
+        title: 'Edición de Prueba - Viernes',
+      }),
     ).toBe('VI Feria Gamer');
   });
 
@@ -24,5 +28,20 @@ describe('fairNameOf (ARK-170)', () => {
     [2023, 30],
   ])('%i-%i no es una feria: usa el título', (year, semester) => {
     expect(fairNameOf({ year, semester, title: 'Taller' })).toBe('Taller');
+  });
+});
+
+describe('fairRomanOf (ARK-309)', () => {
+  it.each([
+    ['VI Feria Gamer', 'VI'],
+    ['IV Feria Gamer', 'IV'],
+    ['X Feria Gamer', 'X'],
+  ])('«%s» es la %s', (name, expected) => {
+    expect(fairRomanOf(name)).toBe(expected);
+  });
+
+  it('un título de edición que no es una feria no tiene número', () => {
+    expect(fairRomanOf('Taller de verano')).toBeNull();
+    expect(fairRomanOf('Feria Gamer 2026')).toBeNull();
   });
 });

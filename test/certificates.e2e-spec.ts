@@ -269,7 +269,7 @@ describeIfDb('Certificados (ARK-170, HTTP + PostgreSQL)', () => {
         .set(admin())
         .expect(200);
       expect(res.headers['content-type']).toContain('application/pdf');
-      expect(lastHtml()).toContain(`Participó en la ${fairName} como Jurado`);
+      expect(lastHtml()).toContain(`Participó como jurado en la ${fairName}`);
     });
 
     it('un jurado que no participa en la edición no se certifica', async () => {

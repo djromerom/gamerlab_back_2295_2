@@ -2,6 +2,12 @@
 
 > Registro de qué existe y en qué estado. Actualizar en cada cambio.
 
+## 2026-11-25: nuevo diseño de los diplomas, una sola plantilla (ARK-309)
+- Los diplomas de jurado, equipo (participación y podio 1.º, 2.º y 3.º) y presentador externo usan el diseño aprobado por la Scrum y el profesor (arcade azul, «VI EDICIÓN» grande, «VI» en contorno, logo real de la Universidad del Norte y **dos firmas**: primero el Director de Departamento y luego el Arquitecto de Software de Arkad). Antes eran 6 plantillas distintas (dos oscuras y cuatro blancas).
+- Una sola plantilla `src/certificates/assets/diploma.html`; `diploma.logic.ts` la llena (escapa lo que escriben los usuarios), `diploma-content.ts` define qué dice cada tipo y `diploma-assets.ts` incrusta las fuentes (Unbounded, Nunito y JetBrains Mono, licencia OFL) y las imágenes: el diploma ya no depende de enlaces de Azure (la firma de Daladier vencía el 31-may-2027) ni de Google Fonts. Se borran las 9 plantillas anteriores (incluidas las 3 `certificate-empty*` sin uso).
+- «VI EDICIÓN» y el «VI» grande salen del número de feria de `fair-name.ts` (`fairRomanOf`); si el periodo no es una feria, no se muestran. El tema («Uso saludable de las redes sociales») y el lema de las esquinas son de la VI edición y están en una constante (`DIPLOMA_EDITION_TEXTS`): para otra edición se cambian ahí o se dejan vacíos.
+- Gotenberg: los diplomas se imprimen con `preferCssPageSize` (A4 horizontal, 1 página), `printBackground` y esperan a que el texto largo se ajuste (`waitForExpression`); `convertHtmlToPdf` acepta esas opciones y las escarapelas no cambian. Sin migración, permisos ni cambios de rutas; el front no cambia.
+
 ## 2026-11-23: PDF de escarapelas en tabloide o carta, solo nombre y QR de 5 cm
 - `GET /juror-badges/pdf` acepta `paper=TABLOID|LETTER` (opcional, por defecto `TABLOID`; otro valor → 400 «paper debe ser TABLOID o LETTER.»). Tabloide vertical (11 × 17 in): 5 columnas × 7 filas = 35 por hoja. Carta horizontal (11 × 8,5 in): 5 × 3 = 15 por hoja (en vertical solo cabrían 12). El archivo se llama `escarapelas-tabloide.pdf` o `escarapelas-carta.pdf`.
 - La escarapela mide 5,4 × 6 cm en los dos tamaños: solo el nombre (7 pt, máximo 2 líneas) y el QR de 5 cm de ancho (imagen de 600 px, ≈300 ppp) con 2 mm alrededor; ya no muestra la edición ni «Jurado». Van pegadas (los cortes coinciden), centradas y con borde gris fino de corte. Antes salía en carta (Gotenberg ignoraba el `@page` A4 del HTML), 6 por hoja y QR de 3 cm.

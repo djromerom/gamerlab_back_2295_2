@@ -8,8 +8,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import fs from 'fs/promises';
 import path from 'path';
 import { ConfigService } from '@nestjs/config';
-import { ActiveEdition, requireActiveEdition } from '../editions/active-edition';
-import { CERT_EMAIL_CONFIG, CertEmailType } from '../email/types/cert-email.type';
+import {
+  ActiveEdition,
+  requireActiveEdition,
+} from '../editions/active-edition';
+import {
+  CERT_EMAIL_CONFIG,
+  CertEmailType,
+} from '../email/types/cert-email.type';
 import {
   assertJurorOfEdition,
   CERTIFIABLE_VIDEOGAME_STATUS,
@@ -22,18 +28,15 @@ import {
   CERTIFICATE_TEAM_GRADABLE,
   CERTIFICATE_TEAM_NOT_GRADABLE,
 } from '../teams/team-gradable';
-import {
-  fillCertificateTemplate,
-  joinStudentNames,
-} from './certificate-content';
 import { ConcurrencyLimiter } from './concurrency-limiter';
 import {
-  EXTERNAL_PRESENTER_TEMPLATE,
   ExternalPresenterCertificateData,
   fairDateLong,
   placeWithDate,
-  renderExternalPresenterCertificate,
 } from './external-presenter-certificate';
+import { loadDiplomaAssets } from './diploma-assets';
+import { jurorDiploma, presenterDiploma, teamDiploma } from './diploma-content';
+import { DiplomaContent, renderDiplomaHtml } from './diploma.logic';
 import { fairNameOf } from './fair-name';
 import type { CertificateDownload } from './pdf-download';
 
@@ -58,12 +61,21 @@ export interface PdfPageOptions {
   margin: string;
 }
 
-const TEMPLATE_BY_PLACE: Record<number, string> = {
-  1: 'certificate-First.html',
-  2: 'certificate-Second.html',
-  3: 'certificate-Third.html',
+/** Campos extra del formulario de Gotenberg (`preferCssPageSize`, `waitForExpression`…). */
+export type GotenbergOptions = Record<string, string>;
+
+/** ARK-309: una sola plantilla para los diplomas de jurado, equipo (participación y podio) y presentador. */
+const DIPLOMA_TEMPLATE = 'diploma.html';
+/**
+ * ARK-309: el diploma mide 1123×794 px (`@page`) y su script termina de ajustar el texto largo
+ * cuando las fuentes cargan: se imprime con el tamaño del CSS y solo cuando avisa que terminó.
+ * Solo es para los diplomas: otros HTML (escarapelas) nunca avisan con `diplomaReady`.
+ */
+const DIPLOMA_PDF_OPTIONS: GotenbergOptions = {
+  preferCssPageSize: 'true',
+  printBackground: 'true',
+  waitForExpression: 'window.diplomaReady === true',
 };
-const PARTICIPATION_TEMPLATE = 'certificate-printable.html';
 
 const CERTIFICATE_FILE_LABEL: Record<CertEmailType, string> = {
   PARTICIPATION_CERTIFICATE: 'participacion',
@@ -94,7 +106,7 @@ export class CertificatesService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   // ─────────────────────────────────────────────
   // TEAM CERTIFICATES
@@ -176,19 +188,18 @@ export class CertificatesService {
     team: CertifiableTeam,
     place: number,
   ): Promise<Buffer> {
-    const template = await this.readTemplate(
-      TEMPLATE_BY_PLACE[place] ?? PARTICIPATION_TEMPLATE,
-    );
-    return this.convertHtmlToPdf(
-      fillCertificateTemplate(template, {
-        teamName: team.teamName,
-        gameName: team.gameName,
-        studentList: joinStudentNames(team.memberNames),
-        fairName: team.fairName,
-        // ARK-256: «del 26 de noviembre de 2026», o vacío (sin «del» suelto) sin fecha de feria
-        eventDate: team.eventDate ? `del ${team.eventDate}` : '',
-        placeAndDate: placeWithDate(team.eventDate),
-      }),
+    return this.renderDiploma(
+      teamDiploma(
+        {
+          teamName: team.teamName,
+          gameName: team.gameName,
+          memberNames: team.memberNames,
+          fairName: team.fairName,
+          // ARK-256: «Barranquilla, 26 de noviembre de 2026», o solo «Barranquilla» sin fecha de feria
+          placeAndDate: placeWithDate(team.eventDate),
+        },
+        place,
+      ),
     );
   }
 
@@ -221,11 +232,9 @@ export class CertificatesService {
 
     const edition = await requireActiveEdition(this.prisma);
     const eventDate = await this.eventDateOf(edition);
-    const template = await this.readTemplate('certificate-juror.html');
-    return this.convertHtmlToPdf(
-      fillCertificateTemplate(template, {
+    return this.renderDiploma(
+      jurorDiploma({
         jurorName: `${user.firstName} ${user.lastName}`,
-        jurorTitle: '', // No hay campo título en User
         fairName: fairNameOf(edition),
         placeAndDate: placeWithDate(eventDate),
       }),
@@ -254,8 +263,7 @@ export class CertificatesService {
   async generateExternalPresenterCertificatePdf(
     data: ExternalPresenterCertificateData,
   ): Promise<Buffer> {
-    const template = await this.readTemplate(EXTERNAL_PRESENTER_TEMPLATE);
-    return this.convertHtmlToPdf(renderExternalPresenterCertificate(template, data));
+    return this.renderDiploma(presenterDiploma(data));
   }
 
   // ─────────────────────────────────────────────
@@ -271,23 +279,38 @@ export class CertificatesService {
     return fs.readFile(path.join(__dirname, '.', 'assets', name), 'utf8');
   }
 
+  /** ARK-309: la plantilla única con las fuentes e imágenes incrustadas, convertida a PDF. */
+  private async renderDiploma(content: DiplomaContent): Promise<Buffer> {
+    const [template, assets] = await Promise.all([
+      this.readTemplate(DIPLOMA_TEMPLATE),
+      loadDiplomaAssets(),
+    ]);
+    return this.convertHtmlToPdf(
+      renderDiplomaHtml(template, content, assets),
+      undefined,
+      DIPLOMA_PDF_OPTIONS,
+    );
+  }
+
   /** ARK-170 (TA-19): un lote no puede saturar Gotenberg, venga de donde venga. */
   convertHtmlToPdf(
     htmlContent: string,
     page?: PdfPageOptions,
+    options?: GotenbergOptions,
   ): Promise<Buffer> {
     return this.pdfLimiter.run(() =>
-      this.requestPdfWithRetry(htmlContent, page),
+      this.requestPdfWithRetry(htmlContent, page, options),
     );
   }
 
   private async requestPdfWithRetry(
     htmlContent: string,
     page?: PdfPageOptions,
+    options?: GotenbergOptions,
   ): Promise<Buffer> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.requestPdf(htmlContent, page);
+        return await this.requestPdf(htmlContent, page, options);
       } catch (error) {
         if (!(error instanceof RetryablePdfError)) throw error;
         if (attempt >= PDF_MAX_ATTEMPTS) {
@@ -307,6 +330,7 @@ export class CertificatesService {
   private async requestPdf(
     htmlContent: string,
     page?: PdfPageOptions,
+    options?: GotenbergOptions,
   ): Promise<Buffer> {
     const gotenbergUrl = this.configService.get<string>('GOTENBERG_URL');
 
@@ -323,6 +347,11 @@ export class CertificatesService {
     // Gotenberg espera a que la red quede inactiva (imágenes y fuentes). Una espera fija adicional
     // de 4 s no cambiaba el PDF y triplicaba el tiempo de cada uno.
     formData.append('skipNetworkIdleEvent', 'false');
+    if (options) {
+      for (const [field, value] of Object.entries(options)) {
+        formData.append(field, value);
+      }
+    }
     if (page) {
       formData.append('paperWidth', page.paperWidth);
       formData.append('paperHeight', page.paperHeight);
