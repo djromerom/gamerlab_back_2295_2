@@ -61,7 +61,7 @@ Detalle: [jurados](jurados.md).
 - La edición de trabajo es siempre la `ACTIVE` y **la decide el servidor**. Solo se escribe sobre la activa; las anteriores son historial de solo lectura. Ver [ediciones](ediciones.md).
 
 ## 7. Otras reglas vigentes
-- **Likes:** sin video/fotos/logo, tope de 10; con logo pero sin video ni fotos, tope de 20. Dar y quitar like nunca baja de 0; único por usuario o, sin cuenta, por navegador (cookie anónima `arkad_visitor`). No exige iniciar sesión; límite de 30 por minuto por IP + autor y 200 por minuto por IP.
+- **Likes:** sin tope por contenido (se quitó el de 10 sin video/fotos/logo y 20 sin video ni fotos, 26-nov). Dar y quitar like nunca baja de 0; único por usuario o, sin cuenta, por navegador (cookie anónima `arkad_visitor`). No exige iniciar sesión; límite de 30 por minuto por IP + autor y 200 por minuto por IP.
 - **Sesión:** acceso 15 min y refresco 7 días por defecto (en prod dependen de variables); el front renueva 5 min antes de vencer, es decir cada 10 min con el token de 15 (HU-05).
 - **Inscripciones:** el flag `registrationsOpen` (por defecto `false`) en la configuración del evento; el Administrador siempre pasa.
 - **Fechas del evento en certificados:** variables `EVENT_DATE_TEXT`, `EVENT_TIME_TEXT`, `EVENT_PLACE_TEXT`.
