@@ -395,7 +395,7 @@
 | GET | `/videogames` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id` | Pública | Cualquiera (sin sesión) |  |
 | GET | `/videogames/:id/likes` | Pública | Cualquiera (sin sesión) |  |
-| GET | `/videogames/:id/my-like` | Solo sesión | Cualquier usuario con sesión | Cualquier usuario con sesión puede consultar si ya dio like a un juego. |
+| GET | `/videogames/:id/my-like` | Pública | Cualquiera (sin sesión) | Con sesión responde por el usuario; sin sesión, por la cookie anónima arkad_visitor (sin cookie: liked false). |
 | PATCH | `/videogames/:id` | Permiso `UpdateVideogame` | Administrador, Estudiante | Estudiante: solo el videojuego de su equipo y con las inscripciones abiertas; el nombre y el estado de aprobación solo los cambia el Administrador (BG-01, ARK-161). |
 | POST | `/videogames` | Permiso `ManageVideogames` | Administrador |  |
-| POST | `/videogames/:id/toggle-like` | Solo sesión | Cualquier usuario con sesión | Cualquier usuario con sesión puede dar o quitar su propio like. |
+| POST | `/videogames/:id/toggle-like` | Pública | Cualquiera (sin sesión) | Likes sin cuenta: sin sesión el like queda de la cookie anónima arkad_visitor (la crea el primer like). Límite 30/min por IP + autor y 200/min por IP. |

@@ -1,6 +1,7 @@
 import { applyDecorators, Injectable, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { ThrottlerRequest } from '@nestjs/throttler/dist/throttler.guard.interface';
+import { VISITOR_COOKIE } from '../../videogames/like-visitor';
 
 /*
  Request limits per IP for the public routes used by the web registration (BG-02).
@@ -34,6 +35,11 @@ export const PUBLIC_LIMITS = {
   // is generous; saving is stricter because a game lasts at least half a minute.
   minigameRecordsTop: { limit: 300, ttl: 60_000 }, // 300 top queries per minute
   minigameRecordsSave: { limit: 20, ttl: 60_000 }, // 20 saved scores per minute
+  // Likes without session (fair visitors). Counted under TWO keys (see LikeThrottlerGuard): per IP +
+  // liker (user or visitor cookie), and a generous cap per IP alone, because many visitors share
+  // the fair wifi and a script that drops the cookie gets a new visitor on every request.
+  like: { limit: 30, ttl: 60_000 }, // 30 like/unlike per minute per IP + liker
+  likeIp: { limit: 200, ttl: 60_000 }, // 200 like/unlike per minute per IP (anyone)
 } as const;
 
 /** Applies the ThrottlerGuard with the given limit to a single route. */
@@ -70,3 +76,41 @@ export class LoginThrottlerGuard extends ThrottlerGuard {
 /** Login limits: 10/min per IP + email and 100/min per IP. */
 export const LoginThrottle = () =>
   applyDecorators(UseGuards(LoginThrottlerGuard), Throttle({ default: PUBLIC_LIMITS.login }));
+
+/**
+ * Like guard with two counters: IP + liker (limit from @Throttle, 30/min) and IP alone
+ * (PUBLIC_LIMITS.likeIp). The liker is the user of the session (put in request.user by
+ * OptionalJwtAuthGuard, which must run first) or the anonymous visitor cookie; without
+ * either (first like of a visitor) only the IP counter applies.
+ */
+@Injectable()
+export class LikeThrottlerGuard extends ThrottlerGuard {
+  protected async handleRequest(props: ThrottlerRequest): Promise<boolean> {
+    const request = props.context.switchToHttp().getRequest<{
+      user?: { id?: unknown };
+      cookies?: Record<string, unknown>;
+    }>();
+    const userId = typeof request.user?.id === 'string' ? request.user.id : '';
+    const visitor = request.cookies?.[VISITOR_COOKIE];
+    const liker = userId ? `u:${userId}` : typeof visitor === 'string' ? `v:${visitor.slice(0, 64)}` : '';
+    // A first-time visitor has no cookie yet: only the IP counter applies, so visitors who share
+    // the fair wifi don't block each other on their first like.
+    if (liker) {
+      const ipTracker = props.getTracker;
+      await super.handleRequest({
+        ...props,
+        getTracker: async (req, context) => `${await ipTracker(req, context)}|${liker}`,
+      });
+    }
+    return super.handleRequest({
+      ...props,
+      limit: PUBLIC_LIMITS.likeIp.limit,
+      ttl: PUBLIC_LIMITS.likeIp.ttl,
+      generateKey: (context, tracker, name) => props.generateKey(context, tracker, `${name}-ip`),
+    });
+  }
+}
+
+/** Like limits: 30/min per IP + liker and 200/min per IP. */
+export const LikeThrottle = () =>
+  applyDecorators(UseGuards(LikeThrottlerGuard), Throttle({ default: PUBLIC_LIMITS.like }));

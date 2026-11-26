@@ -1,3 +1,4 @@
+import { ThrottlerModule } from '@nestjs/throttler';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { VideogamesController } from './videogames.controller';
@@ -25,6 +26,8 @@ describe('VideogamesController', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      // toggle-like lleva LikeThrottlerGuard, que necesita la configuración del ThrottlerModule
+      imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }])],
       controllers: [VideogamesController],
       providers: [
         { provide: VideogamesService, 
