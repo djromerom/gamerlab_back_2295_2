@@ -64,9 +64,9 @@ describe('HU-20 · reglas de la nota final del estudiante', () => {
       expect(checkTeamGrade(row())).toEqual({ inProcess: false, reasons: [] });
     });
 
-    it('sin nota de los profesores: en proceso', () => {
+    it('sin nota del profesor: solo aviso, no queda en proceso (su nota es la de jurados)', () => {
       expect(checkTeamGrade(row({ seniorEvaluations: 0 }))).toEqual({
-        inProcess: true,
+        inProcess: false,
         reasons: ['MISSING_PROFESSOR_SCORE'],
       });
     });
@@ -181,7 +181,7 @@ describe('HU-20 · reglas de la nota final del estudiante', () => {
       expect(
         checkTeamGrade(row({ isExternal: true, seniorEvaluations: 0 })),
       ).toEqual({
-        inProcess: true,
+        inProcess: false,
         reasons: ['MISSING_PROFESSOR_SCORE'],
       });
       expect(
@@ -215,11 +215,20 @@ describe('HU-20 · reglas de la nota final del estudiante', () => {
       });
     });
 
-    it('liberada pero sin nota del profesor: «Nota en proceso», sin nota parcial', () => {
+    it('liberada y sin nota del profesor: ve la nota de sus jurados (la de la vista)', () => {
       expect(studentGrade(true, row({ seniorEvaluations: 0 }))).toEqual({
-        status: 'IN_PROCESS',
-        finalGrade: null,
+        status: 'AVAILABLE',
+        finalGrade: 4.13,
       });
+    });
+
+    it('colegio liberado sin nota del profesor: sigue «Nota en proceso»', () => {
+      expect(
+        studentGrade(
+          true,
+          row({ teamCode: 'N0-COL-001', juniorEvaluations: 0, seniorEvaluations: 0 }),
+        ),
+      ).toEqual({ status: 'IN_PROCESS', finalGrade: null });
     });
 
     it('liberada y sin fila: en proceso', () => {

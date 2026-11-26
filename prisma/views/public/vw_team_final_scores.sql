@@ -38,9 +38,9 @@ SELECT
     ROUND((
         CASE
             WHEN ed.regla_nota_heredada = false AND t.codigo_equipo LIKE 'N0-%' THEN sr.avg_score
-            WHEN t.externo = true THEN jr.avg_score
-            WHEN ed.regla_nota_heredada = false
-                AND (jr.avg_score IS NULL OR sr.avg_score IS NULL) THEN NULL
+            WHEN ed.regla_nota_heredada = true AND t.externo = true THEN jr.avg_score
+            -- Sin nota de jurados: «Nota en proceso». Sin nota del profesor: 100 % jurados (abajo).
+            WHEN ed.regla_nota_heredada = false AND jr.avg_score IS NULL THEN NULL
             WHEN jr.avg_score IS NULL THEN sr.avg_score
             WHEN sr.avg_score IS NULL THEN jr.avg_score
             ELSE (

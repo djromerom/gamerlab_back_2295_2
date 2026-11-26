@@ -307,7 +307,7 @@ describeIfDb('Liberar la nota final (HU-46, HTTP + PostgreSQL)', () => {
     });
   });
 
-  it('el aviso de incompletos lista al equipo en proceso y no al rechazado', async () => {
+  it('el aviso de incompletos lista al equipo sin profesor (solo aviso) y no al rechazado', async () => {
     await setSchedule(bogotaDay(-1));
     const status = (
       await server().get('/final-grade/release').set(as(adminId)).expect(200)
@@ -317,7 +317,12 @@ describeIfDb('Liberar la nota final (HU-46, HTTP + PostgreSQL)', () => {
       Object.values(team).includes(t.teamId),
     );
     expect(mine).toEqual([
-      expect.objectContaining({ teamId: team.C, inProcess: true }),
+      // Sin nota del profesor: su nota es la de jurados, no queda en proceso (26-nov)
+      expect.objectContaining({
+        teamId: team.C,
+        inProcess: false,
+        reasons: expect.arrayContaining(['MISSING_PROFESSOR_SCORE']) as unknown,
+      }),
     ]);
   });
 
@@ -349,8 +354,8 @@ describeIfDb('Liberar la nota final (HU-46, HTTP + PostgreSQL)', () => {
     });
     expect(await myGrade('C')).toMatchObject({
       released: true,
-      status: 'IN_PROCESS',
-      finalGrade: null,
+      status: 'AVAILABLE',
+      finalGrade: 3.9, // solo jurados: 100 % su promedio
     });
   });
 

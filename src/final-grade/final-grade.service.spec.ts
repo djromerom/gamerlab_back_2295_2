@@ -58,10 +58,16 @@ describe('FinalGradeService', () => {
       prisma.teamFinalScore.findMany.mockResolvedValue([
         row(1),
         row(2, { juniorEvaluations: 1 }), // 1 junior + 1 senior: menos de 3 (BG-68)
-        row(3, { seniorEvaluations: 0 }),
+        row(3, { seniorEvaluations: 0 }), // sin profesor: nota de jurados, solo aviso
         row(4, { seniorEvaluations: 0 }), // equipo dado de baja: no cuenta
+        row(5, { juniorEvaluations: 0, finalScore: null }), // sin jurados: en proceso
       ]);
-      prisma.team.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      prisma.team.findMany.mockResolvedValue([
+        { id: 1 },
+        { id: 2 },
+        { id: 3 },
+        { id: 5 },
+      ]);
 
       const status = await service.getReleaseStatus(BEFORE_NOON);
 
@@ -78,17 +84,18 @@ describe('FinalGradeService', () => {
         releaseAllowedFrom: '2026-11-26T17:00:00.000Z',
         canReleaseNow: false,
         summary: {
-          totalTeams: 3,
-          withFinalGrade: 2,
+          totalTeams: 4,
+          withFinalGrade: 3,
           inProcess: 1,
-          lessThanMinEvaluations: 1,
+          lessThanMinEvaluations: 2,
         },
       });
       expect(
         status.incompleteTeams.map((t) => [t.teamId, t.inProcess, t.reasons]),
       ).toEqual([
-        [3, true, ['MISSING_PROFESSOR_SCORE']],
+        [5, true, ['MISSING_JUNIOR_SCORE', 'LESS_THAN_MIN_EVALUATIONS']],
         [2, false, ['LESS_THAN_MIN_EVALUATIONS']],
+        [3, false, ['MISSING_PROFESSOR_SCORE']],
       ]);
     });
 
@@ -250,14 +257,14 @@ describe('FinalGradeService', () => {
       });
     });
 
-    it('liberada sin nota de los profesores: en proceso', async () => {
+    it('liberada sin nota de los profesores: ve la nota de sus jurados', async () => {
       prisma.team.findFirst.mockResolvedValue(team(true));
       prisma.teamFinalScore.findFirst.mockResolvedValue(
-        row(3, { seniorEvaluations: 0 }),
+        row(3, { seniorEvaluations: 0, finalScore: 3.75 }),
       );
       await expect(service.getStudentFinalGrade('u-1')).resolves.toMatchObject({
-        status: 'IN_PROCESS',
-        finalGrade: null,
+        status: 'AVAILABLE',
+        finalGrade: 3.75,
       });
     });
 

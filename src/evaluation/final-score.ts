@@ -9,8 +9,9 @@ import { PrismaService } from '../prisma/prisma.service';
  *
  * - Profesores: evaluaciones con `isSenior` (los profesores que calificaron al grupo), todas.
  * - Jurados junior: `isSenior = false`, solo las 3 primeras (P-10, `counted-evaluations.ts`).
- * - Falta una de las dos partes: nota `null` («Nota en proceso», HU-20). Salvo externos, colegios
- *   N0 y ediciones congeladas (`legacyFinalScoreRule`), que siguen la regla anterior.
+ * - Faltan los jurados junior: nota `null` («Nota en proceso», HU-20). Falta el profesor: la nota
+ *   es el promedio de los jurados junior al 100 % (26-nov). Salvo colegios N0 (solo profesores) y
+ *   ediciones congeladas (`legacyFinalScoreRule`), que siguen la regla anterior.
  *
  * Si cambian estos valores por defecto, cambian también los de la vista.
  */
