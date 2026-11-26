@@ -27,10 +27,6 @@ export const ADMIN_ROLE_NAME = 'Administrador';
 export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
   'PATCH /settings/registrations':
     'Solo el Administrador (AdminRoleGuard): abre o cierra las inscripciones.',
-  'GET /videogames/:id/my-like':
-    'Cualquier usuario con sesión puede consultar si ya dio like a un juego.',
-  'POST /videogames/:id/toggle-like':
-    'Cualquier usuario con sesión puede dar o quitar su propio like.',
   'GET /reports/JuradosData':
     'La usa la página "Mis jurados": el administrador ve todos los jurados y cualquier otro usuario solo los de su propio equipo (OptionalAdminRoleGuard, BG-02).',
   'GET /ranking':
@@ -63,6 +59,10 @@ export const AUTHENTICATED_ONLY_ROUTES: Record<string, string> = {
  * rol no puede expresar y rutas que conviene revisar en otras tareas.
  */
 export const ROUTE_NOTES: Record<string, string> = {
+  'GET /videogames/:id/my-like':
+    'Con sesión responde por el usuario; sin sesión, por la cookie anónima arkad_visitor (sin cookie: liked false).',
+  'POST /videogames/:id/toggle-like':
+    'Likes sin cuenta: sin sesión el like queda de la cookie anónima arkad_visitor (la crea el primer like). Límite 30/min por IP + autor y 200/min por IP.',
   'PATCH /teams/:id':
     'Estudiante: solo el líder, solo el nombre del equipo y el contenido del juego, y solo con las inscripciones abiertas; integrantes, externo, nombre del juego y estado de aprobación responden 403 (ARK-161, BG-38).',
   'PATCH /teams/:teamId/members/:memberId':

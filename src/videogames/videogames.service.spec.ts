@@ -82,7 +82,7 @@ describe('VideogamesService', () => {
 
   it('throws NotFoundException when videogame does not exist', async () => {
     prisma.videogame.findUnique.mockResolvedValue(null);
-    await expect(service.toggleLike(99, 'user-uuid-1')).rejects.toThrow(NotFoundException);
+    await expect(service.toggleLike(99, { userId: 'user-uuid-1' })).rejects.toThrow(NotFoundException);
     expect(prisma.videogameLike.create).not.toHaveBeenCalled();
     expect(prisma.videogameLike.delete).not.toHaveBeenCalled();
   });
@@ -92,7 +92,7 @@ describe('VideogamesService', () => {
     prisma.videogameLike.findUnique.mockResolvedValue(null);
     prisma.videogameLike.create.mockRejectedValue(p2002());
 
-    await expect(service.toggleLike(1, 'user-uuid-1')).rejects.toThrow(ConflictException);
+    await expect(service.toggleLike(1, { userId: 'user-uuid-1' })).rejects.toThrow(ConflictException);
   });
 
 
@@ -104,7 +104,7 @@ describe('VideogamesService', () => {
       makeVideogame({ _count: { likedBy: 10 }, logoUrl: null, videoUrl: null, additionalImages: [] }),
     );
     prisma.videogameLike.findUnique.mockResolvedValue(null);
-    await expect(service.toggleLike(1, 'user-1')).rejects.toThrow(BadRequestException);
+    await expect(service.toggleLike(1, { userId: 'user-1' })).rejects.toThrow(BadRequestException);
     expect(prisma.videogameLike.create).not.toHaveBeenCalled();
   });
 
@@ -113,7 +113,7 @@ describe('VideogamesService', () => {
       makeVideogame({ _count: { likedBy: 20 }, logoUrl: 'logo.png', videoUrl: null, additionalImages: [] }),
     );
     prisma.videogameLike.findUnique.mockResolvedValue(null);
-    await expect(service.toggleLike(1, 'user-1')).rejects.toThrow(BadRequestException);
+    await expect(service.toggleLike(1, { userId: 'user-1' })).rejects.toThrow(BadRequestException);
     expect(prisma.videogameLike.create).not.toHaveBeenCalled();
   });
 
@@ -123,7 +123,7 @@ describe('VideogamesService', () => {
       makeVideogame({ _count: { likedBy: 999999 }, videoUrl: 'https://yt.be/abc' }),
     );
     prisma.videogameLike.findUnique.mockResolvedValue(null);
-    await expect(service.toggleLike(1, 'user-max-fail')).rejects.toThrow(BadRequestException);
+    await expect(service.toggleLike(1, { userId: 'user-max-fail' })).rejects.toThrow(BadRequestException);
     expect(prisma.videogameLike.create).not.toHaveBeenCalled();
   });
 
@@ -132,7 +132,7 @@ describe('VideogamesService', () => {
     prisma.videogameLike.findUnique.mockResolvedValue(null);
     prisma.videogameLike.create.mockRejectedValue(new Error('DB connection lost'));
 
-    await expect(service.toggleLike(1, 'user-uuid-1')).rejects.toThrow('DB connection lost');
+    await expect(service.toggleLike(1, { userId: 'user-uuid-1' })).rejects.toThrow('DB connection lost');
   });
 });
 
@@ -167,13 +167,13 @@ describe('VideogamesService – getMyLike', () => {
 
   it('returns { liked: true } when the user has liked the game', async () => {
     prisma.videogameLike.findUnique.mockResolvedValue({ id: 42 });
-    const result = await service.getMyLike(1, 'user-uuid-1');
+    const result = await service.getMyLike(1, { userId: 'user-uuid-1' });
     expect(result).toEqual({ liked: true });
   });
 
   it('returns { liked: false } when the user has not liked the game', async () => {
     prisma.videogameLike.findUnique.mockResolvedValue(null);
-    const result = await service.getMyLike(1, 'user-uuid-1');
+    const result = await service.getMyLike(1, { userId: 'user-uuid-1' });
     expect(result).toEqual({ liked: false });
   });
 });
