@@ -32,8 +32,7 @@ export class VideogamesService {
     @Optional() private readonly pushNotifier?: AssignmentPushNotifier,
   ) { }
 
-  private readonly MAX_LIKES_LOGO_ONLY = 20;
-  private readonly MAX_LIKES_NO_CONTENT = 10;
+  // Sin topes por contenido (26-nov, feria): un juego sin video, fotos o logo recibe likes como cualquiera.
   private readonly MAX_LIKES = 999999;
 
   async create(dto: CreateVideogameDto) {
@@ -128,9 +127,6 @@ export class VideogamesService {
     const videogame = await this.prisma.videogame.findUnique({
       where: { id: videogameId },
       select: {
-        logoUrl: true,
-        videoUrl: true,
-        additionalImages: true,
         _count: {
           select: { likedBy: true },
         },
@@ -147,11 +143,6 @@ export class VideogamesService {
     // Only users with session get their own events across tabs (opaque key); visitors don't.
     const triggerUserId = 'userId' in liker ? liker.userId : undefined;
 
-    const hasContent =
-      videogame.videoUrl ||
-      (videogame.additionalImages && videogame.additionalImages.length > 0);
-    const lacksContentAndLogo = !hasContent && !videogame.logoUrl;
-
     const currentLikes = videogame._count.likedBy;
 
     // ── UNLIKE ────────────────────────────────────────────────────────────
@@ -164,18 +155,6 @@ export class VideogamesService {
     }
 
     // ── LIKE ──────────────────────────────────────────────────────────────
-
-    // Enforce content-based caps
-    if (lacksContentAndLogo && currentLikes >= this.MAX_LIKES_NO_CONTENT) {
-      throw new BadRequestException(
-        'This game cannot receive more than 10 likes without any video, photo, or logo.',
-      );
-    }
-    if (!hasContent && currentLikes >= this.MAX_LIKES_LOGO_ONLY) {
-      throw new BadRequestException(
-        'This game cannot receive more than 20 likes without videos or photos.',
-      );
-    }
 
     if (currentLikes >= this.MAX_LIKES) {
       throw new BadRequestException(
