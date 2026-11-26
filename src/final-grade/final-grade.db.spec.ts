@@ -185,15 +185,15 @@ maybe('Nota final para los estudiantes (BD real)', () => {
       canReleaseNow: false,
       summary: {
         totalTeams: 2,
-        withFinalGrade: 1,
-        inProcess: 1,
+        withFinalGrade: 2,
+        inProcess: 0,
         lessThanMinEvaluations: 1,
       },
     });
     expect(status.incompleteTeams).toEqual([
       expect.objectContaining({
         teamId: ids.teams[1],
-        inProcess: true,
+        inProcess: false, // sin profesor: su nota es la de jurados, solo aviso
         juniorEvaluations: 2,
         seniorEvaluations: 0,
         reasons: ['MISSING_PROFESSOR_SCORE', 'LESS_THAN_MIN_EVALUATIONS'],
@@ -250,16 +250,16 @@ maybe('Nota final para los estudiantes (BD real)', () => {
     });
   });
 
-  it('el equipo sin nota del profesor ve «Nota en proceso», no una nota parcial', async () => {
+  it('el equipo sin nota del profesor ve la nota de sus jurados (100 %), no «Nota en proceso»', async () => {
     await expect(
       service.getStudentFinalGrade(pendingLeader),
     ).resolves.toMatchObject({
       released: true,
-      status: 'IN_PROCESS',
-      finalGrade: null,
+      status: 'AVAILABLE',
+      finalGrade: 4.5,
     });
     await expect(students.findGrades(pendingLeader)).resolves.toEqual({
-      grade: null,
+      grade: 4.5,
     });
   });
 
