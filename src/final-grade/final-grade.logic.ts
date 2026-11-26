@@ -13,10 +13,11 @@ import { parseLevel } from '../ranking/ranking.logic';
  * - El administrador la libera desde la hora de cierre del día de la feria, en hora de Colombia:
  *   la del cronograma de la edición (HU-12) o, si no está configurado, las 12:00 del día en que
  *   inicia la edición (`Edition.startsAt`).
- * - Un grupo sin nota de los profesores o sin nota de los jurados junior queda en «Nota en
- *   proceso» (aclaración de Allison del 7-nov en HU-34). Excepciones, las mismas del ranking:
- *   los colegios (N0) no tienen jurados junior (P-08) y cuentan solo a profesores y seniors; los
- *   equipos con la marca de externo cuentan solo la nota de los jurados junior.
+ * - Un grupo sin nota de los jurados junior queda en «Nota en proceso» (aclaración de Allison del
+ *   7-nov en HU-34). Un grupo sin nota del profesor NO queda en proceso (26-nov): su nota es la de
+ *   sus jurados al 100 %, y `MISSING_PROFESSOR_SCORE` queda solo como aviso para el administrador.
+ *   Excepción, la misma del ranking: los colegios (N0) no tienen jurados junior (P-08) y cuentan
+ *   solo a profesores y seniors, así que sin nota del profesor siguen en proceso.
  */
 
 /** Hora de cierre por defecto (P-09) cuando la edición no tiene cronograma (HU-12). */
@@ -136,9 +137,10 @@ export function checkTeamGrade(
   if (countsJurors && hasLessThanMinEvaluations(row)) {
     reasons.push('LESS_THAN_MIN_EVALUATIONS');
   }
+  // Sin nota del profesor solo queda en proceso un colegio: los demás tienen la nota de jurados.
   const inProcess =
     row.finalScore === null ||
-    reasons.includes('MISSING_PROFESSOR_SCORE') ||
+    (school && reasons.includes('MISSING_PROFESSOR_SCORE')) ||
     reasons.includes('MISSING_JUNIOR_SCORE');
   return { inProcess, reasons };
 }

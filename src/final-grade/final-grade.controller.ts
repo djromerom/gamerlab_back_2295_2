@@ -44,7 +44,7 @@ const RELEASE_STATUS_EXAMPLE = {
       finalScore: 4.1,
       juniorEvaluations: 2,
       seniorEvaluations: 0,
-      inProcess: true,
+      inProcess: false,
       reasons: ['MISSING_PROFESSOR_SCORE', 'LESS_THAN_MIN_EVALUATIONS'],
     },
   ],
@@ -66,7 +66,7 @@ export class FinalGradeController {
     summary:
       'Estado de la liberación de la nota final y equipos con datos incompletos (solo Administrador)',
     description:
-      'Edición activa. `incompleteTeams` lista los equipos sin nota de los profesores o de los jurados junior (`inProcess: true`, el estudiante verá «Nota en proceso») y los que tienen menos de 3 evaluaciones de jurados (solo aviso).',
+      'Edición activa. `incompleteTeams` lista los equipos sin nota de los jurados junior (`inProcess: true`, el estudiante verá «Nota en proceso»), los que no tienen nota del profesor (solo aviso: su nota es la de jurados al 100 %; en un colegio N0 sí queda en proceso) y los que tienen menos de 3 evaluaciones de jurados (solo aviso).',
   })
   @ApiOkResponse({ schema: { example: RELEASE_STATUS_EXAMPLE } })
   @ApiResponse({
@@ -114,7 +114,7 @@ export class FinalGradeController {
   @ApiOperation({
     summary: 'Nota final del equipo del estudiante (sin desglose)',
     description:
-      '`status`: NOT_GRADABLE (HU-39: el equipo es un presentador externo y no se califica), REJECTED (BG-43: la inscripción del equipo está rechazada; si la confirman de nuevo, la nota vuelve), NOT_RELEASED (el administrador no la ha liberado), IN_PROCESS (falta la nota de los profesores o de los jurados: mostrar «Nota en proceso») o AVAILABLE (`finalGrade` con 2 decimales).',
+      '`status`: NOT_GRADABLE (HU-39: el equipo es un presentador externo y no se califica), REJECTED (BG-43: la inscripción del equipo está rechazada; si la confirman de nuevo, la nota vuelve), NOT_RELEASED (el administrador no la ha liberado), IN_PROCESS (falta la nota de los jurados, o la del profesor en un colegio N0: mostrar «Nota en proceso») o AVAILABLE (`finalGrade` con 2 decimales).',
   })
   @ApiOkResponse({
     schema: {

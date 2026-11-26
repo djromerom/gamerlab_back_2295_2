@@ -203,16 +203,31 @@ maybe('Nota final 60/40 en la vista (BD real)', () => {
       });
     });
 
-    it('sin profesores: «Nota en proceso» (null)', async () => {
+    it('sin profesores: 100 % el promedio de los jurados junior, no «Nota en proceso» (26-nov)', async () => {
       const e = await edition();
-      expect(await scoreOf(e, { juniors: [4, 4, 4] })).toMatchObject({
-        finalScore: null,
-        avgJunior: 4,
+      expect(await scoreOf(e, { juniors: [4, 3.5, 4] })).toMatchObject({
+        finalScore: 3.83,
+        avgJunior: 3.83,
+        avgSenior: null,
       });
+    });
+
+    it('sin profesores cuenta solo las 3 primeras evaluaciones junior', async () => {
+      const e = await edition();
+      expect(
+        await scoreOf(e, { juniors: [5, 5, 5, 1] }),
+      ).toMatchObject({ finalScore: 5 });
     });
 
     describe('colegio N0: 100 % profesores y seniors (Allison, 7-nov)', () => {
       const code = () => `N0-${tag}-${teamSeq + 1}`;
+
+      it('sin profesores sigue «Nota en proceso» aunque tenga jurados junior', async () => {
+        const e = await edition();
+        expect(
+          await scoreOf(e, { code: code(), juniors: [5] }),
+        ).toMatchObject({ finalScore: null });
+      });
 
       it('su nota es el promedio de quienes lo calificaron', async () => {
         const e = await edition();
@@ -262,11 +277,11 @@ maybe('Nota final 60/40 en la vista (BD real)', () => {
       );
     });
 
-    it('con la casilla y solo la nota junior: «Nota en proceso», como cualquier equipo', async () => {
+    it('con la casilla y solo la nota junior: la de jurados, como cualquier equipo', async () => {
       const e = await edition();
       expect(
         await scoreOf(e, { isExternal: true, juniors: [4] }),
-      ).toMatchObject({ finalScore: null });
+      ).toMatchObject({ finalScore: 4 });
     });
 
     it('el tipo en jurado_edicion (oficial o suplente) no cambia la nota', async () => {
