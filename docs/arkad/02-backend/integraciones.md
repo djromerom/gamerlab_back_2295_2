@@ -26,6 +26,6 @@ El 2026-11-10 se quitó `AZURE_BLOB_SAS_URL` del `.env` de test y prod (la únic
 | Azure Blob | Las subidas y la lectura de archivos fallan; el resto de la API sigue. Ver [pipeline](../04-devops/pipeline-y-despliegue.md) para el contenedor |
 | Entra ID | Falla solo el login con Microsoft; el login con correo y contraseña sigue |
 
-Plantillas Handlebars: `src/email/templates/` (correos y certificados) y certificados armados en `certificates.service.ts` (`generateCertificateHtml`, `generateJurorCertificateHtml`).
+Plantillas Handlebars: `src/email/templates/` (correos). Los diplomas (jurado, equipo, podio y presentador externo) salen de una sola plantilla, `src/certificates/assets/diploma.html`, que arma `diploma.logic.ts` con las fuentes e imágenes incrustadas (`diploma-assets.ts`, carpetas `assets/fonts` y `assets/img`); `certificates.service.ts` la manda a Gotenberg con `preferCssPageSize` y `waitForExpression` (solo para diplomas).
 
 > PENDIENTE (operativo): plan de contingencia del día de la feria si Azure o Gotenberg caen (por ejemplo, tener las escarapelas ya generadas con anticipación). Ver [calendario-feria](../05-scrum-y-proceso/calendario-feria.md).

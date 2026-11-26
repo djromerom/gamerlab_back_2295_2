@@ -41,3 +41,13 @@ export function fairNameOf(edition: {
     ? `${toRoman(number)} Feria Gamer`
     : edition.title;
 }
+
+/**
+ * ARK-309: el número de la feria en romanos («VI» de «VI Feria Gamer»), para «VI EDICIÓN» y el «VI»
+ * grande del diploma. Es `null` cuando `fairNameOf` cayó al título de la edición (el periodo no es
+ * una feria): en ese caso el diploma no lleva esos adornos.
+ */
+export function fairRomanOf(fairName: string): string | null {
+  const match = /^([IVXL]+) Feria Gamer$/.exec(fairName);
+  return match ? match[1] : null;
+}
